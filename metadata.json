@@ -1,0 +1,5 @@
+{
+  "name": "Script2Video",
+  "description": "A professional tool to convert screenplay text into shooting scripts and Sora video prompts using Gemini AI.",
+  "requestFramePermissions": []
+}
