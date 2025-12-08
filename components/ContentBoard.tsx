@@ -1,6 +1,6 @@
-import React from 'react';
-import { ProjectData, Episode } from '../types';
-import { User, BookOpen, Film, Clock, FileText, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { ProjectData } from '../types';
+import { User, BookOpen, Film, Clock, FileText, Palette, MapPin, Layers } from 'lucide-react';
 
 interface Props {
   data: ProjectData;
@@ -17,14 +17,20 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
       <section>
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
            <BookOpen className="text-blue-500" size={24}/>
-           Project Summary
+           Project Overview
         </h2>
         <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
             {context.projectSummary ? (
-               <p className="text-gray-300 leading-relaxed text-lg whitespace-pre-wrap relative z-10">
-                 {context.projectSummary}
-               </p>
+               <div className="space-y-6 relative z-10">
+                   <div>
+                        <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">Global Story Arc</h3>
+                        <p className="text-gray-300 leading-relaxed text-lg whitespace-pre-wrap">
+                            {context.projectSummary}
+                        </p>
+                   </div>
+                   {/* Episode Breakdown removed from here to avoid duplication. It is now shown in Section 5. */}
+               </div>
             ) : (
                <div className="text-gray-500 italic flex items-center gap-2">
                  <Clock size={16} /> Analysis pending...
@@ -33,7 +39,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
         </div>
       </section>
 
-      {/* 2. Visual Style Bible Section (NEW) */}
+      {/* 2. Visual Style Bible Section */}
       <section>
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
            <Palette className="text-pink-500" size={24}/>
@@ -69,32 +75,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
         {context.characters && context.characters.length > 0 ? (
            <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
              {context.characters.map((char, idx) => (
-               <div key={idx} className="snap-start min-w-[300px] w-[300px] bg-gray-800 rounded-xl border border-gray-700 shadow-lg flex flex-col hover:border-purple-500/50 transition-colors">
-                  <div className="p-4 border-b border-gray-700 bg-gray-800/50">
-                     <div className="flex justify-between items-start">
-                        <h3 className="font-bold text-lg text-white">{char.name}</h3>
-                        <span className="text-xs px-2 py-1 bg-purple-900/40 text-purple-300 rounded-full border border-purple-800/50">
-                          {char.role}
-                        </span>
-                     </div>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col gap-3">
-                     <div>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Biography</span>
-                        <p className="text-sm text-gray-300">{char.bio}</p>
-                     </div>
-                     <div className="mt-auto">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Visual Tags</span>
-                        <div className="flex flex-wrap gap-1">
-                           {char.visualTags.split(/[,，]/).map((tag, i) => (
-                              <span key={i} className="text-xs text-blue-300 bg-blue-900/20 px-1.5 py-0.5 rounded">
-                                {tag.trim()}
-                              </span>
-                           ))}
-                        </div>
-                     </div>
-                  </div>
-               </div>
+               <CharacterCard key={idx} char={char} />
              ))}
            </div>
         ) : (
@@ -104,7 +85,40 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
         )}
       </section>
 
-      {/* 4. Episode List Section */}
+      {/* 4. Location Section (NEW) */}
+      <section>
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+           <MapPin className="text-orange-500" size={24}/>
+           Key Locations
+        </h2>
+        {context.locations && context.locations.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {context.locations.map((loc, idx) => (
+                    <div key={idx} className={`p-4 rounded-xl border ${loc.type === 'core' ? 'bg-gray-800 border-orange-900/50 shadow-lg' : 'bg-gray-800/50 border-gray-800'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-bold text-white">{loc.name}</h3>
+                            <span className={`text-[10px] px-2 py-0.5 rounded uppercase ${loc.type === 'core' ? 'bg-orange-900/30 text-orange-400' : 'bg-gray-700 text-gray-400'}`}>
+                                {loc.type}
+                            </span>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-2">{loc.description}</p>
+                        {loc.visuals && (
+                            <div className="mt-2 pt-2 border-t border-gray-700/50">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Visual Atmosphere</span>
+                                <p className="text-xs text-orange-200/80 leading-relaxed">{loc.visuals}</p>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        ) : (
+             <div className="h-32 bg-gray-800/30 rounded-xl border border-gray-700 border-dashed flex items-center justify-center text-gray-500 italic">
+              No location data extracted yet.
+           </div>
+        )}
+      </section>
+
+      {/* 5. Episode List Section */}
       <section>
          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
            <Film className="text-green-500" size={24}/>
@@ -135,7 +149,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
                        ) : (
                          <div className="flex items-center gap-2 text-sm text-gray-500 italic pl-4 border-l-2 border-gray-700">
                             <FileText size={14} />
-                            <span>Summary will be generated during shot list creation.</span>
+                            <span>Summary will be generated during Phase 1 analysis.</span>
                          </div>
                        )}
                        
@@ -159,4 +173,70 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
       </section>
     </div>
   );
+};
+
+// Helper Component for Character Card to handle tabs for "Forms"
+const CharacterCard = ({ char }: { char: any }) => {
+    const [activeFormIndex, setActiveFormIndex] = useState(0);
+    const hasForms = char.forms && char.forms.length > 0;
+    const currentForm = hasForms ? char.forms[activeFormIndex] : null;
+
+    return (
+        <div className="snap-start min-w-[320px] w-[320px] bg-gray-800 rounded-xl border border-gray-700 shadow-lg flex flex-col hover:border-purple-500/50 transition-colors">
+            <div className="p-4 border-b border-gray-700 bg-gray-800/50">
+                <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-bold text-lg text-white">{char.name}</h3>
+                    <span className={`text-xs px-2 py-1 rounded-full border ${char.isMain ? 'bg-purple-900/40 text-purple-300 border-purple-800/50' : 'bg-gray-700 text-gray-400 border-gray-600'}`}>
+                        {char.role}
+                    </span>
+                </div>
+                {hasForms && char.forms.length > 1 && (
+                    <div className="flex gap-1 overflow-x-auto pb-1 custom-scrollbar">
+                        {char.forms.map((form: any, idx: number) => (
+                            <button 
+                                key={idx}
+                                onClick={() => setActiveFormIndex(idx)}
+                                className={`text-[10px] whitespace-nowrap px-2 py-1 rounded transition-colors ${
+                                    activeFormIndex === idx 
+                                    ? 'bg-purple-600 text-white' 
+                                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                                }`}
+                            >
+                                {form.formName}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+            
+            <div className="p-4 flex-1 flex flex-col gap-3">
+                {currentForm ? (
+                    <>
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">State: {currentForm.formName}</span>
+                                <span className="text-[10px] text-gray-600 font-mono">{currentForm.episodeRange}</span>
+                            </div>
+                            <p className="text-sm text-gray-300 h-20 overflow-y-auto custom-scrollbar">{currentForm.description}</p>
+                        </div>
+                        <div className="mt-auto">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Visual Tags</span>
+                            <div className="flex flex-wrap gap-1">
+                                {currentForm.visualTags.split(/[,，]/).map((tag: string, i: number) => (
+                                    <span key={i} className="text-xs text-blue-300 bg-blue-900/20 px-1.5 py-0.5 rounded">
+                                        {tag.trim()}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div>
+                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Biography</span>
+                         <p className="text-sm text-gray-300">{char.bio}</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };

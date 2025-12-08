@@ -1,3 +1,4 @@
+
 import { Episode, Shot, Scene } from "../types";
 
 // Helper: Parse scenes from episode content
@@ -46,18 +47,45 @@ const parseScenes = (episodeContent: string): Scene[] => {
   return scenes;
 };
 
+// PREPROCESSING: Fix malformed scripts where AI forgets to insert newlines
+const normalizeScriptText = (text: string): string => {
+    let cleanText = text;
+    
+    // 1. Force newline before and after "Episode Headers" (e.g. 第1集 or 第一集)
+    // Matches "第" + (Chinese numbers or digits) + "集"
+    // Using simple replacement to detach it from preceding/succeeding text
+    cleanText = cleanText.replace(/([^\n])(第\s*[0-90-9零一二三四五六七八九十百千两]+\s*集)/g, '$1\n\n$2');
+    cleanText = cleanText.replace(/(第\s*[0-90-9零一二三四五六七八九十百千两]+\s*集)([^\n])/g, '$1\n\n$2');
+
+    // 2. Force newline before "Scene Headers" (e.g. 1-1 SceneName)
+    // Avoids matching things inside text like "1-1 draw" unless it looks like a header
+    // Regex: Look for pattern "Digits-Digits Space Text"
+    // Note: This is aggressive, but necessary for the "1-1 ... content" on same line bug
+    cleanText = cleanText.replace(/([^\n])(\d+-\d+\s+)/g, '$1\n$2');
+    
+    // 3. Optional: If a line starts with a scene header but is extremely long, split it?
+    // It's safer to let the `parseScenes` logic handle content, but ensuring the header start is on a new line is key.
+
+    return cleanText;
+};
+
 export const parseScriptToEpisodes = (rawText: string): Episode[] => {
+  // Normalize Input First
+  const normalizedText = normalizeScriptText(rawText);
+
   // Split by newline, handling potential Windows CRLF
-  const lines = rawText.split(/\r?\n/);
+  const lines = normalizedText.split(/\r?\n/);
   const episodes: Episode[] = [];
   let currentEpisode: Episode | null = null;
   let buffer: string[] = [];
 
   // Robust Regex to match "第X集" at the start of a line
-  const episodeStartRegex = /^\s*第\s*[0-90-9零一二三四五六七八九十百千两]+\s*集/;
+  // Supports both Arabic (1) and Chinese (一) numerals
+  const episodeStartRegex = /^\s*第\s*[0-90-9\d零一二三四五六七八九十百千两]+\s*集/;
 
   lines.forEach((line) => {
-    if (episodeStartRegex.test(line)) {
+    // Check if line matches Episode Header AND isn't absurdly long (e.g. accidentally captured a whole paragraph)
+    if (episodeStartRegex.test(line) && line.length < 50) {
       if (currentEpisode) {
         const fullContent = buffer.join('\n').trim();
         currentEpisode.content = fullContent;

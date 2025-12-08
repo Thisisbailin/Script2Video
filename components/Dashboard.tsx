@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import { ProjectData, RequestStats } from '../types';
 
 interface Props {
@@ -47,30 +47,47 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   // 3. Prepare Token Data (Cost Tracking)
   const contextTokens = data.contextUsage?.totalTokens || 0;
   
+  // Phase 2 & 3
   const episodeTokenData = data.episodes.map(ep => ({
     name: `Ep ${ep.id}`,
     // Shot Generation
-    shotPrompt: ep.shotGenUsage?.promptTokens || 0,
-    shotResponse: ep.shotGenUsage?.responseTokens || 0,
+    shotTotal: ep.shotGenUsage?.totalTokens || 0,
     // Sora Generation
-    soraPrompt: ep.soraGenUsage?.promptTokens || 0,
-    soraResponse: ep.soraGenUsage?.responseTokens || 0,
-    // Total for this episode
+    soraTotal: ep.soraGenUsage?.totalTokens || 0,
+    // Total for this episode (for reference)
     total: (ep.shotGenUsage?.totalTokens || 0) + (ep.soraGenUsage?.totalTokens || 0)
   }));
 
-  const totalShotGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.shotPrompt + curr.shotResponse, 0);
-  const totalSoraGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.soraPrompt + curr.soraResponse, 0);
-  const grandTotalTokens = contextTokens + totalShotGenTokens + totalSoraGenTokens;
+  const totalShotGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.shotTotal, 0);
+  const totalSoraGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.soraTotal, 0);
+  
+  // Phase 4 & 5 (Accumulated globals)
+  const totalPhase4Tokens = data.phase4Usage?.totalTokens || 0;
+  const totalPhase5Tokens = data.phase5Usage?.totalTokens || 0;
+
+  const grandTotalTokens = contextTokens + totalShotGenTokens + totalSoraGenTokens + totalPhase4Tokens + totalPhase5Tokens;
+
+  // Phase 1 Breakdown Data
+  const p1 = data.phase1Usage;
+  const phase1BreakdownData = [
+      { name: 'Plot Summary', value: p1.projectSummary.totalTokens },
+      { name: 'Ep Summaries', value: p1.episodeSummaries.totalTokens },
+      { name: 'Char List', value: p1.charList.totalTokens },
+      { name: 'Char Deep', value: p1.charDeepDive.totalTokens },
+      { name: 'Loc List', value: p1.locList.totalTokens },
+      { name: 'Loc Deep', value: p1.locDeepDive.totalTokens },
+  ].filter(d => d.value > 0);
 
   // Pie Chart Data
   const distributionData = [
-    { name: 'Context Analysis', value: contextTokens },
-    { name: 'Shot List Gen', value: totalShotGenTokens },
-    { name: 'Sora Prompt Gen', value: totalSoraGenTokens },
+    { name: 'Phase 1 & General', value: contextTokens },
+    { name: 'Phase 2: Shot Gen', value: totalShotGenTokens },
+    { name: 'Phase 3: Sora Gen', value: totalSoraGenTokens },
+    { name: 'Phase 4: Visuals', value: totalPhase4Tokens },
+    { name: 'Phase 5: Video', value: totalPhase5Tokens }
   ].filter(d => d.value > 0);
 
-  const PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6'];
+  const PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'];
 
   return (
     <div className="p-6 h-full overflow-y-auto space-y-8">
@@ -156,104 +173,111 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       </div>
 
       {/* SECTION 2: COST TRACKING (Token Usage) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Token Usage Bar Chart */}
-        <div className="lg:col-span-2 bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[450px]">
-          <div className="flex justify-between items-center mb-6">
-             <div>
-               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                 ⚡ Cost Analysis
-               </h3>
-               <p className="text-sm text-gray-400">Token consumption per episode broken down by Input/Output</p>
+      <div className="space-y-6">
+         <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            💰 Cost Analysis
+         </h3>
+
+         {/* Detailed Breakdowns Row */}
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Phase 1 Detailed Breakdown */}
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
+               <h3 className="text-lg font-bold text-white mb-2">Phase 1: Deep Understanding Cost</h3>
+               <p className="text-sm text-gray-400 mb-6">Token usage breakdown by analysis task</p>
+               <div className="flex-1 w-full">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={phase1BreakdownData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
+                     <XAxis type="number" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                     <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} width={90} />
+                     <Tooltip 
+                        cursor={{ fill: '#374151', opacity: 0.2 }}
+                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }}
+                     />
+                     <Bar dataKey="value" name="Tokens" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+                   </BarChart>
+                 </ResponsiveContainer>
+               </div>
+            </div>
+
+            {/* Phase 2 & 3: Cost Per Episode (RESTORED) */}
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
+               <h3 className="text-lg font-bold text-white mb-2">Phase 2 & 3: Generation Cost</h3>
+               <p className="text-sm text-gray-400 mb-6">Token usage per episode for Shot & Sora generation</p>
+               <div className="flex-1 w-full">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <BarChart data={episodeTokenData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} dy={10} />
+                     <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                     <Tooltip 
+                        cursor={{ fill: '#374151', opacity: 0.4 }}
+                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }}
+                     />
+                     <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                     <Bar dataKey="shotTotal" name="Shot Gen" stackId="a" fill="#3b82f6" />
+                     <Bar dataKey="soraTotal" name="Sora Gen" stackId="a" fill="#8b5cf6" />
+                   </BarChart>
+                 </ResponsiveContainer>
+               </div>
+            </div>
+         </div>
+
+        {/* Total Cost Distribution */}
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
+          <h3 className="text-lg font-bold text-white mb-2">Total Project Cost</h3>
+          <p className="text-sm text-gray-400 mb-6">Total cost breakdown by task type (All Phases)</p>
+          
+          <div className="flex-1 flex flex-col lg:flex-row items-center justify-center">
+             <div className="h-64 w-64 relative flex-shrink-0">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <PieChart>
+                     <Pie
+                       data={distributionData}
+                       cx="50%"
+                       cy="50%"
+                       innerRadius={60}
+                       outerRadius={90}
+                       paddingAngle={5}
+                       dataKey="value"
+                       stroke="none"
+                     >
+                       {distributionData.map((entry, index) => (
+                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                       ))}
+                     </Pie>
+                     <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }} />
+                   </PieChart>
+                 </ResponsiveContainer>
+                 
+                 {/* Center Label */}
+                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                       <span className="text-xs text-gray-400 block">Total</span>
+                       <span className="text-xl font-bold text-white">{(grandTotalTokens / 1000).toFixed(1)}k</span>
+                    </div>
+                 </div>
              </div>
              
-             <div className="text-xs text-gray-400 grid grid-cols-2 gap-x-4 gap-y-1">
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-600"></div>Shot Input</span>
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-300"></div>Shot Output</span>
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-600"></div>Sora Input</span>
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-300"></div>Sora Output</span>
+             {/* Legend */}
+             <div className="mt-8 lg:mt-0 lg:ml-12 grid grid-cols-1 gap-4">
+                {distributionData.map((d, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full" style={{backgroundColor: PIE_COLORS[i % PIE_COLORS.length]}}></div>
+                        <div>
+                            <p className="text-sm font-medium text-gray-200">{d.name}</p>
+                            <p className="text-xs text-gray-500 font-mono">
+                                {d.value.toLocaleString()} tokens 
+                                <span className="ml-2 text-gray-600">({grandTotalTokens > 0 ? Math.round((d.value/grandTotalTokens)*100) : 0}%)</span>
+                            </p>
+                        </div>
+                    </div>
+                ))}
              </div>
-          </div>
-          <div className="flex-1 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={episodeTokenData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }}
-                  cursor={{ fill: '#374151', opacity: 0.2 }}
-                />
-                <Bar dataKey="shotPrompt" stackId="a" fill="#2563eb" name="Shot Input" />
-                <Bar dataKey="shotResponse" stackId="a" fill="#93c5fd" name="Shot Output" />
-                <Bar dataKey="soraPrompt" stackId="a" fill="#4f46e5" name="Sora Input" />
-                <Bar dataKey="soraResponse" stackId="a" fill="#a5b4fc" name="Sora Output" />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Distribution Pie Chart */}
-        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[450px]">
-          <h3 className="text-lg font-bold text-white mb-2">Usage Distribution</h3>
-          <p className="text-sm text-gray-400 mb-6">Total cost breakdown by task type</p>
-          
-          <div className="flex-1 relative">
-             <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie
-                   data={distributionData}
-                   cx="50%"
-                   cy="50%"
-                   innerRadius={60}
-                   outerRadius={90}
-                   paddingAngle={5}
-                   dataKey="value"
-                   stroke="none"
-                 >
-                   {distributionData.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                   ))}
-                 </Pie>
-                 <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }} />
-                 <Legend verticalAlign="bottom" height={36} iconType="circle"/>
-               </PieChart>
-             </ResponsiveContainer>
-             
-             {/* Center Label */}
-             <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-8">
-                <div className="text-center">
-                   <span className="text-xs text-gray-400 block">Total</span>
-                   <span className="text-xl font-bold text-white">{(grandTotalTokens / 1000).toFixed(1)}k</span>
-                </div>
-             </div>
-          </div>
-          
-          {/* Detailed Stats List */}
-          <div className="mt-4 space-y-3">
-             <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-800 flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                   <span className="text-gray-300">Context Analysis</span>
-                </div>
-                <span className="font-mono text-white">{contextTokens.toLocaleString()}</span>
-             </div>
-             <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-800 flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                   <span className="text-gray-300">Shot Generation</span>
-                </div>
-                <span className="font-mono text-white">{totalShotGenTokens.toLocaleString()}</span>
-             </div>
-             <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-800 flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                   <span className="text-gray-300">Sora Prompts</span>
-                </div>
-                <span className="font-mono text-white">{totalSoraGenTokens.toLocaleString()}</span>
-             </div>
-          </div>
-        </div>
       </div>
     </div>
   );
