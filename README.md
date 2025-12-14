@@ -18,3 +18,16 @@ View your app in AI Studio: https://ai.studio/apps/drive/1eXXIDiX1tzLucyPDhlkUsE
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Cloudflare Pages + Clerk 同步
+- 前端：在 `.env.local` 设置 `VITE_CLERK_PUBLISHABLE_KEY`（Clerk Publishable Key）。
+- 后端（Pages Functions）：在 Cloudflare Pages “Environment variables” 添加 `CLERK_SECRET_KEY`（对应同一环境的 Secret Key）。
+- 数据库：为站点绑定一个 D1 数据库，绑定名 `DB`。初始化表：
+  ```sql
+  CREATE TABLE IF NOT EXISTS user_projects (
+    user_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  ```
+- API：`functions/api/project.ts` 会通过 Authorization Bearer token（前端用 `getToken()` 获取）校验用户并读写用户专属数据。重新部署 Pages 后即生效。

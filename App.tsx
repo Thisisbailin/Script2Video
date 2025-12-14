@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Settings, CheckCircle, FileText, Video, Download, AlertCircle, Loader2, RotateCcw, FileSpreadsheet, BarChart2, BrainCircuit, Palette, FolderOpen, Layers, Users, MapPin, MonitorPlay, Film, PanelLeftClose, PanelLeftOpen, Sparkles, Trash2, ChevronDown, List, ChevronUp, Sun, Moon, User, LogOut, Shield } from 'lucide-react';
-import { useUser, useClerk } from '@clerk/clerk-react';
+import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
 import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
 import { parseScriptToEpisodes, exportToCSV, exportToXLS, parseCSVToShots } from './utils/parser';
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   // Clerk Auth Hooks
   const { isSignedIn, user, isLoaded } = useUser();
   const { openSignIn, signOut } = useClerk();
+  const { getToken } = useAuth();
 
   // Initialize state with Lazy Initializers for Persistence
   
@@ -83,6 +84,8 @@ const App: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isEpListExpanded, setIsEpListExpanded] = useState(true); 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
+  const syncSaveTimeout = useRef<number | null>(null);
   
   // Workflow State (Persisted)
   const [step, setStep] = useState<WorkflowStep>(savedUI?.step ?? WorkflowStep.IDLE);
@@ -97,6 +100,12 @@ const App: React.FC = () => {
   // Processing Queues for Phase 1 Batches
   const [analysisQueue, setAnalysisQueue] = useState<any[]>([]);
   const [analysisTotal, setAnalysisTotal] = useState(0);
+
+  // --- Cloud Sync Helpers ---
+  const dropFileReplacer = (_key: string, value: any) => {
+      if (typeof File !== 'undefined' && value instanceof File) return undefined;
+      return value;
+  };
 
   // --- Persistence Effects ---
   useEffect(() => {
@@ -119,6 +128,87 @@ const App: React.FC = () => {
   useEffect(() => {
       localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(isDarkMode));
   }, [isDarkMode]);
+
+  // --- Cloud Sync (Clerk + Cloudflare Pages) ---
+  useEffect(() => {
+      if (!isSignedIn) {
+          setHasLoadedRemote(false);
+      }
+  }, [isSignedIn]);
+
+  useEffect(() => {
+      if (!isSignedIn || !isLoaded || hasLoadedRemote) return;
+      let cancelled = false;
+
+      const loadRemote = async () => {
+          try {
+              const token = await getToken();
+              if (!token) return;
+              const res = await fetch('/api/project', {
+                  headers: { authorization: `Bearer ${token}` }
+              });
+
+              if (res.status === 404) {
+                  if (!cancelled) setHasLoadedRemote(true);
+                  return;
+              }
+
+              if (!res.ok) {
+                  throw new Error(`Load failed: ${res.status}`);
+              }
+
+              const data = await res.json();
+              if (!cancelled && data.projectData) {
+                  setProjectData(data.projectData);
+              }
+              if (!cancelled) setHasLoadedRemote(true);
+          } catch (e) {
+              if (!cancelled) {
+                  console.warn("Cloud sync load failed", e);
+                  // Allow subsequent saves even if initial load failed
+                  setHasLoadedRemote(true);
+              }
+          }
+      };
+
+      loadRemote();
+
+      return () => {
+          cancelled = true;
+      };
+  }, [isSignedIn, isLoaded, hasLoadedRemote, getToken]);
+
+  useEffect(() => {
+      if (!isSignedIn || !isLoaded || !hasLoadedRemote) return;
+
+      if (syncSaveTimeout.current) {
+          clearTimeout(syncSaveTimeout.current);
+      }
+
+      syncSaveTimeout.current = window.setTimeout(async () => {
+          try {
+              const token = await getToken();
+              if (!token) return;
+
+              await fetch('/api/project', {
+                  method: 'PUT',
+                  headers: {
+                      'content-type': 'application/json',
+                      authorization: `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ projectData }, dropFileReplacer)
+              });
+          } catch (e) {
+              console.warn("Cloud sync save failed", e);
+          }
+      }, 1200);
+
+      return () => {
+          if (syncSaveTimeout.current) {
+              clearTimeout(syncSaveTimeout.current);
+          }
+      };
+  }, [projectData, isSignedIn, isLoaded, hasLoadedRemote, getToken]);
 
   // --- GLOBAL VIDEO TASK POLLING LOOP ---
   useEffect(() => {
