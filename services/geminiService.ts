@@ -1,11 +1,10 @@
-
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, TextServiceConfig } from "../types";
 
 // --- HELPERS ---
 
 // Helper to init Gemini client
-const getGeminiClient = (apiKey?: string) => new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY });
+const getGeminiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to map Google Schema to JSON Schema (Simplified for OpenRouter)
 const googleSchemaToJsonSchema = (schema: Schema): any => {
@@ -53,7 +52,7 @@ const generateText = async (
     
     // 1. GEMINI PROVIDER
     if (config.provider === 'gemini') {
-        const ai = getGeminiClient(config.apiKey);
+        const ai = getGeminiClient();
         const modelName = config.model || 'gemini-2.5-flash';
         
         try {

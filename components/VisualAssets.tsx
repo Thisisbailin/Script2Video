@@ -193,10 +193,10 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
       const parts = content.split(/(!\[[^\]]*\]\([^\)]+\))/g);
       
       return (
-          <div className="prose prose-invert prose-sm max-w-none">
+          <div className="prose prose-sm max-w-none text-gray-800 dark:text-gray-200">
               {parts.map((part, i) => {
                   // Check for Markdown Image
-                  const imgMatch = part.match(/!\[([^\]]*)\]\(([^\)]+)\)/);
+                  const imgMatch = part.match(/!\[([^\]]*)\]\(([^)]+)\)/);
                   if (imgMatch) {
                       const alt = imgMatch[1];
                       const src = imgMatch[2];
@@ -204,7 +204,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                       // Handle Omitted Data Placeholder
                       if (src.includes("[Image Omitted]") || src.includes("[Base64 Omitted]")) {
                           return (
-                              <div key={i} className="my-2 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-500 italic text-center">
+                              <div key={i} className="my-2 p-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-500 italic text-center">
                                   [Previous generation history hidden to save context]
                               </div>
                           );
@@ -212,7 +212,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
 
                       return (
                           <div key={i} className="my-4 relative group inline-block">
-                              <img src={src} alt={alt} className="rounded-lg shadow-lg max-w-full border border-gray-700" />
+                              <img src={src} alt={alt} className="rounded-lg shadow-lg max-w-full border border-gray-200 dark:border-gray-700" />
                               <a 
                                   href={src} 
                                   download={`asset_${Date.now()}`} 
@@ -233,7 +233,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                            const src = b64Match[1];
                            return (
                               <div key={i} className="my-4 relative group inline-block">
-                                  <img src={src} alt="Base64 Generated" className="rounded-lg shadow-lg max-w-full border border-gray-700" />
+                                  <img src={src} alt="Base64 Generated" className="rounded-lg shadow-lg max-w-full border border-gray-200 dark:border-gray-700" />
                                   <a 
                                       href={src} 
                                       download={`asset_b64_${Date.now()}.png`} 
@@ -250,7 +250,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                   if (part.match(/^https?:\/\/.*\.(png|jpg|jpeg|webp)$/i)) {
                        return (
                           <div key={i} className="my-4 relative group inline-block">
-                              <img src={part} alt="Generated" className="rounded-lg shadow-lg max-w-full border border-gray-700" />
+                              <img src={part} alt="Generated" className="rounded-lg shadow-lg max-w-full border border-gray-200 dark:border-gray-700" />
                           </div>
                        );
                   }
@@ -264,42 +264,42 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
   };
 
   return (
-    <div className="h-full flex bg-gray-950 text-gray-100 overflow-hidden">
+    <div className="h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors">
       
       {/* LEFT COLUMN: CONTROLS & ASSETS */}
-      <div className="w-96 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
+      <div className="w-96 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
           
           {/* Tabs */}
-          <div className="flex border-b border-gray-800">
+          <div className="flex border-b border-gray-200 dark:border-gray-800">
               <button 
                   onClick={() => setActiveTab('characters')}
-                  className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 ${activeTab === 'characters' ? 'text-pink-400 border-b-2 border-pink-500 bg-gray-800' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 ${activeTab === 'characters' ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-500 bg-gray-50 dark:bg-gray-800' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               >
                   <User size={16} /> Characters
               </button>
               <button 
                   onClick={() => setActiveTab('locations')}
-                  className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 ${activeTab === 'locations' ? 'text-blue-400 border-b-2 border-blue-500 bg-gray-800' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 ${activeTab === 'locations' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 bg-gray-50 dark:bg-gray-800' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               >
                   <MapPin size={16} /> Locations
               </button>
           </div>
 
           {/* Asset List */}
-          <div className="h-48 overflow-y-auto border-b border-gray-800 custom-scrollbar">
+          <div className="h-48 overflow-y-auto border-b border-gray-200 dark:border-gray-800 custom-scrollbar">
               {activeTab === 'characters' ? (
                   data.context.characters.length > 0 ? (
                       data.context.characters.map((char, idx) => (
                           <div 
                               key={idx} 
                               onClick={() => handleSelectAsset(char)}
-                              className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${selectedAsset?.id === char.id ? 'bg-pink-900/20 border-l-2 border-pink-500' : 'hover:bg-gray-800'}`}
+                              className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${selectedAsset?.id === char.id ? 'bg-pink-50 dark:bg-pink-900/20 border-l-2 border-pink-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                           >
-                              <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-400">
+                              <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
                                   {char.name.substring(0,2)}
                               </div>
                               <div>
-                                  <div className="text-sm font-medium text-gray-200">{char.name}</div>
+                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{char.name}</div>
                                   <div className="text-xs text-gray-500">{char.role}</div>
                               </div>
                           </div>
@@ -311,13 +311,13 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                           <div 
                               key={idx} 
                               onClick={() => handleSelectAsset(loc)}
-                              className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${selectedAsset?.id === loc.id ? 'bg-blue-900/20 border-l-2 border-blue-500' : 'hover:bg-gray-800'}`}
+                              className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${selectedAsset?.id === loc.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                           >
-                              <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-400">
+                              <div className="w-8 h-8 rounded bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
                                   <MapPin size={14}/>
                               </div>
                               <div>
-                                  <div className="text-sm font-medium text-gray-200">{loc.name}</div>
+                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{loc.name}</div>
                                   <div className="text-xs text-gray-500">{loc.type}</div>
                               </div>
                           </div>
@@ -328,8 +328,8 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
 
           {/* Parameters & Base Prompt */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar flex flex-col">
-              <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700/50">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+              <div className="bg-gray-100 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700/50">
+                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
                       <Sliders size={12}/> Generation Params
                   </h3>
                   <div className="space-y-3">
@@ -339,7 +339,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                                <select 
                                   value={params.aspectRatio}
                                   onChange={(e) => setParams({...params, aspectRatio: e.target.value})}
-                                  className="w-full bg-gray-900 border border-gray-700 text-xs text-white rounded px-2 py-1.5 focus:outline-none"
+                                  className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-xs text-gray-900 dark:text-white rounded px-2 py-1.5 focus:outline-none"
                                >
                                    <option>1:1</option>
                                    <option>16:9</option>
@@ -353,7 +353,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                                <select 
                                   value={params.count}
                                   onChange={(e) => setParams({...params, count: Number(e.target.value)})}
-                                  className="w-full bg-gray-900 border border-gray-700 text-xs text-white rounded px-2 py-1.5 focus:outline-none"
+                                  className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-xs text-gray-900 dark:text-white rounded px-2 py-1.5 focus:outline-none"
                                >
                                    <option value={1}>1</option>
                                    <option value={2}>2</option>
@@ -366,7 +366,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                            <select 
                               value={params.resolution}
                               onChange={(e) => setParams({...params, resolution: e.target.value})}
-                              className="w-full bg-gray-900 border border-gray-700 text-xs text-white rounded px-2 py-1.5 focus:outline-none"
+                              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-xs text-gray-900 dark:text-white rounded px-2 py-1.5 focus:outline-none"
                            >
                                <option value="1024x1024">Square (1K)</option>
                                <option value="1280x720">Landscape (720p)</option>
@@ -378,12 +378,12 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
               </div>
 
               <div className="flex-1 flex flex-col min-h-0">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Base Context Prompt</h3>
+                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Base Context Prompt</h3>
                   <textarea 
                       value={basePrompt}
                       onChange={(e) => setBasePrompt(e.target.value)}
                       disabled={chatHistory.length > 0} // Disable while refining
-                      className={`w-full flex-1 bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 font-mono resize-none focus:outline-none focus:border-pink-500 ${chatHistory.length > 0 ? 'opacity-50' : ''}`}
+                      className={`w-full flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 font-mono resize-none focus:outline-none focus:border-pink-500 ${chatHistory.length > 0 ? 'opacity-50' : ''}`}
                   />
                   <p className="text-[10px] text-gray-500 mt-1 mb-2">
                       {chatHistory.length > 0 ? "Prompt locked during refinement. Reset to edit." : "This prompt is sent as context to the AI."}
@@ -395,8 +395,8 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                       disabled={isGenerating || !selectedAsset || chatHistory.length > 0}
                       className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg text-sm ${
                           chatHistory.length > 0
-                          ? 'bg-transparent text-gray-500 cursor-not-allowed border-2 border-dashed border-gray-700'
-                          : 'bg-pink-600 hover:bg-pink-500 text-white shadow-pink-900/20'
+                          ? 'bg-transparent text-gray-400 dark:text-gray-500 cursor-not-allowed border-2 border-dashed border-gray-300 dark:border-gray-700'
+                          : 'bg-pink-600 hover:bg-pink-500 text-white shadow-pink-500/20'
                       }`}
                   >
                       {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -407,11 +407,11 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
       </div>
 
       {/* RIGHT COLUMN: INTERACTIVE STUDIO */}
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-950 relative">
+      <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-950 relative">
           
           {/* Header */}
-          <div className="h-12 border-b border-gray-800 flex items-center px-6 justify-between bg-gray-900/50">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+          <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-6 justify-between bg-white dark:bg-gray-900/50">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Palette size={16} className="text-pink-500"/> Concept Studio
                   {selectedAsset && <span className="text-gray-500 font-normal">/ {selectedAsset.name}</span>}
               </h2>
@@ -424,7 +424,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
           {/* Chat Area */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6" ref={scrollRef}>
               {chatHistory.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-4 opacity-50">
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 space-y-4 opacity-50">
                       <Paintbrush size={64} />
                       <p className="text-lg">Edit Base Prompt & Click Generate to Start.</p>
                   </div>
@@ -432,10 +432,10 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                   chatHistory.map((msg, idx) => (
                       msg.role !== 'system' && (msg.role !== 'user' || msg.content.startsWith("Refinement Instruction")) && ( 
                           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[90%] rounded-2xl px-5 py-4 ${
+                              <div className={`max-w-[90%] rounded-2xl px-5 py-4 shadow-sm ${
                                   msg.role === 'user' 
                                   ? 'bg-blue-600 text-white rounded-br-none' 
-                                  : 'bg-gray-800 text-gray-200 border border-gray-700 rounded-bl-none'
+                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-bl-none'
                               }`}>
                                   {msg.role === 'assistant' ? (
                                       <MarkdownRenderer content={msg.content} />
@@ -450,21 +450,21 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
 
               {isGenerating && (
                   <div className="flex justify-start">
-                      <div className="bg-gray-800 border border-gray-700 px-5 py-4 rounded-2xl rounded-bl-none flex items-center gap-3">
+                      <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-5 py-4 rounded-2xl rounded-bl-none flex items-center gap-3">
                           <Loader2 size={18} className="animate-spin text-pink-500" />
-                          <span className="text-sm text-gray-400">AI Artist is working...</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">AI Artist is working...</span>
                       </div>
                   </div>
               )}
           </div>
 
           {/* Input Area (Refinement) */}
-          <div className="p-4 border-t border-gray-800 bg-gray-900">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
               <div className="relative flex items-center gap-2 max-w-4xl mx-auto">
                   {chatHistory.length > 0 && (
                      <button 
                         onClick={() => setChatHistory([])}
-                        className="p-3 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-full transition-colors"
+                        className="p-3 text-gray-500 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
                         title="Clear History & Start Over"
                      >
                         <RotateCcw size={18} />
@@ -478,12 +478,12 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                           onKeyDown={(e) => e.key === 'Enter' && !isGenerating && handleRefineSend()}
                           placeholder={chatHistory.length === 0 ? "Generate initial draft first..." : "Refine result (e.g., 'Make the lighting darker', 'Change background to...')"}
                           disabled={isGenerating || !selectedAsset || chatHistory.length === 0}
-                          className="w-full bg-gray-800 border border-gray-700 text-white rounded-full pl-5 pr-12 py-3 focus:outline-none focus:border-pink-500 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-full pl-5 pr-12 py-3 focus:outline-none focus:border-pink-500 shadow-sm inner disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <button 
                           onClick={handleRefineSend}
                           disabled={isGenerating || !selectedAsset || chatHistory.length === 0}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-pink-600 text-white rounded-full hover:bg-pink-500 disabled:opacity-50 disabled:hover:bg-pink-600 transition-all shadow-lg shadow-pink-900/20"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-pink-600 text-white rounded-full hover:bg-pink-500 disabled:opacity-50 disabled:hover:bg-pink-600 transition-all shadow-md shadow-pink-900/10"
                       >
                           {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                       </button>

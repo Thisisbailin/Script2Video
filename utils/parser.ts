@@ -122,8 +122,53 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
   return episodes;
 };
 
-// Replaces exportToCSV with exportToExcel (HTML-based XLS)
-export const exportToExcel = (episodes: Episode[]) => {
+// --- EXPORT FUNCTIONS ---
+
+// 1. CSV EXPORT (Robust, Best Compatibility)
+export const exportToCSV = (episodes: Episode[]) => {
+  const headers = ['Episode', 'Shot ID', 'Duration', 'Type', 'Movement', 'Description', 'Dialogue', 'Sora Prompt'];
+  
+  // Add Byte Order Mark (BOM) so Excel recognizes formatting as UTF-8 automatically
+  let csvContent = '\ufeff' + headers.map(h => `"${h}"`).join(',') + '\n';
+
+  episodes.forEach(ep => {
+    ep.shots.forEach(shot => {
+      const row = [
+        ep.title,
+        shot.id,
+        shot.duration,
+        shot.shotType,
+        shot.movement,
+        shot.description,
+        shot.dialogue,
+        shot.soraPrompt
+      ];
+      
+      // Escape logic: 
+      // 1. Convert to string
+      // 2. Replace double quotes " with two double quotes ""
+      // 3. Wrap entire field in double quotes
+      const rowStr = row.map(field => {
+        const safeField = (field || '').toString().replace(/"/g, '""');
+        return `"${safeField}"`;
+      }).join(',');
+      
+      csvContent += rowStr + '\n';
+    });
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `script2video_export_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// 2. XLS EXPORT (HTML Table method, preserves visual layout like text wrapping)
+export const exportToXLS = (episodes: Episode[]) => {
   // We use an HTML table strategy to fake an Excel file.
   // This allows us to use CSS for bold headers, column widths, and text wrapping.
   // Excel opens this natively (though it might warn about extension mismatch, which is safe to ignore).
@@ -192,7 +237,7 @@ export const exportToExcel = (episodes: Episode[]) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', 'shooting_script_sora.xls');
+  link.setAttribute('download', `shooting_script_formatted_${Date.now()}.xls`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();

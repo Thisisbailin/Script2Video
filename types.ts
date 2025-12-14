@@ -23,10 +23,10 @@ export interface Shot {
   soraPrompt: string;
   
   // Phase 5: Video Gen Fields
-  videoStatus?: 'idle' | 'generating' | 'completed' | 'error';
+  videoStatus?: 'idle' | 'queued' | 'generating' | 'completed' | 'error'; // Added 'queued'
   videoUrl?: string;
   videoId?: string; // New: Store the API ID for Remixing
-  videoTaskId?: string; // Legacy/Polling ID
+  videoStartTime?: number; // New: Timestamp when generation started
   videoErrorMsg?: string;
   
   // User customizations for Video

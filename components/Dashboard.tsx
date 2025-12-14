@@ -5,6 +5,7 @@ import { ProjectData, RequestStats } from '../types';
 
 interface Props {
   data: ProjectData;
+  isDarkMode?: boolean;
 }
 
 const ProgressBar = ({ stats, color, label }: { stats: RequestStats, color: string, label: string }) => {
@@ -12,13 +13,13 @@ const ProgressBar = ({ stats, color, label }: { stats: RequestStats, color: stri
     return (
         <div className="mb-4">
             <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-300 font-medium">{label}</span>
-                <span className="text-gray-400">
+                <span className="text-gray-700 dark:text-gray-300 font-medium">{label}</span>
+                <span className="text-gray-500 dark:text-gray-400">
                     {stats.success} / {stats.total} ({stats.total > 0 ? Math.round(percentage) : 0}%)
-                    {stats.error > 0 && <span className="text-red-400 ml-2">({stats.error} err)</span>}
+                    {stats.error > 0 && <span className="text-red-500 dark:text-red-400 ml-2">({stats.error} err)</span>}
                 </span>
             </div>
-            <div className="w-full bg-gray-900 rounded-full h-2.5 overflow-hidden flex">
+            <div className="w-full bg-gray-200 dark:bg-gray-900 rounded-full h-2.5 overflow-hidden flex">
                 <div 
                     className={`h-2.5 ${color} transition-all duration-500`} 
                     style={{ width: `${percentage}%` }}
@@ -31,7 +32,7 @@ const ProgressBar = ({ stats, color, label }: { stats: RequestStats, color: stri
     );
 };
 
-export const Dashboard: React.FC<Props> = ({ data }) => {
+export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
   // 1. Calculate general stats
   const totalEpisodes = data.episodes.length;
   const totalShots = data.episodes.reduce((acc, ep) => acc + ep.shots.length, 0);
@@ -88,37 +89,43 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   ].filter(d => d.value > 0);
 
   const PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'];
+  
+  const chartAxisColor = isDarkMode ? '#9ca3af' : '#6b7280';
+  const chartGridColor = isDarkMode ? '#374151' : '#e5e7eb';
+  const tooltipBg = isDarkMode ? '#111827' : '#ffffff';
+  const tooltipText = isDarkMode ? '#fff' : '#111827';
+  const tooltipBorder = isDarkMode ? '#374151' : '#e5e7eb';
 
   return (
-    <div className="p-6 h-full overflow-y-auto space-y-8">
+    <div className="p-6 h-full overflow-y-auto space-y-8 bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
-          <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider">Total Episodes</h3>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
+          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Total Episodes</h3>
           <div className="flex items-end justify-between mt-2">
-             <p className="text-3xl font-bold text-white">{totalEpisodes}</p>
+             <p className="text-3xl font-bold text-gray-900 dark:text-white">{totalEpisodes}</p>
              <span className="text-sm text-gray-500">{completedEpisodes} Completed</span>
           </div>
         </div>
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
-          <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider">Total Shots</h3>
-          <p className="text-3xl font-bold text-blue-400 mt-2">{totalShots}</p>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
+          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Total Shots</h3>
+          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">{totalShots}</p>
         </div>
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
-          <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider">Total Token Usage</h3>
-          <p className="text-3xl font-bold text-yellow-400 mt-2">{grandTotalTokens.toLocaleString()}</p>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
+          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Total Token Usage</h3>
+          <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-2">{grandTotalTokens.toLocaleString()}</p>
         </div>
-        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
-          <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wider">Avg Tokens / Ep</h3>
-          <p className="text-3xl font-bold text-purple-400 mt-2">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
+          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Avg Tokens / Ep</h3>
+          <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">
             {totalEpisodes > 0 ? Math.round(grandTotalTokens / totalEpisodes).toLocaleString() : 0}
           </p>
         </div>
       </div>
       
       {/* SECTION 0: SYSTEM HEALTH & PERFORMANCE */}
-      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-6">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
             🛠 System Health & Performance
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -135,28 +142,28 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       </div>
 
       {/* SECTION 1: WORK TRACKING (Shot Distribution) */}
-      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
         <div className="flex justify-between items-center mb-6">
            <div>
-             <h3 className="text-lg font-bold text-white flex items-center gap-2">
+             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                🎬 Work Analysis
              </h3>
-             <p className="text-sm text-gray-400">Shot count distribution per episode (Pacing Analysis)</p>
+             <p className="text-sm text-gray-500 dark:text-gray-400">Shot count distribution per episode (Pacing Analysis)</p>
            </div>
            <div className="text-right">
-              <span className="text-xs font-mono text-blue-400 block">Avg: {totalEpisodes > 0 ? Math.round(totalShots/totalEpisodes) : 0} shots/ep</span>
+              <span className="text-xs font-mono text-blue-500 dark:text-blue-400 block">Avg: {totalEpisodes > 0 ? Math.round(totalShots/totalEpisodes) : 0} shots/ep</span>
            </div>
         </div>
         
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={shotData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-              <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-              <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} vertical={false} />
+              <XAxis dataKey="name" stroke={chartAxisColor} fontSize={12} tickLine={false} axisLine={false} dy={10} />
+              <YAxis stroke={chartAxisColor} fontSize={12} tickLine={false} axisLine={false} />
               <Tooltip 
-                cursor={{ fill: '#374151', opacity: 0.4 }}
-                contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }}
+                cursor={{ fill: chartGridColor, opacity: 0.4 }}
+                contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, color: tooltipText, borderRadius: '8px' }}
                 itemStyle={{ color: '#60a5fa' }}
               />
               <Bar 
@@ -174,7 +181,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {/* SECTION 2: COST TRACKING (Token Usage) */}
       <div className="space-y-6">
-         <h3 className="text-xl font-bold text-white flex items-center gap-2">
+         <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             💰 Cost Analysis
          </h3>
 
@@ -182,18 +189,18 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Phase 1 Detailed Breakdown */}
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
-               <h3 className="text-lg font-bold text-white mb-2">Phase 1: Deep Understanding Cost</h3>
-               <p className="text-sm text-gray-400 mb-6">Token usage breakdown by analysis task</p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md flex flex-col h-[400px]">
+               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Phase 1: Deep Understanding Cost</h3>
+               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Token usage breakdown by analysis task</p>
                <div className="flex-1 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={phase1BreakdownData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                     <XAxis type="number" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
-                     <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} width={90} />
+                     <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} horizontal={false} />
+                     <XAxis type="number" stroke={chartAxisColor} fontSize={12} tickLine={false} axisLine={false} />
+                     <YAxis dataKey="name" type="category" stroke={chartAxisColor} fontSize={11} tickLine={false} axisLine={false} width={90} />
                      <Tooltip 
-                        cursor={{ fill: '#374151', opacity: 0.2 }}
-                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }}
+                        cursor={{ fill: chartGridColor, opacity: 0.2 }}
+                        contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, color: tooltipText, borderRadius: '8px' }}
                      />
                      <Bar dataKey="value" name="Tokens" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
                    </BarChart>
@@ -202,18 +209,18 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* Phase 2 & 3: Cost Per Episode (RESTORED) */}
-            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
-               <h3 className="text-lg font-bold text-white mb-2">Phase 2 & 3: Generation Cost</h3>
-               <p className="text-sm text-gray-400 mb-6">Token usage per episode for Shot & Sora generation</p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md flex flex-col h-[400px]">
+               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Phase 2 & 3: Generation Cost</h3>
+               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Token usage per episode for Shot & Sora generation</p>
                <div className="flex-1 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={episodeTokenData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                     <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                     <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                     <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} vertical={false} />
+                     <XAxis dataKey="name" stroke={chartAxisColor} fontSize={12} tickLine={false} axisLine={false} dy={10} />
+                     <YAxis stroke={chartAxisColor} fontSize={12} tickLine={false} axisLine={false} />
                      <Tooltip 
-                        cursor={{ fill: '#374151', opacity: 0.4 }}
-                        contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }}
+                        cursor={{ fill: chartGridColor, opacity: 0.4 }}
+                        contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, color: tooltipText, borderRadius: '8px' }}
                      />
                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
                      <Bar dataKey="shotTotal" name="Shot Gen" stackId="a" fill="#3b82f6" />
@@ -225,9 +232,9 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
          </div>
 
         {/* Total Cost Distribution */}
-        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col h-[400px]">
-          <h3 className="text-lg font-bold text-white mb-2">Total Project Cost</h3>
-          <p className="text-sm text-gray-400 mb-6">Total cost breakdown by task type (All Phases)</p>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md flex flex-col h-[400px]">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Total Project Cost</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Total cost breakdown by task type (All Phases)</p>
           
           <div className="flex-1 flex flex-col lg:flex-row items-center justify-center">
              <div className="h-64 w-64 relative flex-shrink-0">
@@ -247,15 +254,15 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                        ))}
                      </Pie>
-                     <Tooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', color: '#fff', borderRadius: '8px' }} />
+                     <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, color: tooltipText, borderRadius: '8px' }} />
                    </PieChart>
                  </ResponsiveContainer>
                  
                  {/* Center Label */}
                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
-                       <span className="text-xs text-gray-400 block">Total</span>
-                       <span className="text-xl font-bold text-white">{(grandTotalTokens / 1000).toFixed(1)}k</span>
+                       <span className="text-xs text-gray-500 dark:text-gray-400 block">Total</span>
+                       <span className="text-xl font-bold text-gray-900 dark:text-white">{(grandTotalTokens / 1000).toFixed(1)}k</span>
                     </div>
                  </div>
              </div>
@@ -266,10 +273,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                     <div key={i} className="flex items-center gap-3">
                         <div className="w-4 h-4 rounded-full" style={{backgroundColor: PIE_COLORS[i % PIE_COLORS.length]}}></div>
                         <div>
-                            <p className="text-sm font-medium text-gray-200">{d.name}</p>
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{d.name}</p>
                             <p className="text-xs text-gray-500 font-mono">
                                 {d.value.toLocaleString()} tokens 
-                                <span className="ml-2 text-gray-600">({grandTotalTokens > 0 ? Math.round((d.value/grandTotalTokens)*100) : 0}%)</span>
+                                <span className="ml-2 text-gray-400 dark:text-gray-600">({grandTotalTokens > 0 ? Math.round((d.value/grandTotalTokens)*100) : 0}%)</span>
                             </p>
                         </div>
                     </div>

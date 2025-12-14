@@ -2,23 +2,6 @@
 import { VideoServiceConfig, VideoParams } from "../types";
 
 // Standard OpenAI/Sora 2 response structures
-interface VideoGenerationResponse {
-  id: string;
-  object: string; // "video"
-  model: string;
-  status: 'queued' | 'processing' | 'succeeded' | 'failed'; 
-  progress?: number;
-  created_at?: number;
-  data?: {
-    url?: string;
-    video_url?: string;
-  }[];
-  video_url?: string; // Fallback for some proxies
-  error?: {
-    message: string;
-  };
-}
-
 interface ModelListResponse {
   data: {
     id: string;
@@ -27,9 +10,16 @@ interface ModelListResponse {
 }
 
 // Return type for our service functions
-interface ServiceResult {
+interface TaskSubmissionResult {
     id: string;
-    url: string;
+}
+
+export interface TaskStatusResult {
+    id: string;
+    status: 'queued' | 'processing' | 'succeeded' | 'failed';
+    url?: string;
+    progress?: number;
+    errorMsg?: string;
 }
 
 export const fetchModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
@@ -47,9 +37,6 @@ export const fetchModels = async (baseUrl: string, apiKey: string): Promise<stri
   }
 
   try {
-    console.log("--- [Phase 5] Fetch Models ---");
-    console.log("URL:", `${apiBase}/models`);
-    
     const response = await fetch(`${apiBase}/models`, {
       method: 'GET',
       headers: {
@@ -60,7 +47,6 @@ export const fetchModels = async (baseUrl: string, apiKey: string): Promise<stri
 
     if (!response.ok) {
        const err = await response.text();
-       console.error("Fetch Models Failed:", err);
        throw new Error(`Failed to fetch models: ${response.status} ${err}`);
     }
 
@@ -75,130 +61,35 @@ export const fetchModels = async (baseUrl: string, apiKey: string): Promise<stri
   }
 };
 
-// Helper: Polling function
-const pollVideoStatus = async (
-    apiBase: string, 
-    videoId: string, 
-    apiKey: string
-): Promise<ServiceResult> => {
-    const MAX_RETRIES = 120; // 6 mins max
-    const INTERVAL = 3000;  // 3 seconds
-    
-    let pollUrl = '';
-    let isWuyin = false;
-
-    // Detect Wuyinkeji / Sora2 Adapter pattern
-    if (apiBase.includes('wuyinkeji.com') || apiBase.includes('/sora2')) {
-        isWuyin = true;
-        // Transform .../api/sora2/submit -> .../api/sora2/detail
-        const rootBase = apiBase.replace(/\/submit\/?$/, ''); 
-        
-        // Construct Detail URL: https://api.wuyinkeji.com/api/sora2/detail?id={id}&key={key}
-        pollUrl = `${rootBase}/detail?id=${videoId}&key=${apiKey}`;
-    } else {
-        // Standard OpenAI Video Polling: /v1/videos/{id}
-        pollUrl = `${apiBase}/videos/${videoId}`;
-    }
-
-    console.log("--- [Phase 5] Polling Strategy ---");
-    console.log("Poll URL:", pollUrl);
-
-    for (let i = 0; i < MAX_RETRIES; i++) {
-        try {
-            const headers: any = { "Content-Type": "application/json" };
-            
-            // Only add Bearer token if key is NOT in the query string
-            if (!pollUrl.includes('key=')) {
-                headers["Authorization"] = `Bearer ${apiKey}`;
-            }
-
-            const response = await fetch(pollUrl, {
-                method: "GET",
-                headers: headers
-            });
-
-            if (!response.ok) {
-                // 404 might mean "not ready" in some systems, but for Wuyin it usually means wrong URL
-                if (response.status === 404) {
-                    console.log(`Polling ${i}: 404 (Processing or Not Found)`);
-                } else {
-                     console.warn(`Polling Error ${response.status}`);
-                }
-            } else {
-                const data = await response.json();
-                console.log(`Polling ${i} Response:`, data);
-                
-                // --- STRATEGY 1: Wuyinkeji Specific Response ---
-                if (isWuyin && data.code === 200 && data.data) {
-                    const d = data.data;
-                    // Check for completion
-                    // status 1 seems to be success based on user log, provided url is present
-                    if (d.remote_url || d.video_url || d.url) {
-                        const finalUrl = d.remote_url || d.video_url || d.url;
-                        if (finalUrl && finalUrl.startsWith('http')) {
-                            return { id: videoId, url: finalUrl };
-                        }
-                    }
-                    if (d.fail_reason) {
-                        throw new Error(d.fail_reason);
-                    }
-                    // Status 2/3/4 might be failing, but if no URL and no fail reason, assume processing
-                }
-
-                // --- STRATEGY 2: Standard OpenAI/Sora Response ---
-                const status = data.status || data.data?.status;
-                
-                if (status === 'succeeded' || status === 'success' || (data.code === 200 && data.data?.video_url)) {
-                    const url = data.data?.video_url || data.data?.url || data.video_url || '';
-                    if (url) return { id: videoId, url };
-                }
-                
-                if (status === 'failed') {
-                    throw new Error(data.error?.message || data.msg || "Video generation failed.");
-                }
-            }
-        } catch (e) {
-            console.warn(`Polling attempt ${i} failed`, e);
-            // If it's a hard network error (like Failed to fetch due to CORS on 404), we still retry a few times
-            // But if it persists, it will eventually timeout.
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, INTERVAL));
-    }
-    
-    throw new Error("Video generation timed out.");
-};
-
-export const generateVideo = async (
+/**
+ * SUBMIT TASK
+ * Sends the generation request and returns the Task ID immediately.
+ */
+export const submitVideoTask = async (
   prompt: string,
   config: VideoServiceConfig,
   params?: VideoParams
-): Promise<ServiceResult> => {
+): Promise<TaskSubmissionResult> => {
   const { baseUrl, apiKey } = config;
 
   if (!baseUrl || !apiKey) {
     throw new Error("Missing Video API Configuration.");
   }
 
-  // --- LOGGING ---
-  console.log("--- [Phase 5] Generate Video Request ---");
-  console.log("Prompt:", prompt);
-  console.log("Base URL (Config):", baseUrl);
-  
+  // --- MODEL DETECTION LOGIC ---
+  // Detect if URL is Sora 2 Pro or Standard based on URL pattern
+  const isSora2Pro = baseUrl.includes('/sora2pro');
+
+  console.log(`--- [Phase 5] Submit Task ---`);
+  console.log(`URL: ${baseUrl}, Detected Model: ${isSora2Pro ? 'Sora 2 Pro' : 'Sora 2 (Standard)'}`);
+
   // Construct Endpoint & Key
-  let endpoint = baseUrl.trim();
-  
-  const urlObj = new URL(endpoint);
-  
-  // Clean up params for Wuyinkeji specific requirements
-  // 1. Force add key to query params if not present
+  const urlObj = new URL(baseUrl.trim());
   if (!urlObj.searchParams.has('key')) {
       urlObj.searchParams.append('key', apiKey);
   }
-  
-  console.log("Request URL:", urlObj.toString());
 
-  // 2. Map Body Params (Form Data / URL Encoded)
+  // Map Body Params
   const formBody = new URLSearchParams();
   formBody.append('prompt', prompt);
   formBody.append('aspectRatio', params?.aspectRatio || '16:9');
@@ -206,13 +97,20 @@ export const generateVideo = async (
   const durationInt = params?.duration ? parseInt(params.duration.replace('s', ''), 10) : 10;
   formBody.append('duration', durationInt.toString());
   
-  const sizeVal = params?.quality === 'high' ? 'large' : 'small';
-  formBody.append('size', sizeVal);
+  // Only append 'size' if NOT Pro model
+  if (!isSora2Pro) {
+      const sizeVal = params?.quality === 'high' ? 'large' : 'small';
+      formBody.append('size', sizeVal);
+  }
 
-  console.log("Form Body:", formBody.toString());
-
+  // Input Image (If supported by endpoint - standard OpenAI video doesn't usually take form data like this, 
+  // but Wuyin/Sora adapters might. Assuming text-to-video for now mostly, 
+  // but if inputImage exists we might need multipart/form-data. 
+  // For this specific API (Wuyin), it usually takes 'imageUrl' string or base64. 
+  // Since we are using x-www-form-urlencoded, we can't easily upload file directly here without logic change.
+  // For now, we skip image upload in this specific implementation unless we add an image upload service first.
+  
   try {
-      // 3. Send Request
       const response = await fetch(urlObj.toString(), {
           method: "POST",
           headers: {
@@ -221,58 +119,140 @@ export const generateVideo = async (
           body: formBody
       });
 
-      console.log("Response Status:", response.status);
       const text = await response.text();
-      console.log("Response Raw Body:", text);
-
-      if (!response.ok) {
-          throw new Error(`API Error ${response.status}: ${text}`);
-      }
+      if (!response.ok) throw new Error(`API Error ${response.status}: ${text}`);
 
       let data;
-      try {
-          data = JSON.parse(text);
-      } catch (e) {
-          throw new Error("Failed to parse API response as JSON.");
-      }
+      try { data = JSON.parse(text); } catch (e) { throw new Error("Failed to parse API response."); }
 
-      // Check for provider specific error codes
-      // Wuyinkeji: { code: 200, msg: "成功", data: { id: "..." } }
+      // Provider Error Check
       if (data.code !== undefined && data.code !== 200) {
           throw new Error(`Provider Error (${data.code}): ${data.msg}`);
       }
       
-      // Fallback for standard OpenAI error format
-      if (data.error) {
-          throw new Error(data.error.message);
-      }
-
       const videoId = data.data?.id || data.id;
-      if (!videoId) {
-          throw new Error("No Video ID returned from API.");
-      }
+      if (!videoId) throw new Error("No Video ID returned.");
 
-      console.log("Video ID obtained:", videoId);
-
-      // 4. Poll for Result
-      // Pass the base URL without query params for polling logic to handle
-      // We strip the query params here because pollVideoStatus handles adding key/id itself
-      return await pollVideoStatus(endpoint.split('?')[0], videoId, apiKey);
+      return { id: videoId };
 
   } catch (error: any) {
-      console.error("Video Generation Failed:", error);
+      console.error("Video Submission Failed:", error);
       throw error;
   }
+};
+
+/**
+ * CHECK STATUS
+ * Single poll to check status of a task.
+ */
+export const checkTaskStatus = async (
+    taskId: string,
+    config: VideoServiceConfig
+): Promise<TaskStatusResult> => {
+    const { baseUrl, apiKey } = config;
+    
+    // Construct Poll URL
+    let pollUrl = '';
+    // Detect Wuyinkeji pattern for Polling
+    if (baseUrl.includes('wuyinkeji.com') || baseUrl.includes('/sora2')) {
+        const rootBase = baseUrl.replace(/\/submit\/?$/, ''); 
+        pollUrl = `${rootBase}/detail?id=${taskId}&key=${apiKey}`;
+    } else {
+        // Standard OpenAI
+        const apiBase = baseUrl.replace(/\/submit\/?$/, '').replace(/\/+$/, '');
+        pollUrl = `${apiBase}/videos/${taskId}`;
+    }
+
+    try {
+        const headers: any = { "Content-Type": "application/json" };
+        if (!pollUrl.includes('key=')) headers["Authorization"] = `Bearer ${apiKey}`;
+
+        const response = await fetch(pollUrl, { method: "GET", headers });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                 // 404 in standard OpenAI often means "processing, not ready"
+                 return { id: taskId, status: 'processing' };
+            }
+            throw new Error(`Poll Error ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // --- WUYIN KEJI / SORA 2 ADAPTER PARSING ---
+        if (data.code !== undefined) {
+             // data.data.status: 
+             // 0: 排队中 (Queued)
+             // 1: 成功 (Success)
+             // 2: 失败 (Failed)
+             // 3: 生成中 (Processing)
+             
+             const d = data.data;
+             if (!d) return { id: taskId, status: 'processing' }; // No data usually means initializing
+
+             const s = d.status;
+
+             if (s === 1) {
+                 const finalUrl = d.remote_url || d.video_url || d.url;
+                 if (finalUrl) return { id: taskId, status: 'succeeded', url: finalUrl };
+             }
+             
+             if (s === 2) {
+                 return { id: taskId, status: 'failed', errorMsg: d.fail_reason || "Unknown failure" };
+             }
+
+             if (s === 0) {
+                 return { id: taskId, status: 'queued' };
+             }
+
+             if (s === 3) {
+                 return { id: taskId, status: 'processing', progress: d.progress }; // Some APIs return progress
+             }
+             
+             // Fallback if status is unknown integer
+             return { id: taskId, status: 'processing' };
+        }
+
+        // --- STANDARD OPENAI PARSING ---
+        const status = data.status || data.data?.status;
+        if (status === 'succeeded' || status === 'success') {
+             const url = data.data?.video_url || data.video_url || '';
+             return { id: taskId, status: 'succeeded', url };
+        }
+        if (status === 'failed') {
+            return { id: taskId, status: 'failed', errorMsg: data.error?.message };
+        }
+        
+        return { id: taskId, status: 'processing' };
+
+    } catch (e: any) {
+        // If network glitch, treat as processing to keep retrying
+        console.warn("Check status warning:", e);
+        return { id: taskId, status: 'processing' };
+    }
+};
+
+// Legacy single-call (not used in new flow but kept for compatibility)
+export const generateVideo = async (
+  prompt: string,
+  config: VideoServiceConfig,
+  params?: VideoParams
+): Promise<{ id: string, url: string }> => {
+    throw new Error("Please use submitVideoTask for async generation.");
 };
 
 export const remixVideo = async (
     originalVideoId: string,
     prompt: string,
     config: VideoServiceConfig
-): Promise<ServiceResult> => {
-    // Basic implementation for remix - assumes standard OpenAI for now as provider specifics vary wildly for Remix
-    if (config.baseUrl.includes('submit')) {
-        throw new Error("Remix not supported via 'submit' endpoint configuration yet.");
-    }
-    throw new Error("Remix functionality requires standard OpenAI compatible endpoint.");
+): Promise<TaskSubmissionResult> => {
+     // Remix logic is identical to submit usually, just different params
+     // For this specific API adapter, remix might need a different endpoint or param
+     // Assuming standard flow isn't fully supported by the adapter based on docs provided, 
+     // but we will treat it as a task submission.
+     // If the API supports remix via a specific parameter (like `remixTargetId`), add it here.
+     
+     // Placeholder: Treating remix as a new submission for now as per limited doc.
+     // In a real scenario, we'd add `parent_video_id` to body.
+     return submitVideoTask(prompt, config);
 };

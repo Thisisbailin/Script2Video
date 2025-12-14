@@ -1,13 +1,33 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Episode, Shot, VideoParams } from '../types';
-import { Play, Loader2, AlertCircle, Download, CheckCircle, Video, ChevronRight, ChevronDown, Sliders, MonitorPlay, FileText, RefreshCcw, AlignLeft, ChevronLeft, ImagePlus, Wand2, X } from 'lucide-react';
+import { Play, Loader2, AlertCircle, Download, CheckCircle, Video, ChevronRight, ChevronDown, Sliders, MonitorPlay, FileText, RefreshCcw, AlignLeft, ChevronLeft, ImagePlus, Wand2, X, Clock, Layers } from 'lucide-react';
 
 interface Props {
   episodes: Episode[];
   onGenerateVideo: (episodeId: number, shotId: string, customPrompt: string, params: VideoParams) => void;
   onRemixVideo?: (episodeId: number, shotId: string, customPrompt: string, originalVideoId: string) => void;
 }
+
+const GenerationTimer: React.FC<{ startTime?: number }> = ({ startTime }) => {
+    const [elapsed, setElapsed] = useState(0);
+
+    useEffect(() => {
+        if (!startTime) return;
+        const interval = setInterval(() => {
+            setElapsed(Math.floor((Date.now() - startTime) / 1000));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [startTime]);
+
+    const formatTime = (sec: number) => {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    return <span className="font-mono">{formatTime(elapsed)}</span>;
+};
 
 export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemixVideo }) => {
   // Navigation State
@@ -59,6 +79,24 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
      sceneShots.find(s => s.id === activeShotId)
   , [sceneShots, activeShotId]);
 
+  // --- GLOBAL TASK LIST ---
+  const activeTasks = useMemo(() => {
+      const tasks: { epTitle: string, shotId: string, status: string, startTime?: number }[] = [];
+      episodes.forEach(ep => {
+          ep.shots.forEach(s => {
+              if (s.videoStatus === 'queued' || s.videoStatus === 'generating') {
+                  tasks.push({
+                      epTitle: ep.title,
+                      shotId: s.id,
+                      status: s.videoStatus,
+                      startTime: s.videoStartTime
+                  });
+              }
+          });
+      });
+      return tasks;
+  }, [episodes]);
+
   // --- Effects for Auto-Selection ---
 
   useEffect(() => {
@@ -108,8 +146,18 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
   // --- Handlers ---
 
   const handleGenerate = () => {
+      // Logic: If activeShot exists, use it. If not, trigger ad-hoc generation.
       if (activeEpId && activeShotId) {
           onGenerateVideo(activeEpId, activeShotId, customPrompt, {
+              aspectRatio,
+              duration,
+              quality,
+              inputImage
+          });
+      } else {
+          // Ad-hoc Generation (Sandbox Mode)
+          // We pass special values: episodeId = -1, shotId = "adhoc"
+          onGenerateVideo(-1, "adhoc", customPrompt, {
               aspectRatio,
               duration,
               quality,
@@ -161,22 +209,22 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
 
   // --- Render ---
 
-  if (episodes.length === 0) {
-      return <div className="h-full flex items-center justify-center text-gray-500">No episodes available. Please import a script first.</div>;
-  }
+  // NOTE: Blocking check "if (episodes.length === 0) return..." REMOVED to enable Sandbox Mode
 
   const currentShotIndex = sceneShots.findIndex(s => s.id === activeShotId);
   const isFirstShot = currentShotIndex <= 0;
   const isLastShot = currentShotIndex >= sceneShots.length - 1;
 
+  const isBusy = activeShot?.videoStatus === 'queued' || activeShot?.videoStatus === 'generating';
+
   return (
-    <div className="h-full flex bg-gray-950 text-gray-100 overflow-hidden">
+    <div className="h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors">
       
       {/* LEFT COLUMN: WORKSTATION */}
       <div className="flex-1 flex flex-col min-w-0">
           
           {/* Top: Video Player */}
-          <div className="flex-1 bg-black/50 relative flex items-center justify-center p-8 border-b border-gray-800">
+          <div className="flex-1 bg-gray-100 dark:bg-black/50 relative flex items-center justify-center p-8 border-b border-gray-200 dark:border-gray-800">
               {activeShot ? (
                   activeShot.videoUrl ? (
                       <div className="w-full h-full flex items-center justify-center relative group">
@@ -198,44 +246,52 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                       </div>
                   ) : (
                       <div className="text-center">
-                         {activeShot.videoStatus === 'generating' ? (
+                         {activeShot.videoStatus === 'generating' || activeShot.videoStatus === 'queued' ? (
                              <div className="flex flex-col items-center">
-                                 <Loader2 size={48} className="text-indigo-500 animate-spin mb-4"/>
-                                 <p className="text-gray-300 font-medium">Generating Video...</p>
-                                 <p className="text-xs text-gray-500 mt-2">Creating Job & Polling Sora 2 API...</p>
+                                 <div className="relative mb-4">
+                                     <Loader2 size={48} className="text-indigo-500 animate-spin"/>
+                                     {activeShot.videoStatus === 'queued' && <Clock size={20} className="absolute -bottom-1 -right-1 text-yellow-500 bg-white dark:bg-gray-900 rounded-full" />}
+                                 </div>
+                                 <p className="text-gray-700 dark:text-gray-300 font-medium">
+                                     {activeShot.videoStatus === 'queued' ? 'Queued' : 'Generating Video'}
+                                 </p>
+                                 <p className="text-xs text-gray-500 mt-2 font-mono">
+                                     <GenerationTimer startTime={activeShot.videoStartTime} />
+                                 </p>
                              </div>
                          ) : activeShot.videoStatus === 'error' ? (
                              <div className="flex flex-col items-center">
                                  <AlertCircle size={48} className="text-red-500 mb-4"/>
-                                 <p className="text-red-400 font-medium">Generation Failed</p>
-                                 <p className="text-xs text-red-300 mt-2 max-w-xs bg-red-900/20 p-2 rounded border border-red-900/50">{activeShot.videoErrorMsg}</p>
+                                 <p className="text-red-500 dark:text-red-400 font-medium">Generation Failed</p>
+                                 <p className="text-xs text-red-600 dark:text-red-300 mt-2 max-w-xs bg-red-100 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-900/50">{activeShot.videoErrorMsg}</p>
                              </div>
                          ) : (
-                             <div className="flex flex-col items-center opacity-30">
-                                 <Video size={64} className="mb-4 text-gray-500"/>
-                                 <p className="text-gray-500 font-medium">Ready to Generate</p>
+                             <div className="flex flex-col items-center opacity-30 text-gray-400 dark:text-gray-500">
+                                 <Video size={64} className="mb-4"/>
+                                 <p className="font-medium">Ready to Generate</p>
                              </div>
                          )}
                       </div>
                   )
               ) : (
-                  <div className="flex flex-col items-center opacity-20">
-                     <MonitorPlay size={48} className="mb-2"/>
-                     <p>Select a shot to begin</p>
+                  <div className="flex flex-col items-center opacity-40 text-gray-400 dark:text-gray-500">
+                     <MonitorPlay size={48} className="mb-3 text-indigo-400"/>
+                     <p className="text-lg font-bold">Creative Sandbox Mode</p>
+                     <p className="text-xs mt-1">Write a prompt below to generate a video from scratch.</p>
                   </div>
               )}
           </div>
 
           {/* Bottom: Prompt Editor & Parameters */}
-          <div className="h-80 bg-gray-900 flex flex-col">
-              <div className="flex items-center justify-between px-6 py-2 border-b border-gray-800 bg-gray-900/50">
-                  <h3 className="text-xs font-bold text-indigo-400 flex items-center gap-2 uppercase tracking-wide">
+          <div className="h-80 bg-white dark:bg-gray-900 flex flex-col">
+              <div className="flex items-center justify-between px-6 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+                  <h3 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2 uppercase tracking-wide">
                       <Sliders size={14} /> Video Parameters
                   </h3>
                   {activeShot && (
                     <button 
                         onClick={() => setCustomPrompt(activeShot.soraPrompt)}
-                        className="text-[10px] text-gray-500 hover:text-white flex items-center gap-1 transition-colors"
+                        className="text-[10px] text-gray-500 hover:text-gray-800 dark:hover:text-white flex items-center gap-1 transition-colors"
                         title="Reset to AI generated prompt"
                     >
                         <RefreshCcw size={10} /> Reset Prompt
@@ -245,29 +301,29 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
 
               <div className="flex-1 flex overflow-hidden">
                   {/* Prompt Input */}
-                  <div className="flex-1 p-4 border-r border-gray-800 relative group">
+                  <div className="flex-1 p-4 border-r border-gray-200 dark:border-gray-800 relative group">
                       <textarea
                           value={customPrompt}
                           onChange={(e) => setCustomPrompt(e.target.value)}
-                          disabled={!activeShot}
-                          className="w-full h-full bg-gray-800/50 border border-gray-700 rounded-lg p-4 text-sm text-gray-200 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none custom-scrollbar font-mono shadow-inner transition-colors disabled:opacity-50"
-                          placeholder="Video prompt will appear here..."
+                          disabled={isBusy}
+                          className="w-full h-full bg-gray-50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-800 dark:text-gray-200 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none custom-scrollbar font-mono shadow-inner transition-colors disabled:opacity-50"
+                          placeholder={activeShot ? "Video prompt will appear here..." : "Enter your video description here to generate from scratch..."}
                       />
-                      <div className="absolute bottom-6 right-6 text-[10px] text-gray-600 font-mono pointer-events-none group-hover:text-gray-500 transition-colors">
+                      <div className="absolute bottom-6 right-6 text-[10px] text-gray-400 dark:text-gray-600 font-mono pointer-events-none group-hover:text-gray-500 transition-colors">
                           {customPrompt.length} chars
                       </div>
                   </div>
 
                   {/* Controls */}
-                  <div className="w-80 p-5 flex flex-col gap-5 bg-gray-900 overflow-y-auto custom-scrollbar">
+                  <div className="w-80 p-5 flex flex-col gap-5 bg-white dark:bg-gray-900 overflow-y-auto custom-scrollbar">
                       
                       {/* Row 1: Aspect & Quality */}
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">Aspect Ratio</label>
-                              <div className="flex rounded bg-gray-800 p-0.5 border border-gray-700">
+                              <div className="flex rounded bg-gray-100 dark:bg-gray-800 p-0.5 border border-gray-200 dark:border-gray-700">
                                   {['16:9', '9:16'].map(r => (
-                                      <button key={r} onClick={() => setAspectRatio(r)} className={`flex-1 py-1.5 text-[10px] rounded transition-all ${aspectRatio === r ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}>
+                                      <button key={r} onClick={() => setAspectRatio(r)} className={`flex-1 py-1.5 text-[10px] rounded transition-all ${aspectRatio === r ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
                                           {r}
                                       </button>
                                   ))}
@@ -275,16 +331,16 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                           </div>
                           <div>
                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">Quality</label>
-                               <div className="flex rounded bg-gray-800 p-0.5 border border-gray-700">
+                               <div className="flex rounded bg-gray-100 dark:bg-gray-800 p-0.5 border border-gray-200 dark:border-gray-700">
                                   {['standard', 'high'].map(q => (
-                                      <button key={q} onClick={() => setQuality(q as any)} className={`flex-1 py-1.5 text-[10px] rounded transition-all ${quality === q ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}>
+                                      <button key={q} onClick={() => setQuality(q as any)} className={`flex-1 py-1.5 text-[10px] rounded transition-all ${quality === q ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
                                           {q === 'standard' ? 'Std' : 'High'}
                                       </button>
                                   ))}
                               </div>
                           </div>
                       </div>
-                      <div className="text-[10px] text-center text-gray-600 -mt-3">
+                      <div className="text-[10px] text-center text-gray-500 -mt-3">
                            Output Size: {getResolutionText()}
                       </div>
 
@@ -293,7 +349,7 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                           <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">Duration</label>
                           <div className="grid grid-cols-3 gap-2">
                               {['4s', '8s', '12s'].map(dur => (
-                                  <button key={dur} onClick={() => setDuration(dur)} className={`py-1.5 text-[10px] rounded border transition-all ${duration === dur ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}>
+                                  <button key={dur} onClick={() => setDuration(dur)} className={`py-1.5 text-[10px] rounded border transition-all ${duration === dur ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                                       {dur}
                                   </button>
                               ))}
@@ -305,14 +361,14 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                           <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">Ref Image (Start Frame)</label>
                           {!inputImagePreview ? (
                               <div className="relative">
-                                  <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} className="hidden" id="ref-img-upload" disabled={!activeShot} />
-                                  <label htmlFor="ref-img-upload" className={`flex items-center justify-center gap-2 w-full py-3 border border-dashed rounded cursor-pointer transition-colors ${!activeShot ? 'opacity-50 cursor-not-allowed border-gray-700' : 'border-gray-600 hover:border-gray-500 hover:bg-gray-800'}`}>
+                                  <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleImageUpload} className="hidden" id="ref-img-upload" disabled={isBusy} />
+                                  <label htmlFor="ref-img-upload" className={`flex items-center justify-center gap-2 w-full py-3 border border-dashed rounded cursor-pointer transition-colors ${isBusy ? 'opacity-50 cursor-not-allowed border-gray-300 dark:border-gray-700' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                                       <ImagePlus size={14} className="text-gray-400"/>
                                       <span className="text-xs text-gray-400">Upload Image</span>
                                   </label>
                               </div>
                           ) : (
-                              <div className="relative group rounded overflow-hidden border border-gray-700 h-24 bg-black">
+                              <div className="relative group rounded overflow-hidden border border-gray-300 dark:border-gray-700 h-24 bg-gray-100 dark:bg-black">
                                   <img src={inputImagePreview} alt="Ref" className="w-full h-full object-contain" />
                                   <button onClick={clearImage} className="absolute top-1 right-1 p-1 bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                       <X size={12} />
@@ -325,23 +381,23 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                       <div className="mt-auto grid grid-cols-2 gap-2">
                            <button
                               onClick={handleGenerate}
-                              disabled={!activeShot || activeShot.videoStatus === 'generating' || !customPrompt.trim()}
+                              disabled={isBusy || !customPrompt.trim()}
                               className={`py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
-                                  activeShot?.videoStatus === 'generating'
-                                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700 col-span-2'
-                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white hover:scale-[1.02] shadow-indigo-900/30 ' + (activeShot?.videoId ? '' : 'col-span-2')
+                                  isBusy
+                                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-700 col-span-2'
+                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white hover:scale-[1.02] shadow-indigo-500/30 ' + (activeShot?.videoId ? '' : 'col-span-2')
                               }`}
                           >
-                              {activeShot?.videoStatus === 'generating' ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}
-                              {activeShot?.videoId ? 'New Gen' : 'Generate'}
+                              {isBusy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}
+                              {isBusy ? 'Processing...' : activeShot?.videoId ? 'New Gen' : 'Generate'}
                           </button>
 
                           {/* Remix Button */}
                           {activeShot?.videoId && onRemixVideo && (
                               <button
                                   onClick={handleRemix}
-                                  disabled={activeShot.videoStatus === 'generating'}
-                                  className="py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:scale-[1.02] shadow-purple-900/30"
+                                  disabled={isBusy}
+                                  className="py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:scale-[1.02] shadow-purple-500/30"
                               >
                                   <Wand2 size={16} /> Remix
                               </button>
@@ -352,63 +408,100 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
           </div>
       </div>
 
-      {/* RIGHT COLUMN: INSPECTOR (Unchanged) */}
-      <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col shrink-0">
-          <div className="p-4 border-b border-gray-800 bg-gray-900">
-              <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <MonitorPlay size={12} /> Navigation
-              </h4>
-              <div className="space-y-3">
-                  <div className="relative">
-                       <select value={activeEpId || ''} onChange={(e) => setActiveEpId(Number(e.target.value))} className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-3 py-2 appearance-none focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                          {episodes.map(ep => (<option key={ep.id} value={ep.id}>{ep.title}</option>))}
-                       </select>
-                       <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
-                  </div>
-                  <div className="relative">
-                       <select value={activeSceneId || 'all'} onChange={(e) => setActiveSceneId(e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-3 py-2 appearance-none focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                          <option value="all">All Scenes ({activeEpisode?.shots.length || 0} Shots)</option>
-                          {availableScenes.map(s => (<option key={s.id} value={s.id}>{s.id} {s.title}</option>))}
-                       </select>
-                       <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                          <select value={activeShotId || ''} onChange={(e) => setActiveShotId(e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-3 py-2 appearance-none focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono" disabled={!sceneShots.length}>
-                             {sceneShots.length ? sceneShots.map(s => (<option key={s.id} value={s.id}>Shot {s.id}</option>)) : <option>No Shots</option>}
+      {/* RIGHT COLUMN: INSPECTOR & QUEUE */}
+      <div className="w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
+          
+          {/* Navigation Controls */}
+          {episodes.length > 0 ? (
+              <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+                  <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <MonitorPlay size={12} /> Navigation
+                  </h4>
+                  <div className="space-y-3">
+                      <div className="relative">
+                          <select value={activeEpId || ''} onChange={(e) => setActiveEpId(Number(e.target.value))} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-xs rounded px-3 py-2 appearance-none focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                              {episodes.map(ep => (<option key={ep.id} value={ep.id}>{ep.title}</option>))}
                           </select>
                           <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
                       </div>
-                      <div className="flex border border-gray-700 rounded overflow-hidden">
-                          <button onClick={() => navigateShot('prev')} disabled={isFirstShot} className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30 transition-colors border-r border-gray-700"><ChevronLeft size={14} /></button>
-                          <button onClick={() => navigateShot('next')} disabled={isLastShot} className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"><ChevronRight size={14} /></button>
+                      <div className="relative">
+                          <select value={activeSceneId || 'all'} onChange={(e) => setActiveSceneId(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-xs rounded px-3 py-2 appearance-none focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                              <option value="all">All Scenes ({activeEpisode?.shots.length || 0} Shots)</option>
+                              {availableScenes.map(s => (<option key={s.id} value={s.id}>{s.id} {s.title}</option>))}
+                          </select>
+                          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                              <select value={activeShotId || ''} onChange={(e) => setActiveShotId(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-xs rounded px-3 py-2 appearance-none focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono" disabled={!sceneShots.length}>
+                                {sceneShots.length ? sceneShots.map(s => (<option key={s.id} value={s.id}>Shot {s.id}</option>)) : <option>No Shots</option>}
+                              </select>
+                              <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
+                          </div>
+                          <div className="flex border border-gray-300 dark:border-gray-700 rounded overflow-hidden">
+                              <button onClick={() => navigateShot('prev')} disabled={isFirstShot} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30 transition-colors border-r border-gray-300 dark:border-gray-700"><ChevronLeft size={14} /></button>
+                              <button onClick={() => navigateShot('next')} disabled={isLastShot} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-30 transition-colors"><ChevronRight size={14} /></button>
+                          </div>
                       </div>
                   </div>
               </div>
-          </div>
+          ) : (
+               <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-center text-xs text-gray-500">
+                   No script loaded. Running in Sandbox Mode.
+               </div>
+          )}
+
+          {/* Task Monitor (New) */}
+          {activeTasks.length > 0 && (
+             <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+                <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-2"><Layers size={12} /> Task Queue</span>
+                    <span className="text-indigo-600 dark:text-indigo-400">{activeTasks.length} Active</span>
+                </h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
+                    {activeTasks.map((task, idx) => (
+                        <div key={idx} className="bg-white dark:bg-gray-800 rounded p-2 flex items-center justify-between border border-gray-200 dark:border-gray-700 shadow-sm">
+                             <div className="truncate flex-1 pr-2">
+                                 <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">{task.epTitle} / {task.shotId}</div>
+                                 <div className="flex items-center gap-1.5 mt-0.5">
+                                     <div className={`w-1.5 h-1.5 rounded-full ${task.status === 'queued' ? 'bg-yellow-500 animate-pulse' : 'bg-indigo-500 animate-pulse'}`}></div>
+                                     <span className="text-[10px] text-gray-700 dark:text-gray-300 font-medium">{task.status === 'queued' ? 'Queued' : 'Generating'}</span>
+                                 </div>
+                             </div>
+                             <div className="text-[10px] text-gray-500 font-mono">
+                                 <GenerationTimer startTime={task.startTime} />
+                             </div>
+                        </div>
+                    ))}
+                </div>
+             </div>
+          )}
+
           {activeShot ? (
               <>
-                 <div className="flex-1 overflow-y-auto p-0 border-b border-gray-800">
-                    <div className="px-4 py-2 bg-gray-800/30 border-b border-gray-800 text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2">
+                 <div className="flex-1 overflow-y-auto p-0 border-b border-gray-200 dark:border-gray-800">
+                    <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800 text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2">
                         <AlignLeft size={10} /> Shot Details
                     </div>
                     <div className="p-4 space-y-4">
-                        <div><p className="text-sm text-gray-200 leading-relaxed font-medium">{activeShot.description}</p></div>
-                        {activeShot.dialogue && (<div className="pl-3 border-l-2 border-indigo-500/50"><span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Dialogue</span><p className="text-sm text-gray-300 italic">"{activeShot.dialogue}"</p></div>)}
+                        <div><p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium">{activeShot.description}</p></div>
+                        {activeShot.dialogue && (<div className="pl-3 border-l-2 border-indigo-500/50"><span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Dialogue</span><p className="text-sm text-gray-600 dark:text-gray-300 italic">"{activeShot.dialogue}"</p></div>)}
                         <div className="flex flex-wrap gap-2 pt-2">
-                            <span className="text-[10px] px-2 py-0.5 bg-gray-800 rounded text-gray-400 border border-gray-700">{activeShot.shotType}</span>
-                            <span className="text-[10px] px-2 py-0.5 bg-gray-800 rounded text-gray-400 border border-gray-700">{activeShot.movement}</span>
-                            <span className="text-[10px] px-2 py-0.5 bg-gray-800 rounded text-gray-400 border border-gray-700">{activeShot.duration}</span>
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">{activeShot.shotType}</span>
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">{activeShot.movement}</span>
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">{activeShot.duration}</span>
                         </div>
                     </div>
                  </div>
-                 <div className="flex-1 overflow-y-auto bg-gray-900/50">
-                    <div className="px-4 py-2 bg-gray-800/30 border-b border-gray-800 text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2"><FileText size={10} /> Original Script</div>
-                    <div className="p-4"><p className="text-xs text-gray-400 font-serif whitespace-pre-wrap leading-relaxed opacity-80">{activeScene?.content || "Select a specific scene to view script context."}</p></div>
+                 <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900/50">
+                    <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800 text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2"><FileText size={10} /> Original Script</div>
+                    <div className="p-4"><p className="text-xs text-gray-500 dark:text-gray-400 font-serif whitespace-pre-wrap leading-relaxed opacity-80">{activeScene?.content || "Select a specific scene to view script context."}</p></div>
                  </div>
               </>
           ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-600 italic text-xs p-8 text-center">Select a shot to view details.</div>
+              <div className="flex-1 flex items-center justify-center text-gray-500 italic text-xs p-8 text-center">
+                  {episodes.length > 0 ? "Select a shot to view details." : "Generated shots will appear here."}
+              </div>
           )}
       </div>
     </div>
