@@ -119,6 +119,19 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
     episodes.push(currentEpisode);
   }
 
+  // Fallback: if no episode headers were found, treat entire script as a single episode
+  if (episodes.length === 0 && normalizedText.trim().length > 0) {
+    const fullContent = normalizedText.trim();
+    episodes.push({
+      id: 1,
+      title: "第1集",
+      content: fullContent,
+      scenes: parseScenes(fullContent),
+      shots: [],
+      status: 'pending'
+    });
+  }
+
   return episodes;
 };
 
