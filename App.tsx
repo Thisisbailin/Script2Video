@@ -210,6 +210,15 @@ const App: React.FC = () => {
       };
   }, [projectData, isSignedIn, isLoaded, hasLoadedRemote, getToken]);
 
+  // Clamp current episode index when episodes change (e.g., after remote sync)
+  useEffect(() => {
+      if (projectData.episodes.length === 0) {
+          setCurrentEpIndex(0);
+      } else if (currentEpIndex >= projectData.episodes.length) {
+          setCurrentEpIndex(0);
+      }
+  }, [projectData.episodes.length]);
+
   // --- GLOBAL VIDEO TASK POLLING LOOP ---
   useEffect(() => {
       const intervalId = setInterval(async () => {
@@ -1179,7 +1188,7 @@ const App: React.FC = () => {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Video size={18} className="text-white" />
           </div>
-          <h1 className="font-bold text-lg tracking-tight text-gray-900 dark:text-gray-100">Script2Video AI Director</h1>
+          <h1 className="font-bold text-lg tracking-tight text-gray-900 dark:text-gray-100">Script2Video</h1>
           <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
              {config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | {getActiveModelName()}
           </span>
@@ -1631,23 +1640,29 @@ const App: React.FC = () => {
 
         {/* Workspace */}
         <section className="flex-1 overflow-hidden relative bg-white dark:bg-gray-950">
+           {/** Safely resolve current episode */}
+           {/** Use first episode if index is out of range */}
+           {(() => {
+              const currentEpisode = projectData.episodes[currentEpIndex] || projectData.episodes[0];
+              return (
+                <>
            {activeTab === 'assets' && (
                <AssetsBoard data={projectData} onAssetLoad={handleAssetLoad} />
            )}
            {activeTab === 'script' && (
               <div className="h-full p-8 overflow-auto bg-white dark:bg-gray-950">
-                  <div className="max-w-3xl mx-auto bg-white dark:bg-gray-900 shadow-xl min-h-[calc(100%-2rem)] p-12 border border-gray-100 dark:border-gray-800 relative">
-                     {projectData.episodes.length > 0 && (
-                        <div className="absolute top-4 right-8 text-xs text-gray-400 font-mono">
-                            Reading: {projectData.episodes[currentEpIndex].title}
-                        </div>
-                     )}
+                 <div className="max-w-3xl mx-auto bg-white dark:bg-gray-900 shadow-xl min-h-[calc(100%-2rem)] p-12 border border-gray-100 dark:border-gray-800 relative">
+                    {currentEpisode && (
+                       <div className="absolute top-4 right-8 text-xs text-gray-400 font-mono">
+                           Reading: {currentEpisode.title}
+                       </div>
+                    )}
                      <pre className="whitespace-pre-wrap font-serif text-lg leading-relaxed text-gray-800 dark:text-gray-300">
-                         {projectData.episodes.length > 0 
-                            ? projectData.episodes[currentEpIndex].content 
-                            : projectData.rawScript || <span className="text-gray-400 italic">No script loaded. Upload a text file in Assets.</span>}
+                        {currentEpisode
+                           ? currentEpisode.content 
+                           : projectData.rawScript || <span className="text-gray-400 italic">No script loaded. Upload a text file in Assets.</span>}
                      </pre>
-                  </div>
+                 </div>
               </div>
            )}
            {activeTab === 'understanding' && (
@@ -1679,6 +1694,9 @@ const App: React.FC = () => {
            {activeTab === 'stats' && (
               <Dashboard data={projectData} isDarkMode={isDarkMode} />
            )}
+                </>
+              );
+           })()}
         </section>
 
       </main>
