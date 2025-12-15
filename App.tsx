@@ -123,6 +123,21 @@ const App: React.FC = () => {
   const [analysisQueue, setAnalysisQueue] = useState<any[]>([]);
   const [analysisTotal, setAnalysisTotal] = useState(0);
 
+  const isEpisodeSoraComplete = (ep?: Episode) => {
+      if (!ep || ep.shots.length === 0) return false;
+      return ep.status === 'review_sora' || ep.shots.every(s => s.soraPrompt && s.soraPrompt.trim().length > 0);
+  };
+
+  const findNextSoraIndex = (startIndex = 0) => {
+      const episodesList = projectDataRef.current.episodes || [];
+      for (let i = startIndex; i < episodesList.length; i++) {
+          const ep = episodesList[i];
+          if (!ep || ep.shots.length === 0) continue;
+          if (!isEpisodeSoraComplete(ep)) return i;
+      }
+      return -1;
+  };
+
   // --- Cloud Sync Helpers ---
   const dropFileReplacer = (_key: string, value: any) => {
       if (typeof File !== 'undefined' && value instanceof File) return undefined;
@@ -881,24 +896,76 @@ const App: React.FC = () => {
         alert("No shots found to generate prompts for. Please complete Phase 2 or Import a Shot List CSV.");
         return;
     }
-    setCurrentEpIndex(0);
-    generateCurrentEpisodeSora(0);
+    const pendingFromCurrent = findNextSoraIndex(currentEpIndex);
+    const startIndex = pendingFromCurrent !== -1 ? pendingFromCurrent : findNextSoraIndex(0);
+    if (startIndex === -1) {
+        alert("All Prompts Generated! Workflow is ready for Video Studio.");
+        setStep(WorkflowStep.COMPLETED);
+        setCurrentEpIndex(0);
+        return;
+    }
+    setStep(WorkflowStep.GENERATE_SORA);
+    setCurrentEpIndex(startIndex);
+    generateCurrentEpisodeSora(startIndex, false);
   };
 
-  const generateCurrentEpisodeSora = async (index: number) => {
-    if (index >= projectData.episodes.length) {
+  const continueNextEpisodeSora = () => {
+    if (isProcessing) return;
+    const nextIndex = findNextSoraIndex(currentEpIndex + 1);
+    if (nextIndex === -1) {
+        alert("All Prompts Generated! Workflow is ready for Video Studio.");
+        setStep(WorkflowStep.COMPLETED);
+        setCurrentEpIndex(0);
+        return;
+    }
+    setCurrentEpIndex(nextIndex);
+    generateCurrentEpisodeSora(nextIndex, false);
+  };
+
+  const retryCurrentEpisodeSora = () => {
+    if (isProcessing) return;
+    const idx = currentEpIndex;
+    const targetEp = projectData.episodes[idx];
+    if (!targetEp) return;
+
+    setProjectData(prev => {
+        const newEpisodes = [...prev.episodes];
+        const ep = newEpisodes[idx];
+        if (ep) {
+            const clearedShots = ep.shots.map(s => ({ ...s, soraPrompt: '' }));
+            newEpisodes[idx] = { ...ep, shots: clearedShots, soraGenUsage: undefined, status: 'pending' as any };
+        }
+        const updated = { ...prev, episodes: newEpisodes };
+        projectDataRef.current = updated;
+        return updated;
+    });
+    generateCurrentEpisodeSora(idx, false, true);
+  };
+
+  const generateCurrentEpisodeSora = async (index: number, autoAdvance = false, forceRegenerate = false) => {
+    const episodesList = projectDataRef.current.episodes || [];
+    if (index >= episodesList.length) {
       setStep(WorkflowStep.COMPLETED);
       alert("All Prompts Generated! Workflow is ready for Video Studio.");
       setCurrentEpIndex(0);
+      setIsProcessing(false);
       return;
     }
 
-    const episode = projectData.episodes[index];
-    if (episode.shots.length === 0) {
-      const next = index + 1;
-      setCurrentEpIndex(next);
-      generateCurrentEpisodeSora(next);
-      return;
+    const episode = episodesList[index];
+    if (!episode) return;
+
+    if (episode.shots.length === 0 || isEpisodeSoraComplete(episode)) {
+      const nextIndex = findNextSoraIndex(index + 1);
+      if (nextIndex === -1) {
+          setStep(WorkflowStep.COMPLETED);
+          alert("All Prompts Generated! Workflow is ready for Video Studio.");
+          setCurrentEpIndex(0);
+          setIsProcessing(false);
+          return;
+      }
+      setCurrentEpIndex(nextIndex);
+      return generateCurrentEpisodeSora(nextIndex);
     }
 
     const shouldResume = episode.status === 'error';
@@ -924,6 +991,7 @@ const App: React.FC = () => {
          chunksMap.get(sceneKey)?.push(shot);
       });
       const shotChunks: Shot[][] = Array.from(chunksMap.values());
+      const { context, soraGuide, globalStyleGuide } = projectDataRef.current;
 
       let currentTotalUsage: TokenUsage = shouldResume && episode.soraGenUsage 
           ? episode.soraGenUsage 
@@ -933,7 +1001,7 @@ const App: React.FC = () => {
          const chunk = shotChunks[i];
          const sceneId = chunk[0].id.split('-').slice(0, -1).join('-');
          const isChunkComplete = chunk.every(s => s.soraPrompt && s.soraPrompt.trim().length > 0);
-         if (shouldResume && isChunkComplete) {
+         if (shouldResume && isChunkComplete && !forceRegenerate) {
              setProcessingStatus(`Skipping completed Scene ${sceneId} (${i+1}/${shotChunks.length})...`);
              await new Promise(r => setTimeout(r, 100));
              continue;
@@ -944,9 +1012,9 @@ const App: React.FC = () => {
          const result = await GeminiService.generateSoraPrompts(
              config.textConfig,
              chunk,
-             projectData.context,
-             projectData.soraGuide,
-             projectData.globalStyleGuide
+             context,
+             soraGuide,
+             globalStyleGuide
          );
 
          currentTotalUsage = GeminiService.addUsage(currentTotalUsage, result.usage);
@@ -982,9 +1050,23 @@ const App: React.FC = () => {
         return { ...prev, episodes: newEpisodes };
       });
 
-      setIsProcessing(false);
       updateStats('soraGen', true);
       setActiveTab('table');
+      setIsProcessing(false);
+      setCurrentEpIndex(index);
+
+      const remaining = findNextSoraIndex(0);
+      if (remaining === -1) {
+          setStep(WorkflowStep.COMPLETED);
+          alert("All Prompts Generated! Workflow is ready for Video Studio.");
+          setCurrentEpIndex(0);
+          return;
+      }
+
+      if (autoAdvance) {
+          setCurrentEpIndex(remaining);
+          return generateCurrentEpisodeSora(remaining, true);
+      }
     } catch (e: any) {
       console.error(e);
       setProjectData(prev => {
@@ -1561,23 +1643,42 @@ const App: React.FC = () => {
                     {/* Phase 3: Sora Gen */}
                     {(step === WorkflowStep.GENERATE_SORA) && (
                         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                             <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 3: Sora Prompts</h3>
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 3: Sora Prompts</h3>
                              <div className="space-y-3">
                                 <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
                                     <span>Progress</span>
-                                    <span>{currentEpIndex + 1} / {projectData.episodes.length}</span>
+                                    <span>{projectData.episodes.filter(isEpisodeSoraComplete).length} / {projectData.episodes.length}</span>
                                 </div>
                                 <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-indigo-500 h-full transition-all duration-500" style={{ width: `${((currentEpIndex)/projectData.episodes.length)*100}%` }}></div>
+                                    <div className="bg-indigo-500 h-full transition-all duration-500" style={{ width: `${projectData.episodes.length ? (projectData.episodes.filter(isEpisodeSoraComplete).length / projectData.episodes.length)*100 : 0}%` }}></div>
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    当前集：{projectData.episodes[currentEpIndex]?.title || `Episode ${currentEpIndex + 1}`}
                                 </div>
                                 {isProcessing ? (
                                     <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded">
                                         <Loader2 className="animate-spin" size={12}/> Writing Prompts...
                                     </div>
                                 ) : (
-                                    <button onClick={startPhase3} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors">
-                                        {currentEpIndex === 0 ? "Start Prompt Generation" : "Continue Generation"}
-                                    </button>
+                                    <div className="space-y-2">
+                                        <button onClick={startPhase3} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors">
+                                            Generate / Resume Current Episode
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button 
+                                                onClick={retryCurrentEpisodeSora} 
+                                                className="w-full py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-[11px] font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+                                            >
+                                                Retry This Episode
+                                            </button>
+                                            <button 
+                                                onClick={continueNextEpisodeSora} 
+                                                className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:hover:bg-indigo-800/60 dark:text-indigo-200 rounded text-[11px] font-semibold transition-colors"
+                                            >
+                                                Continue Next Episode
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
                              </div>
                         </div>

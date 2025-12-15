@@ -4,7 +4,20 @@ import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, T
 // --- HELPERS ---
 
 // Helper to init Gemini client
-const getGeminiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getGeminiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
+
+// Resolve API key from user config first, then fall back to env
+const resolveGeminiApiKey = (config: TextServiceConfig): string => {
+    const configKey = config.apiKey?.trim();
+    const envKey = (typeof import.meta !== 'undefined' ? import.meta.env.VITE_GEMINI_API_KEY : undefined)
+        || (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : undefined);
+    
+    const apiKey = configKey || envKey;
+    if (!apiKey) {
+        throw new Error("Gemini API key missing. Please add it in Settings or set VITE_GEMINI_API_KEY in your env.");
+    }
+    return apiKey;
+};
 
 // Helper to map Google Schema to JSON Schema (Simplified for OpenRouter)
 const googleSchemaToJsonSchema = (schema: Schema): any => {
@@ -52,7 +65,8 @@ const generateText = async (
     
     // 1. GEMINI PROVIDER
     if (config.provider === 'gemini') {
-        const ai = getGeminiClient();
+        const apiKey = resolveGeminiApiKey(config);
+        const ai = getGeminiClient(apiKey);
         const modelName = config.model || 'gemini-2.5-flash';
         
         try {

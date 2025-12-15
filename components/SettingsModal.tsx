@@ -211,9 +211,21 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                  ))}
                                </select>
                            </div>
-                           <div className="flex items-center gap-2 text-xs text-gray-500">
-                               <CheckCircle size={12} className="text-green-500"/> 
-                               <span>Using default API Key (process.env.API_KEY)</span>
+                           <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                                     <Key size={14}/> API Key
+                                </label>
+                                <input
+                                    type="password"
+                                    placeholder="AIza..."
+                                    value={config.textConfig.apiKey || ''}
+                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
+                                    className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                    <CheckCircle size={12} className="text-green-500" />
+                                    支持手动填写，留空时会使用环境变量 VITE_GEMINI_API_KEY。
+                                </p>
                            </div>
                        </div>
                    ) : (
