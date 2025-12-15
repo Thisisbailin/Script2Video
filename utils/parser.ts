@@ -59,15 +59,6 @@ const normalizeScriptText = (text: string): string => {
     cleanText = cleanText.replace(/([^\n])(第\s*[0-90-9零一二三四五六七八九十百千两]+\s*集)/g, '$1\n\n$2');
     cleanText = cleanText.replace(/(第\s*[0-90-9零一二三四五六七八九十百千两]+\s*集)([^\n])/g, '$1\n\n$2');
 
-    // 2. Force newline before "Scene Headers" (e.g. 1-1 SceneName)
-    // Avoids matching things inside text like "1-1 draw" unless it looks like a header
-    // Regex: Look for pattern "Digits-Digits Space Text"
-    // Note: This is aggressive, but necessary for the "1-1 ... content" on same line bug
-    cleanText = cleanText.replace(/([^\n])([0-9０-９]{1,4}\s*[-－–—]\s*[0-9０-９]{1,4}\s*)/g, '$1\n$2');
-    
-    // 3. Optional: If a line starts with a scene header but is extremely long, split it?
-    // It's safer to let the `parseScenes` logic handle content, but ensuring the header start is on a new line is key.
-
     return cleanText;
 };
 
