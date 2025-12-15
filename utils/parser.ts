@@ -2,16 +2,18 @@
 import { Episode, Shot, Scene } from "../types";
 
 // Helper: Parse scenes from episode content
+const normalizeDigits = (text: string) =>
+  text.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
+
 const parseScenes = (episodeContent: string): Scene[] => {
   const lines = episodeContent.split(/\r?\n/);
   const scenes: Scene[] = [];
   let currentScene: Scene | null = null;
   let buffer: string[] = [];
 
-  // Regex for "1-1 Scene Name" or "1-1+SceneName"
+  // Regex for "12-1 场景名" 或 "１２－１场景名"（支持多位数，空格可选，半/全角横线，半/全角数字）
   // Captures: 1: EpisodeNum, 2: SceneNum, 3: Title (rest of line)
-  // [ \t+]+ matches spaces, tabs, or literal plus signs acting as separators
-  const sceneHeaderRegex = /^\s*(\d+)-(\d+)(?:[ \t+]+)(.+)$/;
+  const sceneHeaderRegex = /^\s*([0-9０-９]{1,4})\s*[-－–—]\s*([0-9０-９]{1,4})\s*(.+)$/;
 
   lines.forEach(line => {
     const match = line.match(sceneHeaderRegex);
@@ -23,7 +25,7 @@ const parseScenes = (episodeContent: string): Scene[] => {
       }
       
       buffer = [];
-      const sceneId = `${match[1]}-${match[2]}`; // e.g. 1-1
+      const sceneId = `${normalizeDigits(match[1])}-${normalizeDigits(match[2])}`; // e.g. 16-1
       const sceneTitle = match[3].trim();
       
       currentScene = {
@@ -31,7 +33,7 @@ const parseScenes = (episodeContent: string): Scene[] => {
         title: sceneTitle,
         content: ''
       };
-      buffer.push(line);
+      // Do not include the header line in content buffer to avoid duplication
     } else {
       if (currentScene) {
         buffer.push(line);
@@ -61,7 +63,7 @@ const normalizeScriptText = (text: string): string => {
     // Avoids matching things inside text like "1-1 draw" unless it looks like a header
     // Regex: Look for pattern "Digits-Digits Space Text"
     // Note: This is aggressive, but necessary for the "1-1 ... content" on same line bug
-    cleanText = cleanText.replace(/([^\n])(\d+-\d+\s+)/g, '$1\n$2');
+    cleanText = cleanText.replace(/([^\n])([0-9０-９]{1,4}\s*[-－–—]\s*[0-9０-９]{1,4}\s*)/g, '$1\n$2');
     
     // 3. Optional: If a line starts with a scene header but is extremely long, split it?
     // It's safer to let the `parseScenes` logic handle content, but ensuring the header start is on a new line is key.

@@ -1706,20 +1706,37 @@ const App: React.FC = () => {
            )}
            {activeTab === 'script' && (
               <div className="h-full p-8 overflow-auto bg-white dark:bg-gray-950">
-                 <div className="max-w-3xl mx-auto bg-white dark:bg-gray-900 shadow-xl min-h-[calc(100%-2rem)] p-12 border border-gray-100 dark:border-gray-800 relative">
+                  <div className="max-w-4xl mx-auto space-y-8">
                     {currentEpisode && (
-                       <div className="absolute top-4 right-8 text-xs text-gray-400 font-mono">
-                           Reading: {currentEpisode.title}
-                       </div>
-                    )}
-                     <pre className="whitespace-pre-wrap font-serif text-lg leading-relaxed text-gray-800 dark:text-gray-300">
-                        {currentEpisode
-                           ? currentEpisode.content 
-                           : projectData.rawScript || <span className="text-gray-400 italic">No script loaded. Upload a text file in Assets.</span>}
-                     </pre>
-                 </div>
-              </div>
-           )}
+                        <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+                           {currentEpisode.title}
+                        </h3>
+                     )}
+                     {currentEpisode && currentEpisode.scenes && currentEpisode.scenes.length > 0 ? (
+                        <div className="space-y-6">
+                            {currentEpisode.scenes.map((scene) => (
+                                <div key={scene.id} className="border border-gray-200 dark:border-gray-800 rounded-lg p-5 bg-white/50 dark:bg-gray-900/60">
+                                    <div className="mb-3">
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                            {scene.id} {scene.title}
+                                        </h4>
+                                    </div>
+                                    <pre className="whitespace-pre-wrap font-serif text-base leading-relaxed text-gray-800 dark:text-gray-300">
+                                        {scene.content || '（空场景）'}
+                                    </pre>
+                                </div>
+                            ))}
+                        </div>
+                     ) : (
+                        <pre className="whitespace-pre-wrap font-serif text-lg leading-relaxed text-gray-800 dark:text-gray-300">
+                            {currentEpisode
+                               ? currentEpisode.content 
+                               : projectData.rawScript || <span className="text-gray-400 italic">No script loaded. Upload a text file in Assets.</span>}
+                        </pre>
+                     )}
+                  </div>
+               </div>
+            )}
            {activeTab === 'understanding' && (
               <ContentBoard data={projectData} onSelectEpisode={(idx) => {
                   setCurrentEpIndex(idx);
