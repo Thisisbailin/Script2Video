@@ -19,19 +19,41 @@ const PROJECT_STORAGE_KEY = 'script2video_project_v1';
 const CONFIG_STORAGE_KEY = 'script2video_config_v1';
 const UI_STATE_STORAGE_KEY = 'script2video_ui_state_v1';
 const THEME_STORAGE_KEY = 'script2video_theme_v1';
+const LOCAL_BACKUP_KEY = 'script2video_local_backup';
+const REMOTE_BACKUP_KEY = 'script2video_remote_backup';
 
 const App: React.FC = () => {
   // Clerk Auth Hooks
   const { isSignedIn, user, isLoaded } = useUser();
   const { openSignIn, signOut } = useClerk();
   const { getToken } = useAuth();
+  const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
   // Initialize state with Lazy Initializers for Persistence
-  
+
+  const normalizeProjectData = (data: any): ProjectData => {
+      const base: ProjectData = {
+          ...INITIAL_PROJECT_DATA,
+          ...data,
+          context: { ...INITIAL_PROJECT_DATA.context, ...(data?.context || {}) },
+          phase1Usage: { ...INITIAL_PROJECT_DATA.phase1Usage, ...(data?.phase1Usage || {}) },
+          phase4Usage: data?.phase4Usage || INITIAL_PROJECT_DATA.phase4Usage,
+          phase5Usage: data?.phase5Usage || INITIAL_PROJECT_DATA.phase5Usage,
+          stats: { ...INITIAL_PROJECT_DATA.stats, ...(data?.stats || {}) }
+      };
+      base.episodes = Array.isArray(data?.episodes) ? data.episodes : [];
+      base.shotGuide = data?.shotGuide || INITIAL_PROJECT_DATA.shotGuide;
+      base.soraGuide = data?.soraGuide || INITIAL_PROJECT_DATA.soraGuide;
+      base.globalStyleGuide = data?.globalStyleGuide || INITIAL_PROJECT_DATA.globalStyleGuide;
+      base.rawScript = typeof data?.rawScript === 'string' ? data.rawScript : '';
+      base.fileName = typeof data?.fileName === 'string' ? data.fileName : '';
+      return base;
+  };
+
   const [projectData, setProjectData] = useState<ProjectData>(() => {
       try {
           const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
-          return saved ? JSON.parse(saved) : INITIAL_PROJECT_DATA;
+          return saved ? normalizeProjectData(JSON.parse(saved)) : INITIAL_PROJECT_DATA;
       } catch (e) {
           console.error("Failed to load project from local storage", e);
           return INITIAL_PROJECT_DATA;
@@ -106,6 +128,18 @@ const App: React.FC = () => {
       if (typeof File !== 'undefined' && value instanceof File) return undefined;
       return value;
   };
+  const isProjectEmpty = (data: ProjectData) => {
+      const hasEps = Array.isArray(data.episodes) && data.episodes.length > 0;
+      const hasScript = !!(data.rawScript && data.rawScript.trim().length > 0);
+      return !hasEps && !hasScript;
+  };
+  const backupData = (key: string, data: ProjectData) => {
+      try {
+          localStorage.setItem(key, JSON.stringify(data, dropFileReplacer));
+      } catch (e) {
+          console.warn(`Failed to backup data to ${key}`, e);
+      }
+  };
 
   // --- Persistence Effects ---
   useEffect(() => {
@@ -114,6 +148,9 @@ const App: React.FC = () => {
       } catch (e) {
           console.error("Failed to save project to local storage (quota exceeded?)", e);
       }
+  }, [projectData]);
+  useEffect(() => {
+      projectDataRef.current = projectData;
   }, [projectData]);
 
   useEffect(() => {
@@ -159,7 +196,25 @@ const App: React.FC = () => {
 
               const data = await res.json();
               if (!cancelled && data.projectData) {
-                  setProjectData(data.projectData);
+                  const remote = normalizeProjectData(data.projectData);
+                  const local = projectDataRef.current;
+                  const remoteHas = !isProjectEmpty(remote);
+                  const localHas = !isProjectEmpty(local);
+
+                  if (remoteHas && localHas) {
+                      const useRemote = window.confirm(
+                        "检测到云端和本地均有数据。\n确定：使用云端覆盖本地（本地备份会保留）\n取消：保留本地并上传到云端（云端数据将备份）"
+                      );
+                      if (useRemote) {
+                          backupData(LOCAL_BACKUP_KEY, local);
+                          setProjectData(remote);
+                      } else {
+                          backupData(REMOTE_BACKUP_KEY, remote);
+                          // 保留本地，后续自动保存会推送到云端
+                      }
+                  } else if (remoteHas) {
+                      setProjectData(remote);
+                  }
               }
               if (!cancelled) setHasLoadedRemote(true);
           } catch (e) {
