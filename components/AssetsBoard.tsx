@@ -103,8 +103,8 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
                     {/* Style Guide */}
                     <input type="file" ref={globalStyleInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'globalStyleGuide')} />
                     <AssetCard 
-                        title="Visual Style Bible"
-                        desc="Project-wide visual direction and tone."
+                        title="Visual Style Bible (Optional)"
+                        desc="Project-wide visual direction and tone. Optional to upload."
                         icon={Palette}
                         isLoaded={!!data.globalStyleGuide}
                         fileName={data.globalStyleGuide ? 'Style Guide Loaded' : undefined}
@@ -115,8 +115,8 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
                     {/* CSV Import */}
                     <input type="file" ref={csvInputRef} className="hidden" accept=".csv" onChange={(e) => handleFileChange(e, 'csvShots')} />
                     <AssetCard 
-                        title="Import CSV Shots"
-                        desc="Restore shot lists from a previous export."
+                        title="Import CSV Shots (Optional)"
+                        desc="Restore shot lists from a previous export. Optional."
                         icon={FileSpreadsheet}
                         isLoaded={false} // CSV import is an action, not a state usually, or check episodes
                         fileName={data.episodes.some(e => e.shots.length > 0) ? `${data.episodes.reduce((acc,e)=>acc+e.shots.length,0)} Shots Loaded` : undefined}
