@@ -12,6 +12,7 @@
     "@clerk/backend": "^1.15.1",
     "@clerk/clerk-react": "^5.26.0",
     "@google/genai": "^1.30.0",
+    "@supabase/supabase-js": "^2.88.0",
     "@xyflow/react": "^12.10.0",
     "konva": "^9.3.22",
     "lucide-react": "^0.555.0",
