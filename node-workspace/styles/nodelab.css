@@ -1,0 +1,103 @@
+/* Base canvas */
+.node-lab-canvas {
+  background: #0a0a0a;
+  color: #fafafa;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* React Flow nodes inherit font */
+.react-flow__node {
+  font-family: inherit;
+}
+
+/* Handles */
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.react-flow__handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.react-flow__handle[data-handletype="image"] {
+  background: #10b981;
+}
+
+.react-flow__handle[data-handletype="text"],
+.react-flow__handle[data-handletype="prompt"] {
+  background: #3b82f6;
+}
+
+.react-flow__edge-path {
+  stroke: #94a3b8;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #3b82f6;
+}
+
+/* Controls */
+.react-flow__controls {
+  background: #262626 !important;
+  border: 1px solid #404040 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+}
+
+.react-flow__controls-button {
+  background: #262626 !important;
+  border-bottom: 1px solid #404040 !important;
+}
+
+.react-flow__controls-button svg,
+.react-flow__controls-button svg path {
+  fill: #d4d4d4 !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #404040 !important;
+}
+
+.react-flow__controls-button:hover svg,
+.react-flow__controls-button:hover svg path {
+  fill: #fafafa !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #262626;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #525252;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #737373;
+}

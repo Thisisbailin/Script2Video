@@ -13,6 +13,7 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import "../styles/nodelab.css";
 import { useWorkflowStore } from "../store/workflowStore";
 import { getNodeHandles, isValidConnection } from "../utils/handles";
 import { WorkflowFile, WorkflowNodeData, NodeType } from "../types";

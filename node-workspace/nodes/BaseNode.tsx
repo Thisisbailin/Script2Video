@@ -26,6 +26,7 @@ export const BaseNode: React.FC<Props> = ({ title, children, inputs = [], output
           id={h}
           className={`${handleColor(h)} w-2.5 h-2.5`}
           style={{ top: 24 + idx * 16 }}
+          data-handletype={h}
         />
       ))}
       {outputs.map((h, idx) => (
@@ -36,6 +37,7 @@ export const BaseNode: React.FC<Props> = ({ title, children, inputs = [], output
           id={h}
           className={`${handleColor(h)} w-2.5 h-2.5`}
           style={{ top: 24 + idx * 16 }}
+          data-handletype={h}
         />
       ))}
     </div>
