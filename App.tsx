@@ -106,6 +106,14 @@ const App: React.FC = () => {
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
   
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = usePersistedState<string>({
+      key: 'script2video_avatar_url',
+      initialValue: '',
+      deserialize: (v) => JSON.parse(v),
+      serialize: (v) => JSON.stringify(v)
+  });
+  const hasFetchedProfileAvatar = useRef(false);
   
   // Processing Queues for Phase 1 Batches handled via reducer
 
@@ -149,6 +157,24 @@ const App: React.FC = () => {
       setConfig,
       debounceMs: 1200
   });
+
+  // Fetch avatar from profile (account-scoped) once per session
+  useEffect(() => {
+      const fetchProfile = async () => {
+          if (!isSignedIn || !isLoaded || hasFetchedProfileAvatar.current) return;
+          hasFetchedProfileAvatar.current = true;
+          try {
+              const res = await fetch('/api/profile', { headers: { authorization: `Bearer ${await getToken()}` } });
+              if (res.ok) {
+                  const data = await res.json();
+                  if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
+              }
+          } catch (e) {
+              console.warn('Fetch profile avatar failed', e);
+          }
+      };
+      fetchProfile();
+  }, [isSignedIn, isLoaded, getToken, setAvatarUrl]);
 
   // Clamp current episode index when episodes change (e.g., after remote sync)
   useEffect(() => {
@@ -295,8 +321,70 @@ const App: React.FC = () => {
           setActiveTab('assets');
           localStorage.removeItem(PROJECT_STORAGE_KEY);
           localStorage.removeItem(UI_STATE_STORAGE_KEY);
+          setAvatarUrl('');
           window.location.reload(); 
       }
+  };
+
+  const handleAvatarUploadClick = () => {
+      avatarFileInputRef.current?.click();
+  };
+
+  const uploadAvatarToSupabase = async (file: File) => {
+      try {
+          const payload = {
+              fileName: `avatars/${Date.now()}-${file.name}`,
+              bucket: 'public-assets',
+              contentType: file.type
+          };
+          const res = await fetch('/api/upload-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error(`Upload URL error ${res.status}`);
+          const data = await res.json();
+          const signedUrl: string = data.signedUrl;
+          if (!signedUrl) throw new Error('No signedUrl returned');
+
+          const uploadRes = await fetch(signedUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': file.type },
+              body: file
+          });
+          if (!uploadRes.ok) {
+              const txt = await uploadRes.text();
+              throw new Error(`Upload failed ${uploadRes.status}: ${txt}`);
+          }
+
+          const publicUrl: string | undefined = data.publicUrl;
+          const storedUrl = publicUrl || data.path || '';
+          if (!storedUrl) throw new Error('No public URL/path returned');
+          setAvatarUrl(storedUrl);
+          // Save to profile for multi-device sync
+          try {
+              const token = await getToken();
+              if (token) {
+                  await fetch('/api/profile', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ avatarUrl: storedUrl })
+                  });
+              }
+          } catch (e) {
+              console.warn('Save profile avatar failed', e);
+          }
+          alert('头像已上传并应用（Supabase public-assets）');
+      } catch (e: any) {
+          alert(`上传头像失败: ${e.message || e}`);
+      }
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      uploadAvatarToSupabase(file);
+      e.target.value = '';
   };
 
   const handleAssetLoad = (type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'csvShots', content: string, fileName?: string) => {
@@ -910,15 +998,17 @@ const App: React.FC = () => {
         user,
         onSignIn: () => openSignIn(),
         onSignOut: () => signOut(),
-        onOpenSettings: () => setIsSettingsOpen(true),
-        onReset: handleResetProject,
-        isUserMenuOpen,
-        setIsUserMenuOpen
-      }}
-      activeModelLabel={activeModelLabel}
-      projectData={projectData}
-      config={config}
-    />
+      onOpenSettings: () => setIsSettingsOpen(true),
+      onReset: handleResetProject,
+      isUserMenuOpen,
+      setIsUserMenuOpen,
+      onUploadAvatar: handleAvatarUploadClick,
+      avatarUrl: avatarUrl || user?.imageUrl
+    }}
+    activeModelLabel={activeModelLabel}
+    projectData={projectData}
+    config={config}
+  />
   );
 
   const sidebarNode = (
@@ -999,6 +1089,13 @@ const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         config={config}
         onConfigChange={setConfig}
+      />
+      <input
+        type="file"
+        accept="image/*"
+        ref={avatarFileInputRef}
+        className="hidden"
+        onChange={handleAvatarFileChange}
       />
       {renderMainContent()}
     </AppShell>

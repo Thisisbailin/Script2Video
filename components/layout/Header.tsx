@@ -1,5 +1,5 @@
 import React from "react";
-import { Video, Download, ChevronDown, Sparkles, User, Shield, Sun, Moon, Settings, Trash2, LogOut } from "lucide-react";
+import { Video, Download, ChevronDown, Sparkles, User, Shield, Sun, Moon, Settings, Trash2, LogOut, Upload } from "lucide-react";
 import { AppConfig, ProjectData } from "../../types";
 
 type HeaderProps = {
@@ -22,6 +22,8 @@ type HeaderProps = {
     onReset: () => void;
     isUserMenuOpen: boolean;
     setIsUserMenuOpen: (v: boolean) => void;
+    onUploadAvatar?: () => void;
+    avatarUrl?: string;
   };
   activeModelLabel: string;
   projectData: ProjectData;
@@ -41,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   account,
   activeModelLabel,
 }) => {
-  const { isLoaded, isSignedIn, user, onSignIn, onSignOut, onOpenSettings, onReset, isUserMenuOpen, setIsUserMenuOpen } = account;
+  const { isLoaded, isSignedIn, user, onSignIn, onSignOut, onOpenSettings, onReset, isUserMenuOpen, setIsUserMenuOpen, onUploadAvatar, avatarUrl } = account;
 
   return (
     <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/50 backdrop-blur flex items-center justify-between px-6 shrink-0 z-20 transition-colors relative">
@@ -102,28 +104,28 @@ export const Header: React.FC<HeaderProps> = ({
           {!isLoaded ? (
             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse ring-2 ring-white dark:ring-gray-900"></div>
           ) : (
-            <>
-              {!isSignedIn && (
-                <button
-                  onClick={onSignIn}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"
+                  <>
+                    {!isSignedIn && (
+                        <button
+                            onClick={onSignIn}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"
                 >
                   <User size={16} /> <span className="hidden sm:inline">Sign In</span>
                 </button>
               )}
 
-              {isSignedIn && user && (
-                <>
-                  <button
-                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center justify-center rounded-full hover:ring-2 ring-indigo-500 transition-all relative z-10"
-                  >
-                    <img
-                      src={user.imageUrl}
-                      alt="Profile"
-                      className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
-                    />
-                  </button>
+                    {isSignedIn && user && (
+                        <>
+                        <button
+                            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                            className="flex items-center justify-center rounded-full hover:ring-2 ring-indigo-500 transition-all relative z-10"
+                        >
+                            <img
+                                src={avatarUrl || user.imageUrl}
+                                alt="Profile"
+                                className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
+                            />
+                        </button>
 
                   {isUserMenuOpen && (
                     <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
@@ -149,7 +151,20 @@ export const Header: React.FC<HeaderProps> = ({
                         </div>
                       </div>
 
-                      <div className="p-2 space-y-1">
+                        <div className="p-2 space-y-1">
+                        {onUploadAvatar && (
+                          <button
+                            onClick={() => {
+                              onUploadAvatar();
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <Upload size={16} />
+                            <span>Upload Avatar (Supabase)</span>
+                          </button>
+                        )}
+
                         <button
                           onClick={onToggleTheme}
                           className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
