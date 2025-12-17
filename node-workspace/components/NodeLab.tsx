@@ -42,7 +42,7 @@ interface ConnectionDropState {
   sourceHandleId: string | null;
 }
 
-export const NodeLab: React.FC = () => {
+const NodeLabInner: React.FC = () => {
   const {
     nodes,
     edges,
@@ -283,5 +283,13 @@ export const NodeLab: React.FC = () => {
 
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileImport} />
     </div>
+  );
+};
+
+export const NodeLab: React.FC = () => {
+  return (
+    <ReactFlowProvider>
+      <NodeLabInner />
+    </ReactFlowProvider>
   );
 };
