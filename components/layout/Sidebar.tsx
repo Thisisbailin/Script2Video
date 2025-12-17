@@ -1,5 +1,5 @@
 import React from "react";
-import { PanelLeftOpen, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, BarChart2, Layers, Film, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { PanelLeftOpen, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, BarChart2, Layers, Film, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { WorkflowStep, AnalysisSubStep, Episode } from "../../types";
 import { isEpisodeSoraComplete } from "../../utils/episodes";
 
