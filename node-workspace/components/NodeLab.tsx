@@ -10,6 +10,7 @@ import {
   EdgeTypes,
   useReactFlow,
   OnConnectEnd,
+  ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "../store/workflowStore";
