@@ -20,6 +20,11 @@ import { WorkflowFile, WorkflowNodeData, NodeType } from "../types";
 import { EditableEdge } from "../edges/EditableEdge";
 import { ImageInputNode, AnnotationNode, PromptNode, ImageGenNode, VideoGenNode, LLMGenerateNode, OutputNode } from "../nodes";
 import { useLabExecutor } from "../store/useLabExecutor";
+import { MultiSelectToolbar } from "./MultiSelectToolbar";
+import { ConnectionDropMenu } from "./ConnectionDropMenu";
+import { GlobalImageHistory } from "./GlobalImageHistory";
+import { Toast } from "./Toast";
+import { AnnotationModal } from "./AnnotationModal";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -179,61 +184,21 @@ const NodeLabInner: React.FC = () => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-50 dark:bg-gray-950">
-      <div className="flex items-center gap-3 p-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <button
-          onClick={() => addNode("prompt", { x: 100, y: 100 })}
-          className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm"
-        >
-          + Prompt
-        </button>
-        <button
-          onClick={() => addNode("imageInput", { x: 200, y: 100 })}
-          className="px-3 py-1.5 rounded bg-green-600 text-white text-sm"
-        >
-          + Image Input
-        </button>
-        <button
-          onClick={() => addNode("imageGen", { x: 300, y: 100 })}
-          className="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm"
-        >
-          + Image Gen
-        </button>
-        <button
-          onClick={() => addNode("videoGen", { x: 400, y: 100 })}
-          className="px-3 py-1.5 rounded bg-purple-600 text-white text-sm"
-        >
-          + Video Gen
-        </button>
-        <button
-          onClick={() => addNode("llmGenerate", { x: 500, y: 100 })}
-          className="px-3 py-1.5 rounded bg-amber-600 text-white text-sm"
-        >
-          + LLM
-        </button>
-        <button
-          onClick={() => addNode("output", { x: 600, y: 100 })}
-          className="px-3 py-1.5 rounded bg-gray-700 text-white text-sm"
-        >
-          + Output
-        </button>
+    <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-white">
+      <LabHeader
+        onAddPrompt={() => addNode("prompt", { x: 100, y: 100 })}
+        onAddImage={() => addNode("imageInput", { x: 200, y: 100 })}
+        onAddLLM={() => addNode("llmGenerate", { x: 300, y: 100 })}
+        onAddImageGen={() => addNode("imageGen", { x: 400, y: 100 })}
+        onAddVideoGen={() => addNode("videoGen", { x: 500, y: 100 })}
+        onAddOutput={() => addNode("output", { x: 600, y: 100 })}
+        onImport={() => fileInputRef.current?.click()}
+        onExport={() => saveWorkflow()}
+        onValidate={warnValidation}
+        onRun={runAll}
+      />
 
-        <div className="flex-1" />
-        <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 rounded bg-gray-200 text-sm">
-          Import
-        </button>
-        <button onClick={() => saveWorkflow()} className="px-3 py-1.5 rounded bg-gray-200 text-sm">
-          Export
-        </button>
-        <button onClick={warnValidation} className="px-3 py-1.5 rounded bg-gray-200 text-sm">
-          Validate
-        </button>
-        <button onClick={runAll} className="px-3 py-1.5 rounded bg-emerald-600 text-white text-sm">
-          Run
-        </button>
-      </div>
-
-      <div className="flex-1 relative">
+      <div className="flex-1 relative node-lab-canvas">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -254,34 +219,27 @@ const NodeLabInner: React.FC = () => {
         </ReactFlow>
 
         {connectionDrop && (
-          <div
-            className="absolute z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg"
-            style={{ left: connectionDrop.position.x, top: connectionDrop.position.y }}
-          >
-            <div className="p-2 text-xs text-gray-500">Create node to complete connection</div>
-            <div className="grid grid-cols-2 gap-1 p-2">
-              <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={() => handleDropCreate("prompt")}>
-                Prompt
-              </button>
-              <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={() => handleDropCreate("imageInput")}>
-                Image Input
-              </button>
-              <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={() => handleDropCreate("imageGen")}>
-                Image Gen
-              </button>
-              <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={() => handleDropCreate("videoGen")}>
-                Video Gen
-              </button>
-              <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={() => handleDropCreate("llmGenerate")}>
-                LLM
-              </button>
-              <button className="px-2 py-1 text-xs bg-gray-100 rounded" onClick={() => handleDropCreate("output")}>
-                Output
-              </button>
-            </div>
-          </div>
+          <ConnectionDropMenu
+            position={connectionDrop.position}
+            onCreate={(t) => handleDropCreate(t)}
+            onClose={() => setConnectionDrop(null)}
+          />
         )}
       </div>
+
+      <FloatingActionBar
+        onAddPrompt={() => addNode("prompt", { x: 100, y: 100 })}
+        onAddImage={() => addNode("imageInput", { x: 200, y: 100 })}
+        onAddLLM={() => addNode("llmGenerate", { x: 300, y: 100 })}
+        onAddImageGen={() => addNode("imageGen", { x: 400, y: 100 })}
+        onAddVideoGen={() => addNode("videoGen", { x: 500, y: 100 })}
+        onAddOutput={() => addNode("output", { x: 600, y: 100 })}
+        onRun={runAll}
+      />
+      <MultiSelectToolbar />
+      <GlobalImageHistory />
+      <Toast />
+      <AnnotationModal />
 
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileImport} />
     </div>

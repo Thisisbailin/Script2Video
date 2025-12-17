@@ -35,6 +35,7 @@ interface WorkflowStore {
   edges: WorkflowEdge[];
   edgeStyle: EdgeStyle;
   clipboard: ClipboardData | null;
+  globalImageHistory: { id: string; image: string; prompt: string; aspectRatio?: string; model?: string; timestamp: number }[];
 
   // Settings
   setEdgeStyle: (style: EdgeStyle) => void;
@@ -73,6 +74,8 @@ interface WorkflowStore {
   getNodeById: (id: string) => WorkflowNode | undefined;
   getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null };
   validateWorkflow: () => { valid: boolean; errors: string[] };
+  addToGlobalHistory: (item: { image: string; prompt: string; aspectRatio?: string; model?: string }) => void;
+  clearGlobalHistory: () => void;
 }
 
 const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
@@ -138,6 +141,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   isRunning: false,
   currentNodeId: null,
   pausedAtNodeId: null,
+  globalImageHistory: [],
 
   setEdgeStyle: (style: EdgeStyle) => set({ edgeStyle: style }),
 
@@ -368,4 +372,10 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   setRunning: (running) => set({ isRunning: running }),
   setCurrentNode: (nodeId) => set({ currentNodeId: nodeId }),
   setPausedNode: (nodeId) => set({ pausedAtNodeId: nodeId }),
+
+  addToGlobalHistory: (item) => {
+    const newItem = { ...item, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, timestamp: Date.now() };
+    set((state) => ({ globalImageHistory: [newItem, ...state.globalImageHistory] }));
+  },
+  clearGlobalHistory: () => set({ globalImageHistory: [] }),
 }));

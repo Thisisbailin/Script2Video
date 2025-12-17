@@ -13,9 +13,12 @@
     "@clerk/clerk-react": "^5.26.0",
     "@google/genai": "^1.30.0",
     "@xyflow/react": "^12.10.0",
+    "konva": "^10.0.12",
     "lucide-react": "^0.555.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-is": "^19.2.3",
+    "react-konva": "^18.2.10",
     "recharts": "^3.5.1",
     "zustand": "^5.0.9"
   },
