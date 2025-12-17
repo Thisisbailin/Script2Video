@@ -94,7 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button onClick={() => setActiveTab('table')} className={`p-2 rounded-lg transition-colors ${activeTab === 'table' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Table"><List size={20} /></button>
         <button onClick={() => setActiveTab('visuals')} className={`p-2 rounded-lg transition-colors ${activeTab === 'visuals' ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400' : 'text-gray-400 hover:text-pink-500'}`} title="Visuals"><Palette size={20} /></button>
         <button onClick={() => setActiveTab('video')} className={`p-2 rounded-lg transition-colors ${activeTab === 'video' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-indigo-500'}`} title="Video Studio"><MonitorPlay size={20} /></button>
-        <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-lg transition-colors ${activeTab === 'stats' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Dashboard"><BarChart2 size={20} /></button>
+                   <button onClick={() => setActiveTab('lab')} className={`p-2 rounded-lg transition-colors ${activeTab === 'lab' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'text-gray-400 hover:text-amber-500'}`} title="Node Lab"><Sparkles size={20} /></button>
+                   <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-lg transition-colors ${activeTab === 'stats' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Dashboard"><BarChart2 size={20} /></button>
       </aside>
     );
   }
@@ -320,6 +321,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'video' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
           >
             <MonitorPlay size={16} /> Video Studio
+          </button>
+          <button
+            onClick={() => setActiveTab('lab')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'lab' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          >
+            <Sparkles size={16} /> Node Lab
           </button>
           <button
             onClick={() => setActiveTab('stats')}

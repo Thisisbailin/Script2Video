@@ -27,6 +27,7 @@ import { ShotsModule } from './modules/shots/ShotsModule';
 import { VisualsModule } from './modules/visuals/VisualsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { MetricsModule } from './modules/metrics/MetricsModule';
+import { NodeLab } from './node-workspace/components/NodeLab';
 import * as GeminiService from './services/geminiService';
 import * as VideoService from './services/videoService';
 
@@ -44,7 +45,7 @@ const App: React.FC = () => {
   const { getToken } = useAuth();
   const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
-  type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats';
+  type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats' | 'lab';
 
   // Initialize state with Persisted hooks
   const [projectData, setProjectData] = usePersistedState<ProjectData>({
@@ -1075,6 +1076,11 @@ const App: React.FC = () => {
           onGenerateVideo={handleGenerateVideo}
           onRemixVideo={handleRemixVideo}
         />
+      )}
+      {activeTab === 'lab' && (
+        <div className="h-full">
+          <NodeLab />
+        </div>
       )}
       {activeTab === 'stats' && (
         <MetricsModule data={projectData} isDarkMode={isDarkMode} />
