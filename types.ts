@@ -156,6 +156,7 @@ export interface AppConfig {
   videoConfig: VideoServiceConfig;
   multimodalConfig: MultimodalConfig; // New Phase 4 Config
   rememberApiKeys?: boolean;
+  syncApiKeys?: boolean;
 }
 
 export enum WorkflowStep {

@@ -13,6 +13,7 @@ import { useVideoPolling } from './hooks/useVideoPolling';
 import { useConfig } from './hooks/useConfig';
 import { useTheme } from './hooks/useTheme';
 import { useWorkflowEngine } from './hooks/useWorkflowEngine';
+import { useSecretsSync } from './hooks/useSecretsSync';
 import { useShotGeneration } from './hooks/useShotGeneration';
 import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { AppShell } from './components/layout/AppShell';
@@ -138,6 +139,15 @@ const App: React.FC = () => {
       onUpdate: (updater) => setProjectData(prev => updater(prev)),
       intervalMs: 5000,
       onError: (e) => console.warn("Video polling error", e)
+  });
+
+  useSecretsSync({
+      isSignedIn,
+      isLoaded,
+      getToken,
+      config,
+      setConfig,
+      debounceMs: 1200
   });
 
   // Clamp current episode index when episodes change (e.g., after remote sync)

@@ -59,3 +59,4 @@ export const INITIAL_MULTIMODAL_CONFIG: MultimodalConfig = {
 };
 
 export const INITIAL_REMEMBER_KEYS = false;
+export const INITIAL_SYNC_KEYS = false;
