@@ -21,10 +21,12 @@ import { EditableEdge } from "../edges/EditableEdge";
 import { ImageInputNode, AnnotationNode, PromptNode, ImageGenNode, VideoGenNode, LLMGenerateNode, OutputNode } from "../nodes";
 import { useLabExecutor } from "../store/useLabExecutor";
 import { MultiSelectToolbar } from "./MultiSelectToolbar";
+import { FloatingActionBar } from "./FloatingActionBar";
 import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { GlobalImageHistory } from "./GlobalImageHistory";
 import { Toast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
+import { FloatingActionBar } from "./FloatingActionBar";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -185,18 +187,22 @@ const NodeLabInner: React.FC = () => {
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-white">
-      <LabHeader
-        onAddPrompt={() => addNode("prompt", { x: 100, y: 100 })}
-        onAddImage={() => addNode("imageInput", { x: 200, y: 100 })}
-        onAddLLM={() => addNode("llmGenerate", { x: 300, y: 100 })}
-        onAddImageGen={() => addNode("imageGen", { x: 400, y: 100 })}
-        onAddVideoGen={() => addNode("videoGen", { x: 500, y: 100 })}
-        onAddOutput={() => addNode("output", { x: 600, y: 100 })}
-        onImport={() => fileInputRef.current?.click()}
-        onExport={() => saveWorkflow()}
-        onValidate={warnValidation}
-        onRun={runAll}
-      />
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-800 bg-[#0f0f0f] text-white">
+        <div className="text-lg font-semibold">Node Lab</div>
+        <div className="flex-1" />
+        <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 rounded bg-gray-800 text-xs">
+          Import
+        </button>
+        <button onClick={() => saveWorkflow()} className="px-3 py-1.5 rounded bg-gray-800 text-xs">
+          Export
+        </button>
+        <button onClick={warnValidation} className="px-3 py-1.5 rounded bg-gray-800 text-xs">
+          Validate
+        </button>
+        <button onClick={runAll} className="px-3 py-1.5 rounded bg-emerald-600 text-white text-xs">
+          Run
+        </button>
+      </div>
 
       <div className="flex-1 relative node-lab-canvas">
         <ReactFlow
