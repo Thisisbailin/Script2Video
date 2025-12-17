@@ -83,11 +83,8 @@ export const submitVideoTask = async (
   console.log(`--- [Phase 5] Submit Task ---`);
   console.log(`URL: ${baseUrl}, Detected Model: ${isSora2Pro ? 'Sora 2 Pro' : 'Sora 2 (Standard)'}`);
 
-  // Construct Endpoint & Key
+  // Construct Endpoint (key via header, not query string)
   const urlObj = new URL(baseUrl.trim());
-  if (!urlObj.searchParams.has('key')) {
-      urlObj.searchParams.append('key', apiKey);
-  }
 
   // Map Body Params
   const formBody = new URLSearchParams();
@@ -114,7 +111,8 @@ export const submitVideoTask = async (
       const response = await fetch(urlObj.toString(), {
           method: "POST",
           headers: {
-              "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;"
+              "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;",
+              "Authorization": `Bearer ${apiKey}`
           },
           body: formBody
       });
@@ -156,7 +154,7 @@ export const checkTaskStatus = async (
     // Detect Wuyinkeji pattern for Polling
     if (baseUrl.includes('wuyinkeji.com') || baseUrl.includes('/sora2')) {
         const rootBase = baseUrl.replace(/\/submit\/?$/, ''); 
-        pollUrl = `${rootBase}/detail?id=${taskId}&key=${apiKey}`;
+        pollUrl = `${rootBase}/detail?id=${taskId}`;
     } else {
         // Standard OpenAI
         const apiBase = baseUrl.replace(/\/submit\/?$/, '').replace(/\/+$/, '');
@@ -164,8 +162,10 @@ export const checkTaskStatus = async (
     }
 
     try {
-        const headers: any = { "Content-Type": "application/json" };
-        if (!pollUrl.includes('key=')) headers["Authorization"] = `Bearer ${apiKey}`;
+        const headers: any = { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+        };
 
         const response = await fetch(pollUrl, { method: "GET", headers });
         

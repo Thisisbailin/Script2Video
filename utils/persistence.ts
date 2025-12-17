@@ -1,0 +1,20 @@
+import { ProjectData } from "../types";
+
+export const dropFileReplacer = (_key: string, value: any) => {
+  if (typeof File !== "undefined" && value instanceof File) return undefined;
+  return value;
+};
+
+export const isProjectEmpty = (data: ProjectData) => {
+  const hasEps = Array.isArray(data.episodes) && data.episodes.length > 0;
+  const hasScript = !!(data.rawScript && data.rawScript.trim().length > 0);
+  return !hasEps && !hasScript;
+};
+
+export const backupData = (key: string, data: ProjectData) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data, dropFileReplacer));
+  } catch (e) {
+    console.warn(`Failed to backup data to ${key}`, e);
+  }
+};

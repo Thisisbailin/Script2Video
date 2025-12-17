@@ -175,6 +175,23 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         </div>
 
         <div className="p-6 overflow-y-auto">
+            <div className="mb-6 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 flex items-start gap-3">
+                <input
+                  id="rememberKeys"
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  checked={!!config.rememberApiKeys}
+                  onChange={(e) => {
+                    onConfigChange({
+                      ...config,
+                      rememberApiKeys: e.target.checked,
+                    });
+                  }}
+                />
+                <label htmlFor="rememberKeys" className="text-sm text-gray-700 dark:text-gray-200 leading-tight">
+                  记住 API 密钥到本地（默认不落盘，刷新后需重新输入）。勾选后密钥会写入浏览器存储，请仅在可信设备使用。
+                </label>
+            </div>
             {activeTab === 'text' && (
                 <div className="space-y-6">
                    {/* Provider Switcher */}

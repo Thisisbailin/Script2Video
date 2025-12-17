@@ -57,3 +57,5 @@ export const INITIAL_MULTIMODAL_CONFIG: MultimodalConfig = {
   apiKey: '',
   model: 'gpt-4o' // Default to a strong multimodal model
 };
+
+export const INITIAL_REMEMBER_KEYS = false;

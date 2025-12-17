@@ -17,6 +17,14 @@ async function ensureTable(env: Env) {
   ).run();
 }
 
+function unwrapProjectData(stored: any) {
+  // Backward compatibility: previously stored as { projectData: {...} }
+  if (stored && typeof stored === "object" && "projectData" in stored) {
+    return (stored as any).projectData;
+  }
+  return stored;
+}
+
 async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
@@ -62,7 +70,8 @@ export const onRequestGet = async (context: {
     }
 
     const parsed = JSON.parse(row.data as string);
-    return jsonResponse({ projectData: parsed, updatedAt: row.updated_at });
+    const projectData = unwrapProjectData(parsed);
+    return jsonResponse({ projectData, updatedAt: row.updated_at });
   } catch (err: any) {
     if (err instanceof Response) return err;
     console.error("GET /api/project error", err);
@@ -79,18 +88,30 @@ export const onRequestPut = async (context: {
     await ensureTable(context.env);
 
     const body = await context.request.json();
-    if (!body || typeof body !== "object" || !("projectData" in body)) {
+    if (!body || typeof body !== "object") {
+      return jsonResponse({ error: "Invalid payload." }, { status: 400 });
+    }
+
+    const projectData = "projectData" in body ? body.projectData : body;
+    const clientUpdatedAt = typeof body.updatedAt === "number" ? body.updatedAt : undefined;
+
+    // Fetch current to support conflict detection
+    const existing = await context.env.DB.prepare(
+      "SELECT data, updated_at FROM user_projects WHERE user_id = ?1"
+    )
+      .bind(userId)
+      .first();
+
+    if (existing && clientUpdatedAt && existing.updated_at > clientUpdatedAt) {
+      const parsed = JSON.parse(existing.data as string);
+      const remoteData = unwrapProjectData(parsed);
       return jsonResponse(
-        { error: "Invalid payload. Expect { projectData: {...} }" },
-        { status: 400 }
+        { error: "Conflict", projectData: remoteData, updatedAt: existing.updated_at },
+        { status: 409 }
       );
     }
 
-    const cleanedPayload = {
-      projectData: body.projectData,
-    };
-
-    const serialized = JSON.stringify(cleanedPayload, (_, value) => {
+    const serialized = JSON.stringify(projectData, (_, value) => {
       // Drop File/blob-like values to keep payload JSON-safe
       if (
         typeof File !== "undefined" &&

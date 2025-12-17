@@ -5,13 +5,27 @@ import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
 import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
 import { parseScriptToEpisodes, exportToCSV, exportToXLS, parseCSVToShots } from './utils/parser';
+import { normalizeProjectData } from './utils/projectData';
+import { dropFileReplacer, isProjectEmpty, backupData } from './utils/persistence';
+import { usePersistedState } from './hooks/usePersistedState';
+import { useCloudSync } from './hooks/useCloudSync';
+import { useVideoPolling } from './hooks/useVideoPolling';
+import { useConfig } from './hooks/useConfig';
+import { useTheme } from './hooks/useTheme';
+import { useWorkflowEngine } from './hooks/useWorkflowEngine';
+import { useShotGeneration } from './hooks/useShotGeneration';
+import { useSoraGeneration } from './hooks/useSoraGeneration';
+import { AppShell } from './components/layout/AppShell';
+import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
-import { ShotTable } from './components/ShotTable';
-import { Dashboard } from './components/Dashboard';
-import { ContentBoard } from './components/ContentBoard';
-import { VisualAssets } from './components/VisualAssets';
-import { VideoStudio } from './components/VideoStudio';
-import { AssetsBoard } from './components/AssetsBoard';
+import { AssetsModule } from './modules/assets/AssetsModule';
+import { ScriptViewer } from './modules/script/ScriptViewer';
+import { UnderstandingModule } from './modules/understanding/UnderstandingModule';
+import { ShotsModule } from './modules/shots/ShotsModule';
+import { VisualsModule } from './modules/visuals/VisualsModule';
+import { VideoModule } from './modules/video/VideoModule';
+import { MetricsModule } from './modules/metrics/MetricsModule';
 import * as GeminiService from './services/geminiService';
 import * as VideoService from './services/videoService';
 
@@ -29,256 +43,102 @@ const App: React.FC = () => {
   const { getToken } = useAuth();
   const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
-  // Initialize state with Lazy Initializers for Persistence
+  type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats';
 
-  const normalizeProjectData = (data: any): ProjectData => {
-      const base: ProjectData = {
-          ...INITIAL_PROJECT_DATA,
-          ...data,
-          context: { ...INITIAL_PROJECT_DATA.context, ...(data?.context || {}) },
-          phase1Usage: { ...INITIAL_PROJECT_DATA.phase1Usage, ...(data?.phase1Usage || {}) },
-          phase4Usage: data?.phase4Usage || INITIAL_PROJECT_DATA.phase4Usage,
-          phase5Usage: data?.phase5Usage || INITIAL_PROJECT_DATA.phase5Usage,
-          stats: { ...INITIAL_PROJECT_DATA.stats, ...(data?.stats || {}) }
-      };
-      base.episodes = Array.isArray(data?.episodes) ? data.episodes : [];
-      base.shotGuide = data?.shotGuide || INITIAL_PROJECT_DATA.shotGuide;
-      base.soraGuide = data?.soraGuide || INITIAL_PROJECT_DATA.soraGuide;
-      base.globalStyleGuide = data?.globalStyleGuide || INITIAL_PROJECT_DATA.globalStyleGuide;
-      base.rawScript = typeof data?.rawScript === 'string' ? data.rawScript : '';
-      base.fileName = typeof data?.fileName === 'string' ? data.fileName : '';
-      return base;
-  };
-
-  const [projectData, setProjectData] = useState<ProjectData>(() => {
-      try {
-          const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
-          return saved ? normalizeProjectData(JSON.parse(saved)) : INITIAL_PROJECT_DATA;
-      } catch (e) {
-          console.error("Failed to load project from local storage", e);
-          return INITIAL_PROJECT_DATA;
-      }
+  // Initialize state with Persisted hooks
+  const [projectData, setProjectData] = usePersistedState<ProjectData>({
+      key: PROJECT_STORAGE_KEY,
+      initialValue: INITIAL_PROJECT_DATA,
+      deserialize: (value) => normalizeProjectData(JSON.parse(value)),
+      serialize: (value) => JSON.stringify(value),
   });
 
-  const [config, setConfig] = useState<AppConfig>(() => {
-      try {
-          const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
-          if (saved) {
-              const parsed = JSON.parse(saved);
-              return {
-                  textConfig: { ...INITIAL_TEXT_CONFIG, ...parsed.textConfig },
-                  videoConfig: { ...INITIAL_VIDEO_CONFIG, ...parsed.videoConfig },
-                  multimodalConfig: { ...INITIAL_MULTIMODAL_CONFIG, ...parsed.multimodalConfig } // Merge new config
-              };
-          }
-      } catch (e) {
-          console.error("Failed to load config from local storage", e);
-      }
-      return { 
-          textConfig: INITIAL_TEXT_CONFIG,
-          videoConfig: INITIAL_VIDEO_CONFIG,
-          multimodalConfig: INITIAL_MULTIMODAL_CONFIG
-      };
+  const { config, setConfig } = useConfig(CONFIG_STORAGE_KEY);
+
+  const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
+
+  const [uiState, setUiState] = usePersistedState<{
+      step: WorkflowStep;
+      analysisStep: AnalysisSubStep;
+      currentEpIndex: number;
+      activeTab: ActiveTab;
+  }>({
+      key: UI_STATE_STORAGE_KEY,
+      initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'assets' },
+      deserialize: (value) => {
+          const parsed = JSON.parse(value);
+          return {
+              step: parsed.step ?? WorkflowStep.IDLE,
+              analysisStep: parsed.analysisStep ?? AnalysisSubStep.IDLE,
+              currentEpIndex: parsed.currentEpIndex ?? 0,
+              activeTab: parsed.activeTab ?? 'assets'
+          };
+      },
+      serialize: (value) => JSON.stringify(value)
   });
 
-  // Theme State
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-      try {
-          const saved = localStorage.getItem(THEME_STORAGE_KEY);
-          return saved ? JSON.parse(saved) : true; // Default to dark
-      } catch {
-          return true;
-      }
+  const workflow = useWorkflowEngine({
+      step: uiState.step,
+      analysisStep: uiState.analysisStep,
+      currentEpIndex: uiState.currentEpIndex,
+      activeTab: uiState.activeTab
   });
 
-  // UI State Persistence Container
-  const getSavedUIState = () => {
-      try {
-          const saved = localStorage.getItem(UI_STATE_STORAGE_KEY);
-          return saved ? JSON.parse(saved) : null;
-      } catch (e) {
-          return null;
-      }
-  };
-  const savedUI = getSavedUIState();
+  const { state: wfState, setStep, setAnalysisStep, setCurrentEpIndex, setActiveTab, setProcessing, setStatus, setQueue, shiftQueue, resetWorkflow } = workflow;
+  const { step, analysisStep, currentEpIndex, activeTab, isProcessing, processingStatus, analysisQueue, analysisTotal } = wfState;
+
+  // Keep persisted uiState in sync with reducer core fields
+  useEffect(() => {
+      setUiState(prev => ({
+          ...prev,
+          step,
+          analysisStep,
+          currentEpIndex,
+          activeTab
+      }));
+  }, [step, analysisStep, currentEpIndex, activeTab, setUiState]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isEpListExpanded, setIsEpListExpanded] = useState(true); 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
-  const syncSaveTimeout = useRef<number | null>(null);
   
-  // Workflow State (Persisted)
-  const [step, setStep] = useState<WorkflowStep>(savedUI?.step ?? WorkflowStep.IDLE);
-  const [analysisStep, setAnalysisStep] = useState<AnalysisSubStep>(savedUI?.analysisStep ?? AnalysisSubStep.IDLE);
-  const [currentEpIndex, setCurrentEpIndex] = useState(savedUI?.currentEpIndex ?? 0);
-  const [activeTab, setActiveTab] = useState<'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats'>(savedUI?.activeTab ?? 'assets');
-
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState('');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   
-  // Processing Queues for Phase 1 Batches
-  const [analysisQueue, setAnalysisQueue] = useState<any[]>([]);
-  const [analysisTotal, setAnalysisTotal] = useState(0);
-
-  const isEpisodeSoraComplete = (ep?: Episode) => {
-      if (!ep || ep.shots.length === 0) return false;
-      return ep.status === 'review_sora' || ep.shots.every(s => s.soraPrompt && s.soraPrompt.trim().length > 0);
-  };
-
-  const findNextSoraIndex = (startIndex = 0) => {
-      const episodesList = projectDataRef.current.episodes || [];
-      for (let i = startIndex; i < episodesList.length; i++) {
-          const ep = episodesList[i];
-          if (!ep || ep.shots.length === 0) continue;
-          if (!isEpisodeSoraComplete(ep)) return i;
-      }
-      return -1;
-  };
+  // Processing Queues for Phase 1 Batches handled via reducer
 
   // --- Cloud Sync Helpers ---
-  const dropFileReplacer = (_key: string, value: any) => {
-      if (typeof File !== 'undefined' && value instanceof File) return undefined;
-      return value;
-  };
-  const isProjectEmpty = (data: ProjectData) => {
-      const hasEps = Array.isArray(data.episodes) && data.episodes.length > 0;
-      const hasScript = !!(data.rawScript && data.rawScript.trim().length > 0);
-      return !hasEps && !hasScript;
-  };
-  const backupData = (key: string, data: ProjectData) => {
-      try {
-          localStorage.setItem(key, JSON.stringify(data, dropFileReplacer));
-      } catch (e) {
-          console.warn(`Failed to backup data to ${key}`, e);
-      }
-  };
 
-  // --- Persistence Effects ---
-  useEffect(() => {
-      try {
-          localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projectData));
-      } catch (e) {
-          console.error("Failed to save project to local storage (quota exceeded?)", e);
-      }
-  }, [projectData]);
   useEffect(() => {
       projectDataRef.current = projectData;
   }, [projectData]);
 
-  useEffect(() => {
-      localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
-  }, [config]);
-
-  useEffect(() => {
-      const uiState = { step, analysisStep, currentEpIndex, activeTab };
-      localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(uiState));
-  }, [step, analysisStep, currentEpIndex, activeTab]);
-
-  useEffect(() => {
-      localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(isDarkMode));
-  }, [isDarkMode]);
-
   // --- Cloud Sync (Clerk + Cloudflare Pages) ---
-  useEffect(() => {
-      if (!isSignedIn) {
-          setHasLoadedRemote(false);
-      }
-  }, [isSignedIn]);
+  useCloudSync({
+      isSignedIn,
+      isLoaded,
+      getToken,
+      projectData,
+      setProjectData,
+      setHasLoadedRemote,
+      hasLoadedRemote,
+      localBackupKey: LOCAL_BACKUP_KEY,
+      remoteBackupKey: REMOTE_BACKUP_KEY,
+      onError: (e) => console.warn("Cloud sync error", e),
+      onConflictConfirm: ({ remote, local }) => window.confirm(
+        "检测到云端和本地均有数据。\n确定：使用云端覆盖本地（本地备份会保留）\n取消：保留本地并上传到云端（云端数据将备份）"
+      ),
+      saveDebounceMs: 1200
+  });
 
-  useEffect(() => {
-      if (!isSignedIn || !isLoaded || hasLoadedRemote) return;
-      let cancelled = false;
-
-      const loadRemote = async () => {
-          try {
-              const token = await getToken();
-              if (!token) return;
-              const res = await fetch('/api/project', {
-                  headers: { authorization: `Bearer ${token}` }
-              });
-
-              if (res.status === 404) {
-                  if (!cancelled) setHasLoadedRemote(true);
-                  return;
-              }
-
-              if (!res.ok) {
-                  throw new Error(`Load failed: ${res.status}`);
-              }
-
-              const data = await res.json();
-              if (!cancelled && data.projectData) {
-                  const remote = normalizeProjectData(data.projectData);
-                  const local = projectDataRef.current;
-                  const remoteHas = !isProjectEmpty(remote);
-                  const localHas = !isProjectEmpty(local);
-
-                  if (remoteHas && localHas) {
-                      const useRemote = window.confirm(
-                        "检测到云端和本地均有数据。\n确定：使用云端覆盖本地（本地备份会保留）\n取消：保留本地并上传到云端（云端数据将备份）"
-                      );
-                      if (useRemote) {
-                          backupData(LOCAL_BACKUP_KEY, local);
-                          setProjectData(remote);
-                      } else {
-                          backupData(REMOTE_BACKUP_KEY, remote);
-                          // 保留本地，后续自动保存会推送到云端
-                      }
-                  } else if (remoteHas) {
-                      setProjectData(remote);
-                  }
-              }
-              if (!cancelled) setHasLoadedRemote(true);
-          } catch (e) {
-              if (!cancelled) {
-                  console.warn("Cloud sync load failed", e);
-                  // Allow subsequent saves even if initial load failed
-                  setHasLoadedRemote(true);
-              }
-          }
-      };
-
-      loadRemote();
-
-      return () => {
-          cancelled = true;
-      };
-  }, [isSignedIn, isLoaded, hasLoadedRemote, getToken]);
-
-  useEffect(() => {
-      if (!isSignedIn || !isLoaded || !hasLoadedRemote) return;
-
-      if (syncSaveTimeout.current) {
-          clearTimeout(syncSaveTimeout.current);
-      }
-
-      syncSaveTimeout.current = window.setTimeout(async () => {
-          try {
-              const token = await getToken();
-              if (!token) return;
-
-              await fetch('/api/project', {
-                  method: 'PUT',
-                  headers: {
-                      'content-type': 'application/json',
-                      authorization: `Bearer ${token}`
-                  },
-                  body: JSON.stringify({ projectData }, dropFileReplacer)
-              });
-          } catch (e) {
-              console.warn("Cloud sync save failed", e);
-          }
-      }, 1200);
-
-      return () => {
-          if (syncSaveTimeout.current) {
-              clearTimeout(syncSaveTimeout.current);
-          }
-      };
-  }, [projectData, isSignedIn, isLoaded, hasLoadedRemote, getToken]);
+  useVideoPolling({
+      episodes: projectData.episodes,
+      videoConfig: config.videoConfig,
+      onUpdate: (updater) => setProjectData(prev => updater(prev)),
+      intervalMs: 5000,
+      onError: (e) => console.warn("Video polling error", e)
+  });
 
   // Clamp current episode index when episodes change (e.g., after remote sync)
   useEffect(() => {
@@ -469,8 +329,7 @@ const App: React.FC = () => {
   };
 
   const handleTryMe = async () => {
-      setIsProcessing(true);
-      setProcessingStatus("Concocting a hilarious script with AI...");
+      setProcessing(true, "Concocting a hilarious script with AI...");
       
       try {
           // 1. Generate Script AND Style
@@ -502,11 +361,11 @@ const App: React.FC = () => {
           if (episodes.length > 0) setCurrentEpIndex(0);
           setActiveTab('script');
           setStep(WorkflowStep.IDLE);
-          setIsProcessing(false);
+          setProcessing(false);
           
       } catch (e: any) {
           console.error(e);
-          setIsProcessing(false);
+          setProcessing(false);
           alert("Failed to generate demo script: " + e.message);
           updateStats('context', false);
       }
@@ -524,8 +383,7 @@ const App: React.FC = () => {
 
   // Step 1: Project Summary
   const processProjectSummary = async () => {
-    setIsProcessing(true);
-    setProcessingStatus("Step 1/6: Analyzing Global Project Arc...");
+    setProcessing(true, "Step 1/6: Analyzing Global Project Arc...");
     setActiveTab('understanding');
     try {
         const result = await GeminiService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
@@ -537,10 +395,10 @@ const App: React.FC = () => {
             phase1Usage: { ...prev.phase1Usage, projectSummary: GeminiService.addUsage(prev.phase1Usage.projectSummary, result.usage) }
         }));
         
-        setIsProcessing(false);
+        setProcessing(false);
         updateStats('context', true);
     } catch (e: any) {
-        setIsProcessing(false);
+        setProcessing(false);
         alert("Project summary failed: " + e.message);
         updateStats('context', false);
     }
@@ -549,8 +407,7 @@ const App: React.FC = () => {
   const confirmSummaryAndNext = () => {
       // Prepare batch for Episode Summaries
       const epQueue = projectData.episodes.map(ep => ep.id);
-      setAnalysisQueue(epQueue);
-      setAnalysisTotal(epQueue.length);
+      setQueue(epQueue, epQueue.length);
       setAnalysisStep(AnalysisSubStep.EPISODE_SUMMARIES);
   };
 
@@ -565,12 +422,11 @@ const App: React.FC = () => {
       const epId = analysisQueue[0];
       const episode = projectData.episodes.find(e => e.id === epId);
       if (!episode) {
-          setAnalysisQueue(prev => prev.slice(1));
+          shiftQueue();
           return;
       }
 
-      setIsProcessing(true);
-      setProcessingStatus(`Step 2/6: Analyzing Episode ${epId} (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
+    setProcessing(true, `Step 2/6: Analyzing Episode ${epId} (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
 
       try {
           const result = await GeminiService.generateEpisodeSummary(
@@ -593,14 +449,14 @@ const App: React.FC = () => {
               };
           });
 
-          setAnalysisQueue(prev => prev.slice(1));
-          setIsProcessing(false);
+          shiftQueue();
+          setProcessing(false);
           updateStats('context', true);
       } catch (e: any) {
-          setIsProcessing(false);
+          setProcessing(false);
           const ignore = window.confirm(`Failed to summarize Episode ${epId}: ${e.message}. Skip this episode?`);
           if (ignore) {
-             setAnalysisQueue(prev => prev.slice(1));
+             shiftQueue();
              updateStats('context', false);
           }
       }
@@ -613,8 +469,7 @@ const App: React.FC = () => {
 
   // Step 3: Character List
   const processCharacterList = async () => {
-      setIsProcessing(true);
-      setProcessingStatus("Step 3/6: Identifying Character Roster...");
+      setProcessing(true, "Step 3/6: Identifying Character Roster...");
       try {
           const result = await GeminiService.identifyCharacters(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
           setProjectData(prev => ({
@@ -623,10 +478,10 @@ const App: React.FC = () => {
               contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
               phase1Usage: { ...prev.phase1Usage, charList: GeminiService.addUsage(prev.phase1Usage.charList, result.usage) }
           }));
-          setIsProcessing(false);
+          setProcessing(false);
           updateStats('context', true);
       } catch (e: any) {
-          setIsProcessing(false);
+          setProcessing(false);
           alert("Character list generation failed: " + e.message);
           updateStats('context', false);
       }
@@ -635,8 +490,7 @@ const App: React.FC = () => {
   const confirmCharListAndNext = () => {
       // Setup Queue for deep dive
       const mainChars = projectData.context.characters.filter(c => c.isMain).map(c => c.name);
-      setAnalysisQueue(mainChars);
-      setAnalysisTotal(mainChars.length);
+      setQueue(mainChars, mainChars.length);
       setAnalysisStep(AnalysisSubStep.CHAR_DEEP_DIVE);
   };
 
@@ -649,8 +503,7 @@ const App: React.FC = () => {
 
   const processNextCharacter = async () => {
       const charName = analysisQueue[0];
-      setIsProcessing(true);
-      setProcessingStatus(`Step 4/6: Deep Analysis for '${charName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
+      setProcessing(true, `Step 4/6: Deep Analysis for '${charName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
       
       try {
           const result = await GeminiService.analyzeCharacterDepth(
@@ -673,16 +526,16 @@ const App: React.FC = () => {
               };
           });
 
-          setAnalysisQueue(prev => prev.slice(1));
-          setIsProcessing(false);
+          shiftQueue();
+          setProcessing(false);
           updateStats('context', true);
 
       } catch (e: any) {
           console.error(e);
-          setIsProcessing(false);
+          setProcessing(false);
           const ignore = window.confirm(`Failed to analyze ${charName}: ${e.message}. Skip?`);
           if (ignore) {
-             setAnalysisQueue(prev => prev.slice(1));
+             shiftQueue();
              updateStats('context', false);
           }
       }
@@ -695,8 +548,7 @@ const App: React.FC = () => {
 
   // Step 5: Location List
   const processLocationList = async () => {
-      setIsProcessing(true);
-      setProcessingStatus("Step 5/6: Mapping Locations...");
+      setProcessing(true, "Step 5/6: Mapping Locations...");
       try {
           const result = await GeminiService.identifyLocations(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
           setProjectData(prev => ({
@@ -705,10 +557,10 @@ const App: React.FC = () => {
               contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
               phase1Usage: { ...prev.phase1Usage, locList: GeminiService.addUsage(prev.phase1Usage.locList, result.usage) }
           }));
-          setIsProcessing(false);
+          setProcessing(false);
           updateStats('context', true);
       } catch (e: any) {
-          setIsProcessing(false);
+          setProcessing(false);
           alert("Location mapping failed: " + e.message);
           updateStats('context', false);
       }
@@ -716,8 +568,7 @@ const App: React.FC = () => {
 
   const confirmLocListAndNext = () => {
       const coreLocs = projectData.context.locations.filter(l => l.type === 'core').map(l => l.name);
-      setAnalysisQueue(coreLocs);
-      setAnalysisTotal(coreLocs.length);
+      setQueue(coreLocs, coreLocs.length);
       setAnalysisStep(AnalysisSubStep.LOC_DEEP_DIVE);
   };
 
@@ -730,8 +581,7 @@ const App: React.FC = () => {
 
   const processNextLocation = async () => {
       const locName = analysisQueue[0];
-      setIsProcessing(true);
-      setProcessingStatus(`Step 6/6: Visualizing '${locName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
+      setProcessing(true, `Step 6/6: Visualizing '${locName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
       
       try {
           const result = await GeminiService.analyzeLocationDepth(
@@ -753,15 +603,15 @@ const App: React.FC = () => {
               };
           });
 
-          setAnalysisQueue(prev => prev.slice(1));
-          setIsProcessing(false);
+          shiftQueue();
+          setProcessing(false);
           updateStats('context', true);
 
       } catch (e: any) {
-          setIsProcessing(false);
+          setProcessing(false);
           const ignore = window.confirm(`Failed to visualize ${locName}: ${e.message}. Skip?`);
           if (ignore) {
-             setAnalysisQueue(prev => prev.slice(1));
+             shiftQueue();
              updateStats('context', false);
           }
       }
@@ -772,317 +622,33 @@ const App: React.FC = () => {
       alert("Phase 1 Complete! Context is fully established.");
   };
 
-  // === PHASE 2 & 3 ===
+  // === PHASE 2 & 3 Hooks ===
+  const { startPhase2, confirmEpisodeShots } = useShotGeneration({
+      projectDataRef,
+      setProjectData,
+      config,
+      setStep,
+      setCurrentEpIndex,
+      setProcessing,
+      setStatus,
+      setActiveTab,
+      updateStats,
+      currentEpIndex
+  });
 
-  const startPhase2 = () => {
-    const allEpisodesHaveShots = projectData.episodes.every(ep => ep.shots.length > 0);
-    
-    if (allEpisodesHaveShots) {
-      const confirmSkip = window.confirm(
-        "Detected existing shot lists for all episodes (likely from import).\n\nDo you want to SKIP Shot Generation and proceed directly to Phase 3 (Sora Prompts)?"
-      );
-      if (confirmSkip) {
-        setStep(WorkflowStep.GENERATE_SORA);
-        return;
-      }
-    }
-
-    setStep(WorkflowStep.GENERATE_SHOTS);
-    setCurrentEpIndex(0);
-    const firstPending = projectData.episodes.findIndex(ep => ep.shots.length === 0);
-    const startIdx = firstPending >= 0 ? firstPending : 0;
-    setCurrentEpIndex(startIdx);
-    
-    if (firstPending === -1 && !allEpisodesHaveShots) {
-        generateCurrentEpisodeShots(0);
-    } else if (firstPending >= 0) {
-        generateCurrentEpisodeShots(startIdx);
-    } else {
-        generateCurrentEpisodeShots(0);
-    }
-  };
-
-  const generateCurrentEpisodeShots = async (index: number) => {
-    if (index >= projectData.episodes.length) {
-      setStep(WorkflowStep.GENERATE_SORA); 
-      alert("All episodes converted to Shot Lists! Ready for Sora Phase.");
-      setCurrentEpIndex(0);
-      return;
-    }
-
-    const episode = projectData.episodes[index];
-    if (episode.shots.length > 0 && (episode.status === 'confirmed_shots' || episode.status === 'completed')) {
-        const next = index + 1;
-        setCurrentEpIndex(next);
-        generateCurrentEpisodeShots(next);
-        return;
-    }
-
-    setIsProcessing(true);
-    setProcessingStatus(`Generating Shots for Episode ${episode.id}...`);
-    
-    setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        newEpisodes[index] = { ...newEpisodes[index], status: 'generating', errorMsg: undefined };
-        return { ...prev, episodes: newEpisodes };
-    });
-
-    try {
-      const result = await GeminiService.generateEpisodeShots(
-        config.textConfig,
-        episode.title,
-        episode.content,
-        episode.summary,
-        projectData.context,
-        projectData.shotGuide,
-        index,
-        projectData.globalStyleGuide
-      );
-
-      setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        newEpisodes[index] = {
-          ...newEpisodes[index],
-          shots: result.shots,
-          shotGenUsage: result.usage,
-          status: 'review_shots'
-        };
-        return { ...prev, episodes: newEpisodes };
-      });
-      setIsProcessing(false);
-      updateStats('shotGen', true);
-      setActiveTab('table'); 
-    } catch (e: any) {
-      console.error(e);
-      setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        newEpisodes[index] = {
-          ...newEpisodes[index],
-          status: 'error',
-          errorMsg: e.message || "Unknown error"
-        };
-        return { ...prev, episodes: newEpisodes };
-      });
-      setProcessingStatus(`Error on Episode ${episode.id}`);
-      setIsProcessing(false);
-      updateStats('shotGen', false);
-    }
-  };
-
-  const confirmEpisodeShots = () => {
-    setProjectData(prev => {
-      const newEpisodes = [...prev.episodes];
-      newEpisodes[currentEpIndex].status = 'confirmed_shots';
-      return { ...prev, episodes: newEpisodes };
-    });
-    
-    const nextIndex = currentEpIndex + 1;
-    if (nextIndex < projectData.episodes.length) {
-       setCurrentEpIndex(nextIndex);
-       generateCurrentEpisodeShots(nextIndex);
-    } else {
-       alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
-       setStep(WorkflowStep.GENERATE_SORA);
-       setCurrentEpIndex(0);
-    }
-  };
-
-  const startPhase3 = () => {
-    if (!projectData.soraGuide) {
-      alert("Please upload Sora Prompt Guidelines.");
-      return;
-    }
-    if (projectData.episodes.every(ep => ep.shots.length === 0)) {
-        alert("No shots found to generate prompts for. Please complete Phase 2 or Import a Shot List CSV.");
-        return;
-    }
-    const pendingFromCurrent = findNextSoraIndex(currentEpIndex);
-    const startIndex = pendingFromCurrent !== -1 ? pendingFromCurrent : findNextSoraIndex(0);
-    if (startIndex === -1) {
-        alert("All Prompts Generated! Workflow is ready for Video Studio.");
-        setStep(WorkflowStep.COMPLETED);
-        setCurrentEpIndex(0);
-        return;
-    }
-    setStep(WorkflowStep.GENERATE_SORA);
-    setCurrentEpIndex(startIndex);
-    generateCurrentEpisodeSora(startIndex, false);
-  };
-
-  const continueNextEpisodeSora = () => {
-    if (isProcessing) return;
-    const nextIndex = findNextSoraIndex(currentEpIndex + 1);
-    if (nextIndex === -1) {
-        alert("All Prompts Generated! Workflow is ready for Video Studio.");
-        setStep(WorkflowStep.COMPLETED);
-        setCurrentEpIndex(0);
-        return;
-    }
-    setCurrentEpIndex(nextIndex);
-    generateCurrentEpisodeSora(nextIndex, false);
-  };
-
-  const retryCurrentEpisodeSora = () => {
-    if (isProcessing) return;
-    const idx = currentEpIndex;
-    const targetEp = projectData.episodes[idx];
-    if (!targetEp) return;
-
-    setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        const ep = newEpisodes[idx];
-        if (ep) {
-            const clearedShots = ep.shots.map(s => ({ ...s, soraPrompt: '' }));
-            newEpisodes[idx] = { ...ep, shots: clearedShots, soraGenUsage: undefined, status: 'pending' as any };
-        }
-        const updated = { ...prev, episodes: newEpisodes };
-        projectDataRef.current = updated;
-        return updated;
-    });
-    generateCurrentEpisodeSora(idx, false, true);
-  };
-
-  const generateCurrentEpisodeSora = async (index: number, autoAdvance = false, forceRegenerate = false) => {
-    const episodesList = projectDataRef.current.episodes || [];
-    if (index >= episodesList.length) {
-      setStep(WorkflowStep.COMPLETED);
-      alert("All Prompts Generated! Workflow is ready for Video Studio.");
-      setCurrentEpIndex(0);
-      setIsProcessing(false);
-      return;
-    }
-
-    const episode = episodesList[index];
-    if (!episode) return;
-
-    if (episode.shots.length === 0 || isEpisodeSoraComplete(episode)) {
-      const nextIndex = findNextSoraIndex(index + 1);
-      if (nextIndex === -1) {
-          setStep(WorkflowStep.COMPLETED);
-          alert("All Prompts Generated! Workflow is ready for Video Studio.");
-          setCurrentEpIndex(0);
-          setIsProcessing(false);
-          return;
-      }
-      setCurrentEpIndex(nextIndex);
-      return generateCurrentEpisodeSora(nextIndex);
-    }
-
-    const shouldResume = episode.status === 'error';
-    setIsProcessing(true);
-    setProcessingStatus(`Generating Sora Prompts for Episode ${episode.id}...`);
-    
-    setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        newEpisodes[index] = { ...newEpisodes[index], status: 'generating_sora', errorMsg: undefined };
-        return { ...prev, episodes: newEpisodes };
-    });
-
-    try {
-      const chunksMap = new Map<string, Shot[]>();
-      episode.shots.forEach(shot => {
-         const parts = shot.id.split('-');
-         let sceneKey = 'default';
-         if (parts.length > 1) {
-            const prefixParts = parts.slice(0, parts.length - 1);
-            sceneKey = prefixParts.join('-');
-         }
-         if (!chunksMap.has(sceneKey)) chunksMap.set(sceneKey, []);
-         chunksMap.get(sceneKey)?.push(shot);
-      });
-      const shotChunks: Shot[][] = Array.from(chunksMap.values());
-      const { context, soraGuide, globalStyleGuide } = projectDataRef.current;
-
-      let currentTotalUsage: TokenUsage = shouldResume && episode.soraGenUsage 
-          ? episode.soraGenUsage 
-          : { promptTokens: 0, responseTokens: 0, totalTokens: 0 };
-      
-      for (let i = 0; i < shotChunks.length; i++) {
-         const chunk = shotChunks[i];
-         const sceneId = chunk[0].id.split('-').slice(0, -1).join('-');
-         const isChunkComplete = chunk.every(s => s.soraPrompt && s.soraPrompt.trim().length > 0);
-         if (shouldResume && isChunkComplete && !forceRegenerate) {
-             setProcessingStatus(`Skipping completed Scene ${sceneId} (${i+1}/${shotChunks.length})...`);
-             await new Promise(r => setTimeout(r, 100));
-             continue;
-         }
-
-         setProcessingStatus(`Episode ${episode.id}: Processing Scene ${sceneId} (${i+1}/${shotChunks.length})...`);
-         
-         const result = await GeminiService.generateSoraPrompts(
-             config.textConfig,
-             chunk,
-             context,
-             soraGuide,
-             globalStyleGuide
-         );
-
-         currentTotalUsage = GeminiService.addUsage(currentTotalUsage, result.usage);
-
-         setProjectData(prev => {
-             const newEpisodes = [...prev.episodes];
-             const currentEp = newEpisodes[index];
-             const mergedShots = currentEp.shots.map(originalShot => {
-                 const foundNew = result.partialShots.find(ns => ns.id === originalShot.id);
-                 if (foundNew) {
-                     return { ...originalShot, soraPrompt: foundNew.soraPrompt };
-                 }
-                 return originalShot;
-             });
-
-             newEpisodes[index] = {
-                 ...currentEp,
-                 shots: mergedShots,
-                 soraGenUsage: currentTotalUsage
-             };
-             return { ...prev, episodes: newEpisodes };
-         });
-         await new Promise(r => setTimeout(r, 500));
-      }
-
-      setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        newEpisodes[index] = {
-            ...newEpisodes[index],
-            soraGenUsage: currentTotalUsage,
-            status: 'review_sora'
-        };
-        return { ...prev, episodes: newEpisodes };
-      });
-
-      updateStats('soraGen', true);
-      setActiveTab('table');
-      setIsProcessing(false);
-      setCurrentEpIndex(index);
-
-      const remaining = findNextSoraIndex(0);
-      if (remaining === -1) {
-          setStep(WorkflowStep.COMPLETED);
-          alert("All Prompts Generated! Workflow is ready for Video Studio.");
-          setCurrentEpIndex(0);
-          return;
-      }
-
-      if (autoAdvance) {
-          setCurrentEpIndex(remaining);
-          return generateCurrentEpisodeSora(remaining, true);
-      }
-    } catch (e: any) {
-      console.error(e);
-      setProjectData(prev => {
-        const newEpisodes = [...prev.episodes];
-        newEpisodes[index] = {
-          ...newEpisodes[index],
-          status: 'error',
-          errorMsg: e.message || "Unknown error"
-        };
-        return { ...prev, episodes: newEpisodes };
-      });
-      setProcessingStatus(`Error on Episode ${episode.id}`);
-      setIsProcessing(false);
-      updateStats('soraGen', false);
-    }
-  };
+  const { startPhase3, continueNextEpisodeSora, retryCurrentEpisodeSora } = useSoraGeneration({
+      projectDataRef,
+      setProjectData,
+      config,
+      setStep,
+      setCurrentEpIndex,
+      setProcessing,
+      setStatus,
+      setActiveTab,
+      updateStats,
+      isProcessing,
+      currentEpIndex
+  });
 
   // === PHASE 5: VIDEO GENERATION ===
   const handleGenerateVideo = async (episodeId: number, shotId: string, customPrompt: string, params: VideoParams) => {
@@ -1308,573 +874,124 @@ const App: React.FC = () => {
       if (activeTab === 'video') return config.videoConfig.model || 'Video';
       return config.textConfig.model; 
   };
+  const activeModelLabel = `${config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | ${getActiveModelName()}`;
+  const safeEpisode = currentEpisode || projectData.episodes[0];
+
+  const headerNode = (
+    <Header
+      isProcessing={isProcessing}
+      hasGeneratedShots={hasGeneratedShots}
+      onTryMe={handleTryMe}
+      onExportCsv={() => {
+        exportToCSV(projectData.episodes);
+        setIsExportMenuOpen(false);
+      }}
+      onExportXls={() => {
+        exportToXLS(projectData.episodes);
+        setIsExportMenuOpen(false);
+      }}
+      onToggleExportMenu={() => setIsExportMenuOpen(prev => !prev)}
+      isExportMenuOpen={isExportMenuOpen}
+      onToggleTheme={toggleTheme}
+      isDarkMode={isDarkMode}
+      account={{
+        isLoaded,
+        isSignedIn: !!isSignedIn,
+        user,
+        onSignIn: () => openSignIn(),
+        onSignOut: () => signOut(),
+        onOpenSettings: () => setIsSettingsOpen(true),
+        onReset: handleResetProject,
+        isUserMenuOpen,
+        setIsUserMenuOpen
+      }}
+      activeModelLabel={activeModelLabel}
+      projectData={projectData}
+      config={config}
+    />
+  );
+
+  const sidebarNode = (
+    <Sidebar
+      isSidebarCollapsed={isSidebarCollapsed}
+      setIsSidebarCollapsed={setIsSidebarCollapsed}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      step={step}
+      analysisStep={analysisStep}
+      analysisQueueLength={analysisQueue.length}
+      analysisTotal={analysisTotal}
+      isProcessing={isProcessing}
+      currentEpIndex={currentEpIndex}
+      episodes={projectData.episodes}
+      onStartAnalysis={startAnalysis}
+      onConfirmSummaryNext={confirmSummaryAndNext}
+      onConfirmEpSummariesNext={confirmEpSummariesAndNext}
+      onConfirmCharListNext={confirmCharListAndNext}
+      onConfirmCharDepthNext={confirmCharDepthAndNext}
+      onConfirmLocListNext={confirmLocListAndNext}
+      onFinishAnalysis={finishAnalysis}
+      onStartPhase2={startPhase2}
+      onConfirmEpisodeShots={confirmEpisodeShots}
+      onStartPhase3={startPhase3}
+      onRetryEpisodeSora={retryCurrentEpisodeSora}
+      onContinueNextEpisodeSora={continueNextEpisodeSora}
+      isEpListExpanded={isEpListExpanded}
+      setIsEpListExpanded={setIsEpListExpanded}
+      setCurrentEpIndex={setCurrentEpIndex}
+    />
+  );
+
+  const renderMainContent = () => (
+    <>
+      {activeTab === 'assets' && (
+        <AssetsModule data={projectData} onAssetLoad={handleAssetLoad} />
+      )}
+      {activeTab === 'script' && (
+        <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />
+      )}
+      {activeTab === 'understanding' && (
+        <UnderstandingModule data={projectData} onSelectEpisode={(idx) => {
+          setCurrentEpIndex(idx);
+          setActiveTab('table');
+        }} />
+      )}
+      {activeTab === 'table' && (
+        <ShotsModule 
+          shots={projectData.episodes[currentEpIndex]?.shots || []} 
+          showSora={step >= WorkflowStep.GENERATE_SORA}
+        />
+      )}
+      {activeTab === 'visuals' && (
+        <VisualsModule 
+          data={projectData} 
+          config={config} 
+          onUpdateUsage={handleUsageUpdate} 
+        />
+      )}
+      {activeTab === 'video' && (
+        <VideoModule 
+          episodes={projectData.episodes}
+          onGenerateVideo={handleGenerateVideo}
+          onRemixVideo={handleRemixVideo}
+        />
+      )}
+      {activeTab === 'stats' && (
+        <MetricsModule data={projectData} isDarkMode={isDarkMode} />
+      )}
+    </>
+  );
 
   return (
-    <div className={`${isDarkMode ? 'dark' : ''} h-screen flex flex-col`}>
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <AppShell isDarkMode={isDarkMode} header={headerNode} sidebar={sidebarNode}>
       <SettingsModal 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)}
         config={config}
         onConfigChange={setConfig}
       />
-
-      {/* Header */}
-      <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/50 backdrop-blur flex items-center justify-between px-6 shrink-0 z-20 transition-colors relative">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Video size={18} className="text-white" />
-          </div>
-          <h1 className="font-bold text-lg tracking-tight text-gray-900 dark:text-gray-100">Script2Video</h1>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-             {config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | {getActiveModelName()}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4">
-           {/* TRY ME EGG MOVED HERE */}
-           <button 
-                onClick={handleTryMe}
-                disabled={isProcessing}
-                className="flex items-center justify-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-500/10 to-purple-500/10 dark:from-pink-900/50 dark:to-purple-900/50 hover:from-pink-500/20 hover:to-purple-500/20 dark:hover:from-pink-900/70 dark:hover:to-purple-900/70 border border-pink-200 dark:border-pink-700/30 rounded text-sm text-pink-600 dark:text-pink-200 font-bold disabled:opacity-50 transition-all shadow-sm"
-                title="Generate a funny animal script to test the app!"
-            >
-                <Sparkles size={16} className="text-pink-500 dark:text-pink-400" />
-                <span className="hidden sm:inline">Try Me</span>
-            </button>
-
-           {hasGeneratedShots && (
-             <div className="relative">
-                 <button 
-                    onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded text-sm font-medium transition-colors shadow-sm"
-                 >
-                    <Download size={16} /> Export <ChevronDown size={14} />
-                 </button>
-                 {isExportMenuOpen && (
-                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl z-50 overflow-hidden">
-                         <button 
-                            onClick={() => {
-                                exportToCSV(projectData.episodes);
-                                setIsExportMenuOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700/50 flex flex-col"
-                         >
-                             <span className="font-medium">Export as CSV</span>
-                             <span className="text-[10px] text-gray-500">Universal Format (Recommended)</span>
-                         </button>
-                         <button 
-                            onClick={() => {
-                                exportToXLS(projectData.episodes);
-                                setIsExportMenuOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 flex flex-col"
-                         >
-                             <span className="font-medium">Export as Excel (XLS)</span>
-                             <span className="text-[10px] text-gray-500">Rich Formatting (HTML-based)</span>
-                         </button>
-                     </div>
-                 )}
-                 {isExportMenuOpen && (
-                     <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setIsExportMenuOpen(false)}
-                     ></div>
-                 )}
-             </div>
-           )}
-           
-           <div className="h-6 w-px bg-gray-200 dark:bg-gray-800 mx-1"></div>
-
-           {/* ACCOUNT DROPDOWN */}
-           <div className="relative min-w-[32px] min-h-[32px] flex items-center justify-center">
-               {!isLoaded ? (
-                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse ring-2 ring-white dark:ring-gray-900"></div>
-               ) : (
-                  <>
-                    {!isSignedIn && (
-                        <button 
-                            onClick={() => openSignIn()}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"
-                        >
-                            <User size={16} /> <span className="hidden sm:inline">Sign In</span>
-                        </button>
-                    )}
-
-                    {isSignedIn && user && (
-                        <>
-                        <button 
-                            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                            className="flex items-center justify-center rounded-full hover:ring-2 ring-indigo-500 transition-all relative z-10"
-                        >
-                            <img 
-                                src={user.imageUrl} 
-                                alt="Profile" 
-                                className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800" 
-                            />
-                        </button>
-
-                        {isUserMenuOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <img 
-                                            src={user.imageUrl} 
-                                            alt="Profile" 
-                                            className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-700 shadow-sm" 
-                                        />
-                                        <div className="overflow-hidden">
-                                            <div className="font-bold text-gray-900 dark:text-white truncate">
-                                                {user.fullName || user.username}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                {user.primaryEmailAddress?.emailAddress}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                                        <Shield size={12} />
-                                        <span>User Verified</span>
-                                    </div>
-                                </div>
-
-                                <div className="p-2 space-y-1">
-                                    <button 
-                                        onClick={() => {
-                                            setIsDarkMode(!isDarkMode);
-                                        }}
-                                        className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                                        <span>{isDarkMode ? "Light Mode" : "Dark Mode"}</span>
-                                    </button>
-
-                                    <button 
-                                        onClick={() => {
-                                            setIsSettingsOpen(true);
-                                            setIsUserMenuOpen(false);
-                                        }}
-                                        className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <Settings size={16} />
-                                        <span>System Settings</span>
-                                    </button>
-
-                                    <div className="h-px bg-gray-200 dark:bg-gray-700 my-1 mx-2"></div>
-
-                                    <button 
-                                        onClick={() => {
-                                            handleResetProject();
-                                            setIsUserMenuOpen(false);
-                                        }}
-                                        className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                    >
-                                        <Trash2 size={16} />
-                                        <span>Clear Project Data</span>
-                                    </button>
-                                    
-                                    <button 
-                                        onClick={() => {
-                                            signOut();
-                                            setIsUserMenuOpen(false);
-                                        }}
-                                        className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <LogOut size={16} />
-                                        <span>Sign Out</span>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        {isUserMenuOpen && (
-                            <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)}></div>
-                        )}
-                        </>
-                    )}
-                  </>
-               )}
-           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        
-        {/* Sidebar / Wizard Control */}
-        <aside className={`${isSidebarCollapsed ? 'w-16 items-center' : 'w-72'} transition-all duration-300 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col shrink-0 z-10 relative`}>
-          
-          {/* Sidebar Content */}
-          {!isSidebarCollapsed ? (
-             <>
-                {/* 1. WORKFLOW ACTIONS (TOP) */}
-                <div className="p-4 shrink-0 space-y-3 border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                             <Layers size={12} /> Workflow Actions
-                        </div>
-                        <button 
-                            onClick={() => setIsSidebarCollapsed(true)}
-                            className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                            title="Collapse Sidebar"
-                        >
-                            <PanelLeftClose size={14} />
-                        </button>
-                    </div>
-
-                    {/* Phase 1 Control */}
-                    {step === WorkflowStep.IDLE && projectData.episodes.length > 0 && (
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 1: Analysis</h3>
-                        <button onClick={startAnalysis} className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-50" disabled={isProcessing}>
-                            {isProcessing ? <Loader2 className="animate-spin" size={14}/> : <BrainCircuit size={14} />} Start Analysis
-                        </button>
-                        </div>
-                    )}
-                    
-                    {step === WorkflowStep.SETUP_CONTEXT && (
-                        <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
-                             <div className="flex justify-between items-center">
-                                 <h3 className="font-bold text-xs text-gray-900 dark:text-white">Phase 1 in Progress</h3>
-                                 <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded">
-                                     {analysisStep === AnalysisSubStep.PROJECT_SUMMARY ? '1/6' : 
-                                      analysisStep === AnalysisSubStep.EPISODE_SUMMARIES ? '2/6' :
-                                      analysisStep === AnalysisSubStep.CHAR_IDENTIFICATION ? '3/6' :
-                                      analysisStep === AnalysisSubStep.CHAR_DEEP_DIVE ? '4/6' :
-                                      analysisStep === AnalysisSubStep.LOC_IDENTIFICATION ? '5/6' : '6/6'}
-                                 </span>
-                             </div>
-
-                             {analysisStep === AnalysisSubStep.PROJECT_SUMMARY && (
-                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                     <p className="mb-2">Reviewing Global Project Arc...</p>
-                                     <button onClick={confirmSummaryAndNext} className="w-full py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white rounded text-xs transition-colors" disabled={!projectData.context.projectSummary || isProcessing}>
-                                         Confirm & Next
-                                     </button>
-                                 </div>
-                             )}
-
-                             {analysisStep === AnalysisSubStep.EPISODE_SUMMARIES && (
-                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                     <p className="mb-2">Summarizing {analysisTotal} Episodes...</p>
-                                     <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full mb-2 overflow-hidden">
-                                         <div className="bg-blue-500 h-full transition-all" style={{width: `${((analysisTotal - analysisQueue.length)/analysisTotal)*100}%`}}></div>
-                                     </div>
-                                     <button onClick={confirmEpSummariesAndNext} className="w-full py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white rounded text-xs transition-colors" disabled={analysisQueue.length > 0 || isProcessing}>
-                                         Confirm & Next
-                                     </button>
-                                 </div>
-                             )}
-
-                             {analysisStep === AnalysisSubStep.CHAR_IDENTIFICATION && (
-                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                     <p className="mb-2">Identifying Characters...</p>
-                                     <button onClick={confirmCharListAndNext} className="w-full py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white rounded text-xs transition-colors" disabled={projectData.context.characters.length === 0 || isProcessing}>
-                                         Confirm & Next
-                                     </button>
-                                 </div>
-                             )}
-
-                             {analysisStep === AnalysisSubStep.CHAR_DEEP_DIVE && (
-                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                     <p className="mb-2">Analyzing Character Depth...</p>
-                                     <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full mb-2 overflow-hidden">
-                                         <div className="bg-purple-500 h-full transition-all" style={{width: `${((analysisTotal - analysisQueue.length)/analysisTotal)*100}%`}}></div>
-                                     </div>
-                                     <button onClick={confirmCharDepthAndNext} className="w-full py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white rounded text-xs transition-colors" disabled={analysisQueue.length > 0 || isProcessing}>
-                                         Confirm & Next
-                                     </button>
-                                 </div>
-                             )}
-                             
-                             {analysisStep === AnalysisSubStep.LOC_IDENTIFICATION && (
-                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                     <p className="mb-2">Mapping Locations...</p>
-                                     <button onClick={confirmLocListAndNext} className="w-full py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white rounded text-xs transition-colors" disabled={projectData.context.locations.length === 0 || isProcessing}>
-                                         Confirm & Next
-                                     </button>
-                                 </div>
-                             )}
-
-                             {analysisStep === AnalysisSubStep.LOC_DEEP_DIVE && (
-                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                     <p className="mb-2">Visualizing Locations...</p>
-                                     <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full mb-2 overflow-hidden">
-                                         <div className="bg-orange-500 h-full transition-all" style={{width: `${((analysisTotal - analysisQueue.length)/analysisTotal)*100}%`}}></div>
-                                     </div>
-                                     <button onClick={finishAnalysis} className="w-full py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-green-500 hover:text-white rounded text-xs transition-colors" disabled={analysisQueue.length > 0 || isProcessing}>
-                                         Finish Phase 1
-                                     </button>
-                                 </div>
-                             )}
-                        </div>
-                    )}
-
-                    {/* Phase 2: Shot Gen */}
-                    {(analysisStep === AnalysisSubStep.COMPLETE || step === WorkflowStep.GENERATE_SHOTS) && step !== WorkflowStep.GENERATE_SORA && step !== WorkflowStep.COMPLETED && (
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 2: Shot Lists</h3>
-                            {step !== WorkflowStep.GENERATE_SHOTS ? (
-                                <button onClick={startPhase2} className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors">
-                                    <Film size={14} /> Start Shot Gen
-                                </button>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                                        <span>Progress</span>
-                                        <span>{currentEpIndex + 1} / {projectData.episodes.length}</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                                        <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${((currentEpIndex)/projectData.episodes.length)*100}%` }}></div>
-                                    </div>
-                                    {isProcessing ? (
-                                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                                            <Loader2 className="animate-spin" size={12}/> Processing Ep {currentEpIndex + 1}...
-                                        </div>
-                                    ) : (
-                                        <button onClick={confirmEpisodeShots} className="w-full py-2 bg-green-600 hover:bg-green-500 rounded text-xs font-bold text-white transition-colors">
-                                            Confirm & Next Episode
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Phase 3: Sora Gen */}
-                    {(step === WorkflowStep.GENERATE_SORA) && (
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 3: Sora Prompts</h3>
-                             <div className="space-y-3">
-                                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                                    <span>Progress</span>
-                                    <span>{projectData.episodes.filter(isEpisodeSoraComplete).length} / {projectData.episodes.length}</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-indigo-500 h-full transition-all duration-500" style={{ width: `${projectData.episodes.length ? (projectData.episodes.filter(isEpisodeSoraComplete).length / projectData.episodes.length)*100 : 0}%` }}></div>
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    当前集：{projectData.episodes[currentEpIndex]?.title || `Episode ${currentEpIndex + 1}`}
-                                </div>
-                                {isProcessing ? (
-                                    <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded">
-                                        <Loader2 className="animate-spin" size={12}/> Writing Prompts...
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <button onClick={startPhase3} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-bold text-white transition-colors">
-                                            Generate / Resume Current Episode
-                                        </button>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button 
-                                                onClick={retryCurrentEpisodeSora} 
-                                                className="w-full py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-[11px] font-semibold text-gray-700 dark:text-gray-200 transition-colors"
-                                            >
-                                                Retry This Episode
-                                            </button>
-                                            <button 
-                                                onClick={continueNextEpisodeSora} 
-                                                className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:hover:bg-indigo-800/60 dark:text-indigo-200 rounded text-[11px] font-semibold transition-colors"
-                                            >
-                                                Continue Next Episode
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                             </div>
-                        </div>
-                    )}
-
-                     {/* Phase 5 Indicator (Implicit) */}
-                     {step === WorkflowStep.COMPLETED && (
-                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-900/50">
-                             <h3 className="font-semibold text-green-800 dark:text-green-300 mb-1 text-sm flex items-center gap-2">
-                                 <CheckCircle size={14} /> Workflow Complete
-                             </h3>
-                             <p className="text-xs text-green-700 dark:text-green-400">
-                                 You can now use the Video Studio or export your assets.
-                             </p>
-                        </div>
-                     )}
-
-                </div>
-
-                {/* 2. NAVIGATION TABS (MIDDLE) */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <nav className="p-2 space-y-1">
-                        <button 
-                            onClick={() => setActiveTab('assets')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'assets' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <FolderOpen size={16} /> Assets & Guides
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('script')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'script' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <FileText size={16} /> Script Viewer
-                        </button>
-                         <button 
-                            onClick={() => setActiveTab('understanding')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'understanding' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <BrainCircuit size={16} /> Deep Understanding
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('table')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'table' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <List size={16} /> Shot List Table
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('visuals')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'visuals' ? 'bg-pink-50 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <Palette size={16} /> Visual Assets
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('video')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'video' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <MonitorPlay size={16} /> Video Studio
-                        </button>
-                         <button 
-                            onClick={() => setActiveTab('stats')}
-                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'stats' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                        >
-                            <BarChart2 size={16} /> Dashboard
-                        </button>
-                    </nav>
-
-                    {/* EPISODE LIST (Bottom of Sidebar) */}
-                    {projectData.episodes.length > 0 && (
-                        <div className="mt-4 border-t border-gray-200 dark:border-gray-800">
-                             <button 
-                                onClick={() => setIsEpListExpanded(!isEpListExpanded)}
-                                className="w-full p-3 flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                             >
-                                 <span>Episodes ({projectData.episodes.length})</span>
-                                 {isEpListExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                             </button>
-                             
-                             {isEpListExpanded && (
-                                 <div className="px-2 pb-4 space-y-1">
-                                     {projectData.episodes.map((ep, idx) => (
-                                         <button 
-                                            key={ep.id}
-                                            onClick={() => {
-                                                setCurrentEpIndex(idx);
-                                                if (ep.shots.length > 0) setActiveTab('table');
-                                            }}
-                                            className={`w-full text-left px-3 py-2 rounded text-xs truncate transition-colors ${currentEpIndex === idx ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                         >
-                                             {ep.id}. {ep.title}
-                                         </button>
-                                     ))}
-                                 </div>
-                             )}
-                        </div>
-                    )}
-                </div>
-             </>
-          ) : (
-              // Collapsed State
-              <div className="flex flex-col items-center py-4 gap-4">
-                  <button onClick={() => setIsSidebarCollapsed(false)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors">
-                      <PanelLeftOpen size={20} />
-                  </button>
-                  <div className="w-8 h-px bg-gray-200 dark:bg-gray-700"></div>
-                   <button onClick={() => setActiveTab('assets')} className={`p-2 rounded-lg transition-colors ${activeTab === 'assets' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Assets"><FolderOpen size={20} /></button>
-                   <button onClick={() => setActiveTab('script')} className={`p-2 rounded-lg transition-colors ${activeTab === 'script' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Script"><FileText size={20} /></button>
-                   <button onClick={() => setActiveTab('understanding')} className={`p-2 rounded-lg transition-colors ${activeTab === 'understanding' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Analysis"><BrainCircuit size={20} /></button>
-                   <button onClick={() => setActiveTab('table')} className={`p-2 rounded-lg transition-colors ${activeTab === 'table' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Table"><List size={20} /></button>
-                   <button onClick={() => setActiveTab('visuals')} className={`p-2 rounded-lg transition-colors ${activeTab === 'visuals' ? 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400' : 'text-gray-400 hover:text-pink-500'}`} title="Visuals"><Palette size={20} /></button>
-                   <button onClick={() => setActiveTab('video')} className={`p-2 rounded-lg transition-colors ${activeTab === 'video' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-indigo-500'}`} title="Video Studio"><MonitorPlay size={20} /></button>
-                   <button onClick={() => setActiveTab('stats')} className={`p-2 rounded-lg transition-colors ${activeTab === 'stats' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Dashboard"><BarChart2 size={20} /></button>
-              </div>
-          )}
-        </aside>
-
-        {/* Workspace */}
-        <section className="flex-1 overflow-hidden relative bg-white dark:bg-gray-950">
-           {/** Safely resolve current episode */}
-           {/** Use first episode if index is out of range */}
-           {(() => {
-              const currentEpisode = projectData.episodes[currentEpIndex] || projectData.episodes[0];
-              return (
-                <>
-           {activeTab === 'assets' && (
-               <AssetsBoard data={projectData} onAssetLoad={handleAssetLoad} />
-           )}
-           {activeTab === 'script' && (
-              <div className="h-full p-8 overflow-auto bg-white dark:bg-gray-950">
-                  <div className="max-w-4xl mx-auto space-y-8">
-                    {currentEpisode && (
-                        <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
-                           {currentEpisode.title}
-                        </h3>
-                     )}
-                     {currentEpisode && currentEpisode.scenes && currentEpisode.scenes.length > 0 ? (
-                        <div className="space-y-6">
-                            {currentEpisode.scenes.map((scene) => (
-                                <div key={scene.id} className="border border-gray-200 dark:border-gray-800 rounded-lg p-5 bg-white/50 dark:bg-gray-900/60">
-                                    <div className="mb-3">
-                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                            {scene.id} {scene.title}
-                                        </h4>
-                                    </div>
-                                    <pre className="whitespace-pre-wrap font-serif text-base leading-relaxed text-gray-800 dark:text-gray-300">
-                                        {scene.content || '（空场景）'}
-                                    </pre>
-                                </div>
-                            ))}
-                        </div>
-                     ) : (
-                        <pre className="whitespace-pre-wrap font-serif text-lg leading-relaxed text-gray-800 dark:text-gray-300">
-                            {currentEpisode
-                               ? currentEpisode.content 
-                               : projectData.rawScript || <span className="text-gray-400 italic">No script loaded. Upload a text file in Assets.</span>}
-                        </pre>
-                     )}
-                  </div>
-               </div>
-            )}
-           {activeTab === 'understanding' && (
-              <ContentBoard data={projectData} onSelectEpisode={(idx) => {
-                  setCurrentEpIndex(idx);
-                  setActiveTab('table');
-              }} />
-           )}
-           {activeTab === 'table' && (
-              <ShotTable 
-                shots={projectData.episodes[currentEpIndex]?.shots || []} 
-                showSora={step >= WorkflowStep.GENERATE_SORA}
-              />
-           )}
-           {activeTab === 'visuals' && (
-               <VisualAssets 
-                  data={projectData} 
-                  config={config} 
-                  onUpdateUsage={handleUsageUpdate} 
-               />
-           )}
-           {activeTab === 'video' && (
-               <VideoStudio 
-                  episodes={projectData.episodes}
-                  onGenerateVideo={handleGenerateVideo}
-                  onRemixVideo={handleRemixVideo}
-               />
-           )}
-           {activeTab === 'stats' && (
-              <Dashboard data={projectData} isDarkMode={isDarkMode} />
-           )}
-                </>
-              );
-           })()}
-        </section>
-
-      </main>
-    </div>
-    </div>
+      {renderMainContent()}
+    </AppShell>
   );
 };
 
