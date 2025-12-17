@@ -52,6 +52,33 @@ export const useCloudSync = ({
     if (!isSignedIn || !isLoaded || hasLoadedRemote) return;
     let cancelled = false;
 
+    const saveNow = async (data: ProjectData, updatedAt?: number | null) => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await fetch("/api/project", {
+          method: "PUT",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ projectData: data, updatedAt: updatedAt ?? remoteUpdatedAtRef.current }, dropFileReplacer)
+        });
+        if (res.ok) {
+          try {
+            const json = await res.json();
+            if (typeof json.updatedAt === "number") {
+              remoteUpdatedAtRef.current = json.updatedAt;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (e) {
+        onError?.(e);
+      }
+    };
+
     const loadRemote = async () => {
       try {
         const token = await getToken();
@@ -91,6 +118,8 @@ export const useCloudSync = ({
               setProjectData(remote);
             } else {
               backupData(remoteBackupKey, remote);
+              remoteUpdatedAtRef.current = data.updatedAt ?? remoteUpdatedAtRef.current;
+              await saveNow(local, data.updatedAt ?? remoteUpdatedAtRef.current);
             }
           } else if (remoteHas) {
             setProjectData(remote);
