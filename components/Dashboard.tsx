@@ -13,13 +13,13 @@ const ProgressBar = ({ stats, color, label }: { stats: RequestStats, color: stri
     return (
         <div className="mb-4">
             <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-700 dark:text-gray-300 font-medium">{label}</span>
-                <span className="text-gray-500 dark:text-gray-400">
+                <span className="text-[var(--text-secondary)] font-medium">{label}</span>
+                <span className="text-[var(--text-secondary)]">
                     {stats.success} / {stats.total} ({stats.total > 0 ? Math.round(percentage) : 0}%)
-                    {stats.error > 0 && <span className="text-red-500 dark:text-red-400 ml-2">({stats.error} err)</span>}
+                    {stats.error > 0 && <span className="text-red-400 ml-2">({stats.error} err)</span>}
                 </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-900 rounded-full h-2.5 overflow-hidden flex">
+            <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden flex border border-[var(--border-subtle)]/60">
                 <div 
                     className={`h-2.5 ${color} transition-all duration-500`} 
                     style={{ width: `${percentage}%` }}
@@ -97,35 +97,45 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
   const tooltipBorder = isDarkMode ? '#374151' : '#e5e7eb';
 
   return (
-    <div className="p-6 h-full overflow-y-auto space-y-8 bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="px-6 pt-20 pb-12 h-full overflow-y-auto space-y-8 bg-[var(--bg-panel)] text-[var(--text-primary)] transition-colors">
+      <div className="bg-[var(--bg-panel)]/90 p-4 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-wider">Account</h3>
+          <p className="text-lg font-semibold text-[var(--text-primary)] mt-1">eSheep Workspace</p>
+          <p className="text-sm text-[var(--text-secondary)]">Dreaming Electric Sheep · 在头像菜单可切换账户、主题与项目追踪。</p>
+        </div>
+        <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-muted)]/60 px-3 py-1.5 rounded-full border border-[var(--border-subtle)]">
+          Dashboard · 账户入口
+        </div>
+      </div>
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
-          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Total Episodes</h3>
+        <div className="bg-[var(--bg-panel)]/90 p-4 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+          <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-wider">Total Episodes</h3>
           <div className="flex items-end justify-between mt-2">
-             <p className="text-3xl font-bold text-gray-900 dark:text-white">{totalEpisodes}</p>
-             <span className="text-sm text-gray-500">{completedEpisodes} Completed</span>
+             <p className="text-3xl font-bold text-[var(--text-primary)]">{totalEpisodes}</p>
+             <span className="text-sm text-[var(--text-secondary)]">{completedEpisodes} Completed</span>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
-          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Total Shots</h3>
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">{totalShots}</p>
+        <div className="bg-[var(--bg-panel)]/90 p-4 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+          <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-wider">Total Shots</h3>
+          <p className="text-3xl font-bold text-blue-400 mt-2">{totalShots}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
-          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Total Token Usage</h3>
-          <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-2">{grandTotalTokens.toLocaleString()}</p>
+        <div className="bg-[var(--bg-panel)]/90 p-4 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+          <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-wider">Total Token Usage</h3>
+          <p className="text-3xl font-bold text-yellow-400 mt-2">{grandTotalTokens.toLocaleString()}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
-          <h3 className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold tracking-wider">Avg Tokens / Ep</h3>
-          <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">
+        <div className="bg-[var(--bg-panel)]/90 p-4 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+          <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-wider">Avg Tokens / Ep</h3>
+          <p className="text-3xl font-bold text-purple-300 mt-2">
             {totalEpisodes > 0 ? Math.round(grandTotalTokens / totalEpisodes).toLocaleString() : 0}
           </p>
         </div>
       </div>
       
       {/* SECTION 0: SYSTEM HEALTH & PERFORMANCE */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+      <div className="bg-[var(--bg-panel)]/90 p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+        <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2 mb-6">
             🛠 System Health & Performance
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -142,16 +152,16 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
       </div>
 
       {/* SECTION 1: WORK TRACKING (Shot Distribution) */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md">
+      <div className="bg-[var(--bg-panel)]/90 p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
         <div className="flex justify-between items-center mb-6">
            <div>
-             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+             <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                🎬 Work Analysis
              </h3>
-             <p className="text-sm text-gray-500 dark:text-gray-400">Shot count distribution per episode (Pacing Analysis)</p>
+             <p className="text-sm text-[var(--text-secondary)]">Shot count distribution per episode (Pacing Analysis)</p>
            </div>
            <div className="text-right">
-              <span className="text-xs font-mono text-blue-500 dark:text-blue-400 block">Avg: {totalEpisodes > 0 ? Math.round(totalShots/totalEpisodes) : 0} shots/ep</span>
+              <span className="text-xs font-mono text-blue-400 block">Avg: {totalEpisodes > 0 ? Math.round(totalShots/totalEpisodes) : 0} shots/ep</span>
            </div>
         </div>
         
@@ -181,7 +191,7 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
 
       {/* SECTION 2: COST TRACKING (Token Usage) */}
       <div className="space-y-6">
-         <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+         <h3 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
             💰 Cost Analysis
          </h3>
 
@@ -189,9 +199,9 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Phase 1 Detailed Breakdown */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md flex flex-col h-[400px]">
-               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Phase 1: Deep Understanding Cost</h3>
-               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Token usage breakdown by analysis task</p>
+            <div className="bg-[var(--bg-panel)]/90 p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] flex flex-col h-[400px]">
+               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Phase 1: Deep Understanding Cost</h3>
+               <p className="text-sm text-[var(--text-secondary)] mb-6">Token usage breakdown by analysis task</p>
                <div className="flex-1 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={phase1BreakdownData} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
@@ -209,9 +219,9 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
             </div>
 
             {/* Phase 2 & 3: Cost Per Episode (RESTORED) */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md flex flex-col h-[400px]">
-               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Phase 2 & 3: Generation Cost</h3>
-               <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Token usage per episode for Shot & Sora generation</p>
+            <div className="bg-[var(--bg-panel)]/90 p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] flex flex-col h-[400px]">
+               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Phase 2 & 3: Generation Cost</h3>
+               <p className="text-sm text-[var(--text-secondary)] mb-6">Token usage per episode for Shot & Sora generation</p>
                <div className="flex-1 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={episodeTokenData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -232,9 +242,9 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
          </div>
 
         {/* Total Cost Distribution */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md flex flex-col h-[400px]">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Total Project Cost</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Total cost breakdown by task type (All Phases)</p>
+        <div className="bg-[var(--bg-panel)]/90 p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] flex flex-col h-[400px]">
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Total Project Cost</h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-6">Total cost breakdown by task type (All Phases)</p>
           
           <div className="flex-1 flex flex-col lg:flex-row items-center justify-center">
              <div className="h-64 w-64 relative flex-shrink-0">
@@ -261,8 +271,8 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
                  {/* Center Label */}
                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
-                       <span className="text-xs text-gray-500 dark:text-gray-400 block">Total</span>
-                       <span className="text-xl font-bold text-gray-900 dark:text-white">{(grandTotalTokens / 1000).toFixed(1)}k</span>
+                       <span className="text-xs text-[var(--text-secondary)] block">Total</span>
+                       <span className="text-xl font-bold text-[var(--text-primary)]">{(grandTotalTokens / 1000).toFixed(1)}k</span>
                     </div>
                  </div>
              </div>
@@ -273,10 +283,10 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
                     <div key={i} className="flex items-center gap-3">
                         <div className="w-4 h-4 rounded-full" style={{backgroundColor: PIE_COLORS[i % PIE_COLORS.length]}}></div>
                         <div>
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{d.name}</p>
-                            <p className="text-xs text-gray-500 font-mono">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">{d.name}</p>
+                            <p className="text-xs text-[var(--text-secondary)] font-mono">
                                 {d.value.toLocaleString()} tokens 
-                                <span className="ml-2 text-gray-400 dark:text-gray-600">({grandTotalTokens > 0 ? Math.round((d.value/grandTotalTokens)*100) : 0}%)</span>
+                                <span className="ml-2 text-[var(--text-secondary)]">({grandTotalTokens > 0 ? Math.round((d.value/grandTotalTokens)*100) : 0}%)</span>
                             </p>
                         </div>
                     </div>

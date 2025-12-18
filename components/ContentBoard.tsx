@@ -12,27 +12,27 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
   const { context, episodes } = data;
 
   return (
-    <div className="h-full overflow-y-auto p-8 bg-gray-50 dark:bg-gray-900 space-y-8 transition-colors">
+    <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-[var(--bg-panel)] text-[var(--text-primary)] space-y-8 transition-colors">
       
       {/* 1. Project Summary Section */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
            <BookOpen className="text-blue-500" size={24}/>
            Project Overview
         </h2>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/50 dark:bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="bg-[var(--bg-panel)] p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
             {context.projectSummary ? (
                <div className="space-y-6 relative z-10">
                    <div>
-                        <h3 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">Global Story Arc</h3>
-                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg whitespace-pre-wrap">
+                        <h3 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2">Global Story Arc</h3>
+                        <p className="text-[var(--text-secondary)] leading-relaxed text-lg whitespace-pre-wrap">
                             {context.projectSummary}
                         </p>
                    </div>
                </div>
             ) : (
-               <div className="text-gray-500 italic flex items-center gap-2">
+               <div className="text-[var(--text-secondary)] italic flex items-center gap-2">
                  <Clock size={16} /> Analysis pending...
                </div>
             )}
@@ -41,23 +41,23 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
 
       {/* 2. Visual Style Bible Section */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
            <Palette className="text-pink-500" size={24}/>
            Visual Style Bible
         </h2>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-lg relative overflow-hidden group">
+        <div className="bg-[var(--bg-panel)] p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] relative overflow-hidden group">
             {data.globalStyleGuide ? (
                <div className="relative">
                  <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-xs text-pink-600 dark:text-pink-400 border border-pink-200 dark:border-pink-900 bg-pink-50 dark:bg-pink-900/20 px-2 py-1 rounded">User Uploaded</span>
+                    <span className="text-xs text-pink-200 border border-pink-500/30 bg-pink-900/30 px-2 py-1 rounded">User Uploaded</span>
                  </div>
-                 <pre className="text-gray-700 dark:text-gray-300 font-sans leading-relaxed text-sm whitespace-pre-wrap max-h-64 overflow-y-auto custom-scrollbar">
+                 <pre className="text-[var(--text-secondary)] font-sans leading-relaxed text-sm whitespace-pre-wrap max-h-64 overflow-y-auto custom-scrollbar">
                    {data.globalStyleGuide}
                  </pre>
                </div>
             ) : (
-               <div className="h-24 border border-gray-300 dark:border-gray-700 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-500 gap-2">
-                 <Palette size={20} className="opacity-50"/>
+               <div className="h-24 border border-[var(--border-subtle)] border-dashed rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)] gap-2 bg-[var(--bg-panel)]/60">
+                 <Palette size={20} className="opacity-60"/>
                  <span className="italic">No specific visual style guide uploaded.</span>
                  <span className="text-xs">AI will infer style from context and standard guidelines.</span>
                </div>
@@ -67,7 +67,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
 
       {/* 3. Character Cards Section */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
            <User className="text-purple-500" size={24}/>
            Character Profiles
         </h2>
@@ -79,7 +79,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
              ))}
            </div>
         ) : (
-           <div className="h-32 bg-gray-100 dark:bg-gray-800/30 rounded-xl border border-gray-200 dark:border-gray-700 border-dashed flex items-center justify-center text-gray-500 italic">
+           <div className="h-32 bg-[var(--bg-panel)]/60 rounded-xl border border-[var(--border-subtle)] border-dashed flex items-center justify-center text-[var(--text-secondary)] italic">
               No character data extracted yet.
            </div>
         )}
@@ -87,32 +87,32 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
 
       {/* 4. Location Section (NEW) */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
            <MapPin className="text-orange-500" size={24}/>
            Key Locations
         </h2>
         {context.locations && context.locations.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {context.locations.map((loc, idx) => (
-                    <div key={idx} className={`p-4 rounded-xl border ${loc.type === 'core' ? 'bg-white dark:bg-gray-800 border-orange-200 dark:border-orange-900/50 shadow-md' : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-800'}`}>
+                    <div key={idx} className={`p-4 rounded-xl border ${loc.type === 'core' ? 'bg-[var(--bg-panel)] border-[var(--border-subtle)] shadow-[var(--shadow-soft)]' : 'bg-[var(--bg-panel)]/70 border-[var(--border-subtle)]'}`}>
                         <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-bold text-gray-900 dark:text-white">{loc.name}</h3>
-                            <span className={`text-[10px] px-2 py-0.5 rounded uppercase ${loc.type === 'core' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                            <h3 className="font-bold text-[var(--text-primary)]">{loc.name}</h3>
+                            <span className={`text-[10px] px-2 py-0.5 rounded uppercase ${loc.type === 'core' ? 'bg-orange-900/30 text-orange-200 border border-orange-800/50' : 'bg-white/5 text-[var(--text-secondary)] border border-[var(--border-subtle)]'}`}>
                                 {loc.type}
                             </span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{loc.description}</p>
+                        <p className="text-sm text-[var(--text-secondary)] mb-2">{loc.description}</p>
                         {loc.visuals && (
-                            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Visual Atmosphere</span>
-                                <p className="text-xs text-orange-700 dark:text-orange-200/80 leading-relaxed">{loc.visuals}</p>
+                            <div className="mt-2 pt-2 border-t border-[var(--border-subtle)]/60">
+                                <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase block mb-1">Visual Atmosphere</span>
+                                <p className="text-xs text-orange-200 leading-relaxed">{loc.visuals}</p>
                             </div>
                         )}
                     </div>
                 ))}
             </div>
         ) : (
-             <div className="h-32 bg-gray-100 dark:bg-gray-800/30 rounded-xl border border-gray-200 dark:border-gray-700 border-dashed flex items-center justify-center text-gray-500 italic">
+             <div className="h-32 bg-[var(--bg-panel)]/60 rounded-xl border border-[var(--border-subtle)] border-dashed flex items-center justify-center text-[var(--text-secondary)] italic">
               No location data extracted yet.
            </div>
         )}
@@ -120,34 +120,34 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
 
       {/* 5. Episode List Section */}
       <section>
-         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+         <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
            <Film className="text-green-500" size={24}/>
            Episode Outline
         </h2>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-lg overflow-hidden">
+        <div className="bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] overflow-hidden">
             {episodes.length > 0 ? (
-               <div className="divide-y divide-gray-100 dark:divide-gray-700">
+               <div className="divide-y divide-[var(--border-subtle)]/60">
                   {episodes.map((ep, idx) => (
-                    <div key={ep.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                    <div key={ep.id} className="p-4 hover:bg-white/5 transition-colors group">
                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          <h3 className="font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-blue)] transition-colors">
                              {ep.title}
                           </h3>
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                             ep.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 
-                             ep.summary ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' :
-                             'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600'
+                             ep.status === 'completed' ? 'bg-green-900/30 text-green-200 border border-green-800/50' : 
+                             ep.summary ? 'bg-blue-900/30 text-blue-200 border border-blue-800/50' :
+                             'bg-white/5 text-[var(--text-secondary)] border border-[var(--border-subtle)]'
                           }`}>
                              {ep.status === 'completed' ? 'Done' : ep.summary ? 'Processed' : 'Pending'}
                           </span>
                        </div>
                        
                        {ep.summary ? (
-                         <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed pl-4 border-l-2 border-green-500/50">
+                         <p className="text-sm text-[var(--text-secondary)] leading-relaxed pl-4 border-l-2 border-green-500/40">
                            {ep.summary}
                          </p>
                        ) : (
-                         <div className="flex items-center gap-2 text-sm text-gray-500 italic pl-4 border-l-2 border-gray-300 dark:border-gray-700">
+                         <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] italic pl-4 border-l-2 border-[var(--border-subtle)]/60">
                             <FileText size={14} />
                             <span>Summary will be generated during Phase 1 analysis.</span>
                          </div>
@@ -156,7 +156,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
                        <div className="mt-2 pl-4">
                           <button 
                             onClick={() => onSelectEpisode(idx)}
-                            className="text-xs text-blue-600 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 underline decoration-blue-500/30"
+                            className="text-xs text-[var(--accent-blue)] hover:text-sky-300 underline decoration-[var(--accent-blue)]/40"
                           >
                              View Script & Shots
                           </button>
@@ -165,7 +165,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
                   ))}
                </div>
             ) : (
-               <div className="p-8 text-center text-gray-500 italic">
+               <div className="p-8 text-center text-[var(--text-secondary)] italic">
                   Upload a script to see episodes breakdown.
                </div>
             )}
@@ -182,11 +182,11 @@ const CharacterCard: React.FC<{ char: Character }> = ({ char }) => {
     const currentForm = hasForms ? char.forms[activeFormIndex] : null;
 
     return (
-        <div className="snap-start min-w-[320px] w-[320px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md hover:border-purple-400 dark:hover:border-purple-500/50 transition-colors">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-xl">
+        <div className="snap-start min-w-[320px] w-[320px] bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] hover:border-[var(--accent-blue)]/60 transition-colors">
+            <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 rounded-t-xl">
                 <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">{char.name}</h3>
-                    <span className={`text-xs px-2 py-1 rounded-full border ${char.isMain ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/50' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600'}`}>
+                    <h3 className="font-bold text-lg text-[var(--text-primary)]">{char.name}</h3>
+                    <span className={`text-xs px-2 py-1 rounded-full border ${char.isMain ? 'bg-purple-900/30 text-purple-200 border border-purple-800/50' : 'bg-white/5 text-[var(--text-secondary)] border border-[var(--border-subtle)]'}`}>
                         {char.role}
                     </span>
                 </div>
@@ -198,8 +198,8 @@ const CharacterCard: React.FC<{ char: Character }> = ({ char }) => {
                                 onClick={() => setActiveFormIndex(idx)}
                                 className={`text-[10px] whitespace-nowrap px-2 py-1 rounded transition-colors ${
                                     activeFormIndex === idx 
-                                    ? 'bg-purple-600 text-white' 
-                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                    ? 'bg-[var(--accent-blue)] text-white' 
+                                    : 'bg-white/5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)]'
                                 }`}
                             >
                                 {form.formName}
@@ -214,16 +214,16 @@ const CharacterCard: React.FC<{ char: Character }> = ({ char }) => {
                     <>
                         <div>
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">State: {currentForm.formName}</span>
-                                <span className="text-[10px] text-gray-500 dark:text-gray-600 font-mono">{currentForm.episodeRange}</span>
+                                <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">State: {currentForm.formName}</span>
+                                <span className="text-[10px] text-[var(--text-secondary)] font-mono">{currentForm.episodeRange}</span>
                             </div>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 h-20 overflow-y-auto custom-scrollbar">{currentForm.description}</p>
+                            <p className="text-sm text-[var(--text-secondary)] h-20 overflow-y-auto custom-scrollbar">{currentForm.description}</p>
                         </div>
                         <div className="mt-auto">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Visual Tags</span>
+                            <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Visual Tags</span>
                             <div className="flex flex-wrap gap-1">
                                 {currentForm.visualTags.split(/[,，]/).map((tag: string, i: number) => (
-                                    <span key={i} className="text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">
+                                    <span key={i} className="text-xs text-blue-200 bg-blue-900/30 px-1.5 py-0.5 rounded border border-blue-800/40">
                                         {tag.trim()}
                                     </span>
                                 ))}
@@ -232,8 +232,8 @@ const CharacterCard: React.FC<{ char: Character }> = ({ char }) => {
                     </>
                 ) : (
                     <div>
-                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Biography</span>
-                         <p className="text-sm text-gray-700 dark:text-gray-300">{char.bio}</p>
+                         <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-1">Biography</span>
+                         <p className="text-sm text-[var(--text-secondary)]">{char.bio}</p>
                     </div>
                 )}
             </div>

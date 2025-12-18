@@ -1,6 +1,4 @@
-import { AnalysisSubStep, WorkflowStep } from "../types";
-
-export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats';
+import { AnalysisSubStep, WorkflowStep, ActiveTab } from "../types";
 
 export type WorkflowState = {
   step: WorkflowStep;

@@ -129,7 +129,7 @@ const generateText = async (
                     "Authorization": `Bearer ${config.apiKey}`,
                     // OpenRouter specific headers
                     "HTTP-Referer": window.location.origin, 
-                    "X-Title": "Script2Video App"
+                    "X-Title": "eSheep"
                 },
                 body: JSON.stringify({
                     model: config.model || "google/gemini-2.0-flash-exp:free", // Fallback

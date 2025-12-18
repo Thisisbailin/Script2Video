@@ -11,6 +11,7 @@ import {
   useReactFlow,
   OnConnectEnd,
   ReactFlowProvider,
+  ControlButton,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "../styles/nodelab.css";
@@ -26,7 +27,7 @@ import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { GlobalImageHistory } from "./GlobalImageHistory";
 import { Toast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
-import { FloatingActionBar } from "./FloatingActionBar";
+import { MapPinned, MapPinOff } from "lucide-react";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -61,14 +62,14 @@ const NodeLabInner: React.FC = () => {
     addNode,
     loadWorkflow,
     saveWorkflow,
-    validateWorkflow,
   } = useWorkflowStore();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
 
   const { screenToFlowPosition } = useReactFlow();
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [, setIsDragOver] = useState(false);
   const [connectionDrop, setConnectionDrop] = useState<ConnectionDropState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showMiniMap, setShowMiniMap] = useState(false);
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -166,15 +167,6 @@ const NodeLabInner: React.FC = () => {
     e.target.value = "";
   };
 
-  const warnValidation = () => {
-    const { valid, errors } = validateWorkflow();
-    if (!valid) {
-      alert(errors.join("\n"));
-    } else {
-      alert("Workflow looks valid (basic checks)");
-    }
-  };
-
   const runAll = async () => {
     // simple topo-like: just run generators that have inputs
     for (const n of nodes) {
@@ -187,23 +179,6 @@ const NodeLabInner: React.FC = () => {
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-white">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-800 bg-[#0f0f0f] text-white">
-        <div className="text-lg font-semibold">Node Lab</div>
-        <div className="flex-1" />
-        <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 rounded bg-gray-800 text-xs">
-          Import
-        </button>
-        <button onClick={() => saveWorkflow()} className="px-3 py-1.5 rounded bg-gray-800 text-xs">
-          Export
-        </button>
-        <button onClick={warnValidation} className="px-3 py-1.5 rounded bg-gray-800 text-xs">
-          Validate
-        </button>
-        <button onClick={runAll} className="px-3 py-1.5 rounded bg-emerald-600 text-white text-xs">
-          Run
-        </button>
-      </div>
-
       <div className="flex-1 relative node-lab-canvas">
         <ReactFlow
           nodes={nodes}
@@ -218,10 +193,36 @@ const NodeLabInner: React.FC = () => {
           connectionMode="loose"
           onDragOver={onDragOver}
           onDrop={onDrop}
+          proOptions={{ hideAttribution: true }}
         >
           <Background />
-          <MiniMap />
-          <Controls />
+          {showMiniMap && (
+            <div className="nodelab-minimap-drawer" data-open={showMiniMap}>
+              <MiniMap
+                className="nodelab-minimap"
+                style={{
+                  height: 130,
+                  width: 180,
+                  background: "#0f0f0f",
+                  borderRadius: 14,
+                  border: "1px solid #1f2937",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+                }}
+                maskColor="rgba(255,255,255,0.04)"
+                nodeStrokeColor="#38bdf8"
+                nodeColor="#0ea5e9"
+              />
+            </div>
+          )}
+          <Controls className="nodelab-controls" position="bottom-left">
+            <ControlButton
+              onClick={() => setShowMiniMap((v) => !v)}
+              title="切换小地图"
+              className="!rounded-lg"
+            >
+              {showMiniMap ? <MapPinOff size={16} /> : <MapPinned size={16} />}
+            </ControlButton>
+          </Controls>
         </ReactFlow>
 
         {connectionDrop && (
@@ -240,6 +241,8 @@ const NodeLabInner: React.FC = () => {
         onAddImageGen={() => addNode("imageGen", { x: 400, y: 100 })}
         onAddVideoGen={() => addNode("videoGen", { x: 500, y: 100 })}
         onAddOutput={() => addNode("output", { x: 600, y: 100 })}
+        onImport={() => fileInputRef.current?.click()}
+        onExport={() => saveWorkflow()}
         onRun={runAll}
       />
       <MultiSelectToolbar />

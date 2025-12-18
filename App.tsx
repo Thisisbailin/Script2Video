@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Settings, CheckCircle, FileText, Video, Download, AlertCircle, Loader2, RotateCcw, FileSpreadsheet, BarChart2, BrainCircuit, Palette, FolderOpen, Layers, Users, MapPin, MonitorPlay, Film, PanelLeftClose, PanelLeftOpen, Sparkles, Trash2, ChevronDown, List, ChevronUp, Sun, Moon, User, LogOut, Shield } from 'lucide-react';
+import { FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
-import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams } from './types';
+import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
 import { parseScriptToEpisodes, exportToCSV, exportToXLS, parseCSVToShots } from './utils/parser';
 import { normalizeProjectData } from './utils/projectData';
@@ -18,7 +19,6 @@ import { useShotGeneration } from './hooks/useShotGeneration';
 import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { AppShell } from './components/layout/AppShell';
 import { Header } from './components/layout/Header';
-import { Sidebar } from './components/layout/Sidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { AssetsModule } from './modules/assets/AssetsModule';
 import { ScriptViewer } from './modules/script/ScriptViewer';
@@ -45,8 +45,6 @@ const App: React.FC = () => {
   const { getToken } = useAuth();
   const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
-  type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats' | 'lab';
-
   // Initialize state with Persisted hooks
   const [projectData, setProjectData] = usePersistedState<ProjectData>({
       key: PROJECT_STORAGE_KEY,
@@ -58,6 +56,26 @@ const App: React.FC = () => {
   const { config, setConfig } = useConfig(CONFIG_STORAGE_KEY);
 
   const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
+  
+  // Sync global theme classes for both Tailwind dark styles and CSS variable themes
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const themeClass = isDarkMode ? "theme-dark" : "theme-light";
+
+    root.classList.remove("theme-light", "theme-dark");
+    body.classList.remove("theme-light", "theme-dark");
+    root.classList.add(themeClass);
+    body.classList.add(themeClass);
+
+    if (isDarkMode) {
+      root.classList.add("dark");
+      body.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+      body.classList.remove("dark");
+    }
+  }, [isDarkMode]);
 
   const [uiState, setUiState] = usePersistedState<{
       step: WorkflowStep;
@@ -101,8 +119,6 @@ const App: React.FC = () => {
   }, [step, analysisStep, currentEpIndex, activeTab, setUiState]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isEpListExpanded, setIsEpListExpanded] = useState(true); 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
   
@@ -979,12 +995,25 @@ const App: React.FC = () => {
   };
   const activeModelLabel = `${config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
+  const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [
+    { key: 'assets', label: 'Assets', icon: FolderOpen },
+    { key: 'script', label: 'Script', icon: FileText },
+    { key: 'understanding', label: 'Analysis', icon: BrainCircuit },
+    { key: 'table', label: 'Shots', icon: List },
+    { key: 'visuals', label: 'Visuals', icon: Palette, hidden: true },
+    { key: 'video', label: 'Video', icon: MonitorPlay, hidden: true },
+    { key: 'lab', label: 'Node Lab', icon: Sparkles },
+    { key: 'stats', label: 'Stats', icon: BarChart2, hidden: true },
+  ];
 
   const headerNode = (
     <Header
-      isProcessing={isProcessing}
-      hasGeneratedShots={hasGeneratedShots}
+      activeTab={activeTab}
+      tabs={tabOptions}
+      onTabChange={setActiveTab}
+      activeModelLabel={activeModelLabel}
       onTryMe={handleTryMe}
+      hasGeneratedShots={hasGeneratedShots}
       onExportCsv={() => {
         exportToCSV(projectData.episodes);
         setIsExportMenuOpen(false);
@@ -1003,47 +1032,35 @@ const App: React.FC = () => {
         user,
         onSignIn: () => openSignIn(),
         onSignOut: () => signOut(),
-      onOpenSettings: () => setIsSettingsOpen(true),
-      onReset: handleResetProject,
-      isUserMenuOpen,
-      setIsUserMenuOpen,
-      onUploadAvatar: handleAvatarUploadClick,
-      avatarUrl: avatarUrl || user?.imageUrl
-    }}
-    activeModelLabel={activeModelLabel}
-    projectData={projectData}
-    config={config}
-  />
-  );
-
-  const sidebarNode = (
-    <Sidebar
-      isSidebarCollapsed={isSidebarCollapsed}
-      setIsSidebarCollapsed={setIsSidebarCollapsed}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      step={step}
-      analysisStep={analysisStep}
-      analysisQueueLength={analysisQueue.length}
-      analysisTotal={analysisTotal}
-      isProcessing={isProcessing}
-      currentEpIndex={currentEpIndex}
-      episodes={projectData.episodes}
-      onStartAnalysis={startAnalysis}
-      onConfirmSummaryNext={confirmSummaryAndNext}
-      onConfirmEpSummariesNext={confirmEpSummariesAndNext}
-      onConfirmCharListNext={confirmCharListAndNext}
-      onConfirmCharDepthNext={confirmCharDepthAndNext}
-      onConfirmLocListNext={confirmLocListAndNext}
-      onFinishAnalysis={finishAnalysis}
-      onStartPhase2={startPhase2}
-      onConfirmEpisodeShots={confirmEpisodeShots}
-      onStartPhase3={startPhase3}
-      onRetryEpisodeSora={retryCurrentEpisodeSora}
-      onContinueNextEpisodeSora={continueNextEpisodeSora}
-      isEpListExpanded={isEpListExpanded}
-      setIsEpListExpanded={setIsEpListExpanded}
-      setCurrentEpIndex={setCurrentEpIndex}
+        onOpenSettings: () => setIsSettingsOpen(true),
+        onReset: handleResetProject,
+        isUserMenuOpen,
+        setIsUserMenuOpen,
+        onUploadAvatar: handleAvatarUploadClick,
+        avatarUrl: avatarUrl || user?.imageUrl,
+      }}
+      workflow={{
+        step,
+        analysisStep,
+        analysisQueueLength: analysisQueue.length,
+        analysisTotal,
+        isProcessing,
+        currentEpIndex,
+        episodes: projectData.episodes,
+        setCurrentEpIndex,
+        onStartAnalysis: startAnalysis,
+        onConfirmSummaryNext: confirmSummaryAndNext,
+        onConfirmEpSummariesNext: confirmEpSummariesAndNext,
+        onConfirmCharListNext: confirmCharListAndNext,
+        onConfirmCharDepthNext: confirmCharDepthAndNext,
+        onConfirmLocListNext: confirmLocListAndNext,
+        onFinishAnalysis: finishAnalysis,
+        onStartPhase2: startPhase2,
+        onConfirmEpisodeShots: confirmEpisodeShots,
+        onStartPhase3: startPhase3,
+        onRetryEpisodeSora: retryCurrentEpisodeSora,
+        onContinueNextEpisodeSora: continueNextEpisodeSora,
+      }}
     />
   );
 
@@ -1093,7 +1110,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <AppShell isDarkMode={isDarkMode} header={headerNode} sidebar={sidebarNode}>
+    <AppShell isDarkMode={isDarkMode} header={headerNode}>
       <SettingsModal 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)}

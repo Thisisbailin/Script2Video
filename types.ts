@@ -54,6 +54,8 @@ export interface Episode {
   soraGenUsage?: TokenUsage;
 }
 
+export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'lab' | 'stats';
+
 // --- NEW DEEP UNDERSTANDING TYPES ---
 
 export interface CharacterForm {

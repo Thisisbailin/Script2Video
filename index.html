@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Script2Video</title>
+    <title>eSheep · Dreaming Electric Sheep</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -21,6 +21,64 @@
       }
     </script>
     <style>
+      :root {
+        --bg-base: #0f0f0f;
+        --bg-panel: #0f0f0f;
+        --bg-elevated: #121212;
+        --bg-overlay: #151515;
+        --bg-muted: #1b1b1b;
+        --border-subtle: #1f2937;
+        --border-strong: #263244;
+        --text-primary: #f8fafc;
+        --text-secondary: #9ca3af;
+        --accent-green: #10b981;
+        --accent-blue: #0ea5e9;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+        --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.35);
+        --shadow-strong: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+
+      :root.theme-dark,
+      body.theme-dark {
+        --bg-base: #0f0f0f;
+        --bg-panel: #0f0f0f;
+        --bg-elevated: #121212;
+        --bg-overlay: #151515;
+        --bg-muted: #1b1b1b;
+        --border-subtle: #1f2937;
+        --border-strong: #263244;
+        --text-primary: #f8fafc;
+        --text-secondary: #9ca3af;
+        --accent-green: #10b981;
+        --accent-blue: #0ea5e9;
+        --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.35);
+        --shadow-strong: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+
+      :root.theme-light,
+      body.theme-light {
+        --bg-base: #ffffff;
+        --bg-panel: #ffffff;
+        --bg-elevated: #ffffff;
+        --bg-overlay: #f8fafc;
+        --bg-muted: #eef2f6;
+        --border-subtle: #e5e7eb;
+        --border-strong: #cbd5e1;
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --accent-green: #10b981;
+        --accent-blue: #0ea5e9;
+        --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.12);
+        --shadow-strong: 0 20px 60px rgba(15, 23, 42, 0.16);
+      }
+
+      body {
+        background: var(--bg-panel);
+        color: var(--text-primary);
+      }
+
       /* Custom scrollbar for better aesthetics in split views */
       ::-webkit-scrollbar {
         width: 8px;

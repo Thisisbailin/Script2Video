@@ -218,13 +218,13 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
   const isBusy = activeShot?.videoStatus === 'queued' || activeShot?.videoStatus === 'generating';
 
   return (
-    <div className="h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors">
+    <div className="h-full flex bg-[var(--bg-panel)] text-[var(--text-primary)] overflow-hidden transition-colors">
       
       {/* LEFT COLUMN: WORKSTATION */}
       <div className="flex-1 flex flex-col min-w-0">
           
           {/* Top: Video Player */}
-          <div className="flex-1 bg-gray-100 dark:bg-black/50 relative flex items-center justify-center p-8 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex-1 bg-[var(--bg-panel)] relative flex items-center justify-center p-8 border-b border-[var(--border-subtle)]">
               {activeShot ? (
                   activeShot.videoUrl ? (
                       <div className="w-full h-full flex items-center justify-center relative group">
@@ -250,12 +250,12 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                              <div className="flex flex-col items-center">
                                  <div className="relative mb-4">
                                      <Loader2 size={48} className="text-indigo-500 animate-spin"/>
-                                     {activeShot.videoStatus === 'queued' && <Clock size={20} className="absolute -bottom-1 -right-1 text-yellow-500 bg-white dark:bg-gray-900 rounded-full" />}
+                                     {activeShot.videoStatus === 'queued' && <Clock size={20} className="absolute -bottom-1 -right-1 text-yellow-500 bg-[var(--bg-panel)] rounded-full" />}
                                  </div>
-                                 <p className="text-gray-700 dark:text-gray-300 font-medium">
+                                 <p className="text-[var(--text-primary)] font-medium">
                                      {activeShot.videoStatus === 'queued' ? 'Queued' : 'Generating Video'}
                                  </p>
-                                 <p className="text-xs text-gray-500 mt-2 font-mono">
+                                 <p className="text-xs text-[var(--text-secondary)] mt-2 font-mono">
                                      <GenerationTimer startTime={activeShot.videoStartTime} />
                                  </p>
                              </div>
@@ -266,20 +266,20 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                                  <p className="text-xs text-red-600 dark:text-red-300 mt-2 max-w-xs bg-red-100 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-900/50">{activeShot.videoErrorMsg}</p>
                              </div>
                          ) : (
-                             <div className="flex flex-col items-center opacity-30 text-gray-400 dark:text-gray-500">
+                             <div className="flex flex-col items-center opacity-30 text-[var(--text-secondary)]">
                                  <Video size={64} className="mb-4"/>
                                  <p className="font-medium">Ready to Generate</p>
                              </div>
                          )}
                       </div>
-                  )
-              ) : (
-                  <div className="flex flex-col items-center opacity-40 text-gray-400 dark:text-gray-500">
+                 )
+             ) : (
+                  <div className="flex flex-col items-center opacity-40 text-[var(--text-secondary)]">
                      <MonitorPlay size={48} className="mb-3 text-indigo-400"/>
                      <p className="text-lg font-bold">Creative Sandbox Mode</p>
                      <p className="text-xs mt-1">Write a prompt below to generate a video from scratch.</p>
-                  </div>
-              )}
+                 </div>
+             )}
           </div>
 
           {/* Bottom: Prompt Editor & Parameters */}

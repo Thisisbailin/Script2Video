@@ -47,22 +47,28 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
       onUpload: () => void;
       colorClass: string;
   }) => (
-      <div className={`p-6 rounded-xl border transition-all duration-300 shadow-sm ${isLoaded ? 'bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-700 shadow-md' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 border-dashed hover:border-gray-300 dark:hover:border-gray-600'}`}>
+      <div
+        className={`p-6 rounded-xl border transition-all duration-300 shadow-sm ${
+          isLoaded
+            ? 'bg-[var(--bg-panel)] border-[var(--border-subtle)] shadow-[var(--shadow-soft)]'
+            : 'bg-[var(--bg-panel)]/80 border-[var(--border-subtle)] border-dashed hover:border-[var(--accent-blue)]/60'
+        }`}
+      >
           <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-lg ${isLoaded ? colorClass.replace('text-', 'bg-').replace('400', '100 dark:bg-') + (colorClass.includes('400') ? '/30' : '') : 'bg-gray-100 dark:bg-gray-800'}`}>
-                  <Icon size={24} className={isLoaded ? colorClass.replace('400', '600 dark:text-') + (colorClass.includes('400') ? '400' : '') : 'text-gray-400 dark:text-gray-500'} />
+              <div className={`p-3 rounded-lg ${isLoaded ? 'bg-white/5' : 'bg-white/5'}`}>
+                  <Icon size={24} className={isLoaded ? colorClass : 'text-[var(--text-secondary)]'} />
               </div>
               {isLoaded && <CheckCircle size={20} className="text-green-500" />}
           </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-200 mb-1">{title}</h3>
-          <p className="text-xs text-gray-500 mb-6 h-8">{fileName ? `Current: ${fileName}` : desc}</p>
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">{title}</h3>
+          <p className="text-xs text-[var(--text-secondary)] mb-6 h-8">{fileName ? `Current: ${fileName}` : desc}</p>
           
           <button 
               onClick={onUpload}
               className={`w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                   isLoaded 
-                  ? 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200' 
-                  : 'bg-blue-600 hover:bg-blue-500 text-white'
+                  ? 'bg-[#1a1a1d] border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-[var(--text-primary)]' 
+                  : 'bg-[var(--accent-blue)] hover:bg-sky-500 text-white'
               }`}
           >
               <Upload size={16} /> {isLoaded ? 'Replace File' : 'Upload File'}
@@ -71,20 +77,12 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
   );
 
   return (
-    <div className="h-full overflow-y-auto p-8 bg-gray-50 dark:bg-gray-950 transition-colors">
+    <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-[var(--bg-panel)] text-[var(--text-primary)] transition-colors">
         <div className="max-w-6xl mx-auto space-y-10">
             
-            {/* Header */}
-            <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-2">
-                    <FolderOpen size={28} className="text-blue-500" /> Project Assets
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">Manage your screenplay, style guides, and operational documents here.</p>
-            </div>
-
             {/* Core Assets */}
             <section>
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
                     Core Documents
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

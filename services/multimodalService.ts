@@ -111,7 +111,7 @@ export const sendMessage = async (
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
         "HTTP-Referer": window.location.origin, 
-        "X-Title": "Script2Video App"
+        "X-Title": "eSheep"
       },
       body: JSON.stringify(payload)
     });

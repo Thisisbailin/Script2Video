@@ -134,52 +134,52 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg p-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
+      <div className="bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] w-full max-w-lg p-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-colors text-[var(--text-primary)]">
         
         {/* Header */}
-        <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700 shrink-0">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">System Settings</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+        <div className="bg-[var(--bg-panel)]/85 px-6 py-4 flex justify-between items-center border-b border-[var(--border-subtle)] shrink-0">
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">System Settings</h2>
+          <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
             <X size={24} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
+        <div className="flex border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] shrink-0">
             <button 
                 onClick={() => setActiveTab('text')}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'text' ? 'bg-blue-50 dark:bg-gray-700/50 text-blue-600 dark:text-white border-b-2 border-blue-500' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'text' ? 'bg-white/5 text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
             >
                 <Cpu size={16} /> Text
             </button>
             <button 
                 onClick={() => setActiveTab('multimodal')}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'multimodal' ? 'bg-pink-50 dark:bg-gray-700/50 text-pink-600 dark:text-white border-b-2 border-pink-500' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'multimodal' ? 'bg-white/5 text-pink-300 border-b-2 border-pink-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
             >
                 <ImageIcon size={16} /> Visuals
             </button>
             <button 
                 onClick={() => setActiveTab('video')}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'video' ? 'bg-indigo-50 dark:bg-gray-700/50 text-indigo-600 dark:text-white border-b-2 border-indigo-500' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'video' ? 'bg-white/5 text-indigo-300 border-b-2 border-indigo-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
             >
                 <Video size={16} /> Video
             </button>
             <button 
                 onClick={() => setActiveTab('about')}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'about' ? 'bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white border-b-2 border-gray-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200'}`}
+                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'about' ? 'bg-white/5 text-[var(--text-primary)] border-b-2 border-[var(--border-subtle)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
                 title="About Project"
             >
                 <Info size={16} /> Info
             </button>
         </div>
 
-        <div className="p-6 overflow-y-auto">
-            <div className="mb-6 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 flex items-start gap-3">
+        <div className="p-6 overflow-y-auto text-[var(--text-primary)]">
+            <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
                 <input
                   id="rememberKeys"
                   type="checkbox"
-                  className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded focus:ring-[var(--accent-blue)] bg-[var(--bg-panel)]"
                   checked={!!config.rememberApiKeys}
                   onChange={(e) => {
                     onConfigChange({
@@ -188,15 +188,15 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     });
                   }}
                 />
-                <label htmlFor="rememberKeys" className="text-sm text-gray-700 dark:text-gray-200 leading-tight">
+                <label htmlFor="rememberKeys" className="text-sm text-[var(--text-secondary)] leading-tight">
                   记住 API 密钥到本地（默认不落盘，刷新后需重新输入）。勾选后密钥会写入浏览器存储，请仅在可信设备使用。
                 </label>
             </div>
-            <div className="mb-6 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 flex items-start gap-3">
+            <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
                 <input
                   id="syncKeys"
                   type="checkbox"
-                  className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded focus:ring-[var(--accent-blue)] bg-[var(--bg-panel)]"
                   checked={!!config.syncApiKeys}
                   onChange={(e) => {
                     onConfigChange({
@@ -205,7 +205,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     });
                   }}
                 />
-                <label htmlFor="syncKeys" className="text-sm text-gray-700 dark:text-gray-200 leading-tight">
+                <label htmlFor="syncKeys" className="text-sm text-[var(--text-secondary)] leading-tight">
                   云端同步密钥（与账户绑定）。勾选后密钥将存入服务器，请确认账号安全。
                 </label>
             </div>
@@ -213,17 +213,17 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 <div className="space-y-6">
                    {/* Provider Switcher */}
                    <div>
-                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Provider</label>
-                       <div className="flex rounded-lg bg-gray-100 dark:bg-gray-900 p-1 border border-gray-200 dark:border-gray-700">
+                       <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Provider</label>
+                       <div className="flex rounded-lg bg-[var(--bg-panel)]/80 p-1 border border-[var(--border-subtle)]">
                            <button 
                                onClick={() => setProvider('gemini')}
-                               className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'gemini' ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                               className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'gemini' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
                            >
                                <Zap size={14}/> Google Gemini
                            </button>
                            <button 
                                onClick={() => setProvider('openrouter')}
-                               className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'openrouter' ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                               className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'openrouter' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
                            >
                                <Globe size={14}/> OpenRouter / OpenAI
                            </button>
@@ -232,13 +232,13 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
                    {/* Configuration Content */}
                    {config.textConfig.provider === 'gemini' ? (
-                       <div className="space-y-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700/50">
+                       <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
                            <div>
-                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gemini Model</label>
+                               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Gemini Model</label>
                                <select
                                  value={config.textConfig.model}
                                  onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                 className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                 className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                >
                                  {AVAILABLE_MODELS.map(m => (
                                    <option key={m.id} value={m.id}>{m.name}</option>
@@ -246,64 +246,64 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                </select>
                            </div>
                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
                                      <Key size={14}/> API Key
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="AIza..."
-                                    value={config.textConfig.apiKey || ''}
-                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
-                                    className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                               </label>
+                               <input
+                                   type="password"
+                                   placeholder="AIza..."
+                                   value={config.textConfig.apiKey || ''}
+                                   onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
+                                    className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                 />
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
                                     <CheckCircle size={12} className="text-green-500" />
                                     支持手动填写，留空时会使用环境变量 VITE_GEMINI_API_KEY。
                                 </p>
                            </div>
                        </div>
                    ) : (
-                       <div className="space-y-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700/50">
+                       <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
                                      <Globe size={14}/> API Endpoint URL
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="https://openrouter.ai/api/v1"
-                                    value={config.textConfig.baseUrl || ''}
-                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
-                                    className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                               </label>
+                               <input
+                                   type="text"
+                                   placeholder="https://openrouter.ai/api/v1"
+                                   value={config.textConfig.baseUrl || ''}
+                                   onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
+                                   className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                               />
+                           </div>
+                           <div>
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
                                      <Key size={14}/> API Key
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="sk-or-..."
-                                    value={config.textConfig.apiKey || ''}
-                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
-                                    className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                />
-                            </div>
+                               </label>
+                               <input
+                                   type="password"
+                                   placeholder="sk-or-..."
+                                   value={config.textConfig.apiKey || ''}
+                                   onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
+                                   className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                               />
+                           </div>
                             
                             {/* Fetch & Select Text Model */}
-                            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <div className="pt-2 border-t border-[var(--border-subtle)]/60">
                                 <div className="flex justify-between items-center mb-1">
-                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Target Model</label>
+                                     <label className="block text-sm font-medium text-[var(--text-secondary)]">Target Model</label>
                                      <button 
                                          onClick={handleFetchTextModels}
                                          disabled={isLoadingTextModels}
-                                         className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50"
+                                         className="text-xs flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300 disabled:opacity-50"
                                      >
                                          {isLoadingTextModels ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                                          Fetch Models
                                      </button>
                                 </div>
                                 {textModelFetchMessage && (
-                                    <p className={`text-xs mb-2 flex items-center gap-1 ${textModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+                                    <p className={`text-xs mb-2 flex items-center gap-1 ${textModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
                                         {textModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
                                         {textModelFetchMessage.text}
                                     </p>
@@ -312,7 +312,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     <select
                                         value={config.textConfig.model}
                                         onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                        className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                     >
                                         <option value="">Select a model...</option>
                                         {availableTextModels.map(m => <option key={m} value={m}>{m}</option>)}
@@ -323,7 +323,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         placeholder="e.g. google/gemini-pro-1.5"
                                         value={config.textConfig.model}
                                         onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                        className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                     />
                                 )}
                             </div>
@@ -334,11 +334,11 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
             {activeTab === 'multimodal' && (
                 <div className="space-y-4">
-                     <div className="p-3 bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-900 rounded text-xs text-pink-800 dark:text-pink-200 mb-4">
+                     <div className="p-3 bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded text-xs text-pink-200 mb-4">
                         Phase 4 uses Multimodal Intelligence to generate visual concepts. Use an OpenRouter or OpenAI compatible API that supports image generation or rich markdown responses (e.g., GPT-4o, Claude 3.5 Sonnet, etc).
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
                              <Globe size={14}/> API Endpoint URL
                         </label>
                         <input
@@ -349,11 +349,11 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                 ...config,
                                 multimodalConfig: { ...config.multimodalConfig, baseUrl: e.target.value }
                             })}
-                            className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
                              <Key size={14}/> API Key
                         </label>
                         <input
@@ -364,23 +364,23 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                 ...config,
                                 multimodalConfig: { ...config.multimodalConfig, apiKey: e.target.value }
                             })}
-                            className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                         />
                     </div>
-                     <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                     <div className="pt-2 border-t border-[var(--border-subtle)]/60">
                          <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Model</label>
+                                <label className="block text-sm font-medium text-[var(--text-secondary)]">Model</label>
                                 <button 
                                     onClick={handleFetchMultiModels}
                                     disabled={isLoadingMultiModels}
-                                    className="text-xs flex items-center gap-1 text-pink-600 dark:text-pink-400 hover:text-pink-500 disabled:opacity-50"
+                                    className="text-xs flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300 disabled:opacity-50"
                                 >
                                     {isLoadingMultiModels ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                                     Fetch Models
                                 </button>
                         </div>
                         {multiModelFetchMessage && (
-                                    <p className={`text-xs mb-2 flex items-center gap-1 ${multiModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+                                    <p className={`text-xs mb-2 flex items-center gap-1 ${multiModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
                                         {multiModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
                                         {multiModelFetchMessage.text}
                                     </p>
@@ -392,7 +392,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     ...config,
                                     multimodalConfig: { ...config.multimodalConfig, model: e.target.value }
                                 })}
-                                className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                             >
                                 <option value="">Select a model...</option>
                                 {availableMultiModels.map(m => <option key={m} value={m}>{m}</option>)}
@@ -406,7 +406,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     ...config,
                                     multimodalConfig: { ...config.multimodalConfig, model: e.target.value }
                                 })}
-                                className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:outline-none"
+                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                             />
                         )}
                      </div>
@@ -415,7 +415,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
             {activeTab === 'video' && (
                 <div className="space-y-4">
-                    <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900 rounded text-xs text-indigo-800 dark:text-indigo-200 mb-4">
+                    <div className="p-3 bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded text-xs text-indigo-200 mb-4">
                         Phase 5 requires an external Video Generation API. You can use standard proxies (OneAPI) or direct endpoints.
                     </div>
 
@@ -508,20 +508,20 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 <div className="space-y-8 text-center py-4">
                     {/* Hero Section */}
                     <div>
-                        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                            <Video size={40} className="text-white drop-shadow-md" />
+                        <div className="w-20 h-20 bg-gradient-to-br from-sky-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                            <span className="text-3xl">💊</span>
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-1">
-                            Script2Video
+                            eSheep
                         </h1>
                         <span className="inline-block px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[10px] text-gray-500 dark:text-gray-400 font-mono border border-gray-200 dark:border-gray-700 tracking-wider">
-                            VERSION 0.1
+                            VERSION 0.2
                         </span>
                     </div>
 
                     {/* Description */}
                     <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-                        An end-to-end AI filmmaking assistant that transforms screenplays into professional shooting scripts and generates production-ready assets.
+                        Dreaming Electric Sheep · 将剧本转化为镜头、提示词与可部署素材的全流程工作室助手。
                     </p>
 
                     {/* Features List */}
