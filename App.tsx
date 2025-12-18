@@ -333,8 +333,12 @@ const App: React.FC = () => {
 
   const uploadAvatarToSupabase = async (file: File) => {
       try {
+          const safeName = file.name
+              .normalize("NFKD")
+              .replace(/[^\w.\-]+/g, "_")
+              .toLowerCase();
           const payload = {
-              fileName: `avatars/${Date.now()}-${file.name}`,
+              fileName: `avatars/${Date.now()}-${safeName}`,
               bucket: 'public-assets',
               contentType: file.type
           };
