@@ -23,9 +23,108 @@ import {
   BarChart2,
   Layers,
   Film,
+  PanelLeft,
 } from "lucide-react";
 import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep } from "../../types";
 import { isEpisodeSoraComplete } from "../../utils/episodes";
+
+const PixelSheepIcon: React.FC<{ size?: number }> = ({ size = 32 }) => {
+  const outline = "#1a1a1a";
+  const wool = "#f5e6d4";
+  const woolShade = "#e4cdb2";
+  const hoof = "#2d2d2d";
+  const ground = "#3f9a3f";
+  const flower = "#e54b8c";
+
+  const px = (fill: string, coords: Array<[number, number, number?, number?]>) =>
+    coords.map(([x, y, w = 1, h = 1], i) => (
+      <rect key={`${fill}-${i}-${x}-${y}`} x={x} y={y} width={w} height={h} fill={fill} />
+    ));
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 40 40"
+      aria-hidden
+      className="shrink-0"
+      shapeRendering="crispEdges"
+    >
+      {/* Wool fill */}
+      {px(wool, [
+        [19, 3, 2, 2],
+        [18, 5, 4, 2],
+        [17, 7, 5, 3],
+        [16, 10, 6, 3],
+        [15, 13, 7, 3],
+        [14, 16, 8, 4],
+        [13, 20, 8, 3],
+        [12, 23, 8, 3],
+        [11, 26, 9, 2],
+        [11, 28, 4, 6],
+        [16, 28, 3, 6],
+        [20, 27, 3, 7],
+        [24, 26, 3, 8],
+        [10, 22, 2, 3], // tail root
+        [9, 21, 1, 2],
+      ])}
+
+      {/* Wool shading */}
+      {px(woolShade, [
+        [20, 7, 2, 2],
+        [19, 10, 3, 2],
+        [18, 13, 4, 2],
+        [17, 17, 4, 2],
+        [16, 20, 4, 2],
+        [15, 24, 3, 1],
+        [21, 24, 3, 1],
+        [12, 28, 2, 2],
+        [21, 28, 2, 2],
+      ])}
+
+      {/* Hooves */}
+      {px(hoof, [
+        [11, 34, 3, 1],
+        [16, 34, 3, 1],
+        [20, 34, 3, 1],
+        [24, 34, 3, 1],
+      ])}
+
+      {/* Face features */}
+      {px(outline, [
+        [21, 9, 1, 2], // eye
+        [23, 9, 1, 2], // eye
+        [22, 12, 1, 1], // nose
+        [22, 13, 1, 1],
+      ])}
+
+      {/* Outline path */}
+      <path
+        d="M18 2h3v1h2v2h2v2h1v3h1v3h1v3h1v3h-1v2h-1v2h-2v3h-2v3h-2v3h-3v2h-3v-2h-2v-3h-2v-3h-2v-3h-1v-3h-1v-3l1-2h1v-2h1v-3h1v-3h2v-3h2v-2h2v-2h2Z"
+        fill="none"
+        stroke={outline}
+        strokeWidth={1}
+        shapeRendering="crispEdges"
+      />
+
+      {/* Tail outline */}
+      <path
+        d="M9 21h1v2h1v2h-2v-1H8v-2h1Z"
+        fill="none"
+        stroke={outline}
+        strokeWidth={1}
+        shapeRendering="crispEdges"
+      />
+
+      {/* Ground + small flower */}
+      {px(ground, [[8, 35, 22, 2]])}
+      {px(flower, [
+        [10, 34, 1, 1],
+        [26, 34, 1, 1],
+      ])}
+    </svg>
+  );
+};
 
 type TabOption = {
   key: ActiveTab;
@@ -62,6 +161,13 @@ type HeaderProps = {
   tabs: TabOption[];
   onTabChange: (tab: ActiveTab) => void;
   activeModelLabel: string;
+  splitView: {
+    currentSplitTab: ActiveTab | null;
+    isOpen: boolean;
+    onToggle: () => void;
+    onSelect: (tab: ActiveTab | null) => void;
+    onClose: () => void;
+  };
   onTryMe: () => void;
   hasGeneratedShots: boolean;
   onExportCsv: () => void;
@@ -465,6 +571,7 @@ export const Header: React.FC<HeaderProps> = ({
   tabs,
   onTabChange,
   activeModelLabel,
+  splitView,
   onTryMe,
   hasGeneratedShots,
   onExportCsv,
@@ -496,12 +603,43 @@ export const Header: React.FC<HeaderProps> = ({
   );
   const [showTabs, setShowTabs] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
+  const [showTryInfo, setShowTryInfo] = useState(false);
+
+  const pillTriggerClasses = (isActive = false) =>
+    `flex h-12 items-center gap-2 px-4 rounded-full bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.08)] transition-transform duration-150 hover:scale-105 hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)] ${
+      isActive ? "scale-105 shadow-[0_8px_20px_rgba(0,0,0,0.12)]" : ""
+    }`;
+
+  const iconButtonClasses = (isActive = false) =>
+    `relative h-10 w-10 flex items-center justify-center rounded-full text-[var(--text-primary)] transition-transform duration-150 hover:scale-105 ${
+      isActive ? "scale-105" : ""
+    }`;
 
   const closeAll = () => {
     setShowTabs(false);
     setShowWorkflow(false);
+    setShowTryInfo(false);
+    splitView.onClose();
     if (isUserMenuOpen) setIsUserMenuOpen(false);
     if (isExportMenuOpen) onToggleExportMenu();
+  };
+
+  const toggleTabs = () => {
+    setShowWorkflow(false);
+    setShowTryInfo(false);
+    splitView.onClose();
+    if (isUserMenuOpen) setIsUserMenuOpen(false);
+    if (isExportMenuOpen) onToggleExportMenu();
+    setShowTabs((v) => !v);
+  };
+
+  const toggleWorkflow = () => {
+    setShowTabs(false);
+    setShowTryInfo(false);
+    splitView.onClose();
+    if (isUserMenuOpen) setIsUserMenuOpen(false);
+    if (isExportMenuOpen) onToggleExportMenu();
+    setShowWorkflow((v) => !v);
   };
 
   const cardShell = (title: string, content: React.ReactNode, align: "left" | "center" = "left") => (
@@ -538,18 +676,20 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      {(showTabs || showWorkflow || isUserMenuOpen || isExportMenuOpen) && (
+      {(showTabs || showWorkflow || isUserMenuOpen || isExportMenuOpen || showTryInfo || splitView.isOpen) && (
         <div className="fixed inset-0 z-20" onClick={closeAll} />
       )}
-      <header className="pointer-events-none fixed top-0 left-0 right-0 z-40 px-8 pt-3">
-        <div className="flex items-start justify-between gap-2.5 w-full mx-auto">
+      <header className="pointer-events-none fixed top-0 left-0 right-0 z-40 px-4 sm:px-6 pt-3">
+        <div className="flex items-start justify-between gap-2.5 w-full max-w-6xl mx-auto">
           <div className="pointer-events-auto">
             <div className="relative">
               <button
-                onClick={() => setShowTabs((v) => !v)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[var(--shadow-soft)] backdrop-blur hover:border-[var(--accent-blue)]"
+                onClick={toggleTabs}
+                className={`${pillTriggerClasses(showTabs)} backdrop-blur`}
+                aria-pressed={showTabs}
+                style={{ boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}
               >
-                <span className="text-lg">💊</span>
+                <PixelSheepIcon size={20} />
                 <span className="hidden sm:inline">eSheep · {currentTab.label}</span>
                 <span className="sm:hidden">eSheep</span>
                 <ChevronDown size={14} />
@@ -583,7 +723,7 @@ export const Header: React.FC<HeaderProps> = ({
                           }`}
                         >
                           <span
-                            className="h-8 w-8 rounded-lg flex items-center justify-center shadow-inner shadow-black/20"
+                            className="h-8 w-8 rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: "var(--bg-muted)" }}
                           >
                             <Icon size={16} />
@@ -604,44 +744,159 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="pointer-events-auto">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-panel)]/95 shadow-[var(--shadow-soft)] backdrop-blur max-w-6xl">
+            <div
+              className="flex h-12 items-center gap-1.5 px-4 rounded-full bg-[var(--bg-panel)]/95 backdrop-blur max-w-6xl"
+              style={{ boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}
+            >
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => {
-                    setShowWorkflow((v) => !v);
-                  }}
-                  className="relative h-9 w-9 flex items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] shadow-sm"
+                  onClick={toggleWorkflow}
+                  className={iconButtonClasses(showWorkflow)}
+                  aria-pressed={showWorkflow}
                   title="Workflow Actions"
                 >
-                  <Layers size={16} />
+                  <Layers size={18} />
                   {showWorkflow && (
-                    <div className="absolute left-0 top-full mt-2 z-30">
+                    <div className="absolute right-0 top-full mt-2 z-30 w-[360px] max-w-[calc(100vw-24px)]">
                       <WorkflowCard workflow={workflow} />
                     </div>
                   )}
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="relative">
                 <button
-                  onClick={onTryMe}
-                  disabled={workflow.isProcessing}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#1c1c1f] to-[#121218] border border-[var(--border-subtle)] text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--accent-blue)] disabled:opacity-60"
-                  title="Try a demo script"
+                  onClick={() => {
+                    setShowTabs(false);
+                    setShowWorkflow(false);
+                    setShowTryInfo(false);
+                    if (isExportMenuOpen) onToggleExportMenu();
+                    if (isUserMenuOpen) setIsUserMenuOpen(false);
+                    splitView.onToggle();
+                  }}
+                  className={iconButtonClasses(splitView.isOpen)}
+                  aria-pressed={splitView.isOpen}
+                  title="分屏查看"
                 >
-                  <Sparkles size={16} />
-                  <span className="hidden sm:inline">Try Me</span>
+                  <PanelLeft size={18} />
                 </button>
+                {splitView.isOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-2 w-72 rounded-2xl border backdrop-blur text-[var(--text-primary)] overflow-hidden z-30"
+                    style={{
+                      borderColor: "var(--border-subtle)",
+                      backgroundColor: "var(--bg-elevated)",
+                      boxShadow: "var(--shadow-strong)",
+                    }}
+                  >
+                    <div
+                      className="px-4 py-3 border-b text-xs uppercase tracking-wide text-[var(--text-secondary)]"
+                      style={{ borderColor: "var(--border-subtle)" }}
+                    >
+                      选择并列标签页
+                    </div>
+                    <div className="p-2 space-y-1">
+                      {splitView.currentSplitTab && (
+                        <button
+                          onClick={() => splitView.onSelect(null)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-red-300 hover:bg-red-900/30 transition"
+                        >
+                          关闭分屏
+                        </button>
+                      )}
+                      {tabs
+                        .filter((t) => !t.hidden && t.key !== activeTab)
+                        .map(({ key, label, icon: Icon }) => {
+                          const isActiveSplit = splitView.currentSplitTab === key;
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => splitView.onSelect(key)}
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${
+                                isActiveSplit
+                                  ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
+                                  : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
+                              }`}
+                            >
+                              <span
+                                className="h-8 w-8 rounded-lg flex items-center justify-center"
+                                style={{ backgroundColor: "var(--bg-muted)" }}
+                              >
+                                <Icon size={16} />
+                              </span>
+                              <div className="text-left">
+                                <div className="font-semibold">与当前并列：{label}</div>
+                                <div className="text-[11px] text-[var(--text-secondary)]">
+                                  左右分屏查看
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      {!tabs.filter((t) => !t.hidden && t.key !== activeTab).length && (
+                        <div className="text-xs text-[var(--text-secondary)] px-2 py-3">
+                          没有可分屏的标签页
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowTryInfo((v) => !v);
+                      setShowWorkflow(false);
+                      setShowTabs(false);
+                      splitView.onClose();
+                      if (isExportMenuOpen) onToggleExportMenu();
+                      if (isUserMenuOpen) setIsUserMenuOpen(false);
+                    }}
+                    disabled={workflow.isProcessing}
+                    className={iconButtonClasses(showTryInfo)}
+                    aria-pressed={showTryInfo}
+                    title="Try a demo script"
+                  >
+                    <Sparkles size={20} />
+                  </button>
+                  {showTryInfo && (
+                    <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-strong)] backdrop-blur text-[var(--text-primary)] z-30 p-4 space-y-3">
+                      <div className="text-sm font-semibold">尝试示例</div>
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                        载入内置示例项目并自动填充脚本、镜头与 Node Lab 节点，方便快速体验整体流程。
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowTryInfo(false)}
+                          className="px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] hover:bg-black/5"
+                        >
+                          关闭
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowTryInfo(false);
+                            onTryMe();
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent-blue)] text-white hover:bg-sky-500"
+                        >
+                          载入示例
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {hasGeneratedShots && (
                   <div className="relative">
                     <button
                       onClick={onToggleExportMenu}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--accent-green)] hover:bg-emerald-500 text-sm font-semibold text-white shadow-sm"
+                      className={iconButtonClasses(isExportMenuOpen)}
+                      aria-pressed={isExportMenuOpen}
+                      title="导出"
                     >
-                      <Download size={16} />
-                      <span className="hidden sm:inline">Export</span>
-                      <ChevronDown size={14} />
+                      <Download size={20} />
                     </button>
                     {isExportMenuOpen && (
                       <div

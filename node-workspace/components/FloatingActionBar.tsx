@@ -99,7 +99,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-black/5 transition"
                 >
                   <span
-                    className="flex h-9 w-9 items-center justify-center rounded-xl shadow-inner shadow-black/30"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl"
                     style={{ backgroundColor: "var(--bg-muted)" }}
                   >
                     <Icon size={16} />
@@ -169,7 +169,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette((v) => !v);
               setShowFileMenu(false);
             }}
-            className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-black/10 transition shadow-inner shadow-black/30 ring-1 ring-black/30"
+            className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-black/10 transition ring-1 ring-black/30"
             style={{ backgroundColor: "var(--bg-muted)" }}
             aria-label="Add nodes"
           >
@@ -180,7 +180,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowFileMenu((v) => !v);
               setShowPalette(false);
             }}
-            className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-black/10 transition shadow-inner shadow-black/30 ring-1 ring-black/30"
+            className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-black/10 transition ring-1 ring-black/30"
             style={{ backgroundColor: "var(--bg-muted)" }}
             aria-label="Import/Export"
           >

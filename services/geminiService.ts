@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, TextServiceConfig } from "../types";
+import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig } from "../types";
 
 // --- HELPERS ---
 
@@ -9,12 +9,14 @@ const getGeminiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
 // Resolve API key from user config first, then fall back to env
 const resolveGeminiApiKey = (config: TextServiceConfig): string => {
     const configKey = config.apiKey?.trim();
-    const envKey = (typeof import.meta !== 'undefined' ? import.meta.env.VITE_GEMINI_API_KEY : undefined)
+    const envKey = (typeof import.meta !== 'undefined'
+        ? (import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY)
+        : undefined)
         || (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : undefined);
     
     const apiKey = configKey || envKey;
     if (!apiKey) {
-        throw new Error("Gemini API key missing. Please add it in Settings or set VITE_GEMINI_API_KEY in your env.");
+        throw new Error("Gemini API key missing. Please add it in Settings or set GEMINI_API_KEY/VITE_GEMINI_API_KEY in your env.");
     }
     return apiKey;
 };
@@ -206,7 +208,8 @@ export const fetchTextModels = async (baseUrl: string, apiKey: string): Promise<
 
 // --- FEATURE: EASTER EGG (DEMO SCRIPT) ---
 export const generateDemoScript = async (
-    config: TextServiceConfig
+    config: TextServiceConfig,
+    dramaGuide?: string
 ): Promise<{ script: string; styleGuide: string; usage: TokenUsage }> => {
     const schema: Schema = {
         type: Type.OBJECT,
@@ -220,6 +223,8 @@ export const generateDemoScript = async (
     const systemInstruction = "Role: Award-winning comedy screenwriter & Art Director. Task: Write a short, hilarious animal script AND its visual style. STRICT FORMATTING REQUIRED.";
     const prompt = `
         写一个关于动物的超短篇爆笑剧本（时长约1分钟），并附带一个独特的视觉风格定义。
+        如果提供了创作指南，必须严格遵循其中的戏剧性和专业度要求：
+        ${dramaGuide ? dramaGuide.substring(0, 2200) : '（无额外指南，按上面规则写）'}
         
         【CRITICAL FORMATTING RULES - 格式重中之重】
         剧本结构必须严格遵守“**换行**”规则。标题、场景号、正文绝对不能连在同一行！
@@ -305,7 +310,8 @@ export const generateEpisodeSummary = async (
   config: TextServiceConfig,
   episodeTitle: string,
   episodeContent: string,
-  projectSummary: string
+  context: ProjectContext,
+  currentEpisodeId: number
 ): Promise<{ summary: string; usage: TokenUsage }> => {
   const schema: Schema = {
     type: Type.OBJECT,
@@ -315,9 +321,23 @@ export const generateEpisodeSummary = async (
     required: ["summary"]
   };
 
+  const recentSummaries = context.episodeSummaries
+    ? context.episodeSummaries
+        .filter((s) => s.episodeId < currentEpisodeId)
+        .sort((a, b) => b.episodeId - a.episodeId)
+        .slice(0, 10)
+    : [];
+  const recentSummaryText = recentSummaries.length
+    ? recentSummaries.map((s) => `- Ep ${s.episodeId}: ${s.summary}`).join('\n')
+    : '无';
+
   const systemInstruction = "Role: Script Supervisor.";
   const prompt = `
-    Context: Global Project Summary: ${projectSummary}
+    Context: 
+    - Global Project Summary: ${context.projectSummary}
+    - Recent Episode Summaries (latest first, up to 10):
+${recentSummaryText}
+
     Task: Summarize the plot for the specific episode: "${episodeTitle}".
 
     [Episode Content]:
@@ -344,42 +364,64 @@ export const identifyCharacters = async (
 ): Promise<{ characters: Character[]; usage: TokenUsage }> => {
   const schema: Schema = {
     type: Type.OBJECT,
-    properties: {
-      characters: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            role: { type: Type.STRING, description: "e.g. Protagonist, Villain, Supporting" },
-            isMain: { type: Type.BOOLEAN, description: "True for core characters requiring deep analysis" },
-            bio: { type: Type.STRING, description: "Brief initial overview" }
-          },
-          required: ["name", "role", "isMain", "bio"]
-        }
+  properties: {
+    characters: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          role: { type: Type.STRING, description: "e.g. Protagonist, Villain, Supporting" },
+          isMain: { type: Type.BOOLEAN, description: "True for core characters requiring deep analysis" },
+          bio: { type: Type.STRING, description: "Brief initial overview" },
+          assetPriority: { type: Type.STRING, enum: ["high", "medium", "low"] },
+          episodeUsage: { type: Type.STRING, description: "Episodes/scenes where this character appears" },
+          archetype: { type: Type.STRING, description: "简要人设/类型标签" },
+          forms: {
+            type: Type.ARRAY,
+            description: "Rough forms that likely need independent assets",
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                formName: { type: Type.STRING },
+                episodeRange: { type: Type.STRING },
+                identityOrState: { type: Type.STRING, description: "Age, disguise, rank, status" }
+              },
+              required: ["formName", "episodeRange"]
+            }
+          }
+        },
+        required: ["name", "role", "isMain", "bio", "assetPriority", "episodeUsage"]
       }
-    },
-    required: ["characters"]
-  };
+    }
+  },
+  required: ["characters"]
+};
 
-  const systemInstruction = "Role: Casting Director.";
+  const systemInstruction = "Role: Casting Director & Asset Producer.";
   const prompt = `
-    Context: ${projectSummary}
-    Task: Identify all characters from the script. Distinguish between 'Main' characters and 'Supporting' characters.
-    
+    Context (Project Summary): ${projectSummary}
+    Task: Identify all characters from the script, and produce an initial AIGC资产/定模清单草稿。
+
+    对每个角色，输出：
+    - 角色分级: assetPriority = high/medium/low（优先定模）
+    - 出现范围: episodeUsage（用集数/桥段简写，例如 "Ep1-4, Ep7 祭典"）
+    - archetype: 人设/职业/类型标签
+    - forms: 需要独立定模的形态（年龄/身份/状态差异），先给初步占位，后续深描补全。
+    - isMain: 仅标记核心 3-6 人为 true。
+
     [Script Snippet]:
     ${script.slice(0, 50000)}...
 
-    Output JSON with a list of characters. Set 'isMain' to true ONLY for the top 3-6 core characters.
-  `;
+    用中文 JSON 输出。`;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   const rawChars = JSON.parse(text).characters;
-  
+
   const chars: Character[] = rawChars.map((c: any) => ({
     ...c,
     id: c.name,
-    forms: []
+    forms: c.forms ?? []
   }));
 
   return { characters: chars, usage };
@@ -404,7 +446,23 @@ export const analyzeCharacterDepth = async (
             formName: { type: Type.STRING, description: "e.g. 'Childhood', 'Awakened State', 'Standard'" },
             episodeRange: { type: Type.STRING, description: "e.g. 'Ep 1-4' or 'Whole Series'" },
             description: { type: Type.STRING, description: "Personality and state of mind in this form" },
-            visualTags: { type: Type.STRING, description: "Comma-separated visual keywords" }
+            visualTags: { type: Type.STRING, description: "Comma-separated visual keywords" },
+            identityOrState: { type: Type.STRING, description: "Age / identity / disguise / rank /状态" },
+            hair: { type: Type.STRING },
+            face: { type: Type.STRING },
+            body: { type: Type.STRING },
+            costume: { type: Type.STRING },
+            accessories: { type: Type.STRING },
+            props: { type: Type.STRING },
+            materialPalette: { type: Type.STRING },
+            poses: { type: Type.STRING },
+            expressions: { type: Type.STRING },
+            lightingOrPalette: { type: Type.STRING },
+            turnaroundNeeded: { type: Type.BOOLEAN },
+            deliverables: { type: Type.STRING, description: "e.g. 三视图/表情集/全身+半身" },
+            designRationale: { type: Type.STRING, description: "Why this design fits the story & style guide" },
+            styleRef: { type: Type.STRING },
+            genPrompts: { type: Type.STRING }
           },
           required: ["formName", "episodeRange", "description", "visualTags"]
         }
@@ -413,21 +471,29 @@ export const analyzeCharacterDepth = async (
     required: ["forms"]
   };
 
-  const systemInstruction = "Role: Character Designer & Psychologist.";
+  const systemInstruction = "Role: Character Designer & Asset Supervisor.";
   const prompt = `
-    Target Character: ${characterName}
-    Context: ${projectSummary}
-    Style Bible: ${styleGuide || "Standard Cinematic"}
+    目标角色: ${characterName}
+    项目摘要: ${projectSummary}
+    风格指导: ${styleGuide || "Standard Cinematic"}
 
-    Task: Analyze the script to define the different "Forms" or "Stages" of ${characterName}.
-    Does this character change appearance, age, or mental state significantly across episodes?
-    If the character stays mostly the same, provide one form named "Standard".
-    
+    任务: 生成角色定模美术资产清单，覆盖该角色所有形态/阶段（年龄/身份/状态）。
+    每个形态需要提供：
+      - identityOrState: 年龄/身份/状态
+      - appearance 分层: hair, face, body, costume, accessories, props, materialPalette, lightingOrPalette
+      - poses / expressions: 代表性的姿态与表情包
+      - turnaroundNeeded (bool) & deliverables: 需要的交付（如三视图/全身+半身/表情集）
+      - designRationale: 说明为何这样设计（剧情节点、身份变化、风格指南依据）
+      - genPrompts: 便于 AIGC 生成的提示（中文）
+
+    注意：
+    - 如果角色外观变化很少，至少产出 1 个 form（Standard）。
+    - episodeRange 请明确形态出现的集数/桥段。
+
     [Script Context]:
     ${script.slice(0, 80000)}...
 
-    Response must be in Chinese.
-  `;
+    用中文 JSON 输出。`;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   return {
@@ -452,9 +518,24 @@ export const identifyLocations = async (
           properties: {
             name: { type: Type.STRING, description: "Name of the set/location" },
             type: { type: Type.STRING, enum: ["core", "secondary"], description: "Core = Recurring main set" },
-            description: { type: Type.STRING, description: "Brief basic description" }
+            description: { type: Type.STRING, description: "Brief basic description" },
+            assetPriority: { type: Type.STRING, enum: ["high", "medium", "low"] },
+            episodeUsage: { type: Type.STRING, description: "Episodes/bridges where used" },
+            zones: {
+              type: Type.ARRAY,
+              description: "Key sub-areas that may need separate assets",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  kind: { type: Type.STRING, enum: ["interior", "exterior", "transition", "unspecified"] },
+                  episodeRange: { type: Type.STRING }
+                },
+                required: ["name", "episodeRange"]
+              }
+            }
           },
-          required: ["name", "type", "description"]
+          required: ["name", "type", "description", "assetPriority", "episodeUsage"]
         }
       }
     },
@@ -463,21 +544,28 @@ export const identifyLocations = async (
 
   const systemInstruction = "Role: Production Designer / Location Manager.";
   const prompt = `
-    Context: ${projectSummary}
-    Task: List all unique locations/sets found in the script. Identify "core" locations vs "secondary".
+    项目摘要: ${projectSummary}
+    任务: 罗列所有场景/场地，并为定模生成初步资产清单框架。
+
+    对每个场景输出：
+    - type: core/secondary
+    - assetPriority: high/medium/low（优先度）
+    - episodeUsage: 覆盖集数/桥段（如 "Ep1-2 庭院"）
+    - description: 基本描述
+    - zones: 需要独立资产的子区域（内景/外景/过渡/未定），列出名称+episodeRange。
 
     [Script Snippet]:
     ${script.slice(0, 50000)}...
 
-    Output JSON in Chinese.
-  `;
+    用中文 JSON 输出。`;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   const rawLocs = JSON.parse(text).locations;
   const locations: Location[] = rawLocs.map((l: any) => ({
     ...l,
     id: l.name,
-    visuals: ''
+    visuals: '',
+    zones: l.zones ?? []
   }));
 
   return { locations, usage };
@@ -489,32 +577,62 @@ export const analyzeLocationDepth = async (
   locationName: string,
   script: string,
   styleGuide?: string
-): Promise<{ visuals: string; usage: TokenUsage }> => {
+): Promise<{ visuals: string; zones?: LocationZone[]; usage: TokenUsage }> => {
   const schema: Schema = {
     type: Type.OBJECT,
     properties: {
-      visuals: { type: Type.STRING, description: "Detailed atmospheric, lighting, and texture description" }
+      visuals: { type: Type.STRING, description: "Detailed atmospheric, lighting, and texture description" },
+      zones: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            kind: { type: Type.STRING, enum: ["interior", "exterior", "transition", "unspecified"] },
+            episodeRange: { type: Type.STRING },
+            layoutNotes: { type: Type.STRING, description: "空间布局/动线/分区" },
+            keyProps: { type: Type.STRING, description: "Set dressing / hero props" },
+            lightingWeather: { type: Type.STRING, description: "时间/天气/光线" },
+            materialPalette: { type: Type.STRING },
+            designRationale: { type: Type.STRING },
+            deliverables: { type: Type.STRING, description: "顶视/侧视/关键区域/材质板/道具包" },
+            genPrompts: { type: Type.STRING }
+          },
+          required: ["name", "episodeRange", "layoutNotes", "keyProps", "lightingWeather", "materialPalette"]
+        }
+      }
     },
     required: ["visuals"]
   };
 
   const systemInstruction = "Role: Art Director / Concept Artist.";
   const prompt = `
-    Target Location: ${locationName}
-    Style Bible: ${styleGuide || "Standard"}
+    目标场景: ${locationName}
+    风格指导: ${styleGuide || "Standard"}
 
-    Task: Create a detailed visual definition for this location.
-    Focus on: Lighting, Color Palette, Texture, Atmosphere, and Key Props.
+    任务: 生成场景定模美术资产清单（含子区域/内外景）。
+    输出内容：
+      - visuals: 整体氛围描述（光线/色调/材质/气味/声音）
+      - zones[]: 每个子区域包含
+          * name, kind (interior/exterior/transition/unspecified), episodeRange
+          * layoutNotes: 空间布局/动线/分区
+          * keyProps: 关键道具/布景
+          * lightingWeather: 时间/天气/光线
+          * materialPalette
+          * deliverables: 顶视/侧视/关键区域透视/材质板/道具包 等需求
+          * designRationale: 设计理由（剧情/情绪/风格依据）
+          * genPrompts: AIGC 生成提示（中文）
 
     [Script Context]:
     ${script.slice(0, 60000)}...
     
-    Response in Chinese.
-  `;
+    用中文 JSON 输出。`;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = JSON.parse(text);
   return {
-    visuals: JSON.parse(text).visuals,
+    visuals: parsed.visuals,
+    zones: parsed.zones ?? [],
     usage
   };
 };
@@ -542,11 +660,12 @@ export const generateEpisodeShots = async (
             duration: { type: Type.STRING, description: "预估时长，例如 3s" },
             shotType: { type: Type.STRING, description: "景别，例如 特写" },
             movement: { type: Type.STRING, description: "运镜，例如 推镜头" },
+            difficulty: { type: Type.INTEGER, description: "难度评分，1-10 分整数，10 为最难" },
             description: { type: Type.STRING, description: "详细的画面视觉描述 (中文)" },
             dialogue: { type: Type.STRING, description: "台词或OS，无台词留空" },
             soraPrompt: { type: Type.STRING, description: "留空字符串" },
           },
-          required: ["id", "duration", "shotType", "movement", "description", "dialogue"],
+          required: ["id", "duration", "shotType", "movement", "difficulty", "description", "dialogue"],
         },
       },
     },
@@ -586,6 +705,7 @@ export const generateEpisodeShots = async (
     1. 语言要求：除专有名词外，全流程使用**中文**工作。
     2. 镜号格式 (CRITICAL)：分镜号格式必须为：**场景号-本场镜号**。例如：第12集第2场的第1个镜头，ID应为 **"12-2-01"**。
     3. 画面描述 (Description)：必须具有极强的画面感。
+    4. 难度 (Difficulty)：为每个镜头给出 1-10 的制作难度整数评分（10 最难，1 最易），综合考虑拍摄/动画复杂度、人数、景别与运动、特效等。
     4. soraPrompt 字段请务必保持为空字符串。
   `;
 

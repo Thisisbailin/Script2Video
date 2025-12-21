@@ -38,6 +38,8 @@
         --radius-lg: 16px;
         --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.35);
         --shadow-strong: 0 20px 60px rgba(0, 0, 0, 0.5);
+        --dot-weak: rgba(255, 255, 255, 0.04);
+        --dot-strong: rgba(255, 255, 255, 0.06);
       }
 
       :root.theme-dark,
@@ -55,6 +57,8 @@
         --accent-blue: #0ea5e9;
         --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.35);
         --shadow-strong: 0 20px 60px rgba(0, 0, 0, 0.5);
+        --dot-weak: rgba(255, 255, 255, 0.04);
+        --dot-strong: rgba(255, 255, 255, 0.06);
       }
 
       :root.theme-light,
@@ -72,11 +76,22 @@
         --accent-blue: #0ea5e9;
         --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.12);
         --shadow-strong: 0 20px 60px rgba(15, 23, 42, 0.16);
+        --dot-weak: rgba(15, 23, 42, 0.04);
+        --dot-strong: rgba(15, 23, 42, 0.08);
       }
 
       body {
         background: var(--bg-panel);
         color: var(--text-primary);
+      }
+
+      .bg-dot-grid {
+        background-color: var(--bg-panel);
+        background-image:
+          radial-gradient(circle at 1px 1px, var(--dot-strong) 1px, transparent 0),
+          radial-gradient(circle at 1px 1px, var(--dot-weak) 1px, transparent 0);
+        background-size: 28px 28px;
+        background-position: 0 0, 14px 14px;
       }
 
       /* Custom scrollbar for better aesthetics in split views */

@@ -132,7 +132,7 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
 
 // 1. CSV EXPORT (Robust, Best Compatibility)
 export const exportToCSV = (episodes: Episode[]) => {
-  const headers = ['Episode', 'Shot ID', 'Duration', 'Type', 'Movement', 'Description', 'Dialogue', 'Sora Prompt'];
+  const headers = ['Episode', 'Shot ID', 'Duration', 'Type', 'Movement', 'Difficulty', 'Description', 'Dialogue', 'Sora Prompt'];
   
   // Add Byte Order Mark (BOM) so Excel recognizes formatting as UTF-8 automatically
   let csvContent = '\ufeff' + headers.map(h => `"${h}"`).join(',') + '\n';
@@ -145,6 +145,7 @@ export const exportToCSV = (episodes: Episode[]) => {
         shot.duration,
         shot.shotType,
         shot.movement,
+        shot.difficulty ?? '',
         shot.description,
         shot.dialogue,
         shot.soraPrompt
@@ -204,6 +205,7 @@ export const exportToXLS = (episodes: Episode[]) => {
   .col-dur { width: 60px; }
   .col-type { width: 80px; }
   .col-move { width: 80px; }
+  .col-diff { width: 70px; }
   .col-desc { width: 350px; }
   .col-dial { width: 200px; }
   .col-sora { width: 450px; background-color: #f0fdf4; } /* Slight green tint for prompt */
@@ -217,6 +219,7 @@ export const exportToXLS = (episodes: Episode[]) => {
     <th class="col-dur">Duration</th>
     <th class="col-type">Type</th>
     <th class="col-move">Movement</th>
+    <th class="col-diff">Difficulty</th>
     <th class="col-desc">Description</th>
     <th class="col-dial">Dialogue</th>
     <th class="col-sora">Sora Prompt</th>
@@ -230,6 +233,7 @@ export const exportToXLS = (episodes: Episode[]) => {
         <td>${shot.duration}</td>
         <td>${shot.shotType}</td>
         <td>${shot.movement}</td>
+        <td>${shot.difficulty ?? ''}</td>
         <td>${shot.description}</td>
         <td>${shot.dialogue}</td>
         <td>${shot.soraPrompt}</td>
@@ -292,6 +296,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
   const durIdx = headers.indexOf('Duration');
   const typeIdx = headers.indexOf('Type');
   const moveIdx = headers.indexOf('Movement');
+  const diffIdx = headers.indexOf('Difficulty');
   const descIdx = headers.indexOf('Description');
   const dialIdx = headers.indexOf('Dialogue');
   const soraIdx = headers.indexOf('Sora Prompt');
@@ -313,6 +318,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
       duration: cols[durIdx] || '',
       shotType: cols[typeIdx] || '',
       movement: cols[moveIdx] || '',
+      difficulty: diffIdx >= 0 ? Number(cols[diffIdx] || 0) : undefined,
       description: cols[descIdx] || '',
       dialogue: cols[dialIdx] || '',
       soraPrompt: cols[soraIdx] || ''

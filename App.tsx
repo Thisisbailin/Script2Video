@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
+import { FolderOpen, FileText, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
 import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab } from './types';
@@ -22,7 +22,6 @@ import { Header } from './components/layout/Header';
 import { SettingsModal } from './components/SettingsModal';
 import { AssetsModule } from './modules/assets/AssetsModule';
 import { ScriptViewer } from './modules/script/ScriptViewer';
-import { UnderstandingModule } from './modules/understanding/UnderstandingModule';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VisualsModule } from './modules/visuals/VisualsModule';
 import { VideoModule } from './modules/video/VideoModule';
@@ -123,6 +122,8 @@ const App: React.FC = () => {
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
   
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
+  const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = usePersistedState<string>({
       key: 'script2video_avatar_url',
@@ -283,28 +284,33 @@ const App: React.FC = () => {
 
   // Load default guides on mount (only if not already loaded)
   useEffect(() => {
-    if (!projectData.shotGuide || !projectData.soraGuide) {
-        const loadDefaultGuides = async () => {
+    if (!projectData.shotGuide || !projectData.soraGuide || !projectData.dramaGuide) {
+      const loadDefaultGuides = async () => {
         try {
-            const [shotRes, soraRes] = await Promise.all([
+          const [shotRes, soraRes, dramaRes] = await Promise.all([
             fetch('guides/ShotGuide.md'),
-            fetch('guides/PromptGuide.md')
+            fetch('guides/PromptGuide.md'),
+            fetch('guides/DramaGuide.md')
+          ]);
+          
+          if (shotRes.ok && soraRes.ok && dramaRes.ok) {
+            const [shotText, soraText, dramaText] = await Promise.all([
+              shotRes.text(),
+              soraRes.text(),
+              dramaRes.text()
             ]);
-            
-            if (shotRes.ok && soraRes.ok) {
-            const shotText = await shotRes.text();
-            const soraText = await soraRes.text();
             setProjectData(prev => ({
-                ...prev,
-                shotGuide: prev.shotGuide || shotText, // Only set if empty
-                soraGuide: prev.soraGuide || soraText
+              ...prev,
+              shotGuide: prev.shotGuide || shotText,
+              soraGuide: prev.soraGuide || soraText,
+              dramaGuide: prev.dramaGuide || dramaText
             }));
-            }
+          }
         } catch (e) {
-            console.error("Error loading default guides:", e);
+          console.error("Error loading default guides:", e);
         }
-        };
-        loadDefaultGuides();
+      };
+      loadDefaultGuides();
     }
   }, []);
 
@@ -408,7 +414,7 @@ const App: React.FC = () => {
       e.target.value = '';
   };
 
-  const handleAssetLoad = (type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'csvShots', content: string, fileName?: string) => {
+  const handleAssetLoad = (type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots', content: string, fileName?: string) => {
       if (type === 'script') {
         const episodes = parseScriptToEpisodes(content);
         setProjectData(prev => ({ ...prev, fileName: fileName || 'script.txt', rawScript: content, episodes }));
@@ -444,6 +450,8 @@ const App: React.FC = () => {
         setProjectData(prev => ({ ...prev, shotGuide: content }));
       } else if (type === 'soraGuide') {
         setProjectData(prev => ({ ...prev, soraGuide: content }));
+      } else if (type === 'dramaGuide') {
+        setProjectData(prev => ({ ...prev, dramaGuide: content }));
       }
   };
 
@@ -451,21 +459,30 @@ const App: React.FC = () => {
       setProcessing(true, "Concocting a hilarious script with AI...");
       
       try {
-          // 1. Generate Script AND Style
-          const result = await GeminiService.generateDemoScript(config.textConfig);
+          let dramaGuideText = projectData.dramaGuide;
+          if (!dramaGuideText) {
+            try {
+              const res = await fetch('guides/DramaGuide.md');
+              if (res.ok) {
+                dramaGuideText = await res.text();
+              }
+            } catch (err) {
+              console.warn('Load drama guide failed, fallback to prompt defaults', err);
+              dramaGuideText = '';
+            }
+          }
+
+          const result = await GeminiService.generateDemoScript(config.textConfig, dramaGuideText);
           
-          // 2. Parse it like a normal file
           const episodes = parseScriptToEpisodes(result.script);
           
-          // 3. Update State
           setProjectData(prev => ({
               ...prev,
               fileName: 'AI_Generated_Joke.txt',
               rawScript: result.script,
               episodes: episodes,
-              // Apply the AI generated visual style
               globalStyleGuide: result.styleGuide, 
-              // Track usage as Context/Analysis cost for now (Phase 1 & General)
+              dramaGuide: prev.dramaGuide || dramaGuideText || '',
               contextUsage: GeminiService.addUsage(prev.contextUsage || {promptTokens:0,responseTokens:0,totalTokens:0}, result.usage),
               stats: {
                   ...prev.stats,
@@ -503,7 +520,7 @@ const App: React.FC = () => {
   // Step 1: Project Summary
   const processProjectSummary = async () => {
     setProcessing(true, "Step 1/6: Analyzing Global Project Arc...");
-    setActiveTab('understanding');
+    setActiveTab('assets');
     try {
         const result = await GeminiService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
         
@@ -552,7 +569,8 @@ const App: React.FC = () => {
              config.textConfig, 
              episode.title, 
              episode.content, 
-             projectData.context.projectSummary
+             projectData.context,
+             epId
           );
 
           setProjectData(prev => {
@@ -712,7 +730,7 @@ const App: React.FC = () => {
           
           setProjectData(prev => {
               const updatedLocs = prev.context.locations.map(l => 
-                  l.name === locName ? { ...l, visuals: result.visuals } : l
+                  l.name === locName ? { ...l, visuals: result.visuals, zones: result.zones ?? l.zones } : l
               );
               return {
                   ...prev,
@@ -998,7 +1016,6 @@ const App: React.FC = () => {
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [
     { key: 'assets', label: 'Assets', icon: FolderOpen },
     { key: 'script', label: 'Script', icon: FileText },
-    { key: 'understanding', label: 'Analysis', icon: BrainCircuit },
     { key: 'table', label: 'Shots', icon: List },
     { key: 'visuals', label: 'Visuals', icon: Palette, hidden: true },
     { key: 'video', label: 'Video', icon: MonitorPlay, hidden: true },
@@ -1012,6 +1029,16 @@ const App: React.FC = () => {
       tabs={tabOptions}
       onTabChange={setActiveTab}
       activeModelLabel={activeModelLabel}
+      splitView={{
+        currentSplitTab: splitTab,
+        isOpen: isSplitMenuOpen,
+        onToggle: () => setIsSplitMenuOpen((v) => !v),
+        onSelect: (tab) => {
+          setSplitTab(tab);
+          setIsSplitMenuOpen(false);
+        },
+        onClose: () => setIsSplitMenuOpen(false),
+      }}
       onTryMe={handleTryMe}
       hasGeneratedShots={hasGeneratedShots}
       onExportCsv={() => {
@@ -1064,50 +1091,64 @@ const App: React.FC = () => {
     />
   );
 
-  const renderMainContent = () => (
-    <>
-      {activeTab === 'assets' && (
-        <AssetsModule data={projectData} onAssetLoad={handleAssetLoad} />
-      )}
-      {activeTab === 'script' && (
-        <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />
-      )}
-      {activeTab === 'understanding' && (
-        <UnderstandingModule data={projectData} onSelectEpisode={(idx) => {
-          setCurrentEpIndex(idx);
-          setActiveTab('table');
-        }} />
-      )}
-      {activeTab === 'table' && (
-        <ShotsModule 
-          shots={projectData.episodes[currentEpIndex]?.shots || []} 
-          showSora={step >= WorkflowStep.GENERATE_SORA}
-        />
-      )}
-      {activeTab === 'visuals' && (
-        <VisualsModule 
-          data={projectData} 
-          config={config} 
-          onUpdateUsage={handleUsageUpdate} 
-        />
-      )}
-      {activeTab === 'video' && (
-        <VideoModule 
-          episodes={projectData.episodes}
-          onGenerateVideo={handleGenerateVideo}
-          onRemixVideo={handleRemixVideo}
-        />
-      )}
-      {activeTab === 'lab' && (
-        <div className="h-full">
-          <NodeLab />
+  const renderTabContent = (tabKey: ActiveTab) => {
+    switch (tabKey) {
+      case 'assets':
+        return <AssetsModule data={projectData} onAssetLoad={handleAssetLoad} />;
+      case 'script':
+        return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />;
+      case 'table':
+        return (
+          <ShotsModule
+            shots={projectData.episodes[currentEpIndex]?.shots || []}
+            showSora={step >= WorkflowStep.GENERATE_SORA}
+          />
+        );
+      case 'visuals':
+        return (
+          <VisualsModule
+            data={projectData}
+            config={config}
+            onUpdateUsage={handleUsageUpdate}
+          />
+        );
+      case 'video':
+        return (
+          <VideoModule
+            episodes={projectData.episodes}
+            onGenerateVideo={handleGenerateVideo}
+            onRemixVideo={handleRemixVideo}
+          />
+        );
+      case 'lab':
+        return (
+          <div className="h-full">
+            <NodeLab />
+          </div>
+        );
+      case 'stats':
+        return <MetricsModule data={projectData} isDarkMode={isDarkMode} />;
+      default:
+        return null;
+    }
+  };
+
+  const renderMainContent = () => {
+    if (splitTab) {
+      return (
+        <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 md:px-6 pb-4 overflow-hidden">
+          <div className="min-h-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/60">
+            <div className="h-full overflow-auto">{renderTabContent(activeTab)}</div>
+          </div>
+          <div className="min-h-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/60">
+            <div className="h-full overflow-auto">{renderTabContent(splitTab)}</div>
+          </div>
         </div>
-      )}
-      {activeTab === 'stats' && (
-        <MetricsModule data={projectData} isDarkMode={isDarkMode} />
-      )}
-    </>
-  );
+      );
+    }
+
+    return renderTabContent(activeTab);
+  };
 
   return (
     <AppShell isDarkMode={isDarkMode} header={headerNode}>

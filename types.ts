@@ -18,6 +18,7 @@ export interface Shot {
   duration: string;
   shotType: string; // e.g., Close-up, Wide
   movement: string; // e.g., Pan, Tilt, Static
+  difficulty?: number; // 0-10 scale for production complexity
   description: string;
   dialogue: string;
   soraPrompt: string;
@@ -63,6 +64,23 @@ export interface CharacterForm {
   episodeRange: string; // e.g. "Ep 1-5"
   description: string;
   visualTags: string;
+  // Extended AIGC asset checklist fields (optional, Phase 1 upgraded)
+  identityOrState?: string; // 年龄/身份/状态
+  hair?: string;
+  face?: string;
+  body?: string;
+  costume?: string;
+  accessories?: string;
+  props?: string;
+  materialPalette?: string;
+  poses?: string;
+  expressions?: string;
+  lightingOrPalette?: string;
+  turnaroundNeeded?: boolean;
+  deliverables?: string; // 如三视图/表情集/全身+半身
+  designRationale?: string;
+  styleRef?: string;
+  genPrompts?: string;
 }
 
 export interface Character {
@@ -72,6 +90,9 @@ export interface Character {
   isMain: boolean; // Determines if we do deep analysis
   bio: string; // General bio
   forms: CharacterForm[]; // Specific visual/personality stages
+  assetPriority?: "high" | "medium" | "low";
+  archetype?: string;
+  episodeUsage?: string; // 出现的集/场景标记
 }
 
 export interface Location {
@@ -80,6 +101,22 @@ export interface Location {
   type: 'core' | 'secondary';
   description: string; // General description
   visuals: string; // Lighting, atmosphere, texture details
+  assetPriority?: "high" | "medium" | "low";
+  episodeUsage?: string; // 出现的集/桥段
+  zones?: LocationZone[]; // 分区/内外景
+}
+
+export interface LocationZone {
+  name: string;
+  kind: 'interior' | 'exterior' | 'transition' | 'unspecified';
+  episodeRange: string;
+  layoutNotes: string;
+  keyProps: string;
+  lightingWeather: string;
+  materialPalette: string;
+  designRationale?: string;
+  deliverables?: string;
+  genPrompts?: string;
 }
 
 export interface ProjectContext {
@@ -125,6 +162,7 @@ export interface ProjectData {
   // Standard Operating Procedures (SOPs) - Loaded from files
   shotGuide: string;
   soraGuide: string;
+  dramaGuide?: string;
   
   // Project-Specific Assets (User Uploaded)
   globalStyleGuide?: string; // Unified Style Bible for the project

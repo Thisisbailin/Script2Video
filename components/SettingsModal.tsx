@@ -525,7 +525,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     </p>
 
                     {/* Features List */}
-                    <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 text-left max-w-sm mx-auto shadow-inner">
+                    <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 text-left max-w-sm mx-auto">
                         <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Sparkles size={10} /> Core Features
                         </h3>

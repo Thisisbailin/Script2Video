@@ -18,7 +18,10 @@ export const ScriptViewer: React.FC<Props> = ({ episode, rawScript }) => {
         {episode && episode.scenes && episode.scenes.length > 0 ? (
           <div className="space-y-6">
             {episode.scenes.map((scene) => (
-              <div key={scene.id} className="border border-[var(--border-subtle)] rounded-lg p-5 bg-[var(--bg-panel)]/80 shadow-[var(--shadow-soft)]">
+              <div
+                key={scene.id}
+                className="border border-[var(--border-subtle)]/90 rounded-2xl p-5 bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)]"
+              >
                 <div className="mb-3">
                   <h4 className="text-lg font-semibold text-[var(--text-primary)]">
                     {scene.id} {scene.title}
@@ -31,11 +34,13 @@ export const ScriptViewer: React.FC<Props> = ({ episode, rawScript }) => {
             ))}
           </div>
         ) : (
-          <pre className="whitespace-pre-wrap font-serif text-lg leading-relaxed text-[var(--text-secondary)]">
-            {episode
-              ? episode.content
-              : rawScript || <span className="text-[var(--text-secondary)] italic">No script loaded. Upload a text file in Assets.</span>}
-          </pre>
+          <div className="border border-[var(--border-subtle)]/90 rounded-2xl p-5 bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)]">
+            <pre className="whitespace-pre-wrap font-serif text-lg leading-relaxed text-[var(--text-secondary)]">
+              {episode
+                ? episode.content
+                : rawScript || <span className="text-[var(--text-secondary)] italic">No script loaded. Upload a text file in Assets.</span>}
+            </pre>
+          </div>
         )}
       </div>
     </div>

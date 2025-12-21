@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ProjectData, AppConfig, Character, Location, TokenUsage } from '../types';
-import { Palette, Paintbrush, ImageIcon, Send, User, MapPin, Download, Loader2, RotateCcw, ImagePlus, Sliders, ChevronDown, Sparkles } from 'lucide-react';
+import { ProjectData, AppConfig, Character, Location, TokenUsage, LocationZone } from '../types';
+import { Palette, Paintbrush, ImageIcon, Send, User, MapPin, Download, Loader2, RotateCcw, ImagePlus, Sliders, ChevronDown, Sparkles, Copy, ClipboardCheck, ListChecks } from 'lucide-react';
 import * as MultimodalService from '../services/multimodalService';
 
 interface Props {
@@ -25,6 +25,8 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
   // Selection State
   const [activeTab, setActiveTab] = useState<'characters' | 'locations'>('characters');
   const [selectedAsset, setSelectedAsset] = useState<Character | Location | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   // Chat State
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -42,24 +44,34 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
 
   // Init Selection
   useEffect(() => {
-      if (activeTab === 'characters' && data.context.characters.length > 0 && !selectedAsset) {
+      if (selectedAsset) return;
+      if (activeTab === 'characters' && data.context.characters.length > 0) {
           handleSelectAsset(data.context.characters[0]);
-      } else if (activeTab === 'locations' && data.context.locations.length > 0 && !selectedAsset) {
+      } else if (activeTab === 'locations' && data.context.locations.length > 0) {
           handleSelectAsset(data.context.locations[0]);
       }
-  }, [activeTab, data]);
+  }, [activeTab, data, selectedAsset]);
 
   // Handle Asset Selection
   const handleSelectAsset = (asset: Character | Location) => {
       setSelectedAsset(asset);
       setChatHistory([]); // Clear chat for new asset
+      setCopiedKey(null);
+      setCopied(null);
       
       // Construct Initial Base Prompt
       let initialPrompt = "";
       if ('bio' in asset) { // Character
-          initialPrompt = `【Character Design】\nName: ${asset.name}\nRole: ${asset.role}\nBio: ${asset.bio}\nForms: ${asset.forms.map(f => `${f.formName} (${f.visualTags})`).join(', ')}`;
+          const forms = asset.forms?.length
+            ? asset.forms.map(f => `${f.formName} (${f.identityOrState || f.visualTags || ''})`).join(', ')
+            : 'Standard';
+          initialPrompt = `【Character Asset Brief】\nName: ${asset.name}\nRole: ${asset.role}\nPriority: ${asset.assetPriority || 'n/a'}\nUsage: ${asset.episodeUsage || 'n/a'}\nBio: ${asset.bio}\nForms: ${forms}`;
       } else { // Location
-          initialPrompt = `【Environment Design】\nName: ${asset.name}\nType: ${asset.type}\nDescription: ${asset.description}\nVisuals: ${asset.visuals}`;
+          const zones = (asset as any).zones as LocationZone[] | undefined;
+          const zonesLine = zones?.length
+            ? zones.map(z => `${z.name} [${z.kind || 'zone'} | ${z.episodeRange}]`).join(', ')
+            : 'Single zone';
+          initialPrompt = `【Environment Asset Brief】\nName: ${asset.name}\nType: ${asset.type}\nPriority: ${asset.assetPriority || 'n/a'}\nUsage: ${asset.episodeUsage || 'n/a'}\nDescription: ${asset.description}\nZones: ${zonesLine}\nVisuals: ${asset.visuals}`;
       }
       
       if (data.globalStyleGuide) {
@@ -67,6 +79,140 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
       }
       
       setBasePrompt(initialPrompt);
+  };
+
+  const renderCharacterDetails = (char: Character) => {
+      return (
+          <div className="space-y-3">
+              <div className="text-xs text-gray-500 flex gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">角色: {char.role}</span>
+                  {char.assetPriority && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">优先级: {char.assetPriority}</span>}
+                  {char.episodeUsage && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">出现: {char.episodeUsage}</span>}
+                  {char.archetype && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">人设: {char.archetype}</span>}
+              </div>
+              <div className="space-y-2">
+                  {(char.forms && char.forms.length > 0) ? char.forms.map((f, idx) => {
+                      const promptKey = `char-form-prompt-${idx}`;
+                      const deliverKey = `char-form-deliv-${idx}`;
+                      return (
+                          <div key={idx} className="border border-gray-200 dark:border-gray-800 rounded-lg p-3 bg-white dark:bg-gray-900/50">
+                              <div className="flex items-center justify-between gap-2">
+                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                      {f.formName} <span className="text-xs text-gray-500 ml-2">{f.episodeRange}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                      {f.genPrompts && (
+                                          <button
+                                              onClick={() => copyText(promptKey, f.genPrompts)}
+                                              className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                              title="复制生成提示"
+                                          >
+                                              {copiedKey === promptKey ? <ClipboardCheck size={14} /> : <Copy size={14} />}
+                                          </button>
+                                      )}
+                                      {f.deliverables && (
+                                          <button
+                                              onClick={() => copyText(deliverKey, f.deliverables)}
+                                              className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                              title="复制交付要求"
+                                          >
+                                              {copiedKey === deliverKey ? <ClipboardCheck size={14} /> : <Copy size={14} />}
+                                          </button>
+                                      )}
+                                  </div>
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                  {f.identityOrState || f.description}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                  {f.visualTags}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600 dark:text-gray-300 mt-2">
+                                  {f.hair && <div><span className="font-semibold">发型：</span>{f.hair}</div>}
+                                  {f.face && <div><span className="font-semibold">脸部：</span>{f.face}</div>}
+                                  {f.body && <div><span className="font-semibold">体态：</span>{f.body}</div>}
+                                  {f.costume && <div><span className="font-semibold">服装：</span>{f.costume}</div>}
+                                  {f.accessories && <div><span className="font-semibold">配饰：</span>{f.accessories}</div>}
+                                  {f.props && <div><span className="font-semibold">道具：</span>{f.props}</div>}
+                                  {f.materialPalette && <div className="col-span-2"><span className="font-semibold">材质/色板：</span>{f.materialPalette}</div>}
+                                  {f.lightingOrPalette && <div className="col-span-2"><span className="font-semibold">光线/调色：</span>{f.lightingOrPalette}</div>}
+                                  {f.poses && <div className="col-span-2"><span className="font-semibold">姿态：</span>{f.poses}</div>}
+                                  {f.expressions && <div className="col-span-2"><span className="font-semibold">表情：</span>{f.expressions}</div>}
+                                  {f.turnaroundNeeded !== undefined && <div><span className="font-semibold">三视图：</span>{f.turnaroundNeeded ? '需要' : '不需要'}</div>}
+                                  {f.deliverables && <div className="col-span-2"><span className="font-semibold">交付：</span>{f.deliverables}</div>}
+                                  {f.designRationale && <div className="col-span-2"><span className="font-semibold">理由：</span>{f.designRationale}</div>}
+                              </div>
+                          </div>
+                      );
+                  }) : (
+                      <div className="text-xs text-gray-500">暂无形态细节。</div>
+                  )}
+              </div>
+          </div>
+      );
+  };
+
+  const renderLocationDetails = (loc: Location) => {
+      const zones = (loc as any).zones as LocationZone[] | undefined;
+      return (
+          <div className="space-y-3">
+              <div className="text-xs text-gray-500 flex gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">类型: {loc.type}</span>
+                  {loc.assetPriority && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">优先级: {loc.assetPriority}</span>}
+                  {loc.episodeUsage && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">出现: {loc.episodeUsage}</span>}
+              </div>
+              <div className="text-sm text-gray-700 dark:text-gray-200">{loc.description}</div>
+              {loc.visuals && <div className="text-xs text-gray-600 dark:text-gray-300">整体氛围：{loc.visuals}</div>}
+              <div className="space-y-2">
+                  {zones && zones.length ? zones.map((z, idx) => {
+                      const promptKey = `loc-zone-prompt-${idx}`;
+                      const deliverKey = `loc-zone-deliv-${idx}`;
+                      return (
+                          <div key={idx} className="border border-gray-200 dark:border-gray-800 rounded-lg p-3 bg-white dark:bg-gray-900/50">
+                              <div className="flex items-center justify-between gap-2">
+                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                      {z.name} <span className="text-xs text-gray-500 ml-2">{z.episodeRange}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                      {z.genPrompts && (
+                                          <button
+                                              onClick={() => copyText(promptKey, z.genPrompts)}
+                                              className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                              title="复制生成提示"
+                                          >
+                                              {copiedKey === promptKey ? <ClipboardCheck size={14} /> : <Copy size={14} />}
+                                          </button>
+                                      )}
+                                      {z.deliverables && (
+                                          <button
+                                              onClick={() => copyText(deliverKey, z.deliverables)}
+                                              className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                              title="复制交付要求"
+                                          >
+                                              {copiedKey === deliverKey ? <ClipboardCheck size={14} /> : <Copy size={14} />}
+                                          </button>
+                                      )}
+                                  </div>
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 flex gap-2 flex-wrap">
+                                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">{z.kind || '区域'}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-700 dark:text-gray-200 mt-2">
+                                  {z.layoutNotes && <div className="col-span-2"><span className="font-semibold">布局：</span>{z.layoutNotes}</div>}
+                                  {z.keyProps && <div className="col-span-2"><span className="font-semibold">道具/布景：</span>{z.keyProps}</div>}
+                                  {z.lightingWeather && <div className="col-span-2"><span className="font-semibold">光线/天气：</span>{z.lightingWeather}</div>}
+                                  {z.materialPalette && <div className="col-span-2"><span className="font-semibold">材质/色板：</span>{z.materialPalette}</div>}
+                                  {z.designRationale && <div className="col-span-2"><span className="font-semibold">设计理由：</span>{z.designRationale}</div>}
+                                  {z.deliverables && <div className="col-span-2"><span className="font-semibold">交付：</span>{z.deliverables}</div>}
+                              </div>
+                          </div>
+                      );
+                  }) : (
+                      <div className="text-xs text-gray-500">暂无分区细节。</div>
+                  )}
+              </div>
+          </div>
+      );
   };
 
   // Auto-scroll chat
@@ -188,9 +334,18 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
       }
   };
 
+  const copyText = (key: string, text?: string) => {
+      if (!text) return;
+      if (navigator.clipboard) {
+          navigator.clipboard.writeText(text);
+          setCopiedKey(key);
+          setTimeout(() => setCopiedKey(null), 1400);
+      }
+  };
+
   const MarkdownRenderer = ({ content }: { content: string }) => {
-      // Improved regex to catch ![alt](url) or ![alt](url) with looser matching inside []
-      const parts = content.split(/(!\[[^\]]*\]\([^\)]+\))/g);
+    // Improved regex to catch ![alt](url) or ![alt](url) with looser matching inside []
+    const parts = content.split(/(!\[[^\]]*\]\([^\)]+\))/g);
       
       return (
           <div className="prose prose-sm max-w-none text-gray-800 dark:text-gray-200">
@@ -300,7 +455,11 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                               </div>
                               <div>
                                   <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{char.name}</div>
-                                  <div className="text-xs text-gray-500">{char.role}</div>
+                                  <div className="text-[11px] text-gray-500 flex gap-2 flex-wrap">
+                                      <span>{char.role}</span>
+                                      {char.assetPriority && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">{char.assetPriority}</span>}
+                                      {char.episodeUsage && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">{char.episodeUsage}</span>}
+                                  </div>
                               </div>
                           </div>
                       ))
@@ -318,7 +477,11 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
                               </div>
                               <div>
                                   <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{loc.name}</div>
-                                  <div className="text-xs text-gray-500">{loc.type}</div>
+                                  <div className="text-[11px] text-gray-500 flex gap-2 flex-wrap">
+                                      <span>{loc.type}</span>
+                                      {loc.assetPriority && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">{loc.assetPriority}</span>}
+                                      {loc.episodeUsage && <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">{loc.episodeUsage}</span>}
+                                  </div>
                               </div>
                           </div>
                       ))
@@ -326,8 +489,20 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
               )}
           </div>
 
-          {/* Parameters & Base Prompt */}
+          {/* Parameters, Asset Checklist & Base Prompt */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar flex flex-col">
+              {/* Asset Checklist */}
+              {selectedAsset && (
+                  <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-3 shadow-sm">
+                      <div className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-gray-100 mb-2">
+                          <ListChecks size={14} /> 资产清单
+                      </div>
+                      {'bio' in selectedAsset
+                        ? renderCharacterDetails(selectedAsset as Character)
+                        : renderLocationDetails(selectedAsset as Location)}
+                  </div>
+              )}
+
               <div className="bg-gray-100 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700/50">
                   <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
                       <Sliders size={12}/> Generation Params

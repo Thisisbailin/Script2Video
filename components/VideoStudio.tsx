@@ -306,7 +306,7 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                           value={customPrompt}
                           onChange={(e) => setCustomPrompt(e.target.value)}
                           disabled={isBusy}
-                          className="w-full h-full bg-gray-50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-800 dark:text-gray-200 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none custom-scrollbar font-mono shadow-inner transition-colors disabled:opacity-50"
+                          className="w-full h-full bg-gray-50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-800 dark:text-gray-200 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none custom-scrollbar font-mono transition-colors disabled:opacity-50"
                           placeholder={activeShot ? "Video prompt will appear here..." : "Enter your video description here to generate from scratch..."}
                       />
                       <div className="absolute bottom-6 right-6 text-[10px] text-gray-400 dark:text-gray-600 font-mono pointer-events-none group-hover:text-gray-500 transition-colors">

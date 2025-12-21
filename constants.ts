@@ -13,6 +13,7 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
   },
   shotGuide: '',
   soraGuide: '',
+  dramaGuide: '',
   globalStyleGuide: '', // Initialize as empty
   
   contextUsage: { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
