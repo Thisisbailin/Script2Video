@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ProjectData } from '../types';
 import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks } from 'lucide-react';
 
@@ -16,6 +16,8 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
   const shotGuideInputRef = useRef<HTMLInputElement>(null);
   const soraGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
+  const [showAllCharacters, setShowAllCharacters] = useState(false);
+  const [expandedCharacterForms, setExpandedCharacterForms] = useState<Record<string, boolean>>({});
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots') => {
     const file = e.target.files?.[0];
@@ -208,7 +210,11 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
               </div>
               {data.context.characters?.length ? (
                 <ul className="space-y-3 text-sm text-[var(--text-secondary)]">
-                  {data.context.characters.slice(0, 4).map((c) => (
+                  {(showAllCharacters ? data.context.characters : data.context.characters.slice(0, 4)).map((c) => {
+                    const formsExpanded = !!expandedCharacterForms[c.id];
+                    const formsToShow = formsExpanded ? (c.forms || []) : (c.forms || []).slice(0, 2);
+                    const remainingForms = (c.forms?.length || 0) - 2;
+                    return (
                     <li key={c.id} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/60 p-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[var(--text-primary)] font-semibold">{c.name}</span>
@@ -228,7 +234,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
                       </div>
                       {c.forms?.length ? (
                         <div className="text-[12px] leading-5 space-y-1">
-                          {c.forms.slice(0, 2).map((f, idx) => (
+                          {formsToShow.map((f, idx) => (
                             <div key={idx} className="flex gap-2 flex-wrap">
                               <span className="font-semibold text-[var(--text-primary)]">{f.formName}</span>
                               {f.episodeRange && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{f.episodeRange}</span>}
@@ -238,16 +244,38 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
                             </div>
                           ))}
                           {c.forms.length > 2 && (
-                            <div className="text-[11px] text-[var(--text-secondary)]">+ {c.forms.length - 2} 更多形态</div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedCharacterForms(prev => ({
+                                  ...prev,
+                                  [c.id]: !prev[c.id]
+                                }))
+                              }
+                              className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                            >
+                              {formsExpanded ? '收起形态' : `+ ${remainingForms} 更多形态`}
+                            </button>
                           )}
                         </div>
                       ) : (
                         <div className="text-[11px] text-[var(--text-secondary)]">尚无形态解析</div>
                       )}
                     </li>
-                  ))}
+                    );
+                  })}
                   {data.context.characters.length > 4 && (
-                    <li className="text-[11px] text-[var(--text-secondary)]">+ {data.context.characters.length - 4} more</li>
+                    <li className="text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCharacters((prev) => !prev)}
+                        className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        {showAllCharacters
+                          ? '收起角色列表'
+                          : `+ ${data.context.characters.length - 4} 更多角色`}
+                      </button>
+                    </li>
                   )}
                 </ul>
               ) : (
