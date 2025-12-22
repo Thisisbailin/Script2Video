@@ -51,34 +51,34 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
     badge?: 'required' | 'optional';
   }) => (
     <div
-      className={`p-4 rounded-2xl border transition-all duration-300 ${
+      className={`p-3 rounded-2xl border transition-all duration-300 ${
         isLoaded
           ? 'bg-[var(--bg-overlay)] border-[var(--border-subtle)] shadow-[var(--shadow-soft)]'
           : 'bg-[var(--bg-overlay)]/80 border-[var(--border-subtle)]/80 hover:border-[var(--accent-blue)]/70'
       }`}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-3 rounded-xl bg-[var(--bg-muted)]/60">
+      <div className="flex justify-between items-start mb-3">
+        <div className="p-2 rounded-xl bg-[var(--bg-muted)]/60">
           <Icon size={24} className={isLoaded ? colorClass : 'text-[var(--text-secondary)]'} />
         </div>
         {isLoaded && <CheckCircle size={20} className="text-green-500" />}
       </div>
       <div className="flex items-center gap-2 mb-1">
-        <h3 className="text-base font-bold text-[var(--text-primary)]">{title}</h3>
+        <h3 className="text-sm font-bold text-[var(--text-primary)] leading-5">{title}</h3>
         {badge && (
           <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] uppercase">
             {badge === 'required' ? 'Required' : 'Optional'}
           </span>
         )}
       </div>
-      <p className="text-[12px] text-[var(--text-secondary)] mb-4 min-h-[28px]">
+      <p className="text-[11px] text-[var(--text-secondary)] mb-3 min-h-[24px] leading-5">
         {fileName ? `Current: ${fileName}` : desc}
       </p>
 
       {onUpload ? (
         <button
           onClick={onUpload}
-          className={`w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+          className={`w-full py-2 rounded-lg text-[13px] font-medium flex items-center justify-center gap-2 transition-colors ${
             isLoaded
               ? 'bg-[var(--bg-panel)] border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-[var(--text-primary)]'
               : 'bg-[var(--accent-blue)] hover:bg-sky-500 text-white'
@@ -102,7 +102,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
               Core Documents
             </h3>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
             {/* Script */}
             <input type="file" ref={scriptInputRef} className="hidden" accept=".txt" onChange={(e) => handleFileChange(e, 'script')} />
             <AssetCard
@@ -146,7 +146,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
           <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
             Standard Operating Procedures (AI Instructions)
           </h3>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
             {/* Shot Guide */}
             <input type="file" ref={shotGuideInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'shotGuide')} />
             <AssetCard
@@ -193,7 +193,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
             </div>
             <div className="text-xs text-[var(--text-secondary)]">Phase 1 结果预览</div>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)]">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
                 <BookOpen size={16} /> 项目概览
