@@ -24,11 +24,15 @@ async function getUserId(request: Request, env: Env) {
   }
 
   if (token) {
-    const payload = await verifyToken(token, {
-      secretKey: env.CLERK_SECRET_KEY,
-      template: "default",
-    });
-    if (payload?.sub) return payload.sub;
+    try {
+      const payload = await verifyToken(token, {
+        secretKey: env.CLERK_SECRET_KEY,
+        template: "default",
+      });
+      if (payload?.sub) return payload.sub;
+    } catch (err) {
+      console.warn("verifyToken failed, falling back to cookie auth", err);
+    }
   }
 
   const clerkClient = createClerkClient({ secretKey: env.CLERK_SECRET_KEY });

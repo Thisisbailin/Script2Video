@@ -35,11 +35,15 @@ async function getUserId(request: Request, env: Env) {
 
   // Prefer Bearer token if provided
   if (token) {
-    const payload = await verifyToken(token, {
-      secretKey: env.CLERK_SECRET_KEY,
-      template: "default", // ensure template exists in Clerk
-    });
-    if (payload?.sub) return payload.sub;
+    try {
+      const payload = await verifyToken(token, {
+        secretKey: env.CLERK_SECRET_KEY,
+        template: "default", // ensure template exists in Clerk
+      });
+      if (payload?.sub) return payload.sub;
+    } catch (err) {
+      console.warn("verifyToken failed, falling back to cookie auth", err);
+    }
   }
 
   // Fallback to cookie-based auth (no JWT template required)

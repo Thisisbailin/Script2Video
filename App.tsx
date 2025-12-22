@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { FolderOpen, FileText, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
@@ -39,9 +39,10 @@ const REMOTE_BACKUP_KEY = 'script2video_remote_backup';
 
 const App: React.FC = () => {
   // Clerk Auth Hooks
-  const { isSignedIn, user, isLoaded } = useUser();
+  const { isSignedIn: userSignedIn, user, isLoaded: isUserLoaded } = useUser();
   const { openSignIn, signOut } = useClerk();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded: isAuthLoaded, isSignedIn: authSignedIn } = useAuth();
+  const getAuthToken = useCallback(() => getToken({ template: 'default' }), [getToken]);
   const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
   // Initialize state with Persisted hooks
@@ -143,9 +144,9 @@ const App: React.FC = () => {
 
   // --- Cloud Sync (Clerk + Cloudflare Pages) ---
   useCloudSync({
-      isSignedIn,
-      isLoaded,
-      getToken,
+      isSignedIn: !!authSignedIn,
+      isLoaded: isAuthLoaded,
+      getToken: getAuthToken,
       projectData,
       setProjectData,
       setHasLoadedRemote,
@@ -168,9 +169,9 @@ const App: React.FC = () => {
   });
 
   useSecretsSync({
-      isSignedIn,
-      isLoaded,
-      getToken,
+      isSignedIn: !!authSignedIn,
+      isLoaded: isAuthLoaded,
+      getToken: getAuthToken,
       config,
       setConfig,
       debounceMs: 1200
@@ -179,10 +180,12 @@ const App: React.FC = () => {
   // Fetch avatar from profile (account-scoped) once per session
   useEffect(() => {
       const fetchProfile = async () => {
-          if (!isSignedIn || !isLoaded || hasFetchedProfileAvatar.current) return;
-          hasFetchedProfileAvatar.current = true;
+          if (!authSignedIn || !isAuthLoaded || hasFetchedProfileAvatar.current) return;
           try {
-              const res = await fetch('/api/profile', { headers: { authorization: `Bearer ${await getToken()}` } });
+              const token = await getAuthToken();
+              if (!token) return;
+              hasFetchedProfileAvatar.current = true;
+              const res = await fetch('/api/profile', { headers: { authorization: `Bearer ${token}` } });
               if (res.ok) {
                   const data = await res.json();
                   if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
@@ -192,7 +195,7 @@ const App: React.FC = () => {
           }
       };
       fetchProfile();
-  }, [isSignedIn, isLoaded, getToken, setAvatarUrl]);
+  }, [authSignedIn, isAuthLoaded, getAuthToken, setAvatarUrl]);
 
   // Clamp current episode index when episodes change (e.g., after remote sync)
   useEffect(() => {
@@ -390,7 +393,7 @@ const App: React.FC = () => {
           setAvatarUrl(storedUrl);
           // Save to profile for multi-device sync
           try {
-              const token = await getToken();
+              const token = await getAuthToken();
               if (token) {
                   await fetch('/api/profile', {
                       method: 'PUT',
@@ -1054,8 +1057,8 @@ const App: React.FC = () => {
       onToggleTheme={toggleTheme}
       isDarkMode={isDarkMode}
       account={{
-        isLoaded,
-        isSignedIn: !!isSignedIn,
+        isLoaded: isUserLoaded,
+        isSignedIn: !!userSignedIn,
         user,
         onSignIn: () => openSignIn(),
         onSignOut: () => signOut(),
