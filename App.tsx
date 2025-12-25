@@ -3,11 +3,13 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { FolderOpen, FileText, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
-import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab } from './types';
+import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab, SyncState, SyncStatus } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
 import { parseScriptToEpisodes, exportToCSV, exportToXLS, parseCSVToShots } from './utils/parser';
 import { normalizeProjectData } from './utils/projectData';
 import { dropFileReplacer, isProjectEmpty, backupData } from './utils/persistence';
+import { getDeviceId } from './utils/device';
+import { hashToBucket, isInRollout, normalizeRolloutPercent } from './utils/rollout';
 import { usePersistedState } from './hooks/usePersistedState';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useVideoPolling } from './hooks/useVideoPolling';
@@ -20,6 +22,8 @@ import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { AppShell } from './components/layout/AppShell';
 import { Header } from './components/layout/Header';
 import { SettingsModal } from './components/SettingsModal';
+import { ConflictModal } from './components/ConflictModal';
+import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { AssetsModule } from './modules/assets/AssetsModule';
 import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
@@ -119,8 +123,18 @@ const App: React.FC = () => {
   }, [step, analysisStep, currentEpIndex, activeTab, setUiState]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about' | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>({
+      project: { status: 'idle' },
+      secrets: { status: 'disabled' }
+  });
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [syncRefreshKey, setSyncRefreshKey] = useState(0);
+  const conflictQueueRef = useRef<Array<{ remote: ProjectData; local: ProjectData; resolve?: (useRemote: boolean) => void; mode: 'decision' | 'notice' }>>([]);
+  const activeConflictRef = useRef<{ remote: ProjectData; local: ProjectData; resolve?: (useRemote: boolean) => void; mode: 'decision' | 'notice' } | null>(null);
+  const [activeConflict, setActiveConflict] = useState<{ remote: ProjectData; local: ProjectData; resolve?: (useRemote: boolean) => void; mode: 'decision' | 'notice' } | null>(null);
   
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
@@ -133,6 +147,31 @@ const App: React.FC = () => {
       serialize: (v) => JSON.stringify(v)
   });
   const hasFetchedProfileAvatar = useRef(false);
+  const syncRollout = useMemo(() => {
+      const percent = normalizeRolloutPercent(import.meta.env.VITE_SYNC_ROLLOUT_PERCENT);
+      const salt = import.meta.env.VITE_SYNC_ROLLOUT_SALT || "";
+      const allowlistRaw = import.meta.env.VITE_SYNC_ROLLOUT_ALLOWLIST || "";
+      const allowlist = allowlistRaw.split(",").map((value) => value.trim()).filter(Boolean);
+      const userId = user?.id || (userSignedIn ? "" : getDeviceId());
+      const allowlisted = !!user?.id && allowlist.includes(user.id);
+      if (!userId) {
+          return { enabled: percent >= 100, percent, bucket: null, allowlisted };
+      }
+      const bucket = hashToBucket(userId, salt);
+      const enabled = allowlisted || isInRollout(userId, percent, salt);
+      return { enabled, percent, bucket, allowlisted };
+  }, [user?.id, userSignedIn]);
+  const isSyncFeatureEnabled = !!authSignedIn && syncRollout.enabled;
+
+  const openSettings = useCallback((tab?: 'text' | 'multimodal' | 'video' | 'sync' | 'about') => {
+      setSettingsTab(tab || null);
+      setIsSettingsOpen(true);
+  }, []);
+
+  const closeSettings = useCallback(() => {
+      setIsSettingsOpen(false);
+      setSettingsTab(null);
+  }, []);
   
   // Processing Queues for Phase 1 Batches handled via reducer
 
@@ -142,21 +181,114 @@ const App: React.FC = () => {
       projectDataRef.current = projectData;
   }, [projectData]);
 
+  useEffect(() => {
+      activeConflictRef.current = activeConflict;
+  }, [activeConflict]);
+
+  useEffect(() => {
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+  }, []);
+
+  useEffect(() => {
+      const projectEnabled = authSignedIn && isSyncFeatureEnabled;
+      const secretsEnabled = authSignedIn && isSyncFeatureEnabled && config.syncApiKeys;
+      setSyncState(prev => ({
+          project: projectEnabled ? (prev.project.status === 'disabled' ? { status: 'loading' } : prev.project) : { status: 'disabled' },
+          secrets: secretsEnabled
+            ? (prev.secrets.status === 'disabled' ? { status: 'loading' } : prev.secrets)
+            : { status: 'disabled' }
+      }));
+  }, [authSignedIn, config.syncApiKeys, isSyncFeatureEnabled]);
+
+  const updateProjectSyncStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
+      setSyncState(prev => ({
+          ...prev,
+          project: {
+              status,
+              lastSyncAt: detail?.lastSyncAt ?? prev.project.lastSyncAt,
+              lastError: status === 'error' ? detail?.error ?? prev.project.lastError : status === 'synced' ? undefined : prev.project.lastError,
+              pendingOps: detail?.pendingOps ?? prev.project.pendingOps,
+              retryCount: detail?.retryCount ?? prev.project.retryCount,
+              lastAttemptAt: detail?.lastAttemptAt ?? prev.project.lastAttemptAt
+          }
+      }));
+  }, []);
+
+  const updateSecretsSyncStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
+      setSyncState(prev => ({
+          ...prev,
+          secrets: {
+              status,
+              lastSyncAt: detail?.lastSyncAt ?? prev.secrets.lastSyncAt,
+              lastError: status === 'error' ? detail?.error ?? prev.secrets.lastError : status === 'synced' ? undefined : prev.secrets.lastError,
+              pendingOps: detail?.pendingOps ?? prev.secrets.pendingOps,
+              retryCount: detail?.retryCount ?? prev.secrets.retryCount,
+              lastAttemptAt: detail?.lastAttemptAt ?? prev.secrets.lastAttemptAt
+          }
+      }));
+  }, []);
+
+  const forceCloudPull = useCallback(() => {
+      setSyncRefreshKey((v) => v + 1);
+  }, []);
+
+  const requestConflictResolution = useCallback(({ remote, local }: { remote: ProjectData; local: ProjectData }) => {
+      return new Promise<boolean>((resolve) => {
+          conflictQueueRef.current.push({ remote, local, resolve, mode: 'decision' });
+          if (!activeConflictRef.current) {
+              const next = conflictQueueRef.current.shift();
+              if (next) setActiveConflict(next);
+          }
+      });
+  }, []);
+
+  const requestConflictNotice = useCallback(({ remote, local }: { remote: ProjectData; local: ProjectData }) => {
+      conflictQueueRef.current.push({ remote, local, mode: 'notice' });
+      if (!activeConflictRef.current) {
+          const next = conflictQueueRef.current.shift();
+          if (next) setActiveConflict(next);
+      }
+  }, []);
+
+  const handleConflictChoice = useCallback((useRemote: boolean) => {
+      if (!activeConflict || activeConflict.mode !== 'decision') return;
+      activeConflict.resolve?.(useRemote);
+      setActiveConflict(null);
+      const next = conflictQueueRef.current.shift();
+      if (next) setActiveConflict(next);
+  }, [activeConflict]);
+
+  const handleConflictAcknowledge = useCallback(() => {
+      if (!activeConflict || activeConflict.mode !== 'notice') return;
+      setActiveConflict(null);
+      const next = conflictQueueRef.current.shift();
+      if (next) setActiveConflict(next);
+  }, [activeConflict]);
+
+
   // --- Cloud Sync (Clerk + Cloudflare Pages) ---
   useCloudSync({
-      isSignedIn: !!authSignedIn,
+      isSignedIn: !!authSignedIn && isSyncFeatureEnabled,
       isLoaded: isAuthLoaded,
       getToken: getAuthToken,
       projectData,
       setProjectData,
       setHasLoadedRemote,
       hasLoadedRemote,
+      refreshKey: syncRefreshKey,
       localBackupKey: LOCAL_BACKUP_KEY,
       remoteBackupKey: REMOTE_BACKUP_KEY,
       onError: (e) => console.warn("Cloud sync error", e),
-      onConflictConfirm: ({ remote, local }) => window.confirm(
-        "检测到云端和本地均有数据。\n确定：使用云端覆盖本地（本地备份会保留）\n取消：保留本地并上传到云端（云端数据将备份）"
-      ),
+      onStatusChange: updateProjectSyncStatus,
+      onConflictConfirm: requestConflictResolution,
+      onConflictNotice: requestConflictNotice,
       saveDebounceMs: 1200
   });
 
@@ -169,12 +301,13 @@ const App: React.FC = () => {
   });
 
   useSecretsSync({
-      isSignedIn: !!authSignedIn,
+      isSignedIn: !!authSignedIn && isSyncFeatureEnabled,
       isLoaded: isAuthLoaded,
       getToken: getAuthToken,
       config,
       setConfig,
-      debounceMs: 1200
+      debounceMs: 1200,
+      onStatusChange: updateSecretsSyncStatus
   });
 
   // Fetch avatar from profile (account-scoped) once per session
@@ -794,7 +927,7 @@ const App: React.FC = () => {
   const handleGenerateVideo = async (episodeId: number, shotId: string, customPrompt: string, params: VideoParams) => {
       if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) {
           alert("Video API settings missing. Please open Settings -> Video Generation.");
-          setIsSettingsOpen(true);
+          openSettings('video');
           return;
       }
 
@@ -1032,6 +1165,7 @@ const App: React.FC = () => {
       tabs={tabOptions}
       onTabChange={setActiveTab}
       activeModelLabel={activeModelLabel}
+      sync={{ state: syncState, isOnline }}
       splitView={{
         currentSplitTab: splitTab,
         isOpen: isSplitMenuOpen,
@@ -1062,7 +1196,7 @@ const App: React.FC = () => {
         user,
         onSignIn: () => openSignIn(),
         onSignOut: () => signOut(),
-        onOpenSettings: () => setIsSettingsOpen(true),
+        onOpenSettings: () => openSettings(),
         onReset: handleResetProject,
         isUserMenuOpen,
         setIsUserMenuOpen,
@@ -1154,13 +1288,43 @@ const App: React.FC = () => {
   };
 
   return (
-    <AppShell isDarkMode={isDarkMode} header={headerNode}>
+    <AppShell
+      isDarkMode={isDarkMode}
+      header={headerNode}
+      banner={
+        <SyncStatusBanner
+          syncState={syncState}
+          isOnline={isOnline}
+          isSignedIn={!!authSignedIn}
+          syncRollout={syncRollout}
+          onOpenDetails={() => openSettings('sync')}
+          onForceSync={forceCloudPull}
+        />
+      }
+    >
       <SettingsModal 
         isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={closeSettings}
         config={config}
         onConfigChange={setConfig}
+        isSignedIn={!!authSignedIn}
+        getAuthToken={getAuthToken}
+        onForceSync={forceCloudPull}
+        syncState={syncState}
+        syncRollout={syncRollout}
+        activeTabOverride={settingsTab || undefined}
       />
+      {activeConflict && (
+        <ConflictModal
+          isOpen={!!activeConflict}
+          remoteData={activeConflict.remote}
+          localData={activeConflict.local}
+          mode={activeConflict.mode}
+          onUseRemote={activeConflict.mode === 'decision' ? () => handleConflictChoice(true) : undefined}
+          onKeepLocal={activeConflict.mode === 'decision' ? () => handleConflictChoice(false) : undefined}
+          onAcknowledge={activeConflict.mode === 'notice' ? handleConflictAcknowledge : undefined}
+        />
+      )}
       <input
         type="file"
         accept="image/*"

@@ -21,7 +21,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1eXXIDiX1tzLucyPDhlkUsE
 
 ## Cloudflare Pages + Clerk 同步
 - 前端：在 `.env.local` 设置 `VITE_CLERK_PUBLISHABLE_KEY`（Clerk Publishable Key）。
+- 可选灰度开关（前端）：`VITE_SYNC_ROLLOUT_PERCENT`（0-100，默认 100）、`VITE_SYNC_ROLLOUT_SALT`、`VITE_SYNC_ROLLOUT_ALLOWLIST`（逗号分隔 userId）。
 - 后端（Pages Functions）：在 Cloudflare Pages “Environment variables” 添加 `CLERK_SECRET_KEY`（对应同一环境的 Secret Key）。
+- 可选灰度开关（后端）：`SYNC_ROLLOUT_PERCENT`（0-100，默认 100）、`SYNC_ROLLOUT_SALT`、`SYNC_ROLLOUT_ALLOWLIST`（逗号分隔 userId）。
 - 数据库：为站点绑定一个 D1 数据库，绑定名 `DB`。初始化表：
   ```sql
   CREATE TABLE IF NOT EXISTS user_projects (

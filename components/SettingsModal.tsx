@@ -1,21 +1,29 @@
 
-import React, { useState } from 'react';
-import { AppConfig, TextProvider } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppConfig, TextProvider, SyncState } from '../types';
 import { AVAILABLE_MODELS } from '../constants';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
 import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film } from 'lucide-react';
+import { getDeviceId } from '../utils/device';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   config: AppConfig;
   onConfigChange: (c: AppConfig) => void;
+  isSignedIn?: boolean;
+  getAuthToken?: () => Promise<string | null>;
+  onForceSync?: () => void;
+  syncState?: SyncState;
+  syncRollout?: { enabled: boolean; percent: number; bucket?: number | null; allowlisted?: boolean };
+  activeTabOverride?: 'text' | 'multimodal' | 'video' | 'sync' | 'about';
 }
 
-export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConfigChange }) => {
-  const [activeTab, setActiveTab] = useState<'text' | 'multimodal' | 'video' | 'about'>('text');
+export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConfigChange, isSignedIn, getAuthToken, onForceSync, syncState, syncRollout, activeTabOverride }) => {
+  const [activeTab, setActiveTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about'>('text');
+  const deviceIdRef = useRef<string>(getDeviceId());
   
   // Model Fetch States
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -30,6 +38,171 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
   const [availableVideoModels, setAvailableVideoModels] = useState<string[]>([]);
   const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
   const [availableMultiModels, setAvailableMultiModels] = useState<string[]>([]);
+
+  const [snapshots, setSnapshots] = useState<{ version: number; createdAt: number }[]>([]);
+  const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
+  const [snapshotMessage, setSnapshotMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
+  const [auditEntries, setAuditEntries] = useState<Array<{ id: number; action: string; status: string; createdAt: number; detail: Record<string, unknown> }>>([]);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+  const [auditMessage, setAuditMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  const projectSync = syncState?.project;
+  const secretsSync = syncState?.secrets;
+  const syncAllowed = syncRollout?.enabled ?? true;
+  const syncPercent = syncRollout?.percent ?? 100;
+  const syncIsRollout = syncPercent < 100;
+
+  useEffect(() => {
+    if (isOpen && activeTabOverride) {
+      setActiveTab(activeTabOverride);
+    }
+  }, [activeTabOverride, isOpen]);
+
+  const formatSnapshotTime = (ts: number) => new Date(ts).toLocaleString();
+  const formatSyncTime = (ts?: number) => (ts ? new Date(ts).toLocaleString() : "—");
+  const formatAuditDetail = (detail: Record<string, unknown>) => {
+    const parts: string[] = [];
+    if (typeof detail.updatedAt === "number") parts.push(`v${detail.updatedAt}`);
+    if (typeof detail.episodes === "number") parts.push(`eps ${detail.episodes}`);
+    if (typeof detail.shots === "number") parts.push(`shots ${detail.shots}`);
+    if (typeof detail.version === "number") parts.push(`snapshot ${detail.version}`);
+    if (typeof detail.mode === "string") parts.push(`mode ${detail.mode}`);
+    if (typeof detail.reason === "string") parts.push(`reason: ${detail.reason}`);
+    if (typeof detail.error === "string") parts.push(`error: ${detail.error}`);
+    if (typeof detail.textKey === "boolean") parts.push(`textKey ${detail.textKey ? "yes" : "no"}`);
+    if (typeof detail.multiKey === "boolean") parts.push(`multiKey ${detail.multiKey ? "yes" : "no"}`);
+    if (typeof detail.videoKey === "boolean") parts.push(`videoKey ${detail.videoKey ? "yes" : "no"}`);
+    if (typeof detail.deviceId === "string") parts.push(`device ${detail.deviceId}`);
+    return parts.join(" · ");
+  };
+  const statusLabel = (status?: string) => {
+    switch (status) {
+      case "synced":
+        return "已同步";
+      case "syncing":
+        return "同步中";
+      case "loading":
+        return "加载中";
+      case "conflict":
+        return "冲突";
+      case "error":
+        return "错误";
+      case "offline":
+        return "离线";
+      case "disabled":
+        return "仅本地";
+      case "idle":
+      default:
+        return "就绪";
+    }
+  };
+
+  const fetchSnapshots = async () => {
+    if (!syncAllowed) {
+      setSnapshotMessage({ type: 'error', text: "Cloud sync is not enabled for this account yet." });
+      return;
+    }
+    if (!getAuthToken || !isSignedIn) {
+      setSnapshotMessage({ type: 'error', text: "Sign in to view cloud snapshots." });
+      return;
+    }
+    setIsLoadingSnapshots(true);
+    setSnapshotMessage(null);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setSnapshotMessage({ type: 'error', text: "Auth token missing. Please re-login." });
+        return;
+      }
+      const res = await fetch("/api/project-snapshots", {
+        headers: { authorization: `Bearer ${token}`, "x-device-id": deviceIdRef.current }
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to load snapshots (${res.status})`);
+      }
+      const data = await res.json();
+      setSnapshots(Array.isArray(data?.snapshots) ? data.snapshots : []);
+      setSnapshotMessage({ type: 'success', text: "Snapshots loaded." });
+    } catch (e: any) {
+      setSnapshotMessage({ type: 'error', text: e.message || "Failed to load snapshots." });
+    } finally {
+      setIsLoadingSnapshots(false);
+    }
+  };
+
+  const restoreSnapshot = async (version: number) => {
+    if (!syncAllowed) {
+      setSnapshotMessage({ type: 'error', text: "Cloud sync is not enabled for this account yet." });
+      return;
+    }
+    if (!getAuthToken || !isSignedIn) {
+      setSnapshotMessage({ type: 'error', text: "Sign in to restore snapshots." });
+      return;
+    }
+    const confirmRestore = window.confirm("确定恢复该快照？恢复后将覆盖云端数据，并在下次同步时更新本地。");
+    if (!confirmRestore) return;
+    setIsRestoringSnapshot(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setSnapshotMessage({ type: 'error', text: "Auth token missing. Please re-login." });
+        return;
+      }
+      const res = await fetch("/api/project-restore", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+          "x-device-id": deviceIdRef.current
+        },
+        body: JSON.stringify({ version })
+      });
+      if (!res.ok) {
+        throw new Error(`Restore failed (${res.status})`);
+      }
+      setSnapshotMessage({ type: 'success', text: "Snapshot restored. Sync will refresh local data shortly." });
+      onForceSync?.();
+      await fetchSnapshots();
+    } catch (e: any) {
+      setSnapshotMessage({ type: 'error', text: e.message || "Restore failed." });
+    } finally {
+      setIsRestoringSnapshot(false);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    if (!syncAllowed) {
+      setAuditMessage({ type: 'error', text: "Cloud sync is not enabled for this account yet." });
+      return;
+    }
+    if (!getAuthToken || !isSignedIn) {
+      setAuditMessage({ type: 'error', text: "Sign in to view audit logs." });
+      return;
+    }
+    setIsLoadingAudit(true);
+    setAuditMessage(null);
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setAuditMessage({ type: 'error', text: "Auth token missing. Please re-login." });
+        return;
+      }
+      const res = await fetch("/api/sync-audit", {
+        headers: { authorization: `Bearer ${token}`, "x-device-id": deviceIdRef.current }
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to load logs (${res.status})`);
+      }
+      const data = await res.json();
+      setAuditEntries(Array.isArray(data?.entries) ? data.entries : []);
+      setAuditMessage({ type: 'success', text: "Logs loaded." });
+    } catch (e: any) {
+      setAuditMessage({ type: 'error', text: e.message || "Failed to load logs." });
+    } finally {
+      setIsLoadingAudit(false);
+    }
+  };
 
   // Video Models Fetcher
   const handleFetchVideoModels = async () => {
@@ -164,6 +337,16 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'video' ? 'bg-white/5 text-indigo-300 border-b-2 border-indigo-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
             >
                 <Video size={16} /> Video
+            </button>
+            <button 
+                onClick={() => {
+                    setActiveTab('sync');
+                    fetchSnapshots();
+                    fetchAuditLogs();
+                }}
+                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'sync' ? 'bg-white/5 text-emerald-300 border-b-2 border-emerald-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+            >
+                <RefreshCw size={16} /> Sync
             </button>
             <button 
                 onClick={() => setActiveTab('about')}
@@ -500,6 +683,155 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                 className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder-gray-400 dark:placeholder-gray-600"
                             />
                         )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'sync' && (
+                <div className="space-y-6">
+                    {syncIsRollout && (
+                        <div className="text-xs px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 text-[var(--text-secondary)]">
+                            云端同步正在灰度发布（{syncPercent}%）。
+                            {syncAllowed ? "该账号已启用。" : "该账号暂未启用，当前仅本地保存。"}
+                        </div>
+                    )}
+                    <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70">
+                        <div className="text-sm font-semibold text-[var(--text-primary)] mb-3">Sync Diagnostics</div>
+                        {!syncState && (
+                            <div className="text-xs text-[var(--text-secondary)]">同步状态不可用。</div>
+                        )}
+                        {syncState && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
+                                    <div className="text-xs font-semibold text-[var(--text-primary)] mb-2">Project</div>
+                                    <div className="text-xs text-[var(--text-secondary)] space-y-1">
+                                        <div>状态：{statusLabel(projectSync?.status)}</div>
+                                        <div>最后同步：{formatSyncTime(projectSync?.lastSyncAt)}</div>
+                                        <div>最近尝试：{formatSyncTime(projectSync?.lastAttemptAt)}</div>
+                                        <div>待发送：{projectSync?.pendingOps ?? 0}</div>
+                                        <div>重试次数：{projectSync?.retryCount ?? 0}</div>
+                                        {projectSync?.lastError && (
+                                            <div className="text-rose-300">错误：{projectSync.lastError}</div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
+                                    <div className="text-xs font-semibold text-[var(--text-primary)] mb-2">Secrets</div>
+                                    <div className="text-xs text-[var(--text-secondary)] space-y-1">
+                                        <div>状态：{statusLabel(secretsSync?.status)}</div>
+                                        <div>最后同步：{formatSyncTime(secretsSync?.lastSyncAt)}</div>
+                                        <div>最近尝试：{formatSyncTime(secretsSync?.lastAttemptAt)}</div>
+                                        <div>待发送：{secretsSync?.pendingOps ?? 0}</div>
+                                        <div>重试次数：{secretsSync?.retryCount ?? 0}</div>
+                                        {secretsSync?.lastError && (
+                                            <div className="text-rose-300">错误：{secretsSync.lastError}</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                            <div>
+                                <div className="text-sm font-semibold text-[var(--text-primary)]">Cloud Snapshots</div>
+                                <div className="text-xs text-[var(--text-secondary)]">最近 20 条快照，仅在云端保存。</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        onForceSync?.();
+                                        fetchSnapshots();
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] hover:border-emerald-400 hover:text-emerald-200 transition"
+                                    disabled={!syncAllowed}
+                                >
+                                    Sync Now
+                                </button>
+                                <button
+                                    onClick={fetchSnapshots}
+                                    className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
+                                    disabled={isLoadingSnapshots || !syncAllowed}
+                                >
+                                    {isLoadingSnapshots ? "Loading..." : "Refresh"}
+                                </button>
+                            </div>
+                        </div>
+
+                        {snapshotMessage && (
+                            <div className={`text-xs px-3 py-2 rounded-lg border ${snapshotMessage.type === 'error' ? 'border-red-400/60 text-red-300 bg-red-900/20' : 'border-emerald-400/60 text-emerald-200 bg-emerald-900/20'}`}>
+                                {snapshotMessage.text}
+                            </div>
+                        )}
+
+                        <div className="mt-4 space-y-2">
+                            {snapshots.length === 0 && (
+                                <div className="text-xs text-[var(--text-secondary)]">暂无快照记录。</div>
+                            )}
+                            {snapshots.map((snap) => (
+                                <div key={snap.version} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
+                                    <div>
+                                        <div className="text-xs font-mono text-[var(--text-primary)]">v{snap.version}</div>
+                                        <div className="text-xs text-[var(--text-secondary)]">{formatSnapshotTime(snap.createdAt)}</div>
+                                    </div>
+                                    <button
+                                        onClick={() => restoreSnapshot(snap.version)}
+                                        disabled={isRestoringSnapshot || !syncAllowed}
+                                        className="px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] hover:border-emerald-400 hover:text-emerald-200 transition"
+                                    >
+                                        {isRestoringSnapshot ? "Restoring..." : "Restore"}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                            <div>
+                                <div className="text-sm font-semibold text-[var(--text-primary)]">Sync Audit Logs</div>
+                                <div className="text-xs text-[var(--text-secondary)]">最近 50 条操作记录。</div>
+                            </div>
+                            <button
+                                onClick={fetchAuditLogs}
+                                className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
+                                disabled={isLoadingAudit || !syncAllowed}
+                            >
+                                {isLoadingAudit ? "Loading..." : "Refresh"}
+                            </button>
+                        </div>
+
+                        {auditMessage && (
+                            <div className={`text-xs px-3 py-2 rounded-lg border ${auditMessage.type === 'error' ? 'border-red-400/60 text-red-300 bg-red-900/20' : 'border-emerald-400/60 text-emerald-200 bg-emerald-900/20'}`}>
+                                {auditMessage.text}
+                            </div>
+                        )}
+
+                        <div className="mt-4 space-y-2">
+                            {auditEntries.length === 0 && (
+                                <div className="text-xs text-[var(--text-secondary)]">暂无日志记录。</div>
+                            )}
+                            {auditEntries.map((entry) => (
+                                <div key={entry.id} className="flex items-start justify-between gap-3 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
+                                    <div>
+                                        <div className="text-xs font-semibold text-[var(--text-primary)]">
+                                            {entry.action} · {entry.status}
+                                        </div>
+                                        <div className="text-xs text-[var(--text-secondary)]">{formatSnapshotTime(entry.createdAt)}</div>
+                                        {Object.keys(entry.detail || {}).length > 0 && (
+                                            <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                                                {formatAuditDetail(entry.detail)}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                        恢复快照会覆盖云端项目数据，并在下次同步时更新本地。建议在恢复前先导出 CSV 作为本地备份。
                     </div>
                 </div>
             )}

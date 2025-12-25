@@ -5,6 +5,22 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export type SyncStatus = 'idle' | 'loading' | 'syncing' | 'synced' | 'conflict' | 'error' | 'offline' | 'disabled';
+
+export type SyncChannelState = {
+  status: SyncStatus;
+  lastSyncAt?: number;
+  lastError?: string;
+  pendingOps?: number;
+  retryCount?: number;
+  lastAttemptAt?: number;
+};
+
+export type SyncState = {
+  project: SyncChannelState;
+  secrets: SyncChannelState;
+};
+
 export interface VideoParams {
   aspectRatio: string; // "16:9", "9:16"
   quality: 'standard' | 'high'; // New: Maps to specific resolutions

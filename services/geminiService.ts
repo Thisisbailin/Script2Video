@@ -665,7 +665,7 @@ export const generateEpisodeShots = async (
             dialogue: { type: Type.STRING, description: "台词或OS，无台词留空" },
             soraPrompt: { type: Type.STRING, description: "留空字符串" },
           },
-          required: ["id", "duration", "shotType", "movement", "difficulty", "description", "dialogue"],
+          required: ["id", "duration", "shotType", "movement", "difficulty", "description", "dialogue", "soraPrompt"],
         },
       },
     },
@@ -710,8 +710,15 @@ export const generateEpisodeShots = async (
   `;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = JSON.parse(text) as { shots?: Shot[] };
+  const shots = Array.isArray(parsed?.shots)
+    ? parsed.shots.map((shot) => ({
+        ...shot,
+        soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : ""
+      }))
+    : [];
   return {
-      ...JSON.parse(text) as { shots: Shot[] },
+      shots,
       usage
   };
 };

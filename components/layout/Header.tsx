@@ -25,7 +25,7 @@ import {
   Film,
   PanelLeft,
 } from "lucide-react";
-import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep } from "../../types";
+import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep, SyncState, SyncStatus } from "../../types";
 import { isEpisodeSoraComplete } from "../../utils/episodes";
 
 const PixelSheepIcon: React.FC<{ size?: number }> = ({ size = 32 }) => {
@@ -161,6 +161,10 @@ type HeaderProps = {
   tabs: TabOption[];
   onTabChange: (tab: ActiveTab) => void;
   activeModelLabel: string;
+  sync: {
+    state: SyncState;
+    isOnline: boolean;
+  };
   splitView: {
     currentSplitTab: ActiveTab | null;
     isOpen: boolean;
@@ -571,6 +575,7 @@ export const Header: React.FC<HeaderProps> = ({
   tabs,
   onTabChange,
   activeModelLabel,
+  sync,
   splitView,
   onTryMe,
   hasGeneratedShots,
@@ -604,6 +609,65 @@ export const Header: React.FC<HeaderProps> = ({
   const [showTabs, setShowTabs] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [showTryInfo, setShowTryInfo] = useState(false);
+  const formatSyncTime = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
+  const statusLabel = (status: SyncStatus) => {
+    switch (status) {
+      case "synced":
+        return "已同步";
+      case "syncing":
+        return "同步中";
+      case "loading":
+        return "加载中";
+      case "conflict":
+        return "冲突";
+      case "error":
+        return "错误";
+      case "offline":
+        return "离线";
+      case "disabled":
+        return "仅本地";
+      case "idle":
+      default:
+        return "就绪";
+    }
+  };
+  const statusMeta = (status: SyncStatus) => {
+    switch (status) {
+      case "synced":
+        return { label: statusLabel(status), dot: "bg-emerald-400" };
+      case "syncing":
+      case "loading":
+        return { label: statusLabel(status), dot: "bg-sky-400", pulse: true };
+      case "conflict":
+        return { label: statusLabel(status), dot: "bg-amber-400" };
+      case "error":
+        return { label: statusLabel(status), dot: "bg-rose-400" };
+      case "offline":
+        return { label: statusLabel(status), dot: "bg-slate-400" };
+      case "disabled":
+        return { label: statusLabel(status), dot: "bg-slate-400" };
+      case "idle":
+      default:
+        return { label: statusLabel(status), dot: "bg-slate-300" };
+    }
+  };
+  const aggregateStatus = useMemo(() => {
+    if (!sync.isOnline) return "offline";
+    const statuses = [sync.state.project.status, sync.state.secrets.status].filter((s) => s !== "disabled");
+    if (statuses.length === 0) return "disabled";
+    if (statuses.includes("error")) return "error";
+    if (statuses.includes("conflict")) return "conflict";
+    if (statuses.includes("loading") || statuses.includes("syncing")) return "syncing";
+    if (statuses.includes("idle")) return "idle";
+    return "synced";
+  }, [sync]);
+  const syncTooltip = useMemo(() => {
+    const projectInfo = `项目: ${statusLabel(sync.state.project.status)}${sync.state.project.lastSyncAt ? ` @ ${formatSyncTime(sync.state.project.lastSyncAt)}` : ""}`;
+    const secretsInfo = `密钥: ${statusLabel(sync.state.secrets.status)}${sync.state.secrets.lastSyncAt ? ` @ ${formatSyncTime(sync.state.secrets.lastSyncAt)}` : ""}`;
+    const networkInfo = sync.isOnline ? "" : "网络: 离线";
+    return [networkInfo, projectInfo, secretsInfo].filter(Boolean).join(" · ");
+  }, [sync]);
+  const syncDisplay = statusMeta(aggregateStatus);
 
   const pillTriggerClasses = (isActive = false) =>
     `flex h-12 items-center gap-2 px-4 rounded-full bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.08)] transition-transform duration-150 hover:scale-105 hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)] ${
@@ -762,6 +826,14 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   )}
                 </button>
+              </div>
+
+              <div
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 text-xs text-[var(--text-secondary)]"
+                title={syncTooltip}
+              >
+                <span className={`h-2 w-2 rounded-full ${syncDisplay.dot} ${syncDisplay.pulse ? "animate-pulse" : ""}`} />
+                <span className="text-[var(--text-primary)] font-semibold">云端同步 · {syncDisplay.label}</span>
               </div>
 
               <div className="relative">
