@@ -17,7 +17,8 @@ async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
 
-  if (!env.CLERK_SECRET_KEY) {
+  const secretKey = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY.trim() : "";
+  if (!secretKey) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }
 
@@ -27,7 +28,7 @@ async function getUserId(request: Request, env: Env) {
 
   try {
     const payload = await verifyToken(token, {
-      secretKey: env.CLERK_SECRET_KEY
+      secretKey
     });
     if (payload?.sub) return payload.sub;
     throw new Error("Token payload missing sub");
