@@ -48,7 +48,7 @@ const App: React.FC = () => {
   const { getToken, isLoaded: isAuthLoaded, isSignedIn: authSignedIn } = useAuth();
   const getAuthToken = useCallback(async () => {
       try {
-        return await getToken();
+        return await getToken({ template: "default" });
       } catch {
         return null;
       }

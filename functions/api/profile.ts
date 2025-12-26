@@ -1,4 +1,4 @@
-import { createClerkClient, verifyToken } from "@clerk/backend";
+import { verifyToken } from "@clerk/backend";
 
 type Env = {
   DB: any;
@@ -23,23 +23,20 @@ async function getUserId(request: Request, env: Env) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }
 
-  if (token) {
-    try {
-      const payload = await verifyToken(token, {
-        secretKey: env.CLERK_SECRET_KEY,
-      });
-      if (payload?.sub) return payload.sub;
-    } catch (err) {
-      console.warn("verifyToken failed, falling back to cookie auth", err);
-    }
-  }
-
-  const clerkClient = createClerkClient({ secretKey: env.CLERK_SECRET_KEY });
-  const auth = await clerkClient.authenticateRequest({ request, loadSession: true });
-  if (!auth?.session?.userId) {
+  if (!token) {
     throw new Response("Unauthorized", { status: 401 });
   }
-  return auth.session.userId;
+
+  try {
+    const payload = await verifyToken(token, {
+      secretKey: env.CLERK_SECRET_KEY
+    });
+    if (payload?.sub) return payload.sub;
+  } catch (err) {
+    console.warn("verifyToken failed", err);
+  }
+
+  throw new Response("Unauthorized", { status: 401 });
 }
 
 export const onRequestGet = async (context: { request: Request; env: Env }) => {
