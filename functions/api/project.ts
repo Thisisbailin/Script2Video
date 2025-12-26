@@ -151,6 +151,29 @@ async function ensureTables(env: Env) {
   await ensureSnapshotsTable(env);
 }
 
+const ensureColumn = async (env: Env, table: string, column: string, type: string) => {
+  const info = await env.DB.prepare(`PRAGMA table_info(${table})`).all();
+  const columns = new Set((info?.results || []).map((row: any) => row.name));
+  if (!columns.has(column)) {
+    await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+  }
+};
+
+const ensureSchema = async (env: Env) => {
+  await ensureTables(env);
+  await ensureColumn(env, "user_project_meta", "data", "TEXT");
+  await ensureColumn(env, "user_project_meta", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_meta", "last_op_id", "TEXT");
+  await ensureColumn(env, "user_project_episodes", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_scenes", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_shots", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_characters", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_locations", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_snapshots", "data", "TEXT");
+  await ensureColumn(env, "user_project_snapshots", "version", "INTEGER");
+  await ensureColumn(env, "user_project_snapshots", "created_at", "INTEGER");
+};
+
 const buildMetaFromProject = (projectData: any): ProjectMeta => ({
   fileName: typeof projectData?.fileName === "string" ? projectData.fileName : "",
   rawScript: typeof projectData?.rawScript === "string" ? projectData.rawScript : "",
@@ -337,7 +360,9 @@ const loadProjectData = async (env: Env, userId: string) => {
     stats: meta.stats || emptyStats
   };
 
-  return { projectData, updatedAt: metaRow.updated_at };
+  const updatedAt =
+    typeof metaRow.updated_at === "number" ? metaRow.updated_at : Number(metaRow.updated_at) || 0;
+  return { projectData, updatedAt };
 };
 
 async function getUserId(request: Request, env: Env) {
@@ -382,7 +407,7 @@ export const onRequestGet = async (context: {
       }
       return jsonResponse({ error: "Sync disabled for this account", rollout: { percent: rollout.percent } }, { status: 403 });
     }
-    await ensureTables(context.env);
+    await ensureSchema(context.env);
 
     const data = await loadProjectData(context.env, userId);
     if (!data) {
@@ -396,11 +421,12 @@ export const onRequestGet = async (context: {
   } catch (err: any) {
     if (err instanceof Response) return err;
     console.error("GET /api/project error", err);
+    const detail = err?.message || (typeof err === "string" ? err : "Unknown error");
     if (userId) {
       const deviceId = getDeviceId(context.request);
-      await logAudit(context.env, userId, "project.get", "error", { error: "Failed to load project", deviceId });
+      await logAudit(context.env, userId, "project.get", "error", { error: "Failed to load project", detail, deviceId });
     }
-    return jsonResponse({ error: "Failed to load project" }, { status: 500 });
+    return jsonResponse({ error: "Failed to load project", detail }, { status: 500 });
   }
 };
 
@@ -419,7 +445,7 @@ export const onRequestPut = async (context: {
       }
       return jsonResponse({ error: "Sync disabled for this account", rollout: { percent: rollout.percent } }, { status: 403 });
     }
-    await ensureTables(context.env);
+    await ensureSchema(context.env);
 
     const body = await context.request.json();
     if (!body || typeof body !== "object") {

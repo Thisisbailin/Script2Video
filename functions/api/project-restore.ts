@@ -149,6 +149,29 @@ async function ensureTables(env: Env) {
   ).run();
 }
 
+const ensureColumn = async (env: Env, table: string, column: string, type: string) => {
+  const info = await env.DB.prepare(`PRAGMA table_info(${table})`).all();
+  const columns = new Set((info?.results || []).map((row: any) => row.name));
+  if (!columns.has(column)) {
+    await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+  }
+};
+
+const ensureSchema = async (env: Env) => {
+  await ensureTables(env);
+  await ensureColumn(env, "user_project_meta", "data", "TEXT");
+  await ensureColumn(env, "user_project_meta", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_meta", "last_op_id", "TEXT");
+  await ensureColumn(env, "user_project_episodes", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_scenes", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_shots", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_characters", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_locations", "updated_at", "INTEGER");
+  await ensureColumn(env, "user_project_snapshots", "data", "TEXT");
+  await ensureColumn(env, "user_project_snapshots", "version", "INTEGER");
+  await ensureColumn(env, "user_project_snapshots", "created_at", "INTEGER");
+};
+
 async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\\s+/i, "");
@@ -309,7 +332,7 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
       }
       return jsonResponse({ error: "Sync disabled for this account", rollout: { percent: rollout.percent } }, { status: 403 });
     }
-    await ensureTables(context.env);
+    await ensureSchema(context.env);
 
     const body = await context.request.json();
     const deviceId = getDeviceId(context.request, body);
