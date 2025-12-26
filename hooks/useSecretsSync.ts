@@ -40,6 +40,7 @@ export const useSecretsSync = ({
   const saveRetryCountRef = useRef(0);
   const statusRef = useRef<SyncStatus>('idle');
   const deviceIdRef = useRef<string>(getDeviceId());
+  const isLoadingRef = useRef(false);
 
   const emitStatus = (status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
     statusRef.current = status;
@@ -185,6 +186,8 @@ export const useSecretsSync = ({
     };
 
     const load = async () => {
+      if (isLoadingRef.current) return;
+      isLoadingRef.current = true;
       try {
         const token = await getToken();
         if (!token) {
@@ -228,6 +231,8 @@ export const useSecretsSync = ({
       } catch {
         scheduleRetry(load);
         emitStatus('error', { error: "Failed to load secrets", retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
+      } finally {
+        isLoadingRef.current = false;
       }
     };
     load();

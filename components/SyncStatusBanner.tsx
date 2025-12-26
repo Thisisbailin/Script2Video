@@ -39,7 +39,7 @@ const statusMeta = (status: SyncStatus) => {
   switch (status) {
     case "syncing":
     case "loading":
-      return { label: "同步中", tone: "sky", icon: Loader2 };
+      return { label: statusLabel(status), tone: "sky", icon: Loader2 };
     case "conflict":
       return { label: "同步冲突", tone: "amber", icon: AlertCircle };
     case "error":
@@ -96,7 +96,8 @@ export const SyncStatusBanner: React.FC<Props> = ({
     if (statuses.length === 0) return "disabled";
     if (statuses.includes("error")) return "error";
     if (statuses.includes("conflict")) return "conflict";
-    if (statuses.includes("loading") || statuses.includes("syncing")) return "syncing";
+    if (statuses.includes("syncing")) return "syncing";
+    if (statuses.includes("loading")) return "loading";
     if (statuses.includes("idle")) return "idle";
     return "synced";
   }, [isOnline, project.status, secrets.status]);
@@ -129,7 +130,7 @@ export const SyncStatusBanner: React.FC<Props> = ({
   if (lastError && aggregateStatus === "error") detailParts.push(`错误: ${lastError}`);
 
   return (
-    <div className="w-full px-4 md:px-6 pt-3">
+    <div className="w-full px-4 md:px-6 pt-3 mt-16 relative z-30">
       <div
         className={`flex flex-col gap-2 rounded-xl border px-4 py-3 md:flex-row md:items-center md:gap-4 ${toneClasses(meta.tone)}`}
       >

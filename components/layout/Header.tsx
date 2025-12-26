@@ -657,7 +657,8 @@ export const Header: React.FC<HeaderProps> = ({
     if (statuses.length === 0) return "disabled";
     if (statuses.includes("error")) return "error";
     if (statuses.includes("conflict")) return "conflict";
-    if (statuses.includes("loading") || statuses.includes("syncing")) return "syncing";
+    if (statuses.includes("syncing")) return "syncing";
+    if (statuses.includes("loading")) return "loading";
     if (statuses.includes("idle")) return "idle";
     return "synced";
   }, [sync]);

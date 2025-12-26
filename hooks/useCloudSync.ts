@@ -60,6 +60,7 @@ export const useCloudSync = ({
   const lastSyncedRef = useRef<ProjectData | null>(null);
   const statusRef = useRef<SyncStatus>('idle');
   const deviceIdRef = useRef<string>(getDeviceId());
+  const isLoadingRef = useRef(false);
 
   const isPatchEmpty = (patch: ProjectPatch) =>
     Object.keys(patch.set).length === 0 && patch.unset.length === 0;
@@ -307,6 +308,8 @@ export const useCloudSync = ({
     };
 
     const loadRemote = async () => {
+      if (isLoadingRef.current) return;
+      isLoadingRef.current = true;
       try {
         const token = await getToken();
         if (!token) {
@@ -460,9 +463,11 @@ export const useCloudSync = ({
       } catch (e) {
         if (!cancelled) {
           onError?.(e);
-          emitStatus('error', { error: "Failed to load project", retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
+          emitStatus('error', { error: "Failed to load cloud project data", retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
           scheduleRetry(loadRemote);
         }
+      } finally {
+        isLoadingRef.current = false;
       }
     };
 
