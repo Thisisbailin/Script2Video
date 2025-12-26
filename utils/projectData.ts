@@ -1,18 +1,54 @@
 import { Episode, ProjectData, Shot } from "../types";
 import { INITIAL_PROJECT_DATA } from "../constants";
 
+const toSafeString = (value: unknown, fallback = "") => {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return fallback;
+  return String(value);
+};
+
+const toOptionalString = (value: unknown) => (typeof value === "string" ? value : undefined);
+
+const toOptionalNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const num = Number(trimmed);
+    if (Number.isFinite(num)) return num;
+  }
+  return undefined;
+};
+
 const normalizeShot = (shot: any): Shot => {
   if (!shot || typeof shot !== "object") return shot as Shot;
   return {
     ...shot,
-    soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : ""
+    id: toSafeString(shot.id),
+    duration: toSafeString(shot.duration),
+    shotType: toSafeString(shot.shotType),
+    movement: toSafeString(shot.movement),
+    description: toSafeString(shot.description),
+    dialogue: toSafeString(shot.dialogue),
+    soraPrompt: toSafeString(shot.soraPrompt),
+    difficulty: toOptionalNumber(shot.difficulty),
+    finalVideoPrompt: toOptionalString(shot.finalVideoPrompt),
+    videoUrl: toOptionalString(shot.videoUrl),
+    videoId: toOptionalString(shot.videoId),
+    videoErrorMsg: toOptionalString(shot.videoErrorMsg)
   };
 };
 
 const normalizeEpisode = (episode: any): Episode => {
   if (!episode || typeof episode !== "object") return episode as Episode;
   const shots = Array.isArray(episode.shots) ? episode.shots.map(normalizeShot) : [];
-  return { ...episode, shots };
+  return {
+    ...episode,
+    title: toSafeString(episode.title),
+    content: toSafeString(episode.content),
+    summary: toOptionalString(episode.summary),
+    shots
+  };
 };
 
 export const normalizeProjectData = (data: any): ProjectData => {
