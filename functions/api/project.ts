@@ -11,7 +11,7 @@ type Env = {
 const JSON_HEADERS = { "content-type": "application/json" };
 const SNAPSHOT_LIMIT = 10;
 const CHANGELOG_LIMIT = 200;
-const MAX_PROJECT_BYTES = 900_000;
+const MAX_PROJECT_BYTES = 1_800_000;
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) => {
   const headers = { ...JSON_HEADERS, ...(init.headers || {}) };
