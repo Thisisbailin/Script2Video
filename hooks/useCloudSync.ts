@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { ProjectData, SyncStatus } from "../types";
 import { dropFileReplacer, backupData, isProjectEmpty } from "../utils/persistence";
 import { validateProjectData } from "../utils/validation";
@@ -61,13 +61,39 @@ export const useCloudSync = ({
   const statusRef = useRef<SyncStatus>('idle');
   const deviceIdRef = useRef<string>(getDeviceId());
   const isLoadingRef = useRef(false);
+  const onErrorRef = useRef(onError);
+  const onStatusChangeRef = useRef(onStatusChange);
+  const onConflictConfirmRef = useRef(onConflictConfirm);
+  const onConflictNoticeRef = useRef(onConflictNotice);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
+
+  useEffect(() => {
+    onConflictConfirmRef.current = onConflictConfirm;
+  }, [onConflictConfirm]);
+
+  useEffect(() => {
+    onConflictNoticeRef.current = onConflictNotice;
+  }, [onConflictNotice]);
 
   const isPatchEmpty = (patch: ProjectPatch) =>
     Object.keys(patch.set).length === 0 && patch.unset.length === 0;
 
+  const emitStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
+    statusRef.current = status;
+    onStatusChangeRef.current?.(status, detail);
+  }, []);
+
   const tryAutoMerge = (remote: ProjectData, local: ProjectData, updatedAt?: number, resetSaving = false) => {
     const result = mergeProjectData(remote, local);
-    if (result.conflicts.length > 0 && !onConflictNotice) {
+    const conflictNotice = onConflictNoticeRef.current;
+    if (result.conflicts.length > 0 && !conflictNotice) {
       return false;
     }
     const validation = validateProjectData(result.merged);
@@ -89,20 +115,15 @@ export const useCloudSync = ({
       pendingOpRef.current = null;
       emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: 0, retryCount: saveRetryCountRef.current });
       if (result.conflicts.length > 0) {
-        onConflictNotice?.({ remote, local, merged: mergedData, conflicts: result.conflicts });
+        conflictNotice?.({ remote, local, merged: mergedData, conflicts: result.conflicts });
       }
       return true;
     }
     enqueueSave(mergedData, remoteUpdatedAtRef.current ?? 0);
     if (result.conflicts.length > 0) {
-      onConflictNotice?.({ remote, local, merged: mergedData, conflicts: result.conflicts });
+      conflictNotice?.({ remote, local, merged: mergedData, conflicts: result.conflicts });
     }
     return true;
-  };
-
-  const emitStatus = (status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
-    statusRef.current = status;
-    onStatusChange?.(status, detail);
   };
 
   useEffect(() => {
@@ -160,7 +181,7 @@ export const useCloudSync = ({
             }
             return;
           }
-          const useRemote = await Promise.resolve(onConflictConfirm({ remote: normalized, local }));
+          const useRemote = await Promise.resolve(onConflictConfirmRef.current({ remote: normalized, local }));
           if (useRemote) {
             backupData(localBackupKey, local);
             projectDataRef.current = normalized;
@@ -205,7 +226,7 @@ export const useCloudSync = ({
       isSavingRef.current = false;
       if (pendingOpRef.current) void flushSaveQueue();
     } catch (e) {
-      onError?.(e);
+      onErrorRef.current?.(e);
       emitStatus('error', { error: "Failed to save project", pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current, lastAttemptAt: Date.now() });
       isSavingRef.current = false;
       if (saveRetryCountRef.current >= MAX_RETRIES) {
@@ -440,7 +461,7 @@ export const useCloudSync = ({
               if (!cancelled) setHasLoadedRemote(true);
               return;
             }
-            const useRemote = await Promise.resolve(onConflictConfirm({ remote, local }));
+            const useRemote = await Promise.resolve(onConflictConfirmRef.current({ remote, local }));
             if (useRemote) {
               backupData(localBackupKey, local);
               setProjectData(remote);
@@ -462,7 +483,7 @@ export const useCloudSync = ({
         if (!cancelled) setHasLoadedRemote(true);
       } catch (e) {
         if (!cancelled) {
-          onError?.(e);
+          onErrorRef.current?.(e);
           emitStatus('error', { error: "Failed to load cloud project data", retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
           scheduleRetry(loadRemote);
         }
@@ -476,7 +497,7 @@ export const useCloudSync = ({
       cancelled = true;
       if (retryTimeout.current) window.clearTimeout(retryTimeout.current);
     };
-  }, [isSignedIn, isLoaded, hasLoadedRemote, refreshKey, getToken, onError, onConflictConfirm, onConflictNotice, localBackupKey, remoteBackupKey, setProjectData, setHasLoadedRemote, onStatusChange, enqueueSave]);
+  }, [isSignedIn, isLoaded, hasLoadedRemote, refreshKey, getToken, localBackupKey, remoteBackupKey, setProjectData, setHasLoadedRemote]);
 
   // Save with debounce
   useEffect(() => {
@@ -488,7 +509,7 @@ export const useCloudSync = ({
 
     syncSaveTimeout.current = window.setTimeout(() => {
       if (remoteHasDataRef.current && isProjectEmpty(projectDataRef.current)) {
-        onError?.(new Error("Refusing to overwrite non-empty remote with empty local state."));
+        onErrorRef.current?.(new Error("Refusing to overwrite non-empty remote with empty local state."));
         emitStatus('error', { error: "Local data empty; refusing to overwrite cloud.", pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
         return;
       }
@@ -501,5 +522,5 @@ export const useCloudSync = ({
         clearTimeout(syncSaveTimeout.current);
       }
     };
-  }, [projectData, isSignedIn, isLoaded, hasLoadedRemote, onError, saveDebounceMs, onStatusChange, enqueueSave]);
+  }, [projectData, isSignedIn, isLoaded, hasLoadedRemote, saveDebounceMs]);
 };

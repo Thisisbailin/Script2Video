@@ -46,19 +46,7 @@ const App: React.FC = () => {
   const { isSignedIn: userSignedIn, user, isLoaded: isUserLoaded } = useUser();
   const { openSignIn, signOut } = useClerk();
   const { getToken, isLoaded: isAuthLoaded, isSignedIn: authSignedIn } = useAuth();
-  const jwtTemplateUnavailableRef = useRef(false);
   const getAuthToken = useCallback(async () => {
-      if (!jwtTemplateUnavailableRef.current) {
-        try {
-          const token = await getToken({ template: 'default' });
-          if (token) return token;
-        } catch (err: any) {
-          const message = err?.message || '';
-          if (message.includes('No JWT template exists')) {
-            jwtTemplateUnavailableRef.current = true;
-          }
-        }
-      }
       try {
         return await getToken();
       } catch {
@@ -253,6 +241,10 @@ const App: React.FC = () => {
       }));
   }, []);
 
+  const handleCloudSyncError = useCallback((e: unknown) => {
+      console.warn("Cloud sync error", e);
+  }, []);
+
   const forceCloudPull = useCallback(() => {
       setSyncRefreshKey((v) => v + 1);
   }, []);
@@ -303,7 +295,7 @@ const App: React.FC = () => {
       refreshKey: syncRefreshKey,
       localBackupKey: LOCAL_BACKUP_KEY,
       remoteBackupKey: REMOTE_BACKUP_KEY,
-      onError: (e) => console.warn("Cloud sync error", e),
+      onError: handleCloudSyncError,
       onStatusChange: updateProjectSyncStatus,
       onConflictConfirm: requestConflictResolution,
       onConflictNotice: requestConflictNotice,
