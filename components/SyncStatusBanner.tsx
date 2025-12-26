@@ -127,7 +127,7 @@ export const SyncStatusBanner: React.FC<Props> = ({
   if (retryCount > 0) detailParts.push(`重试: ${retryCount}`);
   if (lastSyncAt) detailParts.push(`上次成功: ${formatTime(lastSyncAt)}`);
   if (lastAttemptAt) detailParts.push(`最近尝试: ${formatTime(lastAttemptAt)}`);
-  if (lastError && aggregateStatus === "error") detailParts.push(`错误: ${lastError}`);
+  if (lastError) detailParts.push(`错误: ${lastError}`);
 
   return (
     <div className="w-full px-4 md:px-6 pt-3 mt-16 relative z-30">
