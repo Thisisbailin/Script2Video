@@ -38,7 +38,6 @@ async function getUserId(request: Request, env: Env) {
     try {
       const payload = await verifyToken(token, {
         secretKey: env.CLERK_SECRET_KEY,
-        template: "default",
       });
       if (payload?.sub) return payload.sub;
     } catch (err) {

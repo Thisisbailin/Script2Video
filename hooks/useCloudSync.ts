@@ -44,6 +44,7 @@ export const useCloudSync = ({
   saveDebounceMs = 1200,
   onStatusChange
 }: UseCloudSyncOptions) => {
+  const MAX_RETRIES = 10;
   const syncSaveTimeout = useRef<number | null>(null);
   const retryTimeout = useRef<number | null>(null);
   const retryCountRef = useRef(0);
@@ -206,6 +207,12 @@ export const useCloudSync = ({
       onError?.(e);
       emitStatus('error', { error: "Failed to save project", pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current, lastAttemptAt: Date.now() });
       isSavingRef.current = false;
+      if (saveRetryCountRef.current >= MAX_RETRIES) {
+        const error = "Sync failed after 10 retries. Please sign in again or check your Clerk JWT template.";
+        syncBlockedRef.current = error;
+        emitStatus('error', { error, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current, lastAttemptAt: Date.now() });
+        return;
+      }
       const delay = Math.min(1000 * Math.pow(2, saveRetryCountRef.current), 15000);
       saveRetryCountRef.current += 1;
       if (saveRetryTimeout.current) window.clearTimeout(saveRetryTimeout.current);
@@ -281,6 +288,13 @@ export const useCloudSync = ({
 
     const scheduleRetry = (loadFn: () => void) => {
       if (cancelled || hasLoadedRemote) return;
+      if (retryCountRef.current >= MAX_RETRIES) {
+        const error = "Sync failed after 10 retries. Please sign in again or check your Clerk JWT template.";
+        syncBlockedRef.current = error;
+        emitStatus('error', { error, retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
+        if (!cancelled) setHasLoadedRemote(true);
+        return;
+      }
       if (retryTimeout.current) window.clearTimeout(retryTimeout.current);
       const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 15000);
       retryCountRef.current += 1;

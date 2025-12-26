@@ -46,7 +46,25 @@ const App: React.FC = () => {
   const { isSignedIn: userSignedIn, user, isLoaded: isUserLoaded } = useUser();
   const { openSignIn, signOut } = useClerk();
   const { getToken, isLoaded: isAuthLoaded, isSignedIn: authSignedIn } = useAuth();
-  const getAuthToken = useCallback(() => getToken({ template: 'default' }), [getToken]);
+  const jwtTemplateUnavailableRef = useRef(false);
+  const getAuthToken = useCallback(async () => {
+      if (!jwtTemplateUnavailableRef.current) {
+        try {
+          const token = await getToken({ template: 'default' });
+          if (token) return token;
+        } catch (err: any) {
+          const message = err?.message || '';
+          if (message.includes('No JWT template exists')) {
+            jwtTemplateUnavailableRef.current = true;
+          }
+        }
+      }
+      try {
+        return await getToken();
+      } catch {
+        return null;
+      }
+  }, [getToken]);
   const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
   // Initialize state with Persisted hooks
