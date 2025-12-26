@@ -309,7 +309,7 @@ export const onRequestPut = async (context: {
 
     if (existing) {
       await context.env.DB.prepare(
-        "INSERT INTO user_project_snapshots (user_id, version, data, created_at) VALUES (?1, ?2, ?3, ?4)"
+        "INSERT OR IGNORE INTO user_project_snapshots (user_id, version, data, created_at) VALUES (?1, ?2, ?3, ?4)"
       )
         .bind(userId, existing.updated_at, existing.data as string, Date.now())
         .run();
