@@ -11,6 +11,7 @@ type Env = {
 const JSON_HEADERS = { "content-type": "application/json" };
 const SNAPSHOT_LIMIT = 10;
 const CHANGELOG_LIMIT = 200;
+const MAX_PROJECT_BYTES = 900_000;
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) => {
   const headers = { ...JSON_HEADERS, ...(init.headers || {}) };
@@ -332,6 +333,19 @@ export const onRequestPut = async (context: {
       return value;
     });
 
+    const payloadBytes = new TextEncoder().encode(serialized).length;
+    if (payloadBytes > MAX_PROJECT_BYTES) {
+      if (userId) {
+        await logAudit(context.env, userId, "project.put", "invalid", {
+          error: "Payload too large",
+          bytes: payloadBytes,
+          mode,
+          ...auditDevice
+        });
+      }
+      return jsonResponse({ error: "Project payload too large", detail: `size=${payloadBytes}` }, { status: 413 });
+    }
+
     const updatedAt = Date.now();
     await context.env.DB.prepare(
       "INSERT INTO user_projects (user_id, data, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(user_id) DO UPDATE SET data=?2, updated_at=?3"
@@ -377,10 +391,11 @@ export const onRequestPut = async (context: {
   } catch (err: any) {
     if (err instanceof Response) return err;
     console.error("PUT /api/project error", err);
+    const detail = err?.message || (typeof err === "string" ? err : "Unknown error");
     if (userId) {
       const deviceId = getDeviceId(context.request);
-      await logAudit(context.env, userId, "project.put", "error", { error: "Failed to save project", deviceId });
+      await logAudit(context.env, userId, "project.put", "error", { error: "Failed to save project", detail, deviceId });
     }
-    return jsonResponse({ error: "Failed to save project" }, { status: 500 });
+    return jsonResponse({ error: "Failed to save project", detail }, { status: 500 });
   }
 };

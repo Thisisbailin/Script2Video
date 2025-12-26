@@ -211,6 +211,11 @@ export const useCloudSync = ({
       }
 
       if (!res.ok) {
+        const errorPayload = await res.json().catch(() => null);
+        const detail = errorPayload?.detail || errorPayload?.error;
+        if (detail) {
+          throw new Error(`Save failed: ${detail}`);
+        }
         throw new Error(`Save failed: ${res.status}`);
       }
 
@@ -227,7 +232,8 @@ export const useCloudSync = ({
       if (pendingOpRef.current) void flushSaveQueue();
     } catch (e) {
       onErrorRef.current?.(e);
-      emitStatus('error', { error: "Failed to save project", pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current, lastAttemptAt: Date.now() });
+      const message = e instanceof Error ? e.message : "Failed to save project";
+      emitStatus('error', { error: message, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current, lastAttemptAt: Date.now() });
       isSavingRef.current = false;
       if (saveRetryCountRef.current >= MAX_RETRIES) {
         const error = "Sync failed after 10 retries. Please sign in again or check your Clerk JWT template.";
@@ -427,6 +433,11 @@ export const useCloudSync = ({
         }
 
         if (!res.ok) {
+          const errorPayload = await res.json().catch(() => null);
+          const detail = errorPayload?.detail || errorPayload?.error;
+          if (detail) {
+            throw new Error(`Load failed: ${detail}`);
+          }
           throw new Error(`Load failed: ${res.status}`);
         }
 
@@ -484,7 +495,8 @@ export const useCloudSync = ({
       } catch (e) {
         if (!cancelled) {
           onErrorRef.current?.(e);
-          emitStatus('error', { error: "Failed to load cloud project data", retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
+          const message = e instanceof Error ? e.message : "Failed to load cloud project data";
+          emitStatus('error', { error: message, retryCount: retryCountRef.current, pendingOps: pendingOpRef.current ? 1 : 0 });
           scheduleRetry(loadRemote);
         }
       } finally {
