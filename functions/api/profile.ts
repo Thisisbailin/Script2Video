@@ -24,7 +24,7 @@ async function getUserId(request: Request, env: Env) {
   }
 
   if (!token) {
-    throw new Response("Unauthorized", { status: 401 });
+    throw new Response(JSON.stringify({ error: "Unauthorized", detail: "Missing bearer token" }), { status: 401, headers: JSON_HEADERS });
   }
 
   try {
@@ -32,11 +32,12 @@ async function getUserId(request: Request, env: Env) {
       secretKey: env.CLERK_SECRET_KEY
     });
     if (payload?.sub) return payload.sub;
-  } catch (err) {
+    throw new Error("Token payload missing sub");
+  } catch (err: any) {
+    const detail = err?.message || "Token verification failed";
     console.warn("verifyToken failed", err);
+    throw new Response(JSON.stringify({ error: "Unauthorized", detail }), { status: 401, headers: JSON_HEADERS });
   }
-
-  throw new Response("Unauthorized", { status: 401 });
 }
 
 export const onRequestGet = async (context: { request: Request; env: Env }) => {
