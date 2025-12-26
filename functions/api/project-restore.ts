@@ -209,7 +209,7 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
     await context.env.DB.prepare(
       "DELETE FROM user_project_changes WHERE user_id = ?1 AND version NOT IN (SELECT version FROM user_project_changes WHERE user_id = ?1 ORDER BY version DESC LIMIT ?2)"
     )
-      .bind(userId, userId, CHANGELOG_LIMIT)
+      .bind(userId, CHANGELOG_LIMIT)
       .run();
 
     if (userId) {

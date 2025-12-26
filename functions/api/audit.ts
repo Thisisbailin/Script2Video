@@ -30,7 +30,7 @@ export const logAudit = async (
     await env.DB.prepare(
       "DELETE FROM user_sync_audit WHERE user_id = ?1 AND id NOT IN (SELECT id FROM user_sync_audit WHERE user_id = ?1 ORDER BY id DESC LIMIT ?2)"
     )
-      .bind(userId, userId, SNAPSHOT_LOG_LIMIT)
+      .bind(userId, SNAPSHOT_LOG_LIMIT)
       .run();
   } catch (err) {
     console.warn("audit log error", err);
