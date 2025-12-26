@@ -24,29 +24,27 @@ High-Level Architecture
 - Delta sync over a cursor; avoid full document overwrites when possible.
 
 Data Model
-- Split data into domain aggregates:
-  - Project: project metadata + episode graph + assets references
-  - Guides: shot/sora/drama guides
-  - Secrets: API keys (encrypted; stored separately)
-- Each aggregate has:
-  - id: stable UUID
-  - version: server-issued monotonic integer or opaque ETag
-  - updatedAt: server timestamp (informational, not conflict key)
-  - deletedAt: optional tombstone for deletions
+- Split project data into normalized tables (single-project per account):
+  - user_project_meta: fileName/rawScript/guides/context summaries/usage/stats + updated_at (global version)
+  - user_project_episodes: episode-level fields (no scenes/shots)
+  - user_project_scenes: scene rows keyed by (episode_id, scene_id)
+  - user_project_shots: shot rows keyed by (episode_id, shot_id)
+  - user_project_characters / user_project_locations: context entities
+- Secrets remain separate (user_secrets).
+- Global OCC version uses user_project_meta.updated_at; any write bumps it.
 - Maintain an audit log:
-  - eventId, aggregateId, version, diff, actorId, deviceId, timestamp
+  - eventId, action, status, deviceId, timestamp, detail
 
 Sync Protocol (Recommended)
 1. Initial handshake
    - Client sends deviceId + lastKnownVersion per aggregate.
    - Server returns current version + cursor for deltas.
 2. Pull phase
-   - Client requests deltas since cursor.
-   - Server returns ordered list of changes with versions.
+   - Client requests latest project snapshot (full GET).
 3. Apply locally
    - Client validates schema, applies changes, updates local version.
 4. Push phase
-   - Client sends local changes (diffs or patches) with baseVersion.
+   - Client sends per-entity deltas (meta/episodes/scenes/shots/characters/locations) with baseVersion.
    - Server applies with compare-and-swap:
      - If baseVersion matches, accept -> new version.
      - If mismatch, return 409 conflict with latest version and server state.
@@ -110,11 +108,12 @@ Rollout Plan
 4. Gradually enable for a percentage of users (feature flag).
 
 Implementation Notes for This Codebase
-- Separate "project data" sync from "secrets" sync; treat as distinct pipelines.
-- Do not allow save before a successful initial pull (add gating flag).
-- Use server-issued version (not Date.now on client) for conflict checks.
-- Replace full-document PUT with PATCH-like operations where feasible.
-- Record and surface sync errors in UI, not just console logs.
+- Project sync uses normalized tables and a delta payload; `/api/project` supports:
+  - GET: reconstruct full ProjectData from tables.
+  - PUT: accept `delta` (preferred) or full `projectData` for initial load.
+- Secrets sync remains independent.
+- Use server-issued `updated_at` from meta for conflict checks.
+- Surface sync errors in UI with actionable detail.
 
 Checklist (Minimum for Production)
 - Server-side OCC with version IDs and 409 conflicts.

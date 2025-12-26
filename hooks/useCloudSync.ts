@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { ProjectData, SyncStatus } from "../types";
 import { dropFileReplacer, backupData, isProjectEmpty } from "../utils/persistence";
 import { validateProjectData } from "../utils/validation";
-import { applyProjectPatch, computeProjectPatch, ProjectPatch } from "../utils/patch";
+import { computeProjectDelta, isDeltaEmpty, ProjectDelta } from "../utils/delta";
 import { normalizeProjectData } from "../utils/projectData";
 import { getDeviceId } from "../utils/device";
 import { mergeProjectData } from "../utils/merge";
@@ -51,7 +51,7 @@ export const useCloudSync = ({
   const projectDataRef = useRef(projectData);
   const remoteUpdatedAtRef = useRef<number | null>(null);
   const remoteHasDataRef = useRef<boolean | null>(null);
-  const pendingOpRef = useRef<{ id: string; data: ProjectData; baseVersion: number; patch?: ProjectPatch } | null>(null);
+  const pendingOpRef = useRef<{ id: string; data: ProjectData; baseVersion: number; delta?: ProjectDelta } | null>(null);
   const isSavingRef = useRef(false);
   const saveRetryTimeout = useRef<number | null>(null);
   const saveRetryCountRef = useRef(0);
@@ -82,9 +82,6 @@ export const useCloudSync = ({
     onConflictNoticeRef.current = onConflictNotice;
   }, [onConflictNotice]);
 
-  const isPatchEmpty = (patch: ProjectPatch) =>
-    Object.keys(patch.set).length === 0 && patch.unset.length === 0;
-
   const emitStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
     statusRef.current = status;
     onStatusChangeRef.current?.(status, detail);
@@ -110,8 +107,8 @@ export const useCloudSync = ({
     if (resetSaving) {
       isSavingRef.current = false;
     }
-    const patch = computeProjectPatch(mergedData, remote);
-    if (isPatchEmpty(patch)) {
+    const delta = computeProjectDelta(mergedData, remote);
+    if (isDeltaEmpty(delta)) {
       pendingOpRef.current = null;
       emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: 0, retryCount: saveRetryCountRef.current });
       if (result.conflicts.length > 0) {
@@ -159,8 +156,8 @@ export const useCloudSync = ({
           "x-device-id": deviceIdRef.current
         },
         body: JSON.stringify(
-          op.patch
-            ? { patch: op.patch, updatedAt: op.baseVersion, opId: op.id }
+          op.delta
+            ? { delta: op.delta, updatedAt: op.baseVersion, opId: op.id }
             : { projectData: op.data, updatedAt: op.baseVersion, opId: op.id },
           dropFileReplacer
         )
@@ -260,12 +257,17 @@ export const useCloudSync = ({
       emitStatus('error', { error: validation.error, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current });
       return;
     }
-    const patch = computeProjectPatch(data, lastSyncedRef.current);
+    const delta = computeProjectDelta(data, lastSyncedRef.current);
+    if (isDeltaEmpty(delta)) {
+      pendingOpRef.current = null;
+      emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: 0, retryCount: saveRetryCountRef.current });
+      return;
+    }
     pendingOpRef.current = {
       id: createOpId(),
       data,
       baseVersion: typeof baseVersion === "number" ? baseVersion : (remoteUpdatedAtRef.current ?? 0),
-      patch
+      delta
     };
     if (saveRetryTimeout.current) {
       window.clearTimeout(saveRetryTimeout.current);
@@ -344,74 +346,6 @@ export const useCloudSync = ({
           return;
         }
 
-        const localDirty = lastSyncedRef.current
-          ? !isPatchEmpty(computeProjectPatch(projectDataRef.current, lastSyncedRef.current))
-          : true;
-        const canUseDelta = refreshChanged && hasLoadedRemote && !!remoteUpdatedAtRef.current && !localDirty && !pendingOpRef.current && !isSavingRef.current;
-        if (canUseDelta) {
-          emitStatus('syncing', { pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
-          let cursor = remoteUpdatedAtRef.current ?? 0;
-          let next = lastSyncedRef.current ?? projectDataRef.current;
-          let sawChanges = false;
-          let latestVersion = remoteUpdatedAtRef.current ?? 0;
-          let hasMore = true;
-          let guard = 0;
-
-          while (hasMore && guard < 5) {
-            const deltaRes = await fetch(`/api/project-changes?since=${cursor}`, {
-              headers: {
-                authorization: `Bearer ${token}`,
-                "x-device-id": deviceIdRef.current
-              }
-            });
-            if (deltaRes.status === 403) {
-              emitStatus('error', { error: "Sync disabled for this account.", pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
-              if (!cancelled) setHasLoadedRemote(true);
-              return;
-            }
-            if (!deltaRes.ok) break;
-
-            const deltaData = await deltaRes.json().catch(() => null);
-            const changes = Array.isArray(deltaData?.changes) ? deltaData.changes : [];
-            for (const change of changes) {
-              if (change && typeof change === "object" && change.patch) {
-                next = applyProjectPatch(next, change.patch);
-                if (typeof change.version === "number") {
-                  cursor = change.version;
-                }
-                sawChanges = true;
-              }
-            }
-            if (typeof deltaData?.latestVersion === "number") {
-              latestVersion = deltaData.latestVersion;
-            }
-            hasMore = !!deltaData?.hasMore && changes.length > 0;
-            guard += 1;
-            if (changes.length === 0) break;
-          }
-
-          if (guard > 0 && !hasMore) {
-            const normalized = normalizeProjectData(next);
-            const validation = validateProjectData(normalized);
-            if (!validation.ok) {
-              syncBlockedRef.current = `Remote delta invalid: ${validation.error}`;
-              emitStatus('error', { error: syncBlockedRef.current, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
-              if (!cancelled) setHasLoadedRemote(true);
-              return;
-            }
-            syncBlockedRef.current = null;
-            if (sawChanges) {
-              setProjectData(normalized);
-              lastSyncedRef.current = normalized;
-              remoteHasDataRef.current = !isProjectEmpty(normalized);
-            }
-            remoteUpdatedAtRef.current = latestVersion;
-            retryCountRef.current = 0;
-            emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
-            if (!cancelled) setHasLoadedRemote(true);
-            return;
-          }
-        }
         const res = await fetch("/api/project", {
           headers: {
             authorization: `Bearer ${token}`,

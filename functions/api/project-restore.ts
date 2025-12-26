@@ -20,81 +20,138 @@ const getDeviceId = (request: Request, body?: any) => {
   return headerId || bodyId || undefined;
 };
 
-const CHANGELOG_LIMIT = 200;
+type ProjectMeta = {
+  fileName: string;
+  rawScript: string;
+  shotGuide: string;
+  soraGuide: string;
+  dramaGuide: string;
+  globalStyleGuide: string;
+  context: {
+    projectSummary: string;
+    episodeSummaries: { episodeId: number; summary: string }[];
+  };
+  contextUsage: Record<string, unknown>;
+  phase1Usage: Record<string, unknown>;
+  phase4Usage: Record<string, unknown>;
+  phase5Usage: Record<string, unknown>;
+  stats: Record<string, unknown>;
+};
 
-const PROJECT_PATCH_KEYS = [
-  "fileName",
-  "rawScript",
-  "episodes",
-  "context",
-  "contextUsage",
-  "phase1Usage",
-  "phase4Usage",
-  "phase5Usage",
-  "shotGuide",
-  "soraGuide",
-  "dramaGuide",
-  "globalStyleGuide",
-  "stats"
-] as const;
+const emptyTokenUsage = { promptTokens: 0, responseTokens: 0, totalTokens: 0 };
+const DEFAULT_META: ProjectMeta = {
+  fileName: "",
+  rawScript: "",
+  shotGuide: "",
+  soraGuide: "",
+  dramaGuide: "",
+  globalStyleGuide: "",
+  context: {
+    projectSummary: "",
+    episodeSummaries: []
+  },
+  contextUsage: emptyTokenUsage,
+  phase1Usage: {},
+  phase4Usage: emptyTokenUsage,
+  phase5Usage: emptyTokenUsage,
+  stats: {}
+};
 
-const stableStringify = (value: unknown) => {
+const safeJsonParse = <T>(value: unknown, fallback: T): T => {
+  if (typeof value !== "string") return fallback;
   try {
-    return JSON.stringify(value);
+    return JSON.parse(value) as T;
   } catch {
-    return "";
+    return fallback;
   }
 };
 
-const computeProjectPatch = (current: any, base: any) => {
-  if (!base) {
-    const set: Record<string, unknown> = {};
-    PROJECT_PATCH_KEYS.forEach((key) => {
-      set[key] = current ? current[key] : undefined;
+const buildMetaFromProject = (projectData: any): ProjectMeta => ({
+  fileName: typeof projectData?.fileName === "string" ? projectData.fileName : "",
+  rawScript: typeof projectData?.rawScript === "string" ? projectData.rawScript : "",
+  shotGuide: typeof projectData?.shotGuide === "string" ? projectData.shotGuide : "",
+  soraGuide: typeof projectData?.soraGuide === "string" ? projectData.soraGuide : "",
+  dramaGuide: typeof projectData?.dramaGuide === "string" ? projectData.dramaGuide : "",
+  globalStyleGuide: typeof projectData?.globalStyleGuide === "string" ? projectData.globalStyleGuide : "",
+  context: {
+    projectSummary: typeof projectData?.context?.projectSummary === "string" ? projectData.context.projectSummary : "",
+    episodeSummaries: Array.isArray(projectData?.context?.episodeSummaries) ? projectData.context.episodeSummaries : []
+  },
+  contextUsage: projectData?.contextUsage || emptyTokenUsage,
+  phase1Usage: projectData?.phase1Usage || {},
+  phase4Usage: projectData?.phase4Usage || emptyTokenUsage,
+  phase5Usage: projectData?.phase5Usage || emptyTokenUsage,
+  stats: projectData?.stats || {}
+});
+
+const collectProjectParts = (projectData: any) => {
+  const episodes = Array.isArray(projectData?.episodes) ? projectData.episodes : [];
+  const scenes: Array<{ episodeId: number; scene: any }> = [];
+  const shots: Array<{ episodeId: number; shot: any }> = [];
+
+  episodes.forEach((episode: any) => {
+    const episodeId = episode?.id;
+    if (!Array.isArray(episode?.scenes)) return;
+    episode.scenes.forEach((scene: any) => {
+      scenes.push({ episodeId, scene });
     });
-    return { set, unset: [] as string[] };
-  }
-
-  const set: Record<string, unknown> = {};
-  const unset: string[] = [];
-
-  PROJECT_PATCH_KEYS.forEach((key) => {
-    const currentValue = current ? current[key] : undefined;
-    const baseValue = base ? base[key] : undefined;
-    const currentMissing = typeof currentValue === "undefined";
-    const baseMissing = typeof baseValue === "undefined";
-
-    if (currentMissing && !baseMissing) {
-      unset.push(key);
-      return;
-    }
-    if (!currentMissing && baseMissing) {
-      set[key] = currentValue;
-      return;
-    }
-    if (stableStringify(currentValue) !== stableStringify(baseValue)) {
-      set[key] = currentValue;
-    }
   });
 
-  return { set, unset };
+  episodes.forEach((episode: any) => {
+    const episodeId = episode?.id;
+    if (!Array.isArray(episode?.shots)) return;
+    episode.shots.forEach((shot: any) => {
+      shots.push({ episodeId, shot });
+    });
+  });
+
+  const episodeRows = episodes.map((episode: any) => ({
+    id: episode.id,
+    title: episode.title,
+    content: episode.content,
+    summary: episode.summary,
+    status: episode.status,
+    errorMsg: episode.errorMsg,
+    shotGenUsage: episode.shotGenUsage,
+    soraGenUsage: episode.soraGenUsage
+  }));
+
+  return {
+    episodes: episodeRows,
+    scenes,
+    shots,
+    characters: Array.isArray(projectData?.context?.characters) ? projectData.context.characters : [],
+    locations: Array.isArray(projectData?.context?.locations) ? projectData.context.locations : []
+  };
 };
 
 async function ensureTables(env: Env) {
   await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS user_projects (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)"
+    "CREATE TABLE IF NOT EXISTS user_project_meta (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL, last_op_id TEXT)"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS user_project_episodes (user_id TEXT NOT NULL, episode_id INTEGER NOT NULL, data TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, episode_id))"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS user_project_scenes (user_id TEXT NOT NULL, episode_id INTEGER NOT NULL, scene_id TEXT NOT NULL, data TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, episode_id, scene_id))"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS user_project_shots (user_id TEXT NOT NULL, episode_id INTEGER NOT NULL, shot_id TEXT NOT NULL, data TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, episode_id, shot_id))"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS user_project_characters (user_id TEXT NOT NULL, char_id TEXT NOT NULL, data TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, char_id))"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS user_project_locations (user_id TEXT NOT NULL, loc_id TEXT NOT NULL, data TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, loc_id))"
   ).run();
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS user_project_snapshots (user_id TEXT NOT NULL, version INTEGER NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, version))"
-  ).run();
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS user_project_changes (user_id TEXT NOT NULL, version INTEGER NOT NULL, patch TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, version))"
   ).run();
 }
 
 async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const token = authHeader.replace(/^Bearer\\s+/i, "");
 
   if (!env.CLERK_SECRET_KEY) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
@@ -103,7 +160,7 @@ async function getUserId(request: Request, env: Env) {
   if (token) {
     try {
       const payload = await verifyToken(token, {
-        secretKey: env.CLERK_SECRET_KEY,
+        secretKey: env.CLERK_SECRET_KEY
       });
       if (payload?.sub) return payload.sub;
     } catch (err) {
@@ -119,11 +176,125 @@ async function getUserId(request: Request, env: Env) {
   return auth.session.userId;
 }
 
-const unwrapStoredProject = (payload: any): { projectData: any; meta: any } => {
-  if (payload && typeof payload === "object" && "projectData" in payload) {
-    return { projectData: (payload as any).projectData, meta: (payload as any).meta || {} };
-  }
-  return { projectData: payload, meta: {} };
+const loadCurrentProjectSnapshot = async (env: Env, userId: string) => {
+  const metaRow = await env.DB.prepare(
+    "SELECT data, updated_at FROM user_project_meta WHERE user_id = ?1"
+  )
+    .bind(userId)
+    .first();
+  if (!metaRow) return null;
+
+  const meta = safeJsonParse<ProjectMeta>(metaRow.data as string, DEFAULT_META);
+
+  const episodesResult = await env.DB.prepare(
+    "SELECT episode_id, data FROM user_project_episodes WHERE user_id = ?1"
+  )
+    .bind(userId)
+    .all();
+
+  const scenesResult = await env.DB.prepare(
+    "SELECT episode_id, scene_id, data FROM user_project_scenes WHERE user_id = ?1"
+  )
+    .bind(userId)
+    .all();
+
+  const shotsResult = await env.DB.prepare(
+    "SELECT episode_id, shot_id, data FROM user_project_shots WHERE user_id = ?1"
+  )
+    .bind(userId)
+    .all();
+
+  const charactersResult = await env.DB.prepare(
+    "SELECT char_id, data FROM user_project_characters WHERE user_id = ?1"
+  )
+    .bind(userId)
+    .all();
+
+  const locationsResult = await env.DB.prepare(
+    "SELECT loc_id, data FROM user_project_locations WHERE user_id = ?1"
+  )
+    .bind(userId)
+    .all();
+
+  const episodesMap = new Map<number, any>();
+  (episodesResult?.results || []).forEach((row: any) => {
+    const epData = safeJsonParse<Record<string, unknown>>(row.data, {});
+    episodesMap.set(row.episode_id, {
+      id: row.episode_id,
+      title: epData.title || "",
+      content: epData.content || "",
+      summary: epData.summary,
+      status: epData.status || "pending",
+      errorMsg: epData.errorMsg,
+      shotGenUsage: epData.shotGenUsage,
+      soraGenUsage: epData.soraGenUsage,
+      scenes: [],
+      shots: []
+    });
+  });
+
+  const getEpisode = (episodeId: number) => {
+    if (!episodesMap.has(episodeId)) {
+      episodesMap.set(episodeId, {
+        id: episodeId,
+        title: "",
+        content: "",
+        scenes: [],
+        shots: [],
+        status: "pending"
+      });
+    }
+    return episodesMap.get(episodeId);
+  };
+
+  (scenesResult?.results || []).forEach((row: any) => {
+    const sceneData = safeJsonParse<Record<string, unknown>>(row.data, {});
+    const episode = getEpisode(row.episode_id);
+    episode.scenes.push({
+      id: row.scene_id,
+      title: sceneData.title || "",
+      content: sceneData.content || ""
+    });
+  });
+
+  (shotsResult?.results || []).forEach((row: any) => {
+    const shotData = safeJsonParse<Record<string, unknown>>(row.data, {});
+    const episode = getEpisode(row.episode_id);
+    episode.shots.push({ ...shotData, id: row.shot_id });
+  });
+
+  const characters = (charactersResult?.results || []).map((row: any) => {
+    const data = safeJsonParse<Record<string, unknown>>(row.data, {});
+    return { ...data, id: row.char_id };
+  });
+
+  const locations = (locationsResult?.results || []).map((row: any) => {
+    const data = safeJsonParse<Record<string, unknown>>(row.data, {});
+    return { ...data, id: row.loc_id };
+  });
+
+  const projectData = {
+    fileName: meta.fileName || "",
+    rawScript: meta.rawScript || "",
+    episodes: Array.from(episodesMap.values()),
+    context: {
+      projectSummary: meta.context?.projectSummary || "",
+      episodeSummaries: meta.context?.episodeSummaries || [],
+      characters,
+      locations
+    },
+    shotGuide: meta.shotGuide || "",
+    soraGuide: meta.soraGuide || "",
+    dramaGuide: meta.dramaGuide || "",
+    globalStyleGuide: meta.globalStyleGuide || "",
+    contextUsage: meta.contextUsage || emptyTokenUsage,
+    phase1Usage: meta.phase1Usage || {},
+    phase4Usage: meta.phase4Usage || emptyTokenUsage,
+    phase5Usage: meta.phase5Usage || emptyTokenUsage,
+    stats: meta.stats || {}
+  };
+
+  return { projectData, updatedAt: metaRow.updated_at };
 };
 
 export const onRequestPost = async (context: { request: Request; env: Env }) => {
@@ -160,56 +331,77 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
       return jsonResponse({ error: "Snapshot not found" }, { status: 404 });
     }
 
-    const current = await context.env.DB.prepare(
-      "SELECT data, updated_at FROM user_projects WHERE user_id = ?1"
-    )
-      .bind(userId)
-      .first();
-    let remoteData: any = null;
-
-    if (current) {
-      try {
-        const parsed = JSON.parse(current.data as string);
-        const unwrapped = unwrapStoredProject(parsed);
-        remoteData = unwrapped.projectData;
-      } catch {
-        remoteData = null;
-      }
+    const currentSnapshot = await loadCurrentProjectSnapshot(context.env, userId);
+    if (currentSnapshot) {
       await context.env.DB.prepare(
         "INSERT OR IGNORE INTO user_project_snapshots (user_id, version, data, created_at) VALUES (?1, ?2, ?3, ?4)"
       )
-        .bind(userId, current.updated_at, current.data as string, Date.now())
+        .bind(userId, currentSnapshot.updatedAt, JSON.stringify({ projectData: currentSnapshot.projectData }), Date.now())
         .run();
     }
 
     const parsed = JSON.parse(snapshot.data as string);
-    const { projectData } = unwrapStoredProject(parsed);
+    const projectData = parsed?.projectData ?? parsed;
     const validation = validateProjectPayload(projectData);
     if (!validation.ok) {
       if (userId) await logAudit(context.env, userId, "project.restore", "invalid", { error: validation.error, version, ...auditDevice });
       return jsonResponse({ error: `Snapshot invalid: ${validation.error}` }, { status: 400 });
     }
-    const payload = { projectData, meta: {} };
-    const serialized = JSON.stringify(payload);
+
+    const meta = buildMetaFromProject(projectData);
+    const parts = collectProjectParts(projectData);
     const updatedAt = Date.now();
 
-    await context.env.DB.prepare(
-      "INSERT INTO user_projects (user_id, data, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(user_id) DO UPDATE SET data=?2, updated_at=?3"
-    )
-      .bind(userId, serialized, updatedAt)
-      .run();
+    await context.env.DB.prepare("DELETE FROM user_project_episodes WHERE user_id = ?1").bind(userId).run();
+    await context.env.DB.prepare("DELETE FROM user_project_scenes WHERE user_id = ?1").bind(userId).run();
+    await context.env.DB.prepare("DELETE FROM user_project_shots WHERE user_id = ?1").bind(userId).run();
+    await context.env.DB.prepare("DELETE FROM user_project_characters WHERE user_id = ?1").bind(userId).run();
+    await context.env.DB.prepare("DELETE FROM user_project_locations WHERE user_id = ?1").bind(userId).run();
 
-    const changePatch = computeProjectPatch(projectData, remoteData);
-    const patchSerialized = JSON.stringify(changePatch);
+    for (const episode of parts.episodes) {
+      await context.env.DB.prepare(
+        "INSERT INTO user_project_episodes (user_id, episode_id, data, updated_at) VALUES (?1, ?2, ?3, ?4)"
+      )
+        .bind(userId, episode.id, JSON.stringify(episode), updatedAt)
+        .run();
+    }
+
+    for (const scene of parts.scenes) {
+      await context.env.DB.prepare(
+        "INSERT INTO user_project_scenes (user_id, episode_id, scene_id, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+      )
+        .bind(userId, scene.episodeId, scene.scene.id, JSON.stringify(scene.scene), updatedAt)
+        .run();
+    }
+
+    for (const shot of parts.shots) {
+      await context.env.DB.prepare(
+        "INSERT INTO user_project_shots (user_id, episode_id, shot_id, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+      )
+        .bind(userId, shot.episodeId, shot.shot.id, JSON.stringify(shot.shot), updatedAt)
+        .run();
+    }
+
+    for (const character of parts.characters) {
+      await context.env.DB.prepare(
+        "INSERT INTO user_project_characters (user_id, char_id, data, updated_at) VALUES (?1, ?2, ?3, ?4)"
+      )
+        .bind(userId, character.id, JSON.stringify(character), updatedAt)
+        .run();
+    }
+
+    for (const location of parts.locations) {
+      await context.env.DB.prepare(
+        "INSERT INTO user_project_locations (user_id, loc_id, data, updated_at) VALUES (?1, ?2, ?3, ?4)"
+      )
+        .bind(userId, location.id, JSON.stringify(location), updatedAt)
+        .run();
+    }
+
     await context.env.DB.prepare(
-      "INSERT INTO user_project_changes (user_id, version, patch, created_at) VALUES (?1, ?2, ?3, ?4)"
+      "INSERT INTO user_project_meta (user_id, data, updated_at, last_op_id) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(user_id) DO UPDATE SET data=?2, updated_at=?3, last_op_id=?4"
     )
-      .bind(userId, updatedAt, patchSerialized, Date.now())
-      .run();
-    await context.env.DB.prepare(
-      "DELETE FROM user_project_changes WHERE user_id = ?1 AND version NOT IN (SELECT version FROM user_project_changes WHERE user_id = ?1 ORDER BY version DESC LIMIT ?2)"
-    )
-      .bind(userId, CHANGELOG_LIMIT)
+      .bind(userId, JSON.stringify(meta), updatedAt, null)
       .run();
 
     if (userId) {
