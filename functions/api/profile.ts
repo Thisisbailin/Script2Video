@@ -3,6 +3,7 @@ import { verifyToken } from "@clerk/backend";
 type Env = {
   DB: any;
   CLERK_SECRET_KEY: string;
+  CLERK_JWT_KEY?: string;
 };
 
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -19,8 +20,18 @@ async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
 
-  const secretKey = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY.trim() : "";
-  if (!secretKey) {
+  const rawSecret = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY : "";
+  const rawJwtKey = typeof env.CLERK_JWT_KEY === "string" ? env.CLERK_JWT_KEY : "";
+  const asciiCleaned = rawSecret.replace(/[^\x20-\x7E]/g, "");
+  let secretKey = asciiCleaned.replace(/\s+/g, "");
+  if (
+    (secretKey.startsWith("\"") && secretKey.endsWith("\"")) ||
+    (secretKey.startsWith("'") && secretKey.endsWith("'"))
+  ) {
+    secretKey = secretKey.slice(1, -1);
+  }
+  const jwtKey = rawJwtKey.trim();
+  if (!secretKey && !jwtKey) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }
 
@@ -29,9 +40,7 @@ async function getUserId(request: Request, env: Env) {
   }
 
   try {
-    const payload = await verifyToken(token, {
-      secretKey
-    });
+    const payload = await verifyToken(token, jwtKey ? { jwtKey } : { secretKey });
     if (payload?.sub) return payload.sub;
     throw new Error("Token payload missing sub");
   } catch (err: any) {

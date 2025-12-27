@@ -6,6 +6,7 @@ import { getSyncRolloutInfo, RolloutEnv } from "./rollout";
 type Env = {
   DB: any; // D1 binding injected by Cloudflare Pages
   CLERK_SECRET_KEY: string;
+  CLERK_JWT_KEY?: string;
 } & RolloutEnv;
 
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -370,14 +371,17 @@ async function getUserId(request: Request, env: Env) {
   const token = authHeader.replace(/^Bearer\\s+/i, "");
 
   const rawSecret = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY : "";
-  let secretKey = rawSecret.replace(/\s+/g, "");
+  const rawJwtKey = typeof env.CLERK_JWT_KEY === "string" ? env.CLERK_JWT_KEY : "";
+  const asciiCleaned = rawSecret.replace(/[^\x20-\x7E]/g, "");
+  let secretKey = asciiCleaned.replace(/\s+/g, "");
   if (
     (secretKey.startsWith("\"") && secretKey.endsWith("\"")) ||
     (secretKey.startsWith("'") && secretKey.endsWith("'"))
   ) {
     secretKey = secretKey.slice(1, -1);
   }
-  if (!secretKey) {
+  const jwtKey = rawJwtKey.trim();
+  if (!secretKey && !jwtKey) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }
 
@@ -401,17 +405,19 @@ async function getUserId(request: Request, env: Env) {
   const tokenPayload = decodePart(payloadPart);
 
   try {
-    const payload = await verifyToken(token, {
-      secretKey
-    });
+    const payload = await verifyToken(token, jwtKey ? { jwtKey } : { secretKey });
     if (payload?.sub) return payload.sub;
     throw new Error("Token payload missing sub");
   } catch (err: any) {
     const detail = err?.message || "Token verification failed";
     const debug = {
       secretKeyLength: secretKey.length,
+      secretKeyAsciiCleanedLength: asciiCleaned.length,
+      secretKeyNonAsciiRemoved: rawSecret.length - asciiCleaned.length,
       secretKeyHasWhitespace: /\s/.test(rawSecret),
       secretKeyTrimmedLength: rawSecret.trim().length,
+      usingJwtKey: Boolean(jwtKey),
+      jwtKeyLength: jwtKey.length || undefined,
       tokenKid: tokenHeader?.kid,
       tokenAlg: tokenHeader?.alg,
       tokenTyp: tokenHeader?.typ,
