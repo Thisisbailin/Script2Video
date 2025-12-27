@@ -447,7 +447,7 @@ async function getUserId(request: Request, env: Env) {
     jwtKeyHasWhitespace: /\s/.test(jwtKeyRaw),
     jwtKeyHasHeader: jwtKeyRaw.includes("BEGIN PUBLIC KEY"),
     jwtKeyNormalizedLength: jwtKey.length || undefined,
-    jwtKeyError,
+    jwtKeyError: jwtError,
     secretKeyError: secretError,
     tokenKid: tokenHeader?.kid,
     tokenAlg: tokenHeader?.alg,
