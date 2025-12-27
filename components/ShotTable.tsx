@@ -11,14 +11,14 @@ interface Props {
 export const ShotTable: React.FC<Props> = ({ shots, showSora }) => {
   if (shots.length === 0) {
     return (
-      <div className="h-full flex items-start justify-center text-[var(--text-secondary)] italic bg-[var(--bg-panel)] px-6 pt-24 pb-10">
+      <div className="h-full flex items-start justify-center text-[var(--text-secondary)] italic bg-transparent px-6 pt-24 pb-10">
         No shots generated yet.
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-auto bg-[var(--bg-panel)] transition-colors px-6 pt-20 pb-10">
+    <div className="h-full overflow-auto bg-transparent transition-colors px-6 pt-20 pb-10">
       <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[var(--text-secondary)] text-sm">

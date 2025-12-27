@@ -218,7 +218,7 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
   const isBusy = activeShot?.videoStatus === 'queued' || activeShot?.videoStatus === 'generating';
 
   return (
-    <div className="h-full flex bg-[var(--bg-panel)] text-[var(--text-primary)] overflow-hidden transition-colors">
+    <div className="h-full flex bg-transparent text-[var(--text-primary)] overflow-hidden transition-colors">
       
       {/* LEFT COLUMN: WORKSTATION */}
       <div className="flex-1 flex flex-col min-w-0">

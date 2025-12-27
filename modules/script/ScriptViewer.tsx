@@ -8,7 +8,7 @@ type Props = {
 
 export const ScriptViewer: React.FC<Props> = ({ episode, rawScript }) => {
   return (
-    <div className="h-full px-8 pt-20 pb-12 overflow-auto bg-[var(--bg-panel)] text-[var(--text-primary)]">
+    <div className="h-full px-8 pt-20 pb-12 overflow-auto bg-transparent text-[var(--text-primary)]">
       <div className="max-w-4xl mx-auto space-y-8">
         {episode && (
           <h3 className="text-3xl font-bold text-[var(--text-primary)]">

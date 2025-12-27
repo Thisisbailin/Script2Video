@@ -97,7 +97,7 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
   const tooltipBorder = isDarkMode ? '#374151' : '#e5e7eb';
 
   return (
-    <div className="px-6 pt-20 pb-12 h-full overflow-y-auto space-y-8 bg-[var(--bg-panel)] text-[var(--text-primary)] transition-colors">
+    <div className="px-6 pt-20 pb-12 h-full overflow-y-auto space-y-8 bg-transparent text-[var(--text-primary)] transition-colors">
       <div className="bg-[var(--bg-panel)]/90 p-4 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h3 className="text-[var(--text-secondary)] text-xs uppercase font-bold tracking-wider">Account</h3>

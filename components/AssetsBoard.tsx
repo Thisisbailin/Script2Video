@@ -95,7 +95,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
   );
 
   return (
-    <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-[var(--bg-panel)] text-[var(--text-primary)] transition-colors">
+    <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-transparent text-[var(--text-primary)] transition-colors">
       <div className="max-w-6xl mx-auto space-y-12">
         {/* Core Assets */}
         <section>

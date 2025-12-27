@@ -12,7 +12,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
   const { context, episodes } = data;
 
   return (
-    <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-[var(--bg-panel)] text-[var(--text-primary)] space-y-8 transition-colors">
+    <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-transparent text-[var(--text-primary)] space-y-8 transition-colors">
       
       {/* 1. Project Summary Section */}
       <section>

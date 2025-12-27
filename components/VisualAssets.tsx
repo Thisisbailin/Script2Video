@@ -419,7 +419,7 @@ export const VisualAssets: React.FC<Props> = ({ data, config, onUpdateUsage }) =
   };
 
   return (
-    <div className="h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors">
+    <div className="h-full flex bg-transparent text-gray-900 dark:text-gray-100 overflow-hidden transition-colors">
       
       {/* LEFT COLUMN: CONTROLS & ASSETS */}
       <div className="w-96 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
