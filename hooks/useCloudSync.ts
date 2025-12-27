@@ -6,6 +6,7 @@ import { computeProjectDelta, isDeltaEmpty, ProjectDelta } from "../utils/delta"
 import { normalizeProjectData } from "../utils/projectData";
 import { getDeviceId } from "../utils/device";
 import { mergeProjectData } from "../utils/merge";
+import { buildApiUrl } from "../utils/api";
 
 type UseCloudSyncOptions = {
   isSignedIn: boolean;
@@ -148,7 +149,7 @@ export const useCloudSync = ({
         isSavingRef.current = false;
         return;
       }
-      const res = await fetch("/api/project", {
+      const res = await fetch(buildApiUrl("/api/project"), {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -346,7 +347,7 @@ export const useCloudSync = ({
           return;
         }
 
-        const res = await fetch("/api/project", {
+        const res = await fetch(buildApiUrl("/api/project"), {
           headers: {
             authorization: `Bearer ${token}`,
             "x-device-id": deviceIdRef.current

@@ -7,6 +7,7 @@ import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
 import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
+import { buildApiUrl } from '../utils/api';
 
 interface Props {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setSnapshotMessage({ type: 'error', text: "Auth token missing. Please re-login." });
         return;
       }
-      const res = await fetch("/api/project-snapshots", {
+      const res = await fetch(buildApiUrl("/api/project-snapshots"), {
         headers: { authorization: `Bearer ${token}`, "x-device-id": deviceIdRef.current }
       });
       if (!res.ok) {
@@ -149,7 +150,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setSnapshotMessage({ type: 'error', text: "Auth token missing. Please re-login." });
         return;
       }
-      const res = await fetch("/api/project-restore", {
+      const res = await fetch(buildApiUrl("/api/project-restore"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -188,7 +189,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setAuditMessage({ type: 'error', text: "Auth token missing. Please re-login." });
         return;
       }
-      const res = await fetch("/api/sync-audit", {
+      const res = await fetch(buildApiUrl("/api/sync-audit"), {
         headers: { authorization: `Bearer ${token}`, "x-device-id": deviceIdRef.current }
       });
       if (!res.ok) {

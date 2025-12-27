@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppConfig, SyncStatus } from "../types";
 import { getDeviceId } from "../utils/device";
+import { buildApiUrl } from "../utils/api";
 
 type Options = {
   isSignedIn: boolean;
@@ -68,7 +69,7 @@ export const useSecretsSync = ({
         isSavingRef.current = false;
         return;
       }
-      const res = await fetch("/api/secrets", {
+      const res = await fetch(buildApiUrl("/api/secrets"), {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -194,7 +195,7 @@ export const useSecretsSync = ({
           scheduleRetry(load);
           return;
         }
-        const res = await fetch("/api/secrets", {
+        const res = await fetch(buildApiUrl("/api/secrets"), {
           headers: {
             authorization: `Bearer ${token}`,
             "x-device-id": deviceIdRef.current

@@ -10,6 +10,7 @@ import { normalizeProjectData } from './utils/projectData';
 import { dropFileReplacer, isProjectEmpty, backupData } from './utils/persistence';
 import { getDeviceId } from './utils/device';
 import { hashToBucket, isInRollout, normalizeRolloutPercent } from './utils/rollout';
+import { buildApiUrl } from './utils/api';
 import { usePersistedState } from './hooks/usePersistedState';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useVideoPolling } from './hooks/useVideoPolling';
@@ -328,7 +329,7 @@ const App: React.FC = () => {
               const token = await getAuthToken();
               if (!token) return;
               hasFetchedProfileAvatar.current = true;
-              const res = await fetch('/api/profile', { headers: { authorization: `Bearer ${token}` } });
+              const res = await fetch(buildApiUrl('/api/profile'), { headers: { authorization: `Bearer ${token}` } });
               if (res.ok) {
                   const data = await res.json();
                   if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
@@ -510,7 +511,7 @@ const App: React.FC = () => {
               bucket: 'public-assets',
               contentType: file.type
           };
-          const res = await fetch('/api/upload-url', {
+          const res = await fetch(buildApiUrl('/api/upload-url'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
@@ -538,7 +539,7 @@ const App: React.FC = () => {
           try {
               const token = await getAuthToken();
               if (token) {
-                  await fetch('/api/profile', {
+                  await fetch(buildApiUrl('/api/profile'), {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
                       body: JSON.stringify({ avatarUrl: storedUrl })

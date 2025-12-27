@@ -15,6 +15,38 @@ const jsonResponse = (body: unknown, init: ResponseInit = {}) => {
   return new Response(JSON.stringify(body), { ...init, headers });
 };
 
+const stripOuterQuotes = (value: string) => {
+  if (
+    (value.startsWith("\"") && value.endsWith("\"")) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+};
+
+const normalizeJwtKey = (value: string) => {
+  const unescaped = value.replace(/\\r\\n|\\n|\\r/g, "\n");
+  const trimmed = stripOuterQuotes(unescaped.trim());
+  if (!trimmed) return "";
+  const header = "-----BEGIN PUBLIC KEY-----";
+  const trailer = "-----END PUBLIC KEY-----";
+  const body = trimmed
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "");
+  if (!body) return "";
+  return `${header}\n${body}\n${trailer}`;
+};
+
+const extractBearerToken = (authHeader: string) => {
+  const match = authHeader.match(/Bearer\s+([^,]+)/i);
+  const raw = match ? match[1] : authHeader;
+  const trimmed = stripOuterQuotes(raw.trim());
+  const whitespaceStripped = trimmed.replace(/\s+/g, "");
+  return whitespaceStripped.replace(/[^A-Za-z0-9._-]/g, "");
+};
+
 const getDeviceId = (request: Request, body?: any) => {
   const headerId = request.headers.get("x-device-id") || request.headers.get("X-Device-Id");
   const bodyId = body && typeof body.deviceId === "string" ? body.deviceId : undefined;
@@ -175,19 +207,13 @@ const ensureSchema = async (env: Env) => {
 
 async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\\s+/i, "");
+  const token = extractBearerToken(authHeader);
 
   const rawSecret = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY : "";
   const rawJwtKey = typeof env.CLERK_JWT_KEY === "string" ? env.CLERK_JWT_KEY : "";
   const asciiCleaned = rawSecret.replace(/[^\x20-\x7E]/g, "");
-  let secretKey = asciiCleaned.replace(/\s+/g, "");
-  if (
-    (secretKey.startsWith("\"") && secretKey.endsWith("\"")) ||
-    (secretKey.startsWith("'") && secretKey.endsWith("'"))
-  ) {
-    secretKey = secretKey.slice(1, -1);
-  }
-  const jwtKey = rawJwtKey.trim();
+  let secretKey = stripOuterQuotes(asciiCleaned.replace(/\s+/g, ""));
+  const jwtKey = normalizeJwtKey(rawJwtKey);
   if (!secretKey && !jwtKey) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }

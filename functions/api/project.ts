@@ -366,32 +366,68 @@ const loadProjectData = async (env: Env, userId: string) => {
   return { projectData, updatedAt };
 };
 
+const stripOuterQuotes = (value: string) => {
+  if (
+    (value.startsWith("\"") && value.endsWith("\"")) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+};
+
+const getInvalidCharCodes = (value: string, allowDot: boolean) => {
+  const codes = new Set<number>();
+  for (const ch of value) {
+    const isAllowed = allowDot ? /[A-Za-z0-9._-]/.test(ch) : /[A-Za-z0-9_-]/.test(ch);
+    if (!isAllowed) {
+      codes.add(ch.codePointAt(0) ?? 0);
+    }
+  }
+  return Array.from(codes).slice(0, 6);
+};
+
+const extractBearerToken = (authHeader: string) => {
+  const match = authHeader.match(/Bearer\s+([^,]+)/i);
+  const raw = match ? match[1] : authHeader;
+  const trimmed = stripOuterQuotes(raw.trim());
+  const whitespaceStripped = trimmed.replace(/\s+/g, "");
+  const invalidCharCodes = getInvalidCharCodes(whitespaceStripped, true);
+  const sanitized = whitespaceStripped.replace(/[^A-Za-z0-9._-]/g, "");
+  const token = invalidCharCodes.length ? sanitized : whitespaceStripped;
+  return {
+    tokenRaw: trimmed,
+    tokenWhitespaceStripped: whitespaceStripped,
+    tokenSanitized: sanitized,
+    tokenInvalidCharCodes: invalidCharCodes,
+    tokenSanitizedUsed: token !== whitespaceStripped,
+    token
+  };
+};
+
+const normalizeJwtKey = (value: string) => {
+  const unescaped = value.replace(/\\r\\n|\\n|\\r/g, "\n");
+  const trimmed = stripOuterQuotes(unescaped.trim());
+  if (!trimmed) return "";
+  const header = "-----BEGIN PUBLIC KEY-----";
+  const trailer = "-----END PUBLIC KEY-----";
+  const body = trimmed
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "");
+  if (!body) return "";
+  return `${header}\n${body}\n${trailer}`;
+};
+
 async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\\s+/i, "");
+  const { tokenRaw, tokenWhitespaceStripped, tokenSanitized, tokenInvalidCharCodes, tokenSanitizedUsed, token } =
+    extractBearerToken(authHeader);
 
   const rawSecret = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY : "";
   const rawJwtKey = typeof env.CLERK_JWT_KEY === "string" ? env.CLERK_JWT_KEY : "";
   const asciiCleaned = rawSecret.replace(/[^\x20-\x7E]/g, "");
-  let secretKey = asciiCleaned.replace(/\s+/g, "");
-  if (
-    (secretKey.startsWith("\"") && secretKey.endsWith("\"")) ||
-    (secretKey.startsWith("'") && secretKey.endsWith("'"))
-  ) {
-    secretKey = secretKey.slice(1, -1);
-  }
-  const normalizeJwtKey = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-    const header = "-----BEGIN PUBLIC KEY-----";
-    const trailer = "-----END PUBLIC KEY-----";
-    const body = trimmed
-      .replace(/-----BEGIN [^-]+-----/g, "")
-      .replace(/-----END [^-]+-----/g, "")
-      .replace(/\s+/g, "");
-    if (!body) return "";
-    return `${header}\n${body}\n${trailer}`;
-  };
+  let secretKey = stripOuterQuotes(asciiCleaned.replace(/\s+/g, ""));
   const jwtKeyRaw = rawJwtKey;
   const jwtKey = normalizeJwtKey(jwtKeyRaw);
   if (!secretKey && !jwtKey) {
@@ -413,9 +449,12 @@ async function getUserId(request: Request, env: Env) {
       return null;
     }
   };
-  const [headerPart, payloadPart] = token.split(".");
+  const tokenParts = token.split(".");
+  const [headerPart, payloadPart] = tokenParts;
   const tokenHeader = decodePart(headerPart);
   const tokenPayload = decodePart(payloadPart);
+  const signaturePart = tokenParts.length === 3 ? tokenParts[2] : "";
+  const signatureInvalidCharCodes = getInvalidCharCodes(signaturePart, false);
 
   const verifyAttempt = async (options: { jwtKey?: string; secretKey?: string }) => {
     try {
@@ -449,6 +488,15 @@ async function getUserId(request: Request, env: Env) {
     jwtKeyNormalizedLength: jwtKey.length || undefined,
     jwtKeyError: jwtError,
     secretKeyError: secretError,
+    tokenRawLength: tokenRaw.length,
+    tokenWhitespaceStrippedLength: tokenWhitespaceStripped.length,
+    tokenSanitizedLength: tokenSanitized.length,
+    tokenSanitizedUsed,
+    tokenHasWhitespace: /\s/.test(tokenRaw),
+    tokenInvalidCharCodes,
+    tokenSegments: tokenParts.length,
+    tokenSignatureLength: signaturePart.length,
+    tokenSignatureInvalidCharCodes: signatureInvalidCharCodes,
     tokenKid: tokenHeader?.kid,
     tokenAlg: tokenHeader?.alg,
     tokenTyp: tokenHeader?.typ,
