@@ -380,7 +380,20 @@ async function getUserId(request: Request, env: Env) {
   ) {
     secretKey = secretKey.slice(1, -1);
   }
-  const jwtKey = rawJwtKey.trim();
+  const normalizeJwtKey = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const header = "-----BEGIN PUBLIC KEY-----";
+    const trailer = "-----END PUBLIC KEY-----";
+    const body = trimmed
+      .replace(/-----BEGIN [^-]+-----/g, "")
+      .replace(/-----END [^-]+-----/g, "")
+      .replace(/\s+/g, "");
+    if (!body) return "";
+    return `${header}\n${body}\n${trailer}`;
+  };
+  const jwtKeyRaw = rawJwtKey;
+  const jwtKey = normalizeJwtKey(jwtKeyRaw);
   if (!secretKey && !jwtKey) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }
@@ -404,33 +417,50 @@ async function getUserId(request: Request, env: Env) {
   const tokenHeader = decodePart(headerPart);
   const tokenPayload = decodePart(payloadPart);
 
-  try {
-    const payload = await verifyToken(token, jwtKey ? { jwtKey } : { secretKey });
-    if (payload?.sub) return payload.sub;
-    throw new Error("Token payload missing sub");
-  } catch (err: any) {
-    const detail = err?.message || "Token verification failed";
-    const debug = {
-      secretKeyLength: secretKey.length,
-      secretKeyAsciiCleanedLength: asciiCleaned.length,
-      secretKeyNonAsciiRemoved: rawSecret.length - asciiCleaned.length,
-      secretKeyHasWhitespace: /\s/.test(rawSecret),
-      secretKeyTrimmedLength: rawSecret.trim().length,
-      usingJwtKey: Boolean(jwtKey),
-      jwtKeyLength: jwtKey.length || undefined,
-      tokenKid: tokenHeader?.kid,
-      tokenAlg: tokenHeader?.alg,
-      tokenTyp: tokenHeader?.typ,
-      tokenIssuer: tokenPayload?.iss,
-      tokenAzp: tokenPayload?.azp,
-      tokenIat: tokenPayload?.iat,
-      tokenExp: tokenPayload?.exp,
-      tokenSub: tokenPayload?.sub
-    };
-    console.warn("verifyToken failed", err);
-    console.warn("verifyToken debug", debug);
-    throw new Response(JSON.stringify({ error: "Unauthorized", detail, debug }), { status: 401, headers: JSON_HEADERS });
-  }
+  const verifyAttempt = async (options: { jwtKey?: string; secretKey?: string }) => {
+    try {
+      const payload = await verifyToken(token, options);
+      if (payload?.sub) return { sub: payload.sub };
+      return { error: new Error("Token payload missing sub") };
+    } catch (err) {
+      return { error: err };
+    }
+  };
+
+  const jwtAttempt = jwtKey ? await verifyAttempt({ jwtKey }) : null;
+  if (jwtAttempt?.sub) return jwtAttempt.sub;
+  const secretAttempt = secretKey ? await verifyAttempt({ secretKey }) : null;
+  if (secretAttempt?.sub) return secretAttempt.sub;
+
+  const jwtError = jwtAttempt?.error instanceof Error ? jwtAttempt.error.message : undefined;
+  const secretError = secretAttempt?.error instanceof Error ? secretAttempt.error.message : undefined;
+  const detail = jwtError || secretError || "Token verification failed";
+  const debug = {
+    secretKeyLength: secretKey.length,
+    secretKeyAsciiCleanedLength: asciiCleaned.length,
+    secretKeyNonAsciiRemoved: rawSecret.length - asciiCleaned.length,
+    secretKeyHasWhitespace: /\s/.test(rawSecret),
+    secretKeyTrimmedLength: rawSecret.trim().length,
+    usingJwtKey: Boolean(jwtKey),
+    jwtKeyLength: jwtKey.length || undefined,
+    jwtKeyRawLength: jwtKeyRaw.length || undefined,
+    jwtKeyHasWhitespace: /\s/.test(jwtKeyRaw),
+    jwtKeyHasHeader: jwtKeyRaw.includes("BEGIN PUBLIC KEY"),
+    jwtKeyNormalizedLength: jwtKey.length || undefined,
+    jwtKeyError,
+    secretKeyError: secretError,
+    tokenKid: tokenHeader?.kid,
+    tokenAlg: tokenHeader?.alg,
+    tokenTyp: tokenHeader?.typ,
+    tokenIssuer: tokenPayload?.iss,
+    tokenAzp: tokenPayload?.azp,
+    tokenIat: tokenPayload?.iat,
+    tokenExp: tokenPayload?.exp,
+    tokenSub: tokenPayload?.sub
+  };
+  console.warn("verifyToken failed", { jwtError, secretError });
+  console.warn("verifyToken debug", debug);
+  throw new Response(JSON.stringify({ error: "Unauthorized", detail, debug }), { status: 401, headers: JSON_HEADERS });
 }
 
 export const onRequestGet = async (context: {
