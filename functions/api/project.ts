@@ -369,7 +369,14 @@ async function getUserId(request: Request, env: Env) {
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\\s+/i, "");
 
-  const secretKey = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY.trim() : "";
+  const rawSecret = typeof env.CLERK_SECRET_KEY === "string" ? env.CLERK_SECRET_KEY : "";
+  let secretKey = rawSecret.replace(/\s+/g, "");
+  if (
+    (secretKey.startsWith("\"") && secretKey.endsWith("\"")) ||
+    (secretKey.startsWith("'") && secretKey.endsWith("'"))
+  ) {
+    secretKey = secretKey.slice(1, -1);
+  }
   if (!secretKey) {
     throw new Response("Missing CLERK_SECRET_KEY on server", { status: 500 });
   }
@@ -377,6 +384,21 @@ async function getUserId(request: Request, env: Env) {
   if (!token) {
     throw new Response(JSON.stringify({ error: "Unauthorized", detail: "Missing bearer token" }), { status: 401, headers: JSON_HEADERS });
   }
+
+  const decodePart = (part?: string) => {
+    if (!part) return null;
+    try {
+      const normalized = part.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+      const json = atob(padded);
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  };
+  const [headerPart, payloadPart] = token.split(".");
+  const tokenHeader = decodePart(headerPart);
+  const tokenPayload = decodePart(payloadPart);
 
   try {
     const payload = await verifyToken(token, {
@@ -386,8 +408,22 @@ async function getUserId(request: Request, env: Env) {
     throw new Error("Token payload missing sub");
   } catch (err: any) {
     const detail = err?.message || "Token verification failed";
+    const debug = {
+      secretKeyLength: secretKey.length,
+      secretKeyHasWhitespace: /\s/.test(rawSecret),
+      secretKeyTrimmedLength: rawSecret.trim().length,
+      tokenKid: tokenHeader?.kid,
+      tokenAlg: tokenHeader?.alg,
+      tokenTyp: tokenHeader?.typ,
+      tokenIssuer: tokenPayload?.iss,
+      tokenAzp: tokenPayload?.azp,
+      tokenIat: tokenPayload?.iat,
+      tokenExp: tokenPayload?.exp,
+      tokenSub: tokenPayload?.sub
+    };
     console.warn("verifyToken failed", err);
-    throw new Response(JSON.stringify({ error: "Unauthorized", detail }), { status: 401, headers: JSON_HEADERS });
+    console.warn("verifyToken debug", debug);
+    throw new Response(JSON.stringify({ error: "Unauthorized", detail, debug }), { status: 401, headers: JSON_HEADERS });
   }
 }
 
