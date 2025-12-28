@@ -1,6 +1,24 @@
 import { Episode, ProjectData, Shot } from "../types";
 import { INITIAL_PROJECT_DATA } from "../constants";
 
+const stripConflictMarkers = (value: string) => {
+  const cleaned = value
+    .replace(/^[ \t]*<<<REMOTE VERSION>>>[ \t]*\n?/gm, "")
+    .replace(/^[ \t]*<<<LOCAL VERSION>>>[ \t]*\n?/gm, "");
+  return cleaned.replace(/\n{3,}/g, "\n\n");
+};
+
+const sanitizeValue = (value: unknown): unknown => {
+  if (typeof value === "string") return stripConflictMarkers(value);
+  if (Array.isArray(value)) return value.map((item) => sanitizeValue(item));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, sanitizeValue(entry)])
+    );
+  }
+  return value;
+};
+
 const toSafeString = (value: unknown, fallback = "") => {
   if (typeof value === "string") return value;
   if (value === null || value === undefined) return fallback;
@@ -67,5 +85,5 @@ export const normalizeProjectData = (data: any): ProjectData => {
   base.globalStyleGuide = data?.globalStyleGuide || INITIAL_PROJECT_DATA.globalStyleGuide;
   base.rawScript = typeof data?.rawScript === "string" ? data.rawScript : "";
   base.fileName = typeof data?.fileName === "string" ? data.fileName : "";
-  return base;
+  return sanitizeValue(base) as ProjectData;
 };

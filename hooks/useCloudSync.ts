@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ProjectData, SyncStatus } from "../types";
-import { dropFileReplacer, backupData, isProjectEmpty } from "../utils/persistence";
+import { dropFileReplacer, backupData, isProjectEmpty, FORCE_CLOUD_CLEAR_KEY } from "../utils/persistence";
 import { validateProjectData } from "../utils/validation";
 import { computeProjectDelta, isDeltaEmpty, ProjectDelta } from "../utils/delta";
 import { normalizeProjectData } from "../utils/projectData";
@@ -122,6 +122,25 @@ export const useCloudSync = ({
   }, [onConflictConfirm]);
 
   const baselineKey = `${localBackupKey}_last_synced`;
+  const forceClearKey = FORCE_CLOUD_CLEAR_KEY;
+
+  const shouldForceCloudClear = () => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(forceClearKey) === "1";
+    } catch {
+      return false;
+    }
+  };
+
+  const clearForceCloudClear = () => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(forceClearKey);
+    } catch {
+      // Ignore storage failures.
+    }
+  };
 
   const readBaseline = () => {
     if (baselineRef.current) return baselineRef.current;
@@ -229,6 +248,19 @@ export const useCloudSync = ({
         if (remotePayload) {
           const normalized = normalizeProjectData(remotePayload);
           const local = projectDataRef.current;
+          if (shouldForceCloudClear() && isProjectEmpty(local)) {
+            if (typeof data?.updatedAt === "number") {
+              remoteUpdatedAtRef.current = data.updatedAt;
+            }
+            pendingOpRef.current = {
+              id: createOpId(),
+              data: local,
+              baseVersion: remoteUpdatedAtRef.current ?? 0
+            };
+            isSavingRef.current = false;
+            void flushSaveQueue();
+            return;
+          }
           const useRemote = await Promise.resolve(onConflictConfirmRef.current({ remote: normalized, local }));
           if (useRemote) {
             backupData(localBackupKey, local);
@@ -278,6 +310,9 @@ export const useCloudSync = ({
       remoteHasDataRef.current = !isProjectEmpty(op.data);
       lastSyncedRef.current = op.data;
       storeBaseline(op.data, remoteUpdatedAtRef.current ?? undefined);
+      if (isProjectEmpty(op.data) && shouldForceCloudClear()) {
+        clearForceCloudClear();
+      }
       if (pendingOpRef.current?.id === op.id) pendingOpRef.current = null;
       saveRetryCountRef.current = 0;
       emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current });
@@ -450,9 +485,21 @@ export const useCloudSync = ({
           const remoteHas = !isProjectEmpty(remote);
           const localHas = !isProjectEmpty(local);
           remoteHasDataRef.current = remoteHas;
+          const baseVersion = typeof data.updatedAt === "number" ? data.updatedAt : (remoteUpdatedAtRef.current ?? 0);
+          const forceClear = shouldForceCloudClear();
+
+          if (forceClear && !localHas) {
+            if (remoteHas) {
+              await saveNow(local, baseVersion);
+            } else {
+              clearForceCloudClear();
+            }
+            retryCountRef.current = 0;
+            if (!cancelled) setHasLoadedRemote(true);
+            return;
+          }
 
           if (remoteHas && localHas) {
-            const baseVersion = typeof data.updatedAt === "number" ? data.updatedAt : (remoteUpdatedAtRef.current ?? 0);
             const localFingerprint = fingerprintProjectData(local);
             const remoteFingerprint = fingerprintProjectData(remote);
 
@@ -530,7 +577,7 @@ export const useCloudSync = ({
     }
 
     syncSaveTimeout.current = window.setTimeout(() => {
-      if (remoteHasDataRef.current && isProjectEmpty(projectDataRef.current)) {
+      if (remoteHasDataRef.current && isProjectEmpty(projectDataRef.current) && !shouldForceCloudClear()) {
         onErrorRef.current?.(new Error("Refusing to overwrite non-empty remote with empty local state."));
         emitStatus('error', { error: "Local data empty; refusing to overwrite cloud.", pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
         return;

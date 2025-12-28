@@ -14,7 +14,7 @@ import {
   parseUnderstandingJSON
 } from './utils/parser';
 import { normalizeProjectData } from './utils/projectData';
-import { dropFileReplacer, isProjectEmpty, backupData } from './utils/persistence';
+import { dropFileReplacer, isProjectEmpty, backupData, FORCE_CLOUD_CLEAR_KEY } from './utils/persistence';
 import { getDeviceId } from './utils/device';
 import { hashToBucket, isInRollout, normalizeRolloutPercent } from './utils/rollout';
 import { buildApiUrl } from './utils/api';
@@ -495,7 +495,8 @@ const App: React.FC = () => {
   // --- Handlers ---
 
   const handleResetProject = () => {
-      if (window.confirm("Are you sure you want to RESET the entire project? \n\nThis will clear all scripts, shots, and generated data from your browser cache. This action cannot be undone.")) {
+      if (window.confirm("确认清空整个项目吗？\n\n这会清空本地与云端的项目数据（脚本、镜头、生成内容等），且不可恢复。")) {
+          localStorage.setItem(FORCE_CLOUD_CLEAR_KEY, "1");
           setProjectData(INITIAL_PROJECT_DATA);
           setStep(WorkflowStep.IDLE);
           setAnalysisStep(AnalysisSubStep.IDLE);
@@ -503,8 +504,9 @@ const App: React.FC = () => {
           setActiveTab('assets');
           localStorage.removeItem(PROJECT_STORAGE_KEY);
           localStorage.removeItem(UI_STATE_STORAGE_KEY);
+          localStorage.removeItem(LOCAL_BACKUP_KEY);
+          localStorage.removeItem(REMOTE_BACKUP_KEY);
           setAvatarUrl('');
-          window.location.reload(); 
       }
   };
 

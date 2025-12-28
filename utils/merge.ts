@@ -20,11 +20,6 @@ type MergeResult<T> = {
   conflicts: string[];
 };
 
-const CONFLICT_MARKER = [
-  "<<<REMOTE VERSION>>>",
-  "<<<LOCAL VERSION>>>"
-];
-
 const isEqual = (a: unknown, b: unknown) => {
   if (a === b) return true;
   try {
@@ -43,7 +38,7 @@ const mergeTextKeepBoth = (remote?: string, local?: string) => {
   if (!remoteVal) return localVal;
   if (!localVal) return remoteVal;
   if (remoteVal === localVal) return remoteVal;
-  return `${CONFLICT_MARKER[0]}\n${remoteVal}\n\n${CONFLICT_MARKER[1]}\n${localVal}`;
+  return `${remoteVal}\n\n${localVal}`;
 };
 
 const mergeString = (
