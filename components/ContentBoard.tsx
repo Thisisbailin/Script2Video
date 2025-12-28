@@ -39,11 +39,11 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
         </div>
       </section>
 
-      {/* 2. Visual Style Bible Section */}
+      {/* 2. Style Guide Section */}
       <section>
         <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
            <Palette className="text-pink-500" size={24}/>
-           Visual Style Bible
+           Style Guide
         </h2>
         <div className="bg-[var(--bg-panel)] p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] relative overflow-hidden group">
             {data.globalStyleGuide ? (
@@ -58,7 +58,7 @@ export const ContentBoard: React.FC<Props> = ({ data, onSelectEpisode }) => {
             ) : (
                <div className="h-24 border border-[var(--border-subtle)] border-dashed rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)] gap-2 bg-[var(--bg-panel)]/60">
                  <Palette size={20} className="opacity-60"/>
-                 <span className="italic">No specific visual style guide uploaded.</span>
+                 <span className="italic">No specific style guide uploaded.</span>
                  <span className="text-xs">AI will infer style from context and standard guidelines.</span>
                </div>
             )}

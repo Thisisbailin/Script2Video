@@ -5,21 +5,35 @@ import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, S
 
 interface Props {
   data: ProjectData;
-  onAssetLoad: (type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots', content: string, fileName?: string) => void;
+  onAssetLoad: (
+    type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson',
+    content: string,
+    fileName?: string
+  ) => void;
 }
 
 export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
   // Input Refs
   const scriptInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const understandingInputRef = useRef<HTMLInputElement>(null);
   const globalStyleInputRef = useRef<HTMLInputElement>(null);
   const shotGuideInputRef = useRef<HTMLInputElement>(null);
   const soraGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const [showAllCharacters, setShowAllCharacters] = useState(false);
   const [expandedCharacterForms, setExpandedCharacterForms] = useState<Record<string, boolean>>({});
+  const hasUnderstandingData = Boolean(
+    data.context.projectSummary ||
+      data.context.episodeSummaries.length > 0 ||
+      data.context.characters?.length > 0 ||
+      data.context.locations?.length > 0
+  );
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots') => {
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson'
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -117,18 +131,6 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
               colorClass="text-blue-400"
             />
 
-            {/* Style Guide */}
-            <input type="file" ref={globalStyleInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'globalStyleGuide')} />
-            <AssetCard
-              title="Visual Style Bible (Optional)"
-              desc="Project-wide visual direction and tone. Optional to upload."
-              icon={Palette}
-              isLoaded={!!data.globalStyleGuide}
-              fileName={data.globalStyleGuide ? 'Style Guide Loaded' : undefined}
-              onUpload={() => globalStyleInputRef.current?.click()}
-              colorClass="text-purple-400"
-            />
-
             {/* CSV Import */}
             <input type="file" ref={csvInputRef} className="hidden" accept=".csv" onChange={(e) => handleFileChange(e, 'csvShots')} />
             <AssetCard
@@ -140,6 +142,18 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
               onUpload={() => csvInputRef.current?.click()}
               colorClass="text-green-400"
             />
+
+            {/* Understanding JSON Import */}
+            <input type="file" ref={understandingInputRef} className="hidden" accept=".json" onChange={(e) => handleFileChange(e, 'understandingJson')} />
+            <AssetCard
+              title="Import Understanding JSON (Optional)"
+              desc="Restore Phase 1 understanding results from a JSON export."
+              icon={BookOpen}
+              isLoaded={hasUnderstandingData}
+              fileName={hasUnderstandingData ? 'Understanding Loaded' : undefined}
+              onUpload={() => understandingInputRef.current?.click()}
+              colorClass="text-amber-400"
+            />
           </div>
         </section>
 
@@ -149,6 +163,18 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
             Standard Operating Procedures (AI Instructions)
           </h3>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+            {/* Style Guide */}
+            <input type="file" ref={globalStyleInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'globalStyleGuide')} />
+            <AssetCard
+              title="Style Guide (Optional)"
+              desc="Project-wide style direction and tone. Optional to upload."
+              icon={Palette}
+              isLoaded={!!data.globalStyleGuide}
+              fileName={data.globalStyleGuide ? 'Style Guide Loaded' : undefined}
+              onUpload={() => globalStyleInputRef.current?.click()}
+              colorClass="text-purple-400"
+            />
+
             {/* Shot Guide */}
             <input type="file" ref={shotGuideInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'shotGuide')} />
             <AssetCard

@@ -174,8 +174,10 @@ type HeaderProps = {
   };
   onTryMe: () => void;
   hasGeneratedShots: boolean;
+  hasUnderstandingData: boolean;
   onExportCsv: () => void;
   onExportXls: () => void;
+  onExportUnderstandingJson: () => void;
   onToggleExportMenu: () => void;
   isExportMenuOpen: boolean;
   onToggleTheme: () => void;
@@ -579,8 +581,10 @@ export const Header: React.FC<HeaderProps> = ({
   splitView,
   onTryMe,
   hasGeneratedShots,
+  hasUnderstandingData,
   onExportCsv,
   onExportXls,
+  onExportUnderstandingJson,
   onToggleExportMenu,
   isExportMenuOpen,
   onToggleTheme,
@@ -679,6 +683,21 @@ export const Header: React.FC<HeaderProps> = ({
     `relative h-10 w-10 flex items-center justify-center rounded-full text-[var(--text-primary)] transition-transform duration-150 hover:scale-105 ${
       isActive ? "scale-105" : ""
     }`;
+
+  const canExport = hasGeneratedShots || hasUnderstandingData;
+  const exportItems = [
+    hasGeneratedShots
+      ? { key: "csv", label: "Export CSV", onClick: onExportCsv }
+      : null,
+    hasGeneratedShots
+      ? { key: "xls", label: "Export XLS", onClick: onExportXls }
+      : null,
+    hasUnderstandingData
+      ? { key: "understanding-json", label: "Export Understanding JSON", onClick: onExportUnderstandingJson }
+      : null
+  ].filter(
+    (item): item is { key: string; label: string; onClick: () => void } => item !== null
+  );
 
   const closeAll = () => {
     setShowTabs(false);
@@ -961,7 +980,7 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
 
-                {hasGeneratedShots && (
+                {canExport && (
                   <div className="relative">
                     <button
                       onClick={onToggleExportMenu}
@@ -980,19 +999,18 @@ export const Header: React.FC<HeaderProps> = ({
                           boxShadow: "var(--shadow-strong)",
                         }}
                       >
-                        <button
-                          onClick={onExportCsv}
-                          className="w-full text-left px-4 py-3 hover:bg-black/5 text-sm border-b"
-                          style={{ borderColor: "var(--border-subtle)" }}
-                        >
-                          Export CSV
-                        </button>
-                        <button
-                          onClick={onExportXls}
-                          className="w-full text-left px-4 py-3 hover:bg-black/5 text-sm"
-                        >
-                          Export XLS
-                        </button>
+                        {exportItems.map((item, index) => (
+                          <button
+                            key={item.key}
+                            onClick={item.onClick}
+                            className={`w-full text-left px-4 py-3 hover:bg-black/5 text-sm ${
+                              index < exportItems.length - 1 ? "border-b" : ""
+                            }`}
+                            style={{ borderColor: "var(--border-subtle)" }}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>

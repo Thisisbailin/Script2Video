@@ -5,7 +5,14 @@ import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
 import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab, SyncState, SyncStatus } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
-import { parseScriptToEpisodes, exportToCSV, exportToXLS, parseCSVToShots } from './utils/parser';
+import {
+  parseScriptToEpisodes,
+  exportToCSV,
+  exportToXLS,
+  parseCSVToShots,
+  exportUnderstandingToJSON,
+  parseUnderstandingJSON
+} from './utils/parser';
 import { normalizeProjectData } from './utils/projectData';
 import { dropFileReplacer, isProjectEmpty, backupData } from './utils/persistence';
 import { getDeviceId } from './utils/device';
@@ -561,7 +568,11 @@ const App: React.FC = () => {
       e.target.value = '';
   };
 
-  const handleAssetLoad = (type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots', content: string, fileName?: string) => {
+  const handleAssetLoad = (
+    type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson',
+    content: string,
+    fileName?: string
+  ) => {
       if (type === 'script') {
         const episodes = parseScriptToEpisodes(content);
         setProjectData(prev => ({ ...prev, fileName: fileName || 'script.txt', rawScript: content, episodes }));
@@ -589,6 +600,31 @@ const App: React.FC = () => {
           setActiveTab('table');
         } catch (e: any) {
           alert("Error importing CSV: " + e.message);
+        }
+
+      } else if (type === 'understandingJson') {
+        try {
+          const payload = parseUnderstandingJSON(content);
+          setProjectData(prev => {
+            const episodeSummaryMap = new Map(
+              payload.context.episodeSummaries.map(summary => [summary.episodeId, summary.summary])
+            );
+            const updatedEpisodes = prev.episodes.map(ep => {
+              const summary = episodeSummaryMap.get(ep.id);
+              return summary ? { ...ep, summary } : ep;
+            });
+            return {
+              ...prev,
+              context: payload.context,
+              episodes: updatedEpisodes,
+              contextUsage: payload.contextUsage ?? prev.contextUsage,
+              phase1Usage: payload.phase1Usage ? { ...prev.phase1Usage, ...payload.phase1Usage } : prev.phase1Usage
+            };
+          });
+          alert('Successfully imported understanding data.');
+          setActiveTab('understanding');
+        } catch (e: any) {
+          alert("Error importing understanding JSON: " + e.message);
         }
 
       } else if (type === 'globalStyleGuide') {
@@ -1153,6 +1189,12 @@ const App: React.FC = () => {
   // --- Render Helpers ---
   const currentEpisode = projectData.episodes[currentEpIndex];
   const hasGeneratedShots = projectData.episodes.some(ep => ep.shots.length > 0);
+  const hasUnderstandingData = Boolean(
+    projectData.context.projectSummary ||
+    projectData.context.episodeSummaries.length > 0 ||
+    projectData.context.characters.length > 0 ||
+    projectData.context.locations.length > 0
+  );
   const getActiveModelName = () => {
       if (activeTab === 'visuals') return config.multimodalConfig.model || 'Multimodal';
       if (activeTab === 'video') return config.videoConfig.model || 'Video';
@@ -1189,12 +1231,17 @@ const App: React.FC = () => {
       }}
       onTryMe={handleTryMe}
       hasGeneratedShots={hasGeneratedShots}
+      hasUnderstandingData={hasUnderstandingData}
       onExportCsv={() => {
         exportToCSV(projectData.episodes);
         setIsExportMenuOpen(false);
       }}
       onExportXls={() => {
         exportToXLS(projectData.episodes);
+        setIsExportMenuOpen(false);
+      }}
+      onExportUnderstandingJson={() => {
+        exportUnderstandingToJSON(projectData);
         setIsExportMenuOpen(false);
       }}
       onToggleExportMenu={() => setIsExportMenuOpen(prev => !prev)}
