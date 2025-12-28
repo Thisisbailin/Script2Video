@@ -139,6 +139,7 @@ type WorkflowProps = {
   analysisQueueLength: number;
   analysisTotal: number;
   isProcessing: boolean;
+  analysisError: { step: AnalysisSubStep; message: string } | null;
   currentEpIndex: number;
   episodes: Episode[];
   setCurrentEpIndex: (idx: number) => void;
@@ -149,8 +150,10 @@ type WorkflowProps = {
   onConfirmCharDepthNext: () => void;
   onConfirmLocListNext: () => void;
   onFinishAnalysis: () => void;
+  onRetryAnalysis: () => void;
   onStartPhase2: () => void;
   onConfirmEpisodeShots: () => void;
+  onRetryEpisodeShots: () => void;
   onStartPhase3: () => void;
   onRetryEpisodeSora: () => void;
   onContinueNextEpisodeSora: () => void;
@@ -264,6 +267,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
     analysisQueueLength,
     analysisTotal,
     isProcessing,
+    analysisError,
     currentEpIndex,
     episodes,
     setCurrentEpIndex,
@@ -274,12 +278,18 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
     onConfirmCharDepthNext,
     onConfirmLocListNext,
     onFinishAnalysis,
+    onRetryAnalysis,
     onStartPhase2,
     onConfirmEpisodeShots,
+    onRetryEpisodeShots,
     onStartPhase3,
     onRetryEpisodeSora,
     onContinueNextEpisodeSora,
   } = workflow;
+
+  const hasAnalysisError = analysisError?.step === analysisStep;
+  const currentEpisode = episodes[currentEpIndex];
+  const currentEpisodeError = currentEpisode?.status === "error";
 
   const completedSora = useMemo(
     () => episodes.filter(isEpisodeSoraComplete).length,
@@ -328,13 +338,25 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 {analysisProgressLabel(analysisStep)}
               </span>
             </div>
+            {hasAnalysisError && (
+              <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-xs text-rose-200 space-y-2">
+                <div>执行失败：{analysisError?.message}</div>
+                <button
+                  onClick={onRetryAnalysis}
+                  className="w-full py-2 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-[11px] font-semibold transition"
+                  disabled={isProcessing}
+                >
+                  重试当前步骤
+                </button>
+              </div>
+            )}
             {analysisStep === AnalysisSubStep.PROJECT_SUMMARY && (
               <>
                 <div className="text-sm font-medium">概览项目剧情...</div>
                 <button
                   onClick={onConfirmSummaryNext}
                   className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing}
+                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
                 >
                   确认并继续
                 </button>
@@ -363,7 +385,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 <button
                   onClick={onConfirmEpSummariesNext}
                   className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing}
+                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
                 >
                   确认并继续
                 </button>
@@ -376,7 +398,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 <button
                   onClick={onConfirmCharListNext}
                   className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing}
+                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
                 >
                   确认并继续
                 </button>
@@ -403,7 +425,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 <button
                   onClick={onConfirmCharDepthNext}
                   className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing}
+                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
                 >
                   确认并继续
                 </button>
@@ -416,7 +438,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 <button
                   onClick={onConfirmLocListNext}
                   className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing}
+                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
                 >
                   确认并继续
                 </button>
@@ -443,7 +465,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 <button
                   onClick={onFinishAnalysis}
                   className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing}
+                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
                 >
                   完成 Phase 1
                 </button>
@@ -486,7 +508,20 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
             <div className="text-xs text-[var(--text-secondary)]">
               当前：{episodes[currentEpIndex]?.title || `Episode ${currentEpIndex + 1}`}
             </div>
-            {isProcessing ? (
+            {currentEpisodeError ? (
+              <>
+                <div className="text-xs text-rose-200 bg-rose-900/30 p-2 rounded border border-rose-400/40">
+                  当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
+                </div>
+                <button
+                  onClick={onRetryEpisodeShots}
+                  className="w-full py-2 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-sm font-semibold transition"
+                  disabled={isProcessing}
+                >
+                  Retry 当前集
+                </button>
+              </>
+            ) : isProcessing ? (
               <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-900/30 p-2 rounded">
                 处理中...
               </div>

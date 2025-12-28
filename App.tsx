@@ -124,6 +124,7 @@ const App: React.FC = () => {
 
   const { state: wfState, setStep, setAnalysisStep, setCurrentEpIndex, setActiveTab, setProcessing, setStatus, setQueue, shiftQueue, resetWorkflow } = workflow;
   const { step, analysisStep, currentEpIndex, activeTab, isProcessing, processingStatus, analysisQueue, analysisTotal } = wfState;
+  const [analysisError, setAnalysisError] = useState<{ step: AnalysisSubStep; message: string } | null>(null);
 
   // Keep persisted uiState in sync with reducer core fields
   useEffect(() => {
@@ -135,6 +136,10 @@ const App: React.FC = () => {
           activeTab
       }));
   }, [step, analysisStep, currentEpIndex, activeTab, setUiState]);
+
+  useEffect(() => {
+      setAnalysisError(null);
+  }, [analysisStep]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about' | null>(null);
@@ -695,6 +700,7 @@ const App: React.FC = () => {
   // === PHASE 1: DEEP UNDERSTANDING WORKFLOW (Batched) ===
 
   const startAnalysis = () => {
+    setAnalysisError(null);
     setStep(WorkflowStep.SETUP_CONTEXT);
     setAnalysisStep(AnalysisSubStep.PROJECT_SUMMARY);
     processProjectSummary();
@@ -702,6 +708,7 @@ const App: React.FC = () => {
 
   // Step 1: Project Summary
   const processProjectSummary = async () => {
+    setAnalysisError(null);
     setProcessing(true, "Step 1/6: Analyzing Global Project Arc...");
     setActiveTab('assets');
     try {
@@ -715,15 +722,18 @@ const App: React.FC = () => {
         }));
         
         setProcessing(false);
+        setAnalysisError(null);
         updateStats('context', true);
     } catch (e: any) {
         setProcessing(false);
+        setAnalysisError({ step: AnalysisSubStep.PROJECT_SUMMARY, message: e.message || "Unknown error" });
         alert("Project summary failed: " + e.message);
         updateStats('context', false);
     }
   };
 
   const confirmSummaryAndNext = () => {
+      setAnalysisError(null);
       // Prepare batch for Episode Summaries
       const epQueue = projectData.episodes.map(ep => ep.id);
       setQueue(epQueue, epQueue.length);
@@ -745,6 +755,7 @@ const App: React.FC = () => {
           return;
       }
 
+    setAnalysisError(null);
     setProcessing(true, `Step 2/6: Analyzing Episode ${epId} (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
 
       try {
@@ -771,6 +782,7 @@ const App: React.FC = () => {
 
           shiftQueue();
           setProcessing(false);
+          setAnalysisError(null);
           updateStats('context', true);
       } catch (e: any) {
           setProcessing(false);
@@ -778,17 +790,22 @@ const App: React.FC = () => {
           if (ignore) {
              shiftQueue();
              updateStats('context', false);
+             setAnalysisError(null);
+          } else {
+             setAnalysisError({ step: AnalysisSubStep.EPISODE_SUMMARIES, message: e.message || "Unknown error" });
           }
       }
   };
 
   const confirmEpSummariesAndNext = () => {
+      setAnalysisError(null);
       setAnalysisStep(AnalysisSubStep.CHAR_IDENTIFICATION);
       processCharacterList();
   };
 
   // Step 3: Character List
   const processCharacterList = async () => {
+      setAnalysisError(null);
       setProcessing(true, "Step 3/6: Identifying Character Roster...");
       try {
           const result = await GeminiService.identifyCharacters(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
@@ -799,15 +816,18 @@ const App: React.FC = () => {
               phase1Usage: { ...prev.phase1Usage, charList: GeminiService.addUsage(prev.phase1Usage.charList, result.usage) }
           }));
           setProcessing(false);
+          setAnalysisError(null);
           updateStats('context', true);
       } catch (e: any) {
           setProcessing(false);
+          setAnalysisError({ step: AnalysisSubStep.CHAR_IDENTIFICATION, message: e.message || "Unknown error" });
           alert("Character list generation failed: " + e.message);
           updateStats('context', false);
       }
   };
 
   const confirmCharListAndNext = () => {
+      setAnalysisError(null);
       // Setup Queue for deep dive
       const mainChars = projectData.context.characters.filter(c => c.isMain).map(c => c.name);
       setQueue(mainChars, mainChars.length);
@@ -823,6 +843,7 @@ const App: React.FC = () => {
 
   const processNextCharacter = async () => {
       const charName = analysisQueue[0];
+      setAnalysisError(null);
       setProcessing(true, `Step 4/6: Deep Analysis for '${charName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
       
       try {
@@ -848,6 +869,7 @@ const App: React.FC = () => {
 
           shiftQueue();
           setProcessing(false);
+          setAnalysisError(null);
           updateStats('context', true);
 
       } catch (e: any) {
@@ -857,17 +879,22 @@ const App: React.FC = () => {
           if (ignore) {
              shiftQueue();
              updateStats('context', false);
+             setAnalysisError(null);
+          } else {
+             setAnalysisError({ step: AnalysisSubStep.CHAR_DEEP_DIVE, message: e.message || "Unknown error" });
           }
       }
   };
 
   const confirmCharDepthAndNext = () => {
+      setAnalysisError(null);
       setAnalysisStep(AnalysisSubStep.LOC_IDENTIFICATION);
       processLocationList();
   };
 
   // Step 5: Location List
   const processLocationList = async () => {
+      setAnalysisError(null);
       setProcessing(true, "Step 5/6: Mapping Locations...");
       try {
           const result = await GeminiService.identifyLocations(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
@@ -878,15 +905,18 @@ const App: React.FC = () => {
               phase1Usage: { ...prev.phase1Usage, locList: GeminiService.addUsage(prev.phase1Usage.locList, result.usage) }
           }));
           setProcessing(false);
+          setAnalysisError(null);
           updateStats('context', true);
       } catch (e: any) {
           setProcessing(false);
+          setAnalysisError({ step: AnalysisSubStep.LOC_IDENTIFICATION, message: e.message || "Unknown error" });
           alert("Location mapping failed: " + e.message);
           updateStats('context', false);
       }
   };
 
   const confirmLocListAndNext = () => {
+      setAnalysisError(null);
       const coreLocs = projectData.context.locations.filter(l => l.type === 'core').map(l => l.name);
       setQueue(coreLocs, coreLocs.length);
       setAnalysisStep(AnalysisSubStep.LOC_DEEP_DIVE);
@@ -901,6 +931,7 @@ const App: React.FC = () => {
 
   const processNextLocation = async () => {
       const locName = analysisQueue[0];
+      setAnalysisError(null);
       setProcessing(true, `Step 6/6: Visualizing '${locName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
       
       try {
@@ -925,6 +956,7 @@ const App: React.FC = () => {
 
           shiftQueue();
           setProcessing(false);
+          setAnalysisError(null);
           updateStats('context', true);
 
       } catch (e: any) {
@@ -933,17 +965,48 @@ const App: React.FC = () => {
           if (ignore) {
              shiftQueue();
              updateStats('context', false);
+             setAnalysisError(null);
+          } else {
+             setAnalysisError({ step: AnalysisSubStep.LOC_DEEP_DIVE, message: e.message || "Unknown error" });
           }
       }
   };
 
   const finishAnalysis = () => {
+      setAnalysisError(null);
       setAnalysisStep(AnalysisSubStep.COMPLETE);
       alert("Phase 1 Complete! Context is fully established.");
   };
 
+  const retryAnalysisStep = () => {
+      if (isProcessing) return;
+      setAnalysisError(null);
+      switch (analysisStep) {
+        case AnalysisSubStep.PROJECT_SUMMARY:
+          processProjectSummary();
+          break;
+        case AnalysisSubStep.EPISODE_SUMMARIES:
+          if (analysisQueue.length > 0) processNextEpisodeSummary();
+          break;
+        case AnalysisSubStep.CHAR_IDENTIFICATION:
+          processCharacterList();
+          break;
+        case AnalysisSubStep.CHAR_DEEP_DIVE:
+          if (analysisQueue.length > 0) processNextCharacter();
+          break;
+        case AnalysisSubStep.LOC_IDENTIFICATION:
+          processLocationList();
+          break;
+        case AnalysisSubStep.LOC_DEEP_DIVE:
+          if (analysisQueue.length > 0) processNextLocation();
+          break;
+        default:
+          break;
+      }
+  };
+
   // === PHASE 2 & 3 Hooks ===
-  const { startPhase2, confirmEpisodeShots } = useShotGeneration({
+  const { startPhase2, confirmEpisodeShots, retryCurrentEpisodeShots } = useShotGeneration({
       projectDataRef,
       setProjectData,
       config,
@@ -1267,6 +1330,7 @@ const App: React.FC = () => {
         analysisQueueLength: analysisQueue.length,
         analysisTotal,
         isProcessing,
+        analysisError,
         currentEpIndex,
         episodes: projectData.episodes,
         setCurrentEpIndex,
@@ -1277,8 +1341,10 @@ const App: React.FC = () => {
         onConfirmCharDepthNext: confirmCharDepthAndNext,
         onConfirmLocListNext: confirmLocListAndNext,
         onFinishAnalysis: finishAnalysis,
+        onRetryAnalysis: retryAnalysisStep,
         onStartPhase2: startPhase2,
         onConfirmEpisodeShots: confirmEpisodeShots,
+        onRetryEpisodeShots: retryCurrentEpisodeShots,
         onStartPhase3: startPhase3,
         onRetryEpisodeSora: retryCurrentEpisodeSora,
         onContinueNextEpisodeSora: continueNextEpisodeSora,

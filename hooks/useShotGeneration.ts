@@ -156,6 +156,7 @@ export const useShotGeneration = ({
 
   return {
     startPhase2,
-    confirmEpisodeShots
+    confirmEpisodeShots,
+    retryCurrentEpisodeShots: () => generateCurrentEpisodeShots(currentEpIndex)
   };
 };
