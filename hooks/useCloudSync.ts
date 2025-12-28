@@ -5,7 +5,6 @@ import { validateProjectData } from "../utils/validation";
 import { computeProjectDelta, isDeltaEmpty, ProjectDelta } from "../utils/delta";
 import { normalizeProjectData } from "../utils/projectData";
 import { getDeviceId } from "../utils/device";
-import { mergeProjectData } from "../utils/merge";
 import { buildApiUrl } from "../utils/api";
 
 type UseCloudSyncOptions = {
@@ -27,6 +26,49 @@ type UseCloudSyncOptions = {
 };
 
 const defaultConflictConfirm = async () => true;
+
+type ProjectFingerprint = {
+  hash: string;
+  length: number;
+};
+
+type SyncBaseline = ProjectFingerprint & {
+  updatedAt?: number;
+};
+
+const hashString = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+};
+
+const fingerprintProjectData = (data: ProjectData): ProjectFingerprint => {
+  try {
+    const serialized = JSON.stringify(data, dropFileReplacer) || "";
+    return { hash: hashString(serialized), length: serialized.length };
+  } catch {
+    return { hash: "0", length: 0 };
+  }
+};
+
+const isFingerprintEqual = (left: ProjectFingerprint, right: ProjectFingerprint) =>
+  left.hash === right.hash && left.length === right.length;
+
+const parseBaseline = (raw: string): SyncBaseline | null => {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const hash = typeof parsed.hash === "string" ? parsed.hash : "";
+    const length = typeof parsed.length === "number" ? parsed.length : NaN;
+    if (!hash || !Number.isFinite(length)) return null;
+    const updatedAt = typeof parsed.updatedAt === "number" ? parsed.updatedAt : undefined;
+    return { hash, length, updatedAt };
+  } catch {
+    return null;
+  }
+};
 
 export const useCloudSync = ({
   isSignedIn,
@@ -59,13 +101,13 @@ export const useCloudSync = ({
   const lastRefreshKeyRef = useRef<number | null>(null);
   const syncBlockedRef = useRef<string | null>(null);
   const lastSyncedRef = useRef<ProjectData | null>(null);
+  const baselineRef = useRef<SyncBaseline | null>(null);
   const statusRef = useRef<SyncStatus>('idle');
   const deviceIdRef = useRef<string>(getDeviceId());
   const isLoadingRef = useRef(false);
   const onErrorRef = useRef(onError);
   const onStatusChangeRef = useRef(onStatusChange);
   const onConflictConfirmRef = useRef(onConflictConfirm);
-  const onConflictNoticeRef = useRef(onConflictNotice);
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -79,50 +121,66 @@ export const useCloudSync = ({
     onConflictConfirmRef.current = onConflictConfirm;
   }, [onConflictConfirm]);
 
-  useEffect(() => {
-    onConflictNoticeRef.current = onConflictNotice;
-  }, [onConflictNotice]);
+  const baselineKey = `${localBackupKey}_last_synced`;
+
+  const readBaseline = () => {
+    if (baselineRef.current) return baselineRef.current;
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(baselineKey);
+      if (!raw) return null;
+      const parsed = parseBaseline(raw);
+      if (parsed) baselineRef.current = parsed;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const storeBaseline = (data: ProjectData, updatedAt?: number) => {
+    const baseline: SyncBaseline = {
+      ...fingerprintProjectData(data),
+      ...(typeof updatedAt === "number" ? { updatedAt } : {})
+    };
+    baselineRef.current = baseline;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(baselineKey, JSON.stringify(baseline));
+    } catch {
+      // Ignore storage failures.
+    }
+  };
+
+  const getBaseline = () => {
+    const stored = readBaseline();
+    if (stored) return stored;
+    if (!lastSyncedRef.current) return null;
+    const fallback: SyncBaseline = {
+      ...fingerprintProjectData(lastSyncedRef.current),
+      ...(typeof remoteUpdatedAtRef.current === "number" ? { updatedAt: remoteUpdatedAtRef.current } : {})
+    };
+    baselineRef.current = fallback;
+    return fallback;
+  };
+
+  const isChangedFromBaseline = (fingerprint: ProjectFingerprint, baseline: SyncBaseline) =>
+    !isFingerprintEqual(fingerprint, baseline);
+
+  const isRemoteChangedFromBaseline = (
+    remoteFingerprint: ProjectFingerprint,
+    updatedAt: number | null | undefined,
+    baseline: SyncBaseline
+  ) => {
+    if (typeof updatedAt === "number" && typeof baseline.updatedAt === "number") {
+      return updatedAt !== baseline.updatedAt;
+    }
+    return isChangedFromBaseline(remoteFingerprint, baseline);
+  };
 
   const emitStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
     statusRef.current = status;
     onStatusChangeRef.current?.(status, detail);
   }, []);
-
-  const tryAutoMerge = (remote: ProjectData, local: ProjectData, updatedAt?: number, resetSaving = false) => {
-    const result = mergeProjectData(remote, local);
-    const conflictNotice = onConflictNoticeRef.current;
-    if (result.conflicts.length > 0 && !conflictNotice) {
-      return false;
-    }
-    const validation = validateProjectData(result.merged);
-    const mergedData = validation.ok ? result.merged : remote;
-    backupData(localBackupKey, local);
-    backupData(remoteBackupKey, remote);
-    projectDataRef.current = mergedData;
-    setProjectData(mergedData);
-    lastSyncedRef.current = remote;
-    remoteHasDataRef.current = !isProjectEmpty(mergedData);
-    if (typeof updatedAt === "number") {
-      remoteUpdatedAtRef.current = updatedAt;
-    }
-    if (resetSaving) {
-      isSavingRef.current = false;
-    }
-    const delta = computeProjectDelta(mergedData, remote);
-    if (isDeltaEmpty(delta)) {
-      pendingOpRef.current = null;
-      emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: 0, retryCount: saveRetryCountRef.current });
-      if (result.conflicts.length > 0) {
-        conflictNotice?.({ remote, local, merged: mergedData, conflicts: result.conflicts });
-      }
-      return true;
-    }
-    enqueueSave(mergedData, remoteUpdatedAtRef.current ?? 0);
-    if (result.conflicts.length > 0) {
-      conflictNotice?.({ remote, local, merged: mergedData, conflicts: result.conflicts });
-    }
-    return true;
-  };
 
   useEffect(() => {
     projectDataRef.current = projectData;
@@ -171,14 +229,6 @@ export const useCloudSync = ({
         if (remotePayload) {
           const normalized = normalizeProjectData(remotePayload);
           const local = projectDataRef.current;
-          const baseVersion = typeof data?.updatedAt === "number" ? data.updatedAt : (remoteUpdatedAtRef.current ?? 0);
-          if (tryAutoMerge(normalized, local, baseVersion, true)) {
-            if (pendingOpRef.current?.id === op.id) pendingOpRef.current = null;
-            if (pendingOpRef.current) {
-              emitStatus('syncing', { pendingOps: 1, retryCount: saveRetryCountRef.current, lastAttemptAt: attemptAt });
-            }
-            return;
-          }
           const useRemote = await Promise.resolve(onConflictConfirmRef.current({ remote: normalized, local }));
           if (useRemote) {
             backupData(localBackupKey, local);
@@ -189,12 +239,16 @@ export const useCloudSync = ({
             if (typeof data?.updatedAt === "number") {
               remoteUpdatedAtRef.current = data.updatedAt;
             }
+            lastSyncedRef.current = normalized;
+            storeBaseline(normalized, remoteUpdatedAtRef.current ?? undefined);
             emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current });
           } else {
             backupData(remoteBackupKey, normalized);
             if (typeof data?.updatedAt === "number") {
               remoteUpdatedAtRef.current = data.updatedAt;
             }
+            lastSyncedRef.current = normalized;
+            storeBaseline(normalized, remoteUpdatedAtRef.current ?? undefined);
             pendingOpRef.current = {
               id: createOpId(),
               data: local,
@@ -223,6 +277,7 @@ export const useCloudSync = ({
       }
       remoteHasDataRef.current = !isProjectEmpty(op.data);
       lastSyncedRef.current = op.data;
+      storeBaseline(op.data, remoteUpdatedAtRef.current ?? undefined);
       if (pendingOpRef.current?.id === op.id) pendingOpRef.current = null;
       saveRetryCountRef.current = 0;
       emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: saveRetryCountRef.current });
@@ -397,30 +452,50 @@ export const useCloudSync = ({
           remoteHasDataRef.current = remoteHas;
 
           if (remoteHas && localHas) {
-            emitStatus('conflict', { pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
             const baseVersion = typeof data.updatedAt === "number" ? data.updatedAt : (remoteUpdatedAtRef.current ?? 0);
-            if (tryAutoMerge(remote, local, baseVersion)) {
-              retryCountRef.current = 0;
-              if (pendingOpRef.current) {
-                emitStatus('syncing', { pendingOps: 1, retryCount: retryCountRef.current });
-              }
+            const localFingerprint = fingerprintProjectData(local);
+            const remoteFingerprint = fingerprintProjectData(remote);
+
+            if (isFingerprintEqual(localFingerprint, remoteFingerprint)) {
+              lastSyncedRef.current = remote;
+              storeBaseline(remote, baseVersion);
+              emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
               if (!cancelled) setHasLoadedRemote(true);
               return;
             }
+
+            const baseline = getBaseline();
+            const localChanged = baseline ? isChangedFromBaseline(localFingerprint, baseline) : null;
+            const remoteChanged = baseline ? isRemoteChangedFromBaseline(remoteFingerprint, baseVersion, baseline) : null;
+
+            if (remoteChanged === false && localChanged === true) {
+              backupData(remoteBackupKey, remote);
+              lastSyncedRef.current = remote;
+              storeBaseline(remote, baseVersion);
+              await saveNow(local, baseVersion);
+              retryCountRef.current = 0;
+              if (!cancelled) setHasLoadedRemote(true);
+              return;
+            }
+
+            emitStatus('conflict', { pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
             const useRemote = await Promise.resolve(onConflictConfirmRef.current({ remote, local }));
             if (useRemote) {
               backupData(localBackupKey, local);
               setProjectData(remote);
               lastSyncedRef.current = remote;
+              storeBaseline(remote, baseVersion);
               emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
             } else {
               backupData(remoteBackupKey, remote);
-              remoteUpdatedAtRef.current = data.updatedAt ?? remoteUpdatedAtRef.current;
-              await saveNow(local, data.updatedAt ?? remoteUpdatedAtRef.current);
+              lastSyncedRef.current = remote;
+              remoteUpdatedAtRef.current = baseVersion;
+              await saveNow(local, baseVersion);
             }
           } else if (remoteHas) {
             setProjectData(remote);
             lastSyncedRef.current = remote;
+            storeBaseline(remote, remoteUpdatedAtRef.current ?? undefined);
             emitStatus('synced', { lastSyncAt: remoteUpdatedAtRef.current ?? undefined, pendingOps: pendingOpRef.current ? 1 : 0, retryCount: retryCountRef.current });
           }
         }

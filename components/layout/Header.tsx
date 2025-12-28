@@ -287,18 +287,317 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
     onContinueNextEpisodeSora,
   } = workflow;
 
+  const [isExpanded, setIsExpanded] = useState(true);
   const hasAnalysisError = analysisError?.step === analysisStep;
   const currentEpisode = episodes[currentEpIndex];
   const currentEpisodeError = currentEpisode?.status === "error";
+  const totalEpisodes = episodes.length;
 
   const completedSora = useMemo(
     () => episodes.filter(isEpisodeSoraComplete).length,
     [episodes]
   );
+  const completedShots = useMemo(
+    () => episodes.filter((ep) => ep.shots.length > 0).length,
+    [episodes]
+  );
+  const reviewShots = useMemo(
+    () => episodes.filter((ep) => ep.status === "review_shots").length,
+    [episodes]
+  );
+  const phase2Errors = useMemo(
+    () => episodes.filter((ep) => ep.status === "error" && ep.shots.length === 0).length,
+    [episodes]
+  );
+  const phase3Errors = useMemo(
+    () => episodes.filter((ep) => ep.status === "error" && !isEpisodeSoraComplete(ep)).length,
+    [episodes]
+  );
+
+  const analysisItems = [
+    { step: AnalysisSubStep.PROJECT_SUMMARY, label: "项目概览" },
+    { step: AnalysisSubStep.EPISODE_SUMMARIES, label: "分集摘要" },
+    { step: AnalysisSubStep.CHAR_IDENTIFICATION, label: "角色清单" },
+    { step: AnalysisSubStep.CHAR_DEEP_DIVE, label: "角色深描" },
+    { step: AnalysisSubStep.LOC_IDENTIFICATION, label: "场景清单" },
+    { step: AnalysisSubStep.LOC_DEEP_DIVE, label: "场景深描" },
+  ];
+
+  const analysisIndex = analysisItems.findIndex((item) => item.step === analysisStep);
+  const phase1Progress =
+    analysisStep === AnalysisSubStep.COMPLETE
+      ? "6/6"
+      : analysisStep === AnalysisSubStep.IDLE
+      ? "0/6"
+      : analysisProgressLabel(analysisStep);
+  const queueProgress =
+    analysisTotal > 0 ? `${analysisTotal - analysisQueueLength}/${analysisTotal}` : null;
+
+  type ItemStatus = "done" | "active" | "pending" | "error" | "ready";
+  type PhaseStatus = "done" | "active" | "pending" | "error" | "partial";
+  type ActionTone = "primary" | "secondary" | "ghost";
+  type ActionButton = { label: string; onClick: () => void; disabled?: boolean; tone: ActionTone };
+
+  const itemTone = (status: ItemStatus) => {
+    switch (status) {
+      case "done":
+        return { dot: "bg-emerald-400", text: "已完成", tag: "text-emerald-200" };
+      case "active":
+        return { dot: "bg-sky-400", text: "进行中", tag: "text-sky-200" };
+      case "ready":
+        return { dot: "bg-amber-400", text: "待确认", tag: "text-amber-200" };
+      case "error":
+        return { dot: "bg-rose-400", text: "失败", tag: "text-rose-200" };
+      default:
+        return { dot: "bg-slate-400", text: "待开始", tag: "text-[var(--text-secondary)]" };
+    }
+  };
+
+  const itemRowClass = (status: ItemStatus) => {
+    switch (status) {
+      case "active":
+        return "border-sky-400/40 bg-sky-900/10";
+      case "ready":
+        return "border-amber-400/40 bg-amber-900/10";
+      case "error":
+        return "border-rose-400/40 bg-rose-900/10";
+      case "done":
+        return "border-emerald-400/20 bg-emerald-900/10";
+      default:
+        return "border-[var(--border-subtle)] bg-black/5";
+    }
+  };
+
+  const phaseTone = (status: PhaseStatus) => {
+    switch (status) {
+      case "done":
+        return { dot: "bg-emerald-400", text: "已完成", tag: "text-emerald-200" };
+      case "active":
+        return { dot: "bg-sky-400", text: "进行中", tag: "text-sky-200" };
+      case "partial":
+        return { dot: "bg-amber-400", text: "进行中", tag: "text-amber-200" };
+      case "error":
+        return { dot: "bg-rose-400", text: "有错误", tag: "text-rose-200" };
+      default:
+        return { dot: "bg-slate-400", text: "未开始", tag: "text-[var(--text-secondary)]" };
+    }
+  };
+
+  const analysisStepLabel = (target: AnalysisSubStep) =>
+    analysisItems.find((item) => item.step === target)?.label || "";
+
+  const getAnalysisItemStatus = (target: AnalysisSubStep, index: number): ItemStatus => {
+    if (analysisError?.step === target) return "error";
+    if (analysisStep === AnalysisSubStep.COMPLETE) return "done";
+    if (analysisStep === AnalysisSubStep.IDLE || analysisIndex === -1) return "pending";
+    if (index < analysisIndex) return "done";
+    if (index > analysisIndex) return "pending";
+    if (isProcessing || analysisQueueLength > 0) return "active";
+    return "ready";
+  };
+
+  const getAnalysisItemMeta = (target: AnalysisSubStep) => {
+    if (target === AnalysisSubStep.EPISODE_SUMMARIES) {
+      if (analysisStep === target && queueProgress) return queueProgress;
+      if (totalEpisodes > 0) return `${totalEpisodes} 集`;
+    }
+    if (
+      (target === AnalysisSubStep.CHAR_DEEP_DIVE || target === AnalysisSubStep.LOC_DEEP_DIVE) &&
+      analysisStep === target &&
+      queueProgress
+    ) {
+      return queueProgress;
+    }
+    return undefined;
+  };
+
+  const getPhase2ItemStatus = (episode: Episode, index: number): ItemStatus => {
+    if (episode.status === "error") return "error";
+    if (episode.status === "review_shots") return "ready";
+    if (episode.status === "confirmed_shots" || episode.status === "completed") return "done";
+    if (step === WorkflowStep.GENERATE_SHOTS && index === currentEpIndex) return "active";
+    if (episode.shots.length > 0) return "ready";
+    return "pending";
+  };
+
+  const getPhase3ItemStatus = (episode: Episode, index: number): ItemStatus => {
+    if (episode.status === "error") return "error";
+    if (isEpisodeSoraComplete(episode)) return "done";
+    if (step === WorkflowStep.GENERATE_SORA && index === currentEpIndex) return "active";
+    return "pending";
+  };
+
+  const phase1Status: PhaseStatus = analysisError
+    ? "error"
+    : analysisStep === AnalysisSubStep.COMPLETE
+    ? "done"
+    : analysisStep === AnalysisSubStep.IDLE
+    ? "pending"
+    : "active";
+
+  const phase2Status: PhaseStatus =
+    totalEpisodes === 0
+      ? "pending"
+      : phase2Errors > 0
+      ? "error"
+      : completedShots === totalEpisodes
+      ? "done"
+      : step === WorkflowStep.GENERATE_SHOTS || completedShots > 0 || reviewShots > 0
+      ? "partial"
+      : "pending";
+
+  const phase3Status: PhaseStatus =
+    totalEpisodes === 0
+      ? "pending"
+      : phase3Errors > 0
+      ? "error"
+      : completedSora === totalEpisodes
+      ? "done"
+      : step === WorkflowStep.GENERATE_SORA || completedSora > 0
+      ? "partial"
+      : "pending";
+
+  const phase2Progress = totalEpisodes ? `${completedShots}/${totalEpisodes}` : "0/0";
+  const phase3Progress = totalEpisodes ? `${completedSora}/${totalEpisodes}` : "0/0";
+
+  const analysisConfirmHandlers: Partial<Record<AnalysisSubStep, () => void>> = {
+    [AnalysisSubStep.PROJECT_SUMMARY]: onConfirmSummaryNext,
+    [AnalysisSubStep.EPISODE_SUMMARIES]: onConfirmEpSummariesNext,
+    [AnalysisSubStep.CHAR_IDENTIFICATION]: onConfirmCharListNext,
+    [AnalysisSubStep.CHAR_DEEP_DIVE]: onConfirmCharDepthNext,
+    [AnalysisSubStep.LOC_IDENTIFICATION]: onConfirmLocListNext,
+    [AnalysisSubStep.LOC_DEEP_DIVE]: onFinishAnalysis,
+  };
+
+  const usesQueue =
+    analysisStep === AnalysisSubStep.EPISODE_SUMMARIES ||
+    analysisStep === AnalysisSubStep.CHAR_DEEP_DIVE ||
+    analysisStep === AnalysisSubStep.LOC_DEEP_DIVE;
+  const confirmDisabled = isProcessing || hasAnalysisError || (usesQueue && analysisQueueLength > 0);
+
+  const actionButtons: ActionButton[] = [];
+
+  if (step === WorkflowStep.IDLE) {
+    if (analysisStep === AnalysisSubStep.COMPLETE) {
+      actionButtons.push({
+        label: "开始 Phase 2",
+        onClick: onStartPhase2,
+        disabled: isProcessing,
+        tone: "primary",
+      });
+    } else if (totalEpisodes > 0) {
+      actionButtons.push({
+        label: "开始 Phase 1",
+        onClick: onStartAnalysis,
+        disabled: isProcessing,
+        tone: "primary",
+      });
+    }
+  } else if (step === WorkflowStep.SETUP_CONTEXT) {
+    if (analysisStep === AnalysisSubStep.COMPLETE) {
+      actionButtons.push({
+        label: "开始 Phase 2",
+        onClick: onStartPhase2,
+        disabled: isProcessing,
+        tone: "primary",
+      });
+    } else {
+      const confirmHandler = analysisConfirmHandlers[analysisStep];
+      if (confirmHandler) {
+        actionButtons.push({
+          label: analysisStep === AnalysisSubStep.LOC_DEEP_DIVE ? "完成 Phase 1" : "确认并继续",
+          onClick: confirmHandler,
+          disabled: confirmDisabled,
+          tone: "primary",
+        });
+      }
+      actionButtons.push({
+        label: "重试当前步骤",
+        onClick: onRetryAnalysis,
+        disabled: isProcessing,
+        tone: "secondary",
+      });
+    }
+  } else if (step === WorkflowStep.GENERATE_SHOTS) {
+    if (currentEpisode) {
+      if (currentEpisode.status === "review_shots" && !currentEpisodeError) {
+        actionButtons.push({
+          label: "确认并下一集",
+          onClick: onConfirmEpisodeShots,
+          disabled: isProcessing,
+          tone: "primary",
+        });
+      } else {
+        actionButtons.push({
+          label: currentEpisodeError ? "重试当前集" : "生成/继续当前集",
+          onClick: onRetryEpisodeShots,
+          disabled: isProcessing,
+          tone: "primary",
+        });
+      }
+      if (!currentEpisodeError) {
+        actionButtons.push({
+          label: "重试当前集",
+          onClick: onRetryEpisodeShots,
+          disabled: isProcessing,
+          tone: "secondary",
+        });
+      }
+    }
+  } else if (step === WorkflowStep.GENERATE_SORA) {
+    actionButtons.push({
+      label: "生成/继续当前集",
+      onClick: onStartPhase3,
+      disabled: isProcessing,
+      tone: "primary",
+    });
+    actionButtons.push({
+      label: "继续下一集",
+      onClick: onContinueNextEpisodeSora,
+      disabled: isProcessing,
+      tone: "ghost",
+    });
+    actionButtons.push({
+      label: "重试当前集",
+      onClick: onRetryEpisodeSora,
+      disabled: isProcessing,
+      tone: "secondary",
+    });
+  }
+
+  const focusLabel = (() => {
+    if (step === WorkflowStep.SETUP_CONTEXT) {
+      if (analysisStep === AnalysisSubStep.COMPLETE) return "Phase 1 完成，待开始 Phase 2";
+      const label = analysisStepLabel(analysisStep);
+      return `Phase 1 · ${label || "未开始"}`;
+    }
+    if (step === WorkflowStep.GENERATE_SHOTS) {
+      if (!currentEpisode) return "Phase 2 · 暂无剧集";
+      return `Phase 2 · ${currentEpisode.title || `第${currentEpisode.id}集`}`;
+    }
+    if (step === WorkflowStep.GENERATE_SORA) {
+      if (!currentEpisode) return "Phase 3 · 暂无剧集";
+      return `Phase 3 · ${currentEpisode.title || `第${currentEpisode.id}集`}`;
+    }
+    if (step === WorkflowStep.COMPLETED) return "流程完成";
+    if (analysisStep === AnalysisSubStep.COMPLETE) return "Phase 1 完成，待开始 Phase 2";
+    return "等待开始";
+  })();
+
+  const actionButtonClass = (tone: ActionTone) => {
+    switch (tone) {
+      case "primary":
+        return "bg-[var(--accent-blue)] text-white hover:bg-sky-500";
+      case "secondary":
+        return "border border-[var(--border-subtle)] hover:border-sky-400 hover:text-sky-200";
+      default:
+        return "border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 text-[var(--text-secondary)] hover:text-[var(--text-primary)]";
+    }
+  };
 
   return (
     <div
-      className="w-[360px] rounded-2xl border text-[var(--text-primary)] overflow-hidden"
+      className="w-[420px] max-w-[calc(100vw-24px)] rounded-2xl border text-[var(--text-primary)] overflow-hidden"
       style={{
         borderColor: "var(--border-subtle)",
         background: "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
@@ -309,298 +608,195 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
       }}
     >
       <div
-        className="px-4 py-3 border-b flex items-center gap-2 text-xs uppercase tracking-wide text-[var(--text-secondary)]"
+        className="px-4 py-3 border-b flex items-center justify-between text-xs uppercase tracking-wide text-[var(--text-secondary)]"
         style={{ borderColor: "var(--border-subtle)" }}
       >
-        <Layers size={14} /> Workflow Actions
+        <div className="flex items-center gap-2">
+          <Layers size={14} /> Workflow
+        </div>
+        <button
+          onClick={() => setIsExpanded((v) => !v)}
+          className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+        >
+          {isExpanded ? "收起详情" : "展开详情"}
+          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
       </div>
-      <div className="p-4 space-y-3">
-        {step === WorkflowStep.IDLE && episodes.length > 0 && (
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-2">
-            <div className="text-sm font-semibold">Phase 1 · 剧本理解</div>
-            <div className="text-xs text-[var(--text-secondary)]">
-              自动进行剧情梳理、角色/场景总结。
+      <div className="p-4 space-y-4">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase1Status).dot}`} />
+              <div className="text-sm font-semibold">Phase 1 · 剧本理解</div>
+              <span className="text-[11px] text-[var(--text-secondary)]">{phase1Progress}</span>
             </div>
-            <button
-              onClick={onStartAnalysis}
-              className="w-full mt-2 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition"
-            >
-              开始分析
-            </button>
+            <span className={`text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
           </div>
-        )}
-
-        {step === WorkflowStep.SETUP_CONTEXT && (
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-white/5 p-3 space-y-3">
-            <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-              <span>Phase 1 · 进度</span>
-              <span className="px-2 py-0.5 rounded-full bg-white/5 text-[11px]">
-                {analysisProgressLabel(analysisStep)}
-              </span>
-            </div>
-            {hasAnalysisError && (
-              <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-xs text-rose-200 space-y-2">
-                <div>执行失败：{analysisError?.message}</div>
-                <button
-                  onClick={onRetryAnalysis}
-                  className="w-full py-2 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-[11px] font-semibold transition"
-                  disabled={isProcessing}
-                >
-                  重试当前步骤
-                </button>
-              </div>
-            )}
-            {analysisStep === AnalysisSubStep.PROJECT_SUMMARY && (
-              <>
-                <div className="text-sm font-medium">概览项目剧情...</div>
-                <button
-                  onClick={onConfirmSummaryNext}
-                  className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
-                >
-                  确认并继续
-                </button>
-              </>
-            )}
-
-            {analysisStep === AnalysisSubStep.EPISODE_SUMMARIES && (
-              <>
-                <div className="text-sm font-medium">
-                  总结 {analysisTotal} 集...
-                </div>
-                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-[var(--border-subtle)]/50">
+          {isExpanded && (
+            <div className="space-y-2 pl-3 border-l border-[var(--border-subtle)]/60">
+              {analysisItems.map((item, index) => {
+                const status = getAnalysisItemStatus(item.step, index);
+                const meta = getAnalysisItemMeta(item.step);
+                const tone = itemTone(status);
+                return (
                   <div
-                    className="bg-blue-500 h-full transition-all"
-                    style={{
-                      width: `${
-                        analysisTotal
-                          ? ((analysisTotal - analysisQueueLength) /
-                              analysisTotal) *
-                            100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={onConfirmEpSummariesNext}
-                  className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
-                >
-                  确认并继续
-                </button>
-              </>
-            )}
-
-            {analysisStep === AnalysisSubStep.CHAR_IDENTIFICATION && (
-              <>
-                <div className="text-sm font-medium">识别角色列表...</div>
-                <button
-                  onClick={onConfirmCharListNext}
-                  className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
-                >
-                  确认并继续
-                </button>
-              </>
-            )}
-
-            {analysisStep === AnalysisSubStep.CHAR_DEEP_DIVE && (
-              <>
-                <div className="text-sm font-medium">深描主要角色...</div>
-                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-[var(--border-subtle)]/50">
-                  <div
-                    className="bg-purple-500 h-full transition-all"
-                    style={{
-                      width: `${
-                        analysisTotal
-                          ? ((analysisTotal - analysisQueueLength) /
-                              analysisTotal) *
-                            100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={onConfirmCharDepthNext}
-                  className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
-                >
-                  确认并继续
-                </button>
-              </>
-            )}
-
-            {analysisStep === AnalysisSubStep.LOC_IDENTIFICATION && (
-              <>
-                <div className="text-sm font-medium">定位场景...</div>
-                <button
-                  onClick={onConfirmLocListNext}
-                  className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
-                >
-                  确认并继续
-                </button>
-              </>
-            )}
-
-            {analysisStep === AnalysisSubStep.LOC_DEEP_DIVE && (
-              <>
-                <div className="text-sm font-medium">深化场景刻画...</div>
-                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-[var(--border-subtle)]/50">
-                  <div
-                    className="bg-orange-500 h-full transition-all"
-                    style={{
-                      width: `${
-                        analysisTotal
-                          ? ((analysisTotal - analysisQueueLength) /
-                              analysisTotal) *
-                            100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={onFinishAnalysis}
-                  className="w-full py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-sm font-semibold transition"
-                  disabled={analysisQueueLength > 0 || isProcessing || hasAnalysisError}
-                >
-                  完成 Phase 1
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {analysisStep === AnalysisSubStep.COMPLETE && step === WorkflowStep.SETUP_CONTEXT && (
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-2">
-            <div className="text-sm font-semibold">Phase 2 · Shot Lists</div>
-            <div className="text-xs text-[var(--text-secondary)]">基于理解生成镜头表。</div>
-            <button
-              onClick={onStartPhase2}
-              className="w-full mt-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition"
-            >
-              开始镜头生成
-            </button>
-          </div>
-        )}
-
-        {step === WorkflowStep.GENERATE_SHOTS && (
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
-            <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-              <span>Phase 2 · 进度</span>
-              <span>
-                {currentEpIndex + 1} / {episodes.length || 1}
-              </span>
+                    key={item.step}
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${itemRowClass(status)}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
+                      <div className="truncate font-medium">{item.label}</div>
+                      {meta && <span className="text-[10px] text-[var(--text-secondary)]">{meta}</span>}
+                    </div>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-500 h-full transition-all"
-                style={{
-                  width: `${
-                    episodes.length ? (currentEpIndex / episodes.length) * 100 : 0
-                  }%`,
-                }}
-              />
+          )}
+          {analysisError && (
+            <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-[11px] text-rose-200">
+              当前步骤失败：{analysisError.message}
             </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase2Status).dot}`} />
+              <div className="text-sm font-semibold">Phase 2 · Shot Lists</div>
+              <span className="text-[11px] text-[var(--text-secondary)]">{phase2Progress}</span>
+              {reviewShots > 0 && (
+                <span className="text-[10px] text-amber-200">待确认 {reviewShots}</span>
+              )}
+            </div>
+            <span className={`text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
+          </div>
+          {isExpanded && (
+            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60">
+              {episodes.length === 0 && (
+                <div className="text-xs text-[var(--text-secondary)] px-2 py-2">
+                  暂无剧集，导入脚本后可生成。
+                </div>
+              )}
+              {episodes.map((episode, index) => {
+                const status = getPhase2ItemStatus(episode, index);
+                const tone = itemTone(status);
+                const meta =
+                  status === "error"
+                    ? episode.errorMsg || "生成失败"
+                    : episode.shots.length > 0
+                    ? `镜头 ${episode.shots.length}`
+                    : "未生成镜头";
+                return (
+                  <button
+                    key={episode.id}
+                    onClick={() => setCurrentEpIndex(index)}
+                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
+                      <div className="truncate font-medium">
+                        {episode.title || `第${episode.id}集`}
+                      </div>
+                      <span className="text-[10px] text-[var(--text-secondary)] truncate max-w-[120px]">
+                        {meta}
+                      </span>
+                    </div>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {currentEpisodeError && step === WorkflowStep.GENERATE_SHOTS && (
+            <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-[11px] text-rose-200">
+              当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase3Status).dot}`} />
+              <div className="text-sm font-semibold">Phase 3 · Sora Prompts</div>
+              <span className="text-[11px] text-[var(--text-secondary)]">{phase3Progress}</span>
+            </div>
+            <span className={`text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
+          </div>
+          {isExpanded && (
+            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60">
+              {episodes.length === 0 && (
+                <div className="text-xs text-[var(--text-secondary)] px-2 py-2">
+                  暂无剧集，先完成 Phase 2。
+                </div>
+              )}
+              {episodes.map((episode, index) => {
+                const status = getPhase3ItemStatus(episode, index);
+                const tone = itemTone(status);
+                const meta =
+                  status === "error"
+                    ? episode.errorMsg || "生成失败"
+                    : episode.shots.length === 0
+                    ? "未生成镜头"
+                    : `镜头 ${episode.shots.length}`;
+                return (
+                  <button
+                    key={episode.id}
+                    onClick={() => setCurrentEpIndex(index)}
+                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
+                      <div className="truncate font-medium">
+                        {episode.title || `第${episode.id}集`}
+                      </div>
+                      <span className="text-[10px] text-[var(--text-secondary)] truncate max-w-[120px]">
+                        {meta}
+                      </span>
+                    </div>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {currentEpisodeError && step === WorkflowStep.GENERATE_SORA && (
+            <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-[11px] text-rose-200">
+              当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-2">
+          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+            <span>当前：{focusLabel}</span>
+            <span className={isProcessing ? "text-sky-200" : ""}>{isProcessing ? "处理中..." : "就绪"}</span>
+          </div>
+          {actionButtons.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {actionButtons.map((action) => (
+                <button
+                  key={action.label}
+                  onClick={action.onClick}
+                  disabled={action.disabled}
+                  className={`flex-1 min-w-[110px] px-3 py-2 rounded-lg text-xs font-semibold transition ${actionButtonClass(action.tone)} disabled:opacity-60 disabled:cursor-not-allowed`}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          ) : (
             <div className="text-xs text-[var(--text-secondary)]">
-              当前：{episodes[currentEpIndex]?.title || `Episode ${currentEpIndex + 1}`}
+              {step === WorkflowStep.COMPLETED
+                ? "流程已完成，可前往 Video Studio 或导出结果。"
+                : totalEpisodes === 0
+                ? "暂无剧集，导入脚本后可开始。"
+                : "暂无可执行操作。"}
             </div>
-            {currentEpisodeError ? (
-              <>
-                <div className="text-xs text-rose-200 bg-rose-900/30 p-2 rounded border border-rose-400/40">
-                  当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
-                </div>
-                <button
-                  onClick={onRetryEpisodeShots}
-                  className="w-full py-2 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-sm font-semibold transition"
-                  disabled={isProcessing}
-                >
-                  Retry 当前集
-                </button>
-              </>
-            ) : isProcessing ? (
-              <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-900/30 p-2 rounded">
-                处理中...
-              </div>
-            ) : (
-              <button
-                onClick={onConfirmEpisodeShots}
-                className="w-full py-2 rounded-lg bg-green-600 hover:bg-green-500 text-sm font-semibold transition"
-              >
-                确认并下一集
-              </button>
-            )}
-          </div>
-        )}
-
-        {step === WorkflowStep.GENERATE_SORA && (
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
-            <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-              <span>Phase 3 · 进度</span>
-              <span>
-                {episodes.length ? completedSora : 0} / {episodes.length || 1}
-              </span>
-            </div>
-            <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-[var(--border-subtle)]/50">
-              <div
-                className="bg-indigo-500 h-full transition-all"
-                style={{
-                  width: `${
-                    episodes.length ? (completedSora / episodes.length) * 100 : 0
-                  }%`,
-                }}
-              />
-            </div>
-            <div className="text-xs text-[var(--text-secondary)]">
-              当前：{episodes[currentEpIndex]?.title || `Episode ${currentEpIndex + 1}`}
-            </div>
-            <button
-              onClick={onStartPhase3}
-              className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition"
-              disabled={isProcessing}
-            >
-              生成 / 恢复当前集
-            </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={onRetryEpisodeSora}
-                className="py-2 rounded-lg bg-[var(--bg-panel)] hover:border-[var(--accent-blue)] border border-[var(--border-subtle)] text-[11px] font-semibold transition"
-                disabled={isProcessing}
-              >
-                Retry 当前集
-              </button>
-              <button
-                onClick={onContinueNextEpisodeSora}
-                className="py-2 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 text-[11px] font-semibold transition text-indigo-200"
-                disabled={isProcessing}
-              >
-                Continue 下一集
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === WorkflowStep.COMPLETED && (
-          <div className="rounded-xl border border-green-900 bg-green-900/40 p-3 text-sm text-green-100">
-            <div className="font-semibold flex items-center gap-2">
-              <Layers size={14} /> 全流程完成
-            </div>
-            <div className="text-xs text-green-200/80">
-              可在 Video Studio 或导出结果中查看。
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3">
-          <div className="text-xs text-[var(--text-secondary)] mb-2">剧集快速切换</div>
-          <EpisodeList
-            episodes={episodes}
-            currentEpIndex={currentEpIndex}
-            onSelect={(idx) => setCurrentEpIndex(idx)}
-          />
+          )}
         </div>
       </div>
     </div>
