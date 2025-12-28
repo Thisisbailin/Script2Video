@@ -202,7 +202,7 @@ export const useSoraGeneration = ({
     }
     setStep(WorkflowStep.GENERATE_SORA);
     setCurrentEpIndex(startIndex);
-    generateCurrentEpisodeSora(startIndex, false);
+    generateCurrentEpisodeSora(startIndex, true);
   }, [currentEpIndex, generateCurrentEpisodeSora, projectDataRef, setCurrentEpIndex, setStep]);
 
   const continueNextEpisodeSora = useCallback(() => {
@@ -215,7 +215,7 @@ export const useSoraGeneration = ({
       return;
     }
     setCurrentEpIndex(nextIndex);
-    generateCurrentEpisodeSora(nextIndex, false);
+    generateCurrentEpisodeSora(nextIndex, true);
   }, [currentEpIndex, generateCurrentEpisodeSora, isProcessing, projectDataRef, setCurrentEpIndex, setStep]);
 
   const retryCurrentEpisodeSora = useCallback(() => {

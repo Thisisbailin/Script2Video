@@ -1071,11 +1071,6 @@ export const Header: React.FC<HeaderProps> = ({
                   title="Workflow Actions"
                 >
                   <Layers size={18} />
-                  {showWorkflow && (
-                    <div className="absolute right-0 top-full mt-2 z-30 w-[360px] max-w-[calc(100vw-24px)]">
-                      <WorkflowCard workflow={workflow} />
-                    </div>
-                  )}
                 </button>
               </div>
 
@@ -1391,7 +1386,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </header>
-
+      {showWorkflow && (
+        <div className="fixed top-[84px] left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-40 pointer-events-auto">
+          <WorkflowCard workflow={workflow} />
+        </div>
+      )}
     </>
   );
 };

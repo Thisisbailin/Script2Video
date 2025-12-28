@@ -75,16 +75,26 @@ export const useShotGeneration = ({
           ...newEpisodes[index],
           shots: result.shots,
           shotGenUsage: result.usage,
-          status: 'review_shots'
+          status: 'confirmed_shots'
         };
         const updated = { ...prev, episodes: newEpisodes };
         projectDataRef.current = updated;
         return updated;
       });
 
-      setProcessing(false);
       updateStats('shotGen', true);
       setActiveTab('table');
+
+      const nextIndex = index + 1;
+      if (nextIndex < projectDataRef.current.episodes.length) {
+        setCurrentEpIndex(nextIndex);
+        return generateCurrentEpisodeShots(nextIndex);
+      }
+
+      setProcessing(false);
+      alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
+      setStep(WorkflowStep.GENERATE_SORA);
+      setCurrentEpIndex(0);
     } catch (e: any) {
       console.error(e);
       setProjectData(prev => {
