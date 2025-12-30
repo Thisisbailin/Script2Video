@@ -38,6 +38,12 @@ const toOptionalNumber = (value: unknown) => {
   return undefined;
 };
 
+export const normalizeVideoParams = (params?: Shot["videoParams"]) => {
+  if (!params) return undefined;
+  const { inputImage, ...rest } = params;
+  return rest;
+};
+
 const normalizeShot = (shot: any): Shot => {
   if (!shot || typeof shot !== "object") return shot as Shot;
   return {
@@ -49,8 +55,10 @@ const normalizeShot = (shot: any): Shot => {
     description: toSafeString(shot.description),
     dialogue: toSafeString(shot.dialogue),
     soraPrompt: toSafeString(shot.soraPrompt),
-    difficulty: toOptionalNumber(shot.difficulty),
+    difficulty: typeof shot.difficulty === "number" ? shot.difficulty : undefined,
     finalVideoPrompt: toOptionalString(shot.finalVideoPrompt),
+    videoStatus: toSafeString(shot.videoStatus),
+    videoParams: normalizeVideoParams(shot.videoParams),
     videoUrl: toOptionalString(shot.videoUrl),
     videoId: toOptionalString(shot.videoId),
     videoErrorMsg: toOptionalString(shot.videoErrorMsg)

@@ -1,4 +1,5 @@
 import { Character, Episode, Location, ProjectData, Scene, Shot } from "../types";
+import { normalizeVideoParams } from "./projectData";
 
 export type EpisodeDelta = Omit<Episode, "shots" | "scenes">;
 export type SceneDelta = Scene & { episodeId: number };
@@ -44,12 +45,6 @@ const stableStringify = (value: unknown) => {
   } catch {
     return "";
   }
-};
-
-const normalizeVideoParams = (params?: Shot["videoParams"]) => {
-  if (!params) return undefined;
-  const { inputImage, ...rest } = params;
-  return rest;
 };
 
 const buildMeta = (data: ProjectData): ProjectMetaDelta => ({
@@ -173,6 +168,7 @@ export const computeProjectDelta = (current: ProjectData, base: ProjectData | nu
   currentShotsMap.forEach((shot, key) => {
     const baseShot = baseShotsMap.get(key);
     if (!baseShot || stableStringify(shot) !== stableStringify(baseShot)) {
+      console.warn(`[Delta] Shot Change Detected: id=${shot.id}, hasSora=${!!shot.soraPrompt}`);
       shotUpserts.push(shot);
     }
   });

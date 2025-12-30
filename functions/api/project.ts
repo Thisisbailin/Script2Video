@@ -322,6 +322,12 @@ const loadProjectData = async (env: Env, userId: string) => {
     const shotData = safeJsonParse<Record<string, unknown>>(row.data, {});
     const { episodeId: _episodeId, ...rest } = shotData as Record<string, unknown>;
     const episode = getEpisode(row.episode_id);
+
+    // Diagnostic Log
+    if (episode.shots.length === 0) {
+      console.warn(`[Backend] Loading First Shot ${row.shot_id} for Ep ${row.episode_id}, hasSora=${!!(rest as any).soraPrompt}`);
+    }
+
     episode.shots.push({
       ...rest,
       id: row.shot_id
@@ -583,14 +589,16 @@ export const onRequestPut = async (context: {
     if (delta) {
       const deltaValidation = validateProjectDelta(delta);
       if (!deltaValidation.ok) {
-        if (userId) await logAudit(context.env, userId, "project.put", "invalid", { error: deltaValidation.error, mode, ...auditDevice });
-        return jsonResponse({ error: deltaValidation.error }, { status: 400 });
+        const error = (deltaValidation as any).error;
+        if (userId) await logAudit(context.env, userId, "project.put", "invalid", { error, mode, ...auditDevice });
+        return jsonResponse({ error }, { status: 400 });
       }
     } else {
       const validation = validateProjectPayload(projectData);
       if (!validation.ok) {
-        if (userId) await logAudit(context.env, userId, "project.put", "invalid", { error: validation.error, mode, ...auditDevice });
-        return jsonResponse({ error: validation.error }, { status: 400 });
+        const error = (validation as any).error;
+        if (userId) await logAudit(context.env, userId, "project.put", "invalid", { error, mode, ...auditDevice });
+        return jsonResponse({ error }, { status: 400 });
       }
     }
 
@@ -712,6 +720,7 @@ export const onRequestPut = async (context: {
 
       for (const shot of shots) {
         const { episodeId: _episodeId, ...shotData } = shot as Record<string, unknown>;
+        console.warn(`[Backend] PUT Delta Shot Update: ep=${(shot as any).episodeId}, id=${(shot as any).id}, hasSora=${!!(shot as any).soraPrompt}`);
         await context.env.DB.prepare(
           "INSERT INTO user_project_shots (user_id, episode_id, shot_id, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(user_id, episode_id, shot_id) DO UPDATE SET data=?4, updated_at=?5"
         )
@@ -825,6 +834,7 @@ export const onRequestPut = async (context: {
       }
 
       for (const shot of parts.shots) {
+        console.warn(`[Backend] PUT Full Shot Insert: ep=${shot.episodeId}, id=${shot.shot.id}, hasSora=${!!shot.shot.soraPrompt}`);
         await context.env.DB.prepare(
           "INSERT INTO user_project_shots (user_id, episode_id, shot_id, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)"
         )
