@@ -12,30 +12,40 @@ export const NoteNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
 
     return (
         <div
-            className={`relative p-5 rounded-2xl transition-all duration-300 w-full ${selected
-                    ? "bg-[#1e293b] shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-[1.02]"
-                    : "bg-[#111827] shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
-                }`}
+            className="node-card-base transition-all duration-300 overflow-visible w-[240px]"
+            data-selected={!!selected}
         >
-            <div className="flex items-center gap-2 mb-3">
-                <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                <span className={`text-[10px] font-black uppercase tracking-widest ${selected ? 'text-amber-400' : 'text-amber-500/40'}`}>tips</span>
+            <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
+                    <input
+                        className="bg-transparent font-black tracking-[0.2em] uppercase text-[10px] outline-none transition-colors w-full text-amber-500/80"
+                        value={data.title || "ANNOTATION"}
+                        onChange={(e) => updateNodeData(id, { title: e.target.value })}
+                        placeholder="NAME"
+                    />
+                </div>
+                {selected && (
+                    <div className="h-1.5 w-1.5 rounded-full bg-[var(--node-accent)]" />
+                )}
             </div>
-            <textarea
-                className={`w-full text-[12px] leading-relaxed bg-transparent p-0 outline-none resize-none transition-all placeholder:text-white/10 ${selected ? 'text-white' : 'text-white/60'}`}
-                value={data.text}
-                onChange={(e) => {
-                    updateNodeData(id, { text: e.target.value });
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                }}
-                onFocus={(e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                }}
-                placeholder="Write your note..."
-                style={{ height: 'auto' }}
-            />
+            <div className="px-5 pb-5">
+                <textarea
+                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[100px]"
+                    value={data.text}
+                    onChange={(e) => {
+                        updateNodeData(id, { text: e.target.value });
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    onFocus={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    placeholder="Write your note..."
+                    style={{ height: 'auto' }}
+                />
+            </div>
         </div>
     );
 };

@@ -37,8 +37,7 @@ import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { GlobalImageHistory } from "./GlobalImageHistory";
 import { Toast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
-import { NodeEditorOverlay } from "./NodeEditorOverlay";
-import { MapPinned, MapPinOff, SquareStack, StickyNote, BoxSelect, Clapperboard, X, ChevronRight } from "lucide-react";
+import { Database, Library, Settings, MapPinned, MapPinOff, SquareStack, StickyNote, BoxSelect, Clapperboard, X, ChevronRight } from "lucide-react";
 import { ProjectData } from "../../types";
 
 const nodeTypes: NodeTypes = {
@@ -76,7 +75,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
   const { nodes, edges, addNode, addNodesAndEdges, onNodesChange, onEdgesChange, onConnect, saveWorkflow, loadWorkflow } = useWorkflowStore();
   const [isUnderstandingActive, setIsUnderstandingActive] = useState(false);
   const [showEpisodeSelector, setShowEpisodeSelector] = useState(false);
-  const [editingNode, setEditingNode] = useState<{ id: string; position: { x: number; y: number } } | null>(null);
   const { setViewport } = useReactFlow();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
 
@@ -210,7 +208,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         category: 'project',
         refId: 'projectSummary'
       } as TextNodeData,
-      style: { width: 320, height: 220 }
+      style: { width: 320 }
     });
     yOffset += 300;
 
@@ -427,17 +425,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     setViewport({ x: 0, y: 0, zoom: 0.6 }, { duration: 1000 });
   }, [projectData, addNodesAndEdges, setViewport]);
 
-  // Handle Node Click for editing
-  const handleNodeClick = useCallback((event: React.MouseEvent, node: WorkflowNode) => {
-    // Only open editor for text-based nodes
-    if (['text', 'note', 'shot', 'llmGenerate'].includes(node.type!)) {
-      setEditingNode({
-        id: node.id,
-        position: { x: event.clientX, y: event.clientY }
-      });
-    }
-  }, []);
-
   // Handle Understanding Toggle
   const handleToggleUnderstanding = useCallback(() => {
     setIsUnderstandingActive(prev => !prev);
@@ -454,11 +441,19 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
   // Filter nodes based on active mode
   const displayNodes = useMemo(() => {
     if (isUnderstandingActive) {
-      // Show understanding nodes + notes
-      return nodes.filter(n => (n.data as any).category || n.type === 'group' || n.type === 'note');
+      // Show understanding nodes + groups + their children
+      return nodes.filter(n =>
+        (n.data as any).category ||
+        n.type === 'group' ||
+        n.parentId ||
+        (n.data as any).shotId // Explicitly show shot cards in understanding groups if they exist
+      );
     } else {
-      // Show functional nodes + notes
-      return nodes.filter(n => !(n.data as any).category && n.type !== 'group' || n.type === 'note');
+      // Show functional nodes (NOT understanding/episode)
+      return nodes.filter(n => {
+        const isUnderstanding = (n.data as any).category || n.type === 'group' || n.parentId;
+        return !isUnderstanding;
+      });
     }
   }, [nodes, isUnderstandingActive]);
 
@@ -541,7 +536,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
           onConnectEnd={handleConnectEnd}
-          onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
@@ -671,14 +665,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       <GlobalImageHistory />
       <Toast />
       <AnnotationModal />
-
-      {editingNode && (
-        <NodeEditorOverlay
-          nodeId={editingNode.id}
-          position={editingNode.position}
-          onClose={() => setEditingNode(null)}
-        />
-      )}
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileImport} />
     </div>
   );

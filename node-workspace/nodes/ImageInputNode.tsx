@@ -31,22 +31,22 @@ export const ImageInputNode: React.FC<Props> = ({ data, selected }) => {
 
   return (
     <BaseNode title="Visual Input" outputs={["image"]} selected={selected}>
-      <div className="space-y-4">
+      <div className="space-y-4 flex-1 flex flex-col">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+          className="w-full h-11 flex items-center justify-center gap-2 rounded-2xl bg-[var(--node-accent)] hover:brightness-110 text-[11px] font-black uppercase tracking-[0.15em] text-white shadow-lg active:scale-95 transition-all"
         >
           <span>Select Asset</span>
         </button>
         {data.image && (
-          <div className="relative group/img overflow-hidden rounded-xl bg-black/40">
+          <div className="relative group/img overflow-hidden rounded-[20px] bg-[var(--node-textarea-bg)] shadow-md">
             <img
               src={data.image}
               alt="preview"
               className="w-full aspect-video object-cover transition-transform duration-500 group-hover/img:scale-110"
             />
-            <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-              <div className="text-[10px] font-bold text-white/70 truncate uppercase tracking-tighter">{data.filename}</div>
+            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+              <div className="text-[10px] font-black text-white truncate uppercase tracking-widest">{data.filename}</div>
             </div>
           </div>
         )}

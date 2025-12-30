@@ -1,12 +1,30 @@
-/* Base canvas */
-.node-lab-canvas {
-  background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.03) 0%, rgba(0, 0, 0, 0) 100%), var(--bg-panel);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+:root {
+  --node-bg: #111827;
+  --node-bg-selected: #1e293b;
+  --node-accent: #3b82f6;
+  --node-text-primary: #ffffff;
+  --node-text-secondary: rgba(255, 255, 255, 0.4);
+  --node-textarea-bg: rgba(0, 0, 0, 0.2);
+  --group-bg: rgba(255, 255, 255, 0.02);
+  --group-bg-selected: rgba(255, 255, 255, 0.05);
 }
 
-.theme-light .node-lab-canvas {
-  background: radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.05) 0%, rgba(0, 0, 0, 0) 100%), var(--bg-panel);
+.theme-light {
+  --node-bg: #ffffff;
+  --node-bg-selected: #f3f4f6;
+  --node-accent: #2563eb;
+  --node-text-primary: #111827;
+  --node-text-secondary: #6b7280;
+  --node-textarea-bg: #f9fafb;
+  --group-bg: rgba(0, 0, 0, 0.02);
+  --group-bg-selected: rgba(0, 0, 0, 0.05);
+}
+
+/* Base canvas */
+.node-lab-canvas {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* React Flow nodes */
@@ -48,7 +66,7 @@
 
 /* Edges - Strong and visible */
 .react-flow__edge-path {
-  stroke: var(--accent-blue);
+  stroke: var(--node-accent);
   stroke-width: 2.5;
   transition: all 0.2s ease;
   opacity: 0.6;
@@ -57,7 +75,7 @@
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--accent-blue);
+  stroke: var(--node-accent);
   stroke-width: 3.5;
   opacity: 1;
 }
@@ -102,28 +120,34 @@
   fill: var(--text-primary) !important;
 }
 
-/* Scrollbar */
-.node-lab-canvas ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.node-lab-canvas ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.node-lab-canvas ::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 10px;
-}
-
-.node-lab-canvas ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-strong);
-}
-
 /* Selection Box */
 .react-flow__nodeselection-rect {
   border: 1px solid var(--accent-blue) !important;
-  border-radius: 12px;
+  border-radius: 24px;
   background: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* Custom classes for the monochromatic theme */
+.node-card-base {
+  background: var(--node-bg);
+  border-radius: 20px;
+  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.node-card-base[data-selected="true"] {
+  background: var(--node-bg-selected);
+  transform: scale(1.02);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.node-textarea {
+  background: var(--node-textarea-bg);
+  color: var(--node-text-primary);
+  border-radius: 12px;
+  padding: 12px;
+  transition: all 0.2s ease;
+}
+
+.theme-light .node-card-base[data-selected="true"] {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }

@@ -12,19 +12,24 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     const { updateNodeData } = useWorkflowStore();
 
     return (
-        <BaseNode title={data.title || "Text"} outputs={["text"]} selected={selected}>
-            <div className="space-y-3">
-                {data.category && (
-                    <div className="inline-flex px-2 py-0.5 rounded-lg bg-blue-500/10 text-[9px] font-black uppercase tracking-widest text-blue-400">
-                        {data.category}
-                    </div>
-                )}
+        <BaseNode
+            title={data.title || "Text"}
+            onTitleChange={(title) => updateNodeData(id, { title })}
+            outputs={["text"]}
+            selected={selected}
+        >
+            <div className="space-y-3 flex-1 flex flex-col">
+                <input
+                    className="inline-flex px-2 py-0.5 rounded-lg bg-[var(--node-accent)]/10 text-[9px] font-black uppercase tracking-widest text-[var(--node-accent)] outline-none border-none w-fit"
+                    value={data.category || ""}
+                    onChange={(e) => updateNodeData(id, { category: e.target.value as any })}
+                    placeholder="CATEGORY"
+                />
                 <textarea
-                    className="w-full min-h-[40px] text-[13px] leading-relaxed bg-transparent text-white/80 p-0 outline-none resize-none transition-all placeholder:text-white/10"
+                    className="node-textarea w-full text-[13px] leading-relaxed p-3 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[40px]"
                     value={data.text}
                     onChange={(e) => {
                         updateNodeData(id, { text: e.target.value });
-                        // Auto resize
                         e.target.style.height = 'auto';
                         e.target.style.height = e.target.scrollHeight + 'px';
                     }}

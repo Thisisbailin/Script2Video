@@ -9,12 +9,22 @@ type Props = {
 
 export const OutputNode: React.FC<Props> = ({ data }) => {
   return (
-    <BaseNode title="Output" inputs={["image"]}>
-      <div className="space-y-2">
+    <BaseNode title="Final Asset" inputs={["image", "text"]}>
+      <div className="space-y-4 flex-1 flex flex-col">
         {data.image && (
-          <img src={data.image} alt="output" className="w-full h-24 object-cover rounded border border-gray-200 dark:border-gray-700" />
+          <div className="relative overflow-hidden rounded-[20px] bg-[var(--node-textarea-bg)] shadow-md">
+            <img
+              src={data.image}
+              alt="output"
+              className="w-full h-32 object-cover transition-transform duration-700 hover:scale-105"
+            />
+          </div>
         )}
-        {data.text && <pre className="text-xs whitespace-pre-wrap bg-gray-50 dark:bg-gray-800 rounded p-2">{data.text}</pre>}
+        {data.text && (
+          <div className="node-textarea text-[11px] leading-relaxed font-bold p-3">
+            <pre className="whitespace-pre-wrap">{data.text}</pre>
+          </div>
+        )}
       </div>
     </BaseNode>
   );
