@@ -151,3 +151,44 @@
 .theme-light .node-card-base[data-selected="true"] {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
+
+/* NodeResizer integration */
+.react-flow__node-resizer {
+  border: none !important;
+}
+
+.custom-node-line {
+  border-color: var(--node-accent) !important;
+  opacity: 0.2;
+}
+
+.custom-node-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--node-bg) !important;
+  border: 1.5px solid var(--node-accent) !important;
+  border-radius: 2px !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-node-handle:hover {
+  transform: scale(1.5);
+  background: var(--node-accent) !important;
+}
+
+/* Group Resizer - Hidden lines, only bottom-right handle */
+.group-resize-line {
+  border: none !important;
+}
+
+.group-resize-handle {
+  background: transparent !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* Hide all group handles except bottom-right */
+.react-flow__node-resizer__handle:not(.react-flow__node-resizer__handle-bottom-right) {
+  display: none !important;
+}
