@@ -82,6 +82,10 @@ interface WorkflowStore {
 
   // Batch operations
   addNodesAndEdges: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
+
+  // View management
+  activeView: string | null;
+  setActiveView: (view: string | null) => void;
 }
 
 const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
@@ -166,6 +170,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   currentNodeId: null,
   pausedAtNodeId: null,
   globalImageHistory: [],
+  activeView: null,
+  setActiveView: (view) => set({ activeView: view }),
 
   setEdgeStyle: (style: EdgeStyle) => set({ edgeStyle: style }),
 
@@ -174,14 +180,14 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const defaultDimensions: Record<NodeType, { width: number; height?: number }> = {
       imageInput: { width: 300, height: 280 },
       annotation: { width: 300, height: 280 },
-      text: { width: 320, height: 480 },
-      note: { width: 240, height: 360 },
-      shot: { width: 340, height: 510 },
+      text: { width: 420, height: 750 },
+      note: { width: 300, height: 450 },
+      shot: { width: 440, height: 850 },
       imageGen: { width: 320, height: 320 },
       videoGen: { width: 320, height: 340 },
-      llmGenerate: { width: 320, height: 480 },
-      group: { width: 800, height: 600 },
-      output: { width: 320, height: 480 },
+      llmGenerate: { width: 420, height: 750 },
+      group: { width: 1000, height: 800 },
+      output: { width: 420, height: 750 },
     };
     const dim = defaultDimensions[type];
     const newNode: WorkflowNode = {
