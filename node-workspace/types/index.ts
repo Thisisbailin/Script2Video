@@ -9,6 +9,9 @@ export type NodeType =
   | "imageGen"
   | "videoGen"
   | "llmGenerate"
+  | "group"
+  | "note"
+  | "shot"
   | "output";
 
 export type NodeStatus = "idle" | "loading" | "complete" | "error";
@@ -120,6 +123,29 @@ export interface OutputNodeData extends BaseNodeData {
   text?: string | null;
 }
 
+export interface GroupNodeData extends BaseNodeData {
+  title: string;
+  description?: string;
+  isExpanded?: boolean;
+}
+
+export interface NoteNodeData extends BaseNodeData {
+  title?: string;
+  text: string;
+  color?: string;
+}
+
+export interface ShotNodeData extends BaseNodeData {
+  shotId: string;
+  description: string;
+  duration: string;
+  shotType: string;
+  movement: string;
+  difficulty?: number;
+  dialogue?: string;
+  soraPrompt?: string;
+}
+
 export type WorkflowNodeData =
   | ImageInputNodeData
   | AnnotationNodeData
@@ -127,6 +153,9 @@ export type WorkflowNodeData =
   | ImageGenNodeData
   | VideoGenNodeData
   | LLMGenerateNodeData
+  | GroupNodeData
+  | NoteNodeData
+  | ShotNodeData
   | OutputNodeData;
 
 export type WorkflowNode = Node<WorkflowNodeData, NodeType>;

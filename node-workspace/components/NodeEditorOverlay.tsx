@@ -1,0 +1,101 @@
+import React, { useState, useEffect } from "react";
+import { X, Tag, Type } from "lucide-react";
+import { WorkflowNode, TextNodeData } from "../types";
+import { useWorkflowStore } from "../store/workflowStore";
+
+type Props = {
+    nodeId: string;
+    position: { x: number; y: number };
+    onClose: () => void;
+};
+
+export const NodeEditorOverlay: React.FC<Props> = ({ nodeId, position, onClose }) => {
+    const { nodes, updateNodeData } = useWorkflowStore();
+    const node = nodes.find((n) => n.id === nodeId);
+
+    if (!node) return null;
+
+    const data = node.data as any;
+    const [title, setTitle] = useState(data.title || "");
+    const [category, setCategory] = useState(data.category || "");
+    const [text, setText] = useState(data.text || "");
+
+    const handleSave = () => {
+        const updates: any = {};
+        if ('title' in data) updates.title = title;
+        if ('category' in data) updates.category = category;
+        if ('text' in data) updates.text = text;
+
+        updateNodeData(nodeId, updates);
+        onClose();
+    };
+
+    return (
+        <div
+            className="fixed z-50 w-72 p-1 rounded-2xl bg-[#1e293b] border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-200"
+            style={{
+                left: position.x,
+                top: position.y - 120, // Appear above the card
+                transform: 'translateX(-50%)'
+            }}
+        >
+            <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Quick Edit</span>
+                    <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-lg transition-colors">
+                        <X size={14} className="text-white/40" />
+                    </button>
+                </div>
+
+                {'title' in data && (
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-white/20 uppercase flex items-center gap-1.5">
+                            <Type size={10} /> Title
+                        </label>
+                        <input
+                            className="w-full bg-black/20 text-white text-[13px] font-bold px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-500/50 transition-all"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Node Title"
+                        />
+                    </div>
+                )}
+
+                {'category' in data && (
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-white/20 uppercase flex items-center gap-1.5">
+                            <Tag size={10} /> Category
+                        </label>
+                        <input
+                            className="w-full bg-black/20 text-blue-400 text-[11px] font-black px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-500/50 transition-all uppercase tracking-wider"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            placeholder="e.g. CHARACTER, ZONE"
+                        />
+                    </div>
+                )}
+
+                {'text' in data && (
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-white/20 uppercase flex items-center gap-1.5">
+                            Content
+                        </label>
+                        <textarea
+                            className="w-full min-h-[100px] bg-black/20 text-white/80 text-[12px] leading-relaxed px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-500/50 transition-all resize-none"
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="Node content..."
+                        />
+                    </div>
+                )}
+
+                <button
+                    onClick={handleSave}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                >
+                    Update Node
+                </button>
+            </div>
+        </div>
+    );
+};

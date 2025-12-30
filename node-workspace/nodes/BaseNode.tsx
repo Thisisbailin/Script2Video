@@ -7,22 +7,27 @@ type Props = {
   children?: React.ReactNode;
   inputs?: HandleType[];
   outputs?: HandleType[];
+  selected?: boolean;
 };
 
-const handleColor = (type: HandleType) => (type === "image" ? "bg-green-500" : "bg-blue-500");
-
-export const BaseNode: React.FC<Props> = ({ title, children, inputs = [], outputs = [] }) => {
+export const BaseNode: React.FC<Props> = ({ title, children, inputs = [], outputs = [], selected }) => {
   return (
-    <div className="relative group min-w-[200px] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 backdrop-blur-xl shadow-[var(--shadow-soft)] transition-all duration-300 hover:shadow-[var(--shadow-strong)] hover:border-[var(--border-strong)]/50 overflow-visible text-xs">
-      {/* Glow effect on hover */}
-      <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-
-      <div className="relative px-4 py-3 border-b border-[var(--border-subtle)]/50 flex items-center justify-between">
-        <span className="font-semibold tracking-tight text-[var(--text-primary)]">{title}</span>
-        <div className="h-1.5 w-1.5 rounded-full bg-blue-500/50 animate-pulse" />
+    <div
+      className={`relative group min-w-[220px] rounded-2xl transition-all duration-300 overflow-visible text-xs ${selected
+          ? "bg-[#1e293b] shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-[1.02]"
+          : "bg-[#111827] shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
+        }`}
+    >
+      <div className="relative px-5 py-4 flex items-center justify-between">
+        <span className={`font-bold tracking-tight uppercase text-[10px] ${selected ? 'text-white' : 'text-white/40'}`}>
+          {title}
+        </span>
+        {selected && (
+          <div className="h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+        )}
       </div>
 
-      <div className="relative p-4 space-y-3 text-[var(--text-secondary)]">
+      <div className="relative px-5 pb-5 space-y-4">
         {children}
       </div>
 

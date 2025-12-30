@@ -5,9 +5,10 @@ import { ImageInputNodeData } from "../types";
 type Props = {
   id: string;
   data: ImageInputNodeData;
+  selected?: boolean;
 };
 
-export const ImageInputNode: React.FC<Props> = ({ data }) => {
+export const ImageInputNode: React.FC<Props> = ({ data, selected }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,23 +30,23 @@ export const ImageInputNode: React.FC<Props> = ({ data }) => {
   };
 
   return (
-    <BaseNode title="Image Input" outputs={["image"]}>
-      <div className="space-y-3">
+    <BaseNode title="Visual Input" outputs={["image"]} selected={selected}>
+      <div className="space-y-4">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-blue-600/10 border border-blue-500/20 text-[13px] font-semibold text-blue-400 hover:bg-blue-600/20 transition-all active:scale-95"
+          className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
         >
           <span>Select Asset</span>
         </button>
         {data.image && (
-          <div className="relative group/img overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-black/40">
+          <div className="relative group/img overflow-hidden rounded-xl bg-black/40">
             <img
               src={data.image}
               alt="preview"
               className="w-full aspect-video object-cover transition-transform duration-500 group-hover/img:scale-110"
             />
-            <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
-              <div className="text-[10px] text-white/70 truncate">{data.filename}</div>
+            <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="text-[10px] font-bold text-white/70 truncate uppercase tracking-tighter">{data.filename}</div>
             </div>
           </div>
         )}

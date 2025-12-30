@@ -21,6 +21,9 @@ import {
   WorkflowNodeData,
   WorkflowFile,
   VideoGenNodeData,
+  GroupNodeData,
+  NoteNodeData,
+  ShotNodeData,
 } from "../types";
 
 export type EdgeStyle = "angular" | "curved";
@@ -127,6 +130,23 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         error: null,
         aspectRatio: "16:9",
       } as VideoGenNodeData;
+    case "group":
+      return {
+        title: "Node Group",
+        isExpanded: true,
+      } as GroupNodeData;
+    case "note":
+      return {
+        text: "",
+      } as NoteNodeData;
+    case "shot":
+      return {
+        shotId: "S-1",
+        description: "",
+        duration: "3s",
+        shotType: "Medium Shot",
+        movement: "Static",
+      } as ShotNodeData;
     case "output":
       return {
         image: null,
@@ -151,22 +171,25 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
   addNode: (type: NodeType, position: XYPosition) => {
     const id = `${type}-${++nodeIdCounter}`;
-    const defaultDimensions: Record<NodeType, { width: number; height: number }> = {
+    const defaultDimensions: Record<NodeType, { width: number; height?: number }> = {
       imageInput: { width: 300, height: 280 },
       annotation: { width: 300, height: 280 },
-      text: { width: 320, height: 220 },
+      text: { width: 320 },
+      note: { width: 240 },
+      shot: { width: 340 },
       imageGen: { width: 320, height: 320 },
       videoGen: { width: 320, height: 340 },
-      llmGenerate: { width: 320, height: 320 },
-      output: { width: 320, height: 320 },
+      llmGenerate: { width: 320 },
+      group: { width: 800, height: 600 },
+      output: { width: 320 },
     };
-    const { width, height } = defaultDimensions[type];
+    const dim = defaultDimensions[type];
     const newNode: WorkflowNode = {
       id,
       type,
       position,
       data: createDefaultNodeData(type),
-      style: { width, height },
+      style: { width: dim.width, height: dim.height },
     };
     set((state) => ({ nodes: [...state.nodes, newNode] }));
     return id;

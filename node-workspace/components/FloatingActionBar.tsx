@@ -9,6 +9,9 @@ import {
   Sparkles,
   Video,
   SquareStack,
+  StickyNote,
+  BoxSelect,
+  Clapperboard,
 } from "lucide-react";
 
 type Props = {
@@ -18,7 +21,12 @@ type Props = {
   onAddImageGen: () => void;
   onAddVideoGen: () => void;
   onAddOutput: () => void;
-  onAddUnderstanding: () => void;
+  onAddGroup: () => void;
+  onAddNote: () => void;
+  onImportUnderstanding: () => void;
+  onImportEpisode: () => void;
+  isUnderstandingActive: boolean;
+  onToggleUnderstanding: () => void;
   onImport: () => void;
   onExport: () => void;
   onRun: () => void;
@@ -31,7 +39,12 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddImageGen,
   onAddVideoGen,
   onAddOutput,
-  onAddUnderstanding,
+  onAddGroup,
+  onAddNote,
+  onImportUnderstanding,
+  onImportEpisode,
+  isUnderstandingActive,
+  onToggleUnderstanding,
   onImport,
   onExport,
   onRun,
@@ -40,12 +53,14 @@ export const FloatingActionBar: React.FC<Props> = ({
   const [showFileMenu, setShowFileMenu] = useState(false);
 
   const nodeActions = [
-    { label: "Text", hint: "Text or instructions", onClick: onAddText, Icon: MessageSquare },
+    { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
+    { label: "Note", hint: "Stick a note", onClick: onAddNote, Icon: StickyNote },
+    { label: "Group", hint: "Organize nodes", onClick: onAddGroup, Icon: BoxSelect },
     { label: "Image", hint: "Add an input image", onClick: onAddImage, Icon: ImageIcon },
-    { label: "LLM", hint: "Generate or transform text", onClick: onAddLLM, Icon: Bot },
-    { label: "Img Gen", hint: "Create new images", onClick: onAddImageGen, Icon: Sparkles },
-    { label: "Video", hint: "Generate video clips", onClick: onAddVideoGen, Icon: Video },
-    { label: "Output", hint: "Collect final results", onClick: onAddOutput, Icon: SquareStack },
+    { label: "LLM", hint: "Generate text", onClick: onAddLLM, Icon: Bot },
+    { label: "Img Gen", hint: "Create images", onClick: onAddImageGen, Icon: Sparkles },
+    { label: "Video", hint: "Generate clips", onClick: onAddVideoGen, Icon: Video },
+    { label: "Output", hint: "Final results", onClick: onAddOutput, Icon: SquareStack },
   ];
 
   const closeMenus = () => {
@@ -68,23 +83,21 @@ export const FloatingActionBar: React.FC<Props> = ({
             }}
           >
             <div
-              className="px-5 py-4 border-b border-[var(--border-subtle)]/50"
+              className="px-5 py-6 border-b border-[var(--border-subtle)]/50 bg-blue-600/5"
             >
-              <div className="text-[10px] uppercase tracking-[0.15em] mb-3 text-[var(--text-secondary)] font-bold">Quick Actions</div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-[10px] uppercase tracking-[0.15em] text-[var(--text-secondary)] font-bold">Smart Analysis</div>
+                <div className="h-1 w-1 rounded-full bg-blue-500 animate-pulse" />
+              </div>
               <button
                 onClick={() => {
-                  onAddUnderstanding();
+                  onImportUnderstanding();
                   closeMenus();
                 }}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 transition-all duration-300 group/btn"
+                className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/30 transition-all active:scale-95 group/btn"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600/20 group-hover/btn:scale-110 transition-transform shadow-inner">
-                  <Bot size={20} className="text-blue-400" />
-                </span>
-                <div className="text-left">
-                  <div className="text-sm font-bold text-blue-100/90">Import Understanding</div>
-                  <div className="text-[11px] text-blue-400/70">Convert AI script analysis to nodes</div>
-                </div>
+                <Bot size={20} className="text-blue-400 group-hover/btn:scale-110 transition-transform" />
+                <span className="text-sm font-bold text-blue-100">Initialize Assets Lab</span>
               </button>
             </div>
 
@@ -174,10 +187,24 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette((v) => !v);
               setShowFileMenu(false);
             }}
-            className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-300 active:scale-90 ${showPalette ? 'bg-white/10 ring-1 ring-white/20' : 'hover:bg-white/5'}`}
+            className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-300 active:scale-90 ${showPalette ? 'bg-white/10 ring-1 ring-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]' : 'hover:bg-white/5'}`}
             aria-label="Add nodes"
           >
             <Plus size={20} className={showPalette ? "rotate-45 transition-transform" : "transition-transform"} />
+          </button>
+          <button
+            onClick={onToggleUnderstanding}
+            className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-300 active:scale-90 ${isUnderstandingActive ? 'bg-blue-600/80 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'hover:bg-white/5 text-[var(--text-secondary)]'}`}
+            aria-label="Toggle Understanding Mode"
+          >
+            <Bot size={20} className={isUnderstandingActive ? "animate-pulse" : ""} />
+          </button>
+          <button
+            onClick={onImportEpisode}
+            className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-white/5 text-[var(--text-secondary)] transition-all duration-300 active:scale-90"
+            aria-label="Import Episode"
+          >
+            <Clapperboard size={18} />
           </button>
           <button
             onClick={() => {

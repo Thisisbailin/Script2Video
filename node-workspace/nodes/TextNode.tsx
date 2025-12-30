@@ -8,22 +8,32 @@ type Props = {
     data: TextNodeData;
 };
 
-export const TextNode: React.FC<Props> = ({ data, id }) => {
+export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, selected }) => {
     const { updateNodeData } = useWorkflowStore();
 
     return (
-        <BaseNode title={data.title || "Text"} outputs={["text"]}>
+        <BaseNode title={data.title || "Text"} outputs={["text"]} selected={selected}>
             <div className="space-y-3">
                 {data.category && (
-                    <div className="inline-flex px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[9px] font-bold uppercase tracking-widest text-blue-400/80">
+                    <div className="inline-flex px-2 py-0.5 rounded-lg bg-blue-500/10 text-[9px] font-black uppercase tracking-widest text-blue-400">
                         {data.category}
                     </div>
                 )}
                 <textarea
-                    className="w-full min-h-[120px] text-[13px] leading-relaxed bg-white/5 dark:bg-black/20 rounded-xl border border-[var(--border-subtle)]/50 p-3 focus:border-[var(--accent-blue)]/50 focus:ring-4 focus:ring-blue-500/5 outline-none resize-none transition-all placeholder:opacity-30"
+                    className="w-full min-h-[40px] text-[13px] leading-relaxed bg-transparent text-white/80 p-0 outline-none resize-none transition-all placeholder:text-white/10"
                     value={data.text}
-                    onChange={(e) => updateNodeData(id, { text: e.target.value })}
+                    onChange={(e) => {
+                        updateNodeData(id, { text: e.target.value });
+                        // Auto resize
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    onFocus={(e) => {
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
                     placeholder="Describe or input text here..."
+                    style={{ height: 'auto' }}
                 />
             </div>
         </BaseNode>

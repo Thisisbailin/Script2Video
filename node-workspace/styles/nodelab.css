@@ -46,19 +46,19 @@
   box-shadow: 0 0 8px var(--accent-blue-alpha, rgba(59, 130, 246, 0.4));
 }
 
-/* Edges - Thin and elegant */
+/* Edges - Strong and visible */
 .react-flow__edge-path {
-  stroke: var(--border-strong);
-  stroke-width: 1.5;
+  stroke: var(--accent-blue);
+  stroke-width: 2.5;
   transition: all 0.2s ease;
-  opacity: 0.4;
+  opacity: 0.6;
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
   stroke: var(--accent-blue);
-  stroke-width: 2;
+  stroke-width: 3.5;
   opacity: 1;
 }
 
