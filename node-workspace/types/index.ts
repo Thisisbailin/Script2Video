@@ -98,6 +98,7 @@ export interface ImageGenNodeData extends BaseNodeData {
   status: NodeStatus;
   error: string | null;
   model?: string;
+  aspectRatio?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {

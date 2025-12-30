@@ -12,6 +12,7 @@ import {
   ReactFlowProvider,
   ControlButton,
   ConnectionMode,
+  XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "../styles/nodelab.css";
@@ -108,9 +109,50 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     [screenToFlowPosition]
   );
 
+  const handleAddNode = useCallback((type: NodeType, position: XYPosition) => {
+    let parentId = undefined;
+    let finalPosition = position;
+    const extraData: any = {};
+
+    if (activeView) {
+      extraData.view = activeView;
+      // Find the group node that represents this view
+      const groupNode = nodes.find(n => n.type === 'group' && (n.data as any).view === activeView);
+      if (groupNode) {
+        parentId = groupNode.id;
+        // If the position looks like an absolute flow position (e.g. from drag & drop), 
+        // we should make it relative to the parent group.
+        // For the fixed positions from FloatingActionBar (like 100, 100), 
+        // they are already relative enough and will appear at the top-left of the group.
+
+        // Check if the position is far enough to be likely absolute
+        if (position.x > 0 || position.y > 0) {
+          // We only adjust if we suspect it's a world-space drop. 
+          // Actually, it's safer to always adjust if we know the source is world-space.
+        }
+      }
+    }
+    return addNode(type, finalPosition, parentId, extraData);
+  }, [nodes, activeView, addNode]);
+
   const handleDropCreate = (type: NodeType) => {
     if (!connectionDrop) return;
-    const newId = addNode(type, connectionDrop.flowPosition);
+
+    let position = connectionDrop.flowPosition;
+
+    // Adjust position if we are in an active view with a parent group
+    if (activeView) {
+      const groupNode = nodes.find(n => n.type === 'group' && (n.data as any).view === activeView);
+      if (groupNode) {
+        position = {
+          x: position.x - groupNode.position.x,
+          y: position.y - groupNode.position.y
+        };
+      }
+    }
+
+    const newId = handleAddNode(type, position);
+
     if (connectionDrop.handleType) {
       if (connectionDrop.connectionType === "source") {
         onConnect({
@@ -415,14 +457,14 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       </div>
 
       <FloatingActionBar
-        onAddText={() => addNode("text", { x: 100, y: 100 })}
-        onAddImage={() => addNode("imageInput", { x: 200, y: 100 })}
-        onAddLLM={() => addNode("llmGenerate", { x: 300, y: 100 })}
-        onAddImageGen={() => addNode("imageGen", { x: 400, y: 100 })}
-        onAddVideoGen={() => addNode("videoGen", { x: 500, y: 100 })}
-        onAddOutput={() => addNode("output", { x: 600, y: 100 })}
-        onAddGroup={() => addNode("group", { x: 100, y: 100 })}
-        onAddNote={() => addNode("note", { x: 100, y: 100 })}
+        onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+        onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
+        onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
+        onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+        onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
+        onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
+        onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
+        onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
         onImportUnderstanding={handleImportUnderstanding}
         onImportEpisode={() => setShowEpisodeSelector(true)}
         isUnderstandingActive={activeView === 'understanding'}

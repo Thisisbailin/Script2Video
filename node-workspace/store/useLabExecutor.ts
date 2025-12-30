@@ -21,7 +21,7 @@ export const useLabExecutor = () => {
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
       const result = await GeminiService.generateProjectSummary(config.textConfig, text);
-      store.updateNodeData(nodeId, { status: "complete", outputText: result.summary, error: null });
+      store.updateNodeData(nodeId, { status: "complete", outputText: result.projectSummary, error: null });
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "LLM failed" });
     }
@@ -35,19 +35,55 @@ export const useLabExecutor = () => {
   const runImageGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
-    const { images, text } = store.getConnectedInputs(nodeId);
-    if (images.length === 0 || !text) {
-      store.updateNodeData(nodeId, { status: "error", error: "Missing image or text input" });
+    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const manualPrompt = (node.data as any).inputPrompt;
+    const text = connectedText || manualPrompt;
+
+    if (!text) {
+      store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)" });
       return;
     }
+
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
-      // use sendMessage: prepend image markdown to prompt
-      const promptWithImage = `${text}\n\n![ref](${images[0]})`;
-      const res = await MultimodalService.sendMessage([{ role: "user", content: promptWithImage }], config.multimodalConfig);
+      // Construction: text + optional image references + aspect ratio
+      const aspectRatio = (node.data as any).aspectRatio || "1:1";
+      let promptContent: any = text;
+
+      // Append aspect ratio instruction for the model
+      promptContent = `${text}\n\n[Aspect Ratio]: ${aspectRatio}`;
+
+      if (images.length > 0) {
+        const refs = images.map((img, i) => `![ref ${i}](${img})`).join('\n');
+        promptContent = `${promptContent}\n\n${refs}`;
+      }
+
+      const res = await MultimodalService.sendMessage(
+        [{ role: "user", content: promptContent }],
+        config.multimodalConfig
+      );
+
       const url = extractImageUrl(res.content) || res.content.trim();
-      if (!url) throw new Error("No image URL returned");
-      store.updateNodeData(nodeId, { status: "complete", outputImage: url, error: null });
+
+      // Basic validation if it's a URL or base64
+      if (!url || (!url.startsWith('http') && !url.startsWith('data:image'))) {
+        throw new Error("No image URL could be extracted from response. Response was: " + res.content.substring(0, 100));
+      }
+
+      store.updateNodeData(nodeId, {
+        status: "complete",
+        outputImage: url,
+        error: null,
+        model: config.multimodalConfig.model
+      });
+
+      // Add to global history for reuse
+      store.addToGlobalHistory({
+        image: url,
+        prompt: text,
+        model: config.multimodalConfig.model
+      });
+
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Image gen failed" });
     }

@@ -44,7 +44,7 @@ interface WorkflowStore {
   setEdgeStyle: (style: EdgeStyle) => void;
 
   // Node operations
-  addNode: (type: NodeType, position: XYPosition) => string;
+  addNode: (type: NodeType, position: XYPosition, parentId?: string, extraData?: Partial<WorkflowNodeData>) => string;
   updateNodeData: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
   removeNode: (nodeId: string) => void;
   onNodesChange: (changes: NodeChange<WorkflowNode>[]) => void;
@@ -114,6 +114,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         outputImage: null,
         status: "idle",
         error: null,
+        aspectRatio: "1:1",
       } as ImageGenNodeData;
     case "llmGenerate":
       return {
@@ -175,8 +176,26 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
   setEdgeStyle: (style: EdgeStyle) => set({ edgeStyle: style }),
 
-  addNode: (type: NodeType, position: XYPosition) => {
+  addNode: (type: NodeType, position: XYPosition, parentId?: string, extraData?: Partial<WorkflowNodeData>) => {
+    const { activeView, nodes } = get();
     const id = `${type}-${++nodeIdCounter}`;
+
+    // Automatically determine parent and view if not explicitly provided
+    let effectiveParentId = parentId;
+    let effectiveExtraData = { ...extraData };
+
+    if (activeView) {
+      effectiveExtraData.view = activeView;
+
+      // If no parentId provided, try to find a suitable group node in this view
+      if (!effectiveParentId) {
+        const matchingGroup = nodes.find(n => n.type === 'group' && (n.data as any).view === activeView);
+        if (matchingGroup) {
+          effectiveParentId = matchingGroup.id;
+        }
+      }
+    }
+
     const defaultDimensions: Record<NodeType, { width: number; height?: number }> = {
       imageInput: { width: 300, height: 280 },
       annotation: { width: 300, height: 280 },
@@ -189,12 +208,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       group: { width: 1000, height: 800 },
       output: { width: 420 },
     };
+
     const dim = defaultDimensions[type];
     const newNode: WorkflowNode = {
       id,
       type,
       position,
-      data: createDefaultNodeData(type),
+      parentId: effectiveParentId,
+      extent: effectiveParentId ? 'parent' : undefined,
+      data: { ...createDefaultNodeData(type), ...effectiveExtraData } as WorkflowNodeData,
       style: { width: dim.width, height: dim.height },
     };
     set((state) => ({ nodes: [...state.nodes, newNode] }));
@@ -260,20 +282,34 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   },
 
   pasteNodes: (offset: XYPosition = { x: 50, y: 50 }) => {
-    const { clipboard, nodes, edges } = get();
+    const { clipboard, nodes, edges, activeView } = get();
     if (!clipboard || clipboard.nodes.length === 0) return;
+
     const idMapping = new Map<string, string>();
     clipboard.nodes.forEach((node) => {
       const newId = `${node.type}-${++nodeIdCounter}`;
       idMapping.set(node.id, newId);
     });
-    const newNodes: WorkflowNode[] = clipboard.nodes.map((node) => ({
-      ...node,
-      id: idMapping.get(node.id)!,
-      position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
-      selected: true,
-      data: { ...node.data },
-    }));
+
+    const matchingGroup = activeView ? nodes.find(n => n.type === 'group' && (n.data as any).view === activeView) : null;
+
+    const newNodes: WorkflowNode[] = clipboard.nodes.map((node) => {
+      const newData = { ...node.data };
+      if (activeView) {
+        (newData as any).view = activeView;
+      }
+
+      return {
+        ...node,
+        id: idMapping.get(node.id)!,
+        position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
+        selected: true,
+        parentId: node.parentId || (matchingGroup?.id),
+        extent: (node.parentId || matchingGroup?.id) ? 'parent' : undefined,
+        data: newData as WorkflowNodeData,
+      };
+    });
+
     const newEdges: WorkflowEdge[] = clipboard.edges.map((edge) => ({
       ...edge,
       id: `edge-${idMapping.get(edge.source)}-${idMapping.get(edge.target)}-${edge.sourceHandle || "default"}-${edge.targetHandle || "default"}`,
