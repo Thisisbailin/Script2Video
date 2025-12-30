@@ -39,7 +39,7 @@ export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, 
 
         <textarea
           ref={textareaRef}
-          className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[100px]"
+          className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[100px]"
           value={data.outputText || ""}
           readOnly
           placeholder="Awaiting generation..."

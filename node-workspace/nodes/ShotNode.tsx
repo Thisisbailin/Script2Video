@@ -93,18 +93,20 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
                     </div>
                 </div>
 
-                <textarea
-                    ref={descriptionRef}
-                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] font-bold flex-1"
-                    value={data.description}
-                    onChange={(e) => {
-                        updateNodeData(id, { description: e.target.value });
-                        autoResize(e.target);
-                    }}
-                    onFocus={(e) => autoResize(e.target)}
-                    placeholder="Enter shot description..."
-                    style={{ height: 'auto' }}
-                />
+                <div className="bg-[var(--node-textarea-bg)] rounded-2xl p-4 transition-all border border-white/5">
+                    <textarea
+                        ref={descriptionRef}
+                        className="bg-transparent w-full text-[13px] leading-relaxed outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] font-bold"
+                        value={data.description}
+                        onChange={(e) => {
+                            updateNodeData(id, { description: e.target.value });
+                            autoResize(e.target);
+                        }}
+                        onFocus={(e) => autoResize(e.target)}
+                        placeholder="Enter shot description..."
+                        style={{ height: 'auto' }}
+                    />
+                </div>
 
                 {data.dialogue && (
                     <div className="relative">

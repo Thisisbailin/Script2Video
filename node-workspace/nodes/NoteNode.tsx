@@ -37,7 +37,7 @@ export const NoteNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
                 </div>
                 <textarea
                     ref={textareaRef}
-                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[100px] bg-amber-500/[0.03] border border-amber-500/5"
+                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[100px] bg-amber-500/[0.03] border border-amber-500/5"
                     value={data.text}
                     onChange={(e) => {
                         updateNodeData(id, { text: e.target.value });

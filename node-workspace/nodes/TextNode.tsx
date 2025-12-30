@@ -97,7 +97,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                 {/* Text Area - Auto Height */}
                 <textarea
                     ref={textareaRef}
-                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[60px] font-medium"
+                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[60px] font-medium"
                     value={data.text}
                     onChange={(e) => {
                         updateNodeData(id, { text: e.target.value });
