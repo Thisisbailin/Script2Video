@@ -143,6 +143,8 @@ type WorkflowProps = {
   currentEpIndex: number;
   episodes: Episode[];
   setCurrentEpIndex: (idx: number) => void;
+  setStep: (step: WorkflowStep) => void;
+  setAnalysisStep: (step: AnalysisSubStep) => void;
   onStartAnalysis: () => void;
   onConfirmSummaryNext: () => void;
   onConfirmEpSummariesNext: () => void;
@@ -239,11 +241,10 @@ const EpisodeList: React.FC<{
         <button
           key={ep.id}
           onClick={() => onSelect(idx)}
-          className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-            currentEpIndex === idx
-              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200"
-              : "bg-white/5 hover:bg-white/10 text-[var(--text-primary)]"
-          }`}
+          className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${currentEpIndex === idx
+            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200"
+            : "bg-white/5 hover:bg-white/10 text-[var(--text-primary)]"
+            }`}
         >
           <div className="font-semibold truncate">
             {ep.title || `Episode ${idx + 1}`}
@@ -271,6 +272,8 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
     currentEpIndex,
     episodes,
     setCurrentEpIndex,
+    setStep,
+    setAnalysisStep,
     onStartAnalysis,
     onConfirmSummaryNext,
     onConfirmEpSummariesNext,
@@ -328,8 +331,8 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
     analysisStep === AnalysisSubStep.COMPLETE
       ? "6/6"
       : analysisStep === AnalysisSubStep.IDLE
-      ? "0/6"
-      : analysisProgressLabel(analysisStep);
+        ? "0/6"
+        : analysisProgressLabel(analysisStep);
   const queueProgress =
     analysisTotal > 0 ? `${analysisTotal - analysisQueueLength}/${analysisTotal}` : null;
 
@@ -430,32 +433,32 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
   const phase1Status: PhaseStatus = analysisError
     ? "error"
     : analysisStep === AnalysisSubStep.COMPLETE
-    ? "done"
-    : analysisStep === AnalysisSubStep.IDLE
-    ? "pending"
-    : "active";
+      ? "done"
+      : analysisStep === AnalysisSubStep.IDLE
+        ? "pending"
+        : "active";
 
   const phase2Status: PhaseStatus =
     totalEpisodes === 0
       ? "pending"
       : phase2Errors > 0
-      ? "error"
-      : completedShots === totalEpisodes
-      ? "done"
-      : step === WorkflowStep.GENERATE_SHOTS || completedShots > 0 || reviewShots > 0
-      ? "partial"
-      : "pending";
+        ? "error"
+        : completedShots === totalEpisodes
+          ? "done"
+          : step === WorkflowStep.GENERATE_SHOTS || completedShots > 0 || reviewShots > 0
+            ? "partial"
+            : "pending";
 
   const phase3Status: PhaseStatus =
     totalEpisodes === 0
       ? "pending"
       : phase3Errors > 0
-      ? "error"
-      : completedSora === totalEpisodes
-      ? "done"
-      : step === WorkflowStep.GENERATE_SORA || completedSora > 0
-      ? "partial"
-      : "pending";
+        ? "error"
+        : completedSora === totalEpisodes
+          ? "done"
+          : step === WorkflowStep.GENERATE_SORA || completedSora > 0
+            ? "partial"
+            : "pending";
 
   const phase2Progress = totalEpisodes ? `${completedShots}/${totalEpisodes}` : "0/0";
   const phase3Progress = totalEpisodes ? `${completedSora}/${totalEpisodes}` : "0/0";
@@ -639,9 +642,15 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                 const meta = getAnalysisItemMeta(item.step);
                 const tone = itemTone(status);
                 return (
-                  <div
+                  <button
                     key={item.step}
-                    className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${itemRowClass(status)}`}
+                    onClick={() => {
+                      if (isProcessing) return;
+                      setStep(WorkflowStep.SETUP_CONTEXT);
+                      setAnalysisStep(item.step);
+                    }}
+                    disabled={isProcessing}
+                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)} ${isProcessing ? 'cursor-not-allowed' : 'hover:border-[var(--accent-blue)]/50'}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
@@ -649,7 +658,7 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                       {meta && <span className="text-[10px] text-[var(--text-secondary)]">{meta}</span>}
                     </div>
                     <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -687,13 +696,18 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                   status === "error"
                     ? episode.errorMsg || "生成失败"
                     : episode.shots.length > 0
-                    ? `镜头 ${episode.shots.length}`
-                    : "未生成镜头";
+                      ? `镜头 ${episode.shots.length}`
+                      : "未生成镜头";
                 return (
                   <button
                     key={episode.id}
-                    onClick={() => setCurrentEpIndex(index)}
-                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)}`}
+                    onClick={() => {
+                      if (isProcessing) return;
+                      setStep(WorkflowStep.GENERATE_SHOTS);
+                      setCurrentEpIndex(index);
+                    }}
+                    disabled={isProcessing}
+                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)} ${isProcessing ? 'cursor-not-allowed opacity-60' : 'hover:border-[var(--accent-blue)]/50'}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
@@ -740,13 +754,18 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
                   status === "error"
                     ? episode.errorMsg || "生成失败"
                     : episode.shots.length === 0
-                    ? "未生成镜头"
-                    : `镜头 ${episode.shots.length}`;
+                      ? "未生成镜头"
+                      : `镜头 ${episode.shots.length}`;
                 return (
                   <button
                     key={episode.id}
-                    onClick={() => setCurrentEpIndex(index)}
-                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)}`}
+                    onClick={() => {
+                      if (isProcessing) return;
+                      setStep(WorkflowStep.GENERATE_SORA);
+                      setCurrentEpIndex(index);
+                    }}
+                    disabled={isProcessing}
+                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)} ${isProcessing ? 'cursor-not-allowed opacity-60' : 'hover:border-[var(--accent-blue)]/50'}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
@@ -793,8 +812,8 @@ const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
               {step === WorkflowStep.COMPLETED
                 ? "流程已完成，可前往 Video Studio 或导出结果。"
                 : totalEpisodes === 0
-                ? "暂无剧集，导入脚本后可开始。"
-                : "暂无可执行操作。"}
+                  ? "暂无剧集，导入脚本后可开始。"
+                  : "暂无可执行操作。"}
             </div>
           )}
         </div>
@@ -906,13 +925,11 @@ export const Header: React.FC<HeaderProps> = ({
   const syncDisplay = statusMeta(aggregateStatus);
 
   const pillTriggerClasses = (isActive = false) =>
-    `flex h-12 items-center gap-2 px-4 rounded-full bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.08)] transition-transform duration-150 hover:scale-105 hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)] ${
-      isActive ? "scale-105 shadow-[0_8px_20px_rgba(0,0,0,0.12)]" : ""
+    `flex h-12 items-center gap-2 px-4 rounded-full bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.08)] transition-transform duration-150 hover:scale-105 hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)] ${isActive ? "scale-105 shadow-[0_8px_20px_rgba(0,0,0,0.12)]" : ""
     }`;
 
   const iconButtonClasses = (isActive = false) =>
-    `relative h-10 w-10 flex items-center justify-center rounded-full text-[var(--text-primary)] transition-transform duration-150 hover:scale-105 ${
-      isActive ? "scale-105" : ""
+    `relative h-10 w-10 flex items-center justify-center rounded-full text-[var(--text-primary)] transition-transform duration-150 hover:scale-105 ${isActive ? "scale-105" : ""
     }`;
 
   const canExport = hasGeneratedShots || hasUnderstandingData;
@@ -1031,11 +1048,10 @@ export const Header: React.FC<HeaderProps> = ({
                             onTabChange(key);
                             setShowTabs(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${
-                            isActive
-                              ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
-                              : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
-                          }`}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${isActive
+                            ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
+                            : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
+                            }`}
                         >
                           <span
                             className="h-8 w-8 rounded-lg flex items-center justify-center"
@@ -1130,11 +1146,10 @@ export const Header: React.FC<HeaderProps> = ({
                             <button
                               key={key}
                               onClick={() => splitView.onSelect(key)}
-                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${
-                                isActiveSplit
-                                  ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
-                                  : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
-                              }`}
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${isActiveSplit
+                                ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
+                                : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
+                                }`}
                             >
                               <span
                                 className="h-8 w-8 rounded-lg flex items-center justify-center"
@@ -1229,9 +1244,8 @@ export const Header: React.FC<HeaderProps> = ({
                           <button
                             key={item.key}
                             onClick={item.onClick}
-                            className={`w-full text-left px-4 py-3 hover:bg-black/5 text-sm ${
-                              index < exportItems.length - 1 ? "border-b" : ""
-                            }`}
+                            className={`w-full text-left px-4 py-3 hover:bg-black/5 text-sm ${index < exportItems.length - 1 ? "border-b" : ""
+                              }`}
                             style={{ borderColor: "var(--border-subtle)" }}
                           >
                             {item.label}

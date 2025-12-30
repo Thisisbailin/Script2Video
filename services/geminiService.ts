@@ -8,163 +8,163 @@ const getGeminiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
 
 // Resolve API key from user config first, then fall back to env
 const resolveGeminiApiKey = (config: TextServiceConfig): string => {
-    const configKey = config.apiKey?.trim();
-    const envKey = (typeof import.meta !== 'undefined'
-        ? (import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY)
-        : undefined)
-        || (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : undefined);
-    
-    const apiKey = configKey || envKey;
-    if (!apiKey) {
-        throw new Error("Gemini API key missing. Please add it in Settings or set GEMINI_API_KEY/VITE_GEMINI_API_KEY in your env.");
-    }
-    return apiKey;
+  const configKey = config.apiKey?.trim();
+  const envKey = (typeof import.meta !== 'undefined'
+    ? (import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY)
+    : undefined)
+    || (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : undefined);
+
+  const apiKey = configKey || envKey;
+  if (!apiKey) {
+    throw new Error("Gemini API key missing. Please add it in Settings or set GEMINI_API_KEY/VITE_GEMINI_API_KEY in your env.");
+  }
+  return apiKey;
 };
 
 // Helper to map Google Schema to JSON Schema (Simplified for OpenRouter)
 const googleSchemaToJsonSchema = (schema: Schema): any => {
-    const convertType = (t: Type | undefined): string => {
-        if (!t) return 'string';
-        switch (t) {
-            case Type.STRING: return 'string';
-            case Type.NUMBER: return 'number';
-            case Type.INTEGER: return 'integer';
-            case Type.BOOLEAN: return 'boolean';
-            case Type.ARRAY: return 'array';
-            case Type.OBJECT: return 'object';
-            default: return 'string';
-        }
-    };
+  const convertType = (t: Type | undefined): string => {
+    if (!t) return 'string';
+    switch (t) {
+      case Type.STRING: return 'string';
+      case Type.NUMBER: return 'number';
+      case Type.INTEGER: return 'integer';
+      case Type.BOOLEAN: return 'boolean';
+      case Type.ARRAY: return 'array';
+      case Type.OBJECT: return 'object';
+      default: return 'string';
+    }
+  };
 
-    const res: any = { type: convertType(schema.type) };
-    if (schema.description) res.description = schema.description;
-    
-    if (schema.type === Type.ARRAY && schema.items) {
-        res.items = googleSchemaToJsonSchema(schema.items);
+  const res: any = { type: convertType(schema.type) };
+  if (schema.description) res.description = schema.description;
+
+  if (schema.type === Type.ARRAY && schema.items) {
+    res.items = googleSchemaToJsonSchema(schema.items);
+  }
+
+  if (schema.type === Type.OBJECT && schema.properties) {
+    res.properties = {};
+    for (const [key, prop] of Object.entries(schema.properties)) {
+      res.properties[key] = googleSchemaToJsonSchema(prop);
     }
-    
-    if (schema.type === Type.OBJECT && schema.properties) {
-        res.properties = {};
-        for (const [key, prop] of Object.entries(schema.properties)) {
-            res.properties[key] = googleSchemaToJsonSchema(prop);
-        }
-        if (schema.required) {
-            res.required = schema.required;
-        }
-        res.additionalProperties = false; // Strict JSON
+    if (schema.required) {
+      res.required = schema.required;
     }
-    
-    return res;
+    res.additionalProperties = false; // Strict JSON
+  }
+
+  return res;
 };
 
 // Unified Text Generation Caller
 const generateText = async (
-    config: TextServiceConfig,
-    prompt: string,
-    schema: Schema,
-    systemInstruction?: string
+  config: TextServiceConfig,
+  prompt: string,
+  schema: Schema,
+  systemInstruction?: string
 ): Promise<{ text: string; usage: TokenUsage }> => {
-    
-    // 1. GEMINI PROVIDER
-    if (config.provider === 'gemini') {
-        const apiKey = resolveGeminiApiKey(config);
-        const ai = getGeminiClient(apiKey);
-        const modelName = config.model || 'gemini-2.5-flash';
-        
-        try {
-            const response = await ai.models.generateContent({
-                model: modelName,
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: schema,
-                    systemInstruction: systemInstruction
-                },
-            });
-            return {
-                text: response.text || "{}",
-                usage: {
-                    promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
-                    responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
-                    totalTokens: response.usageMetadata?.totalTokenCount ?? 0,
-                }
-            };
-        } catch (e: any) {
-            console.error("Gemini API Error:", e);
-            throw new Error(`Gemini Error: ${e.message}`);
+
+  // 1. GEMINI PROVIDER
+  if (config.provider === 'gemini') {
+    const apiKey = resolveGeminiApiKey(config);
+    const ai = getGeminiClient(apiKey);
+    const modelName = config.model || 'gemini-2.5-flash';
+
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+          systemInstruction: systemInstruction
+        },
+      });
+      return {
+        text: response.text || "{}",
+        usage: {
+          promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
+          responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+          totalTokens: response.usageMetadata?.totalTokenCount ?? 0,
         }
-    } 
-    
-    // 2. OPENROUTER / OPENAI PROVIDER
-    else if (config.provider === 'openrouter') {
-        if (!config.baseUrl || !config.apiKey) throw new Error("OpenRouter configuration missing (URL or Key).");
-        
-        const jsonSchema = googleSchemaToJsonSchema(schema);
-        
-        // Construct the messages
-        const messages = [];
-        if (systemInstruction) {
-            messages.push({ role: "system", content: systemInstruction });
-        }
-        // Append schema instruction to prompt for robustness
-        const refinedPrompt = `${prompt}\n\nIMPORTANT: Return the output as a valid JSON object matching this schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
-        messages.push({ role: "user", content: refinedPrompt });
+      };
+    } catch (e: any) {
+      console.error("Gemini API Error:", e);
+      throw new Error(`Gemini Error: ${e.message}`);
+    }
+  }
 
-        let apiBase = config.baseUrl.trim().replace(/\/+$/, '');
-        // Ensure /v1/chat/completions structure if not present but base implies it
-        // If user provided "https://openrouter.ai/api/v1", we append "/chat/completions"
-        if (!apiBase.endsWith('/chat/completions')) {
-             // Check if it ends in /v1
-             if (apiBase.endsWith('/v1')) {
-                 apiBase = `${apiBase}/chat/completions`;
-             } else {
-                 // Assume it might need v1
-                 apiBase = `${apiBase}/v1/chat/completions`;
-             }
-        }
+  // 2. OPENROUTER / OPENAI PROVIDER
+  else if (config.provider === 'openrouter') {
+    if (!config.baseUrl || !config.apiKey) throw new Error("OpenRouter configuration missing (URL or Key).");
 
-        try {
-            const response = await fetch(apiBase, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${config.apiKey}`,
-                    // OpenRouter specific headers
-                    "HTTP-Referer": window.location.origin, 
-                    "X-Title": "eSheep"
-                },
-                body: JSON.stringify({
-                    model: config.model || "google/gemini-2.0-flash-exp:free", // Fallback
-                    messages: messages,
-                    response_format: { type: "json_object" }, // Enforce JSON mode if supported
-                    temperature: 0.7
-                })
-            });
+    const jsonSchema = googleSchemaToJsonSchema(schema);
 
-            if (!response.ok) {
-                const err = await response.text();
-                throw new Error(`OpenRouter Error ${response.status}: ${err}`);
-            }
+    // Construct the messages
+    const messages = [];
+    if (systemInstruction) {
+      messages.push({ role: "system", content: systemInstruction });
+    }
+    // Append schema instruction to prompt for robustness
+    const refinedPrompt = `${prompt}\n\nIMPORTANT: Return the output as a valid JSON object matching this schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
+    messages.push({ role: "user", content: refinedPrompt });
 
-            const data = await response.json();
-            const content = data.choices?.[0]?.message?.content || "{}";
-            
-            return {
-                text: content,
-                usage: {
-                    promptTokens: data.usage?.prompt_tokens ?? 0,
-                    responseTokens: data.usage?.completion_tokens ?? 0,
-                    totalTokens: data.usage?.total_tokens ?? 0
-                }
-            };
-
-        } catch (e: any) {
-            console.error("OpenRouter API Error:", e);
-            throw new Error(`OpenRouter Error: ${e.message}`);
-        }
+    let apiBase = config.baseUrl.trim().replace(/\/+$/, '');
+    // Ensure /v1/chat/completions structure if not present but base implies it
+    // If user provided "https://openrouter.ai/api/v1", we append "/chat/completions"
+    if (!apiBase.endsWith('/chat/completions')) {
+      // Check if it ends in /v1
+      if (apiBase.endsWith('/v1')) {
+        apiBase = `${apiBase}/chat/completions`;
+      } else {
+        // Assume it might need v1
+        apiBase = `${apiBase}/v1/chat/completions`;
+      }
     }
 
-    throw new Error(`Unknown provider: ${config.provider}`);
+    try {
+      const response = await fetch(apiBase, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${config.apiKey}`,
+          // OpenRouter specific headers
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "eSheep"
+        },
+        body: JSON.stringify({
+          model: config.model || "google/gemini-2.0-flash-exp:free", // Fallback
+          messages: messages,
+          response_format: { type: "json_object" }, // Enforce JSON mode if supported
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`OpenRouter Error ${response.status}: ${err}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "{}";
+
+      return {
+        text: content,
+        usage: {
+          promptTokens: data.usage?.prompt_tokens ?? 0,
+          responseTokens: data.usage?.completion_tokens ?? 0,
+          totalTokens: data.usage?.total_tokens ?? 0
+        }
+      };
+
+    } catch (e: any) {
+      console.error("OpenRouter API Error:", e);
+      throw new Error(`OpenRouter Error: ${e.message}`);
+    }
+  }
+
+  throw new Error(`Unknown provider: ${config.provider}`);
 };
 
 // Helper to sum usage from batches
@@ -176,52 +176,52 @@ export const addUsage = (u1: TokenUsage, u2: TokenUsage): TokenUsage => ({
 
 // Helper to format character list for prompts
 const formatCharContext = (context: ProjectContext): string => {
-  return context.characters.map(c => 
+  return context.characters.map(c =>
     `- ${c.name} (${c.role}): ${c.bio}. Forms: ${c.forms.map(f => f.formName).join(', ')}`
   ).join('\n');
 };
 
 // Fetch Models for OpenRouter
 export const fetchTextModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
-    let apiBase = baseUrl.trim().replace(/\/+$/, '');
-    // Remove /chat/completions if present to get to root
-    apiBase = apiBase.replace('/chat/completions', '');
-    
-    // Ensure /v1/models
-    if (!apiBase.endsWith('/v1')) {
-         if(!apiBase.includes('/v1/')) apiBase = `${apiBase}/v1`;
-    }
-    
-    try {
-        const response = await fetch(`${apiBase}/models`, {
-            method: 'GET',
-            headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-        if(!response.ok) return [];
-        const data = await response.json();
-        return data.data?.map((m: any) => m.id) || [];
-    } catch(e) {
-        console.error("Fetch Text Models Error", e);
-        return [];
-    }
+  let apiBase = baseUrl.trim().replace(/\/+$/, '');
+  // Remove /chat/completions if present to get to root
+  apiBase = apiBase.replace('/chat/completions', '');
+
+  // Ensure /v1/models
+  if (!apiBase.endsWith('/v1')) {
+    if (!apiBase.includes('/v1/')) apiBase = `${apiBase}/v1`;
+  }
+
+  try {
+    const response = await fetch(`${apiBase}/models`, {
+      method: 'GET',
+      headers: { "Authorization": `Bearer ${apiKey}` }
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.data?.map((m: any) => m.id) || [];
+  } catch (e) {
+    console.error("Fetch Text Models Error", e);
+    return [];
+  }
 };
 
 // --- FEATURE: EASTER EGG (DEMO SCRIPT) ---
 export const generateDemoScript = async (
-    config: TextServiceConfig,
-    dramaGuide?: string
+  config: TextServiceConfig,
+  dramaGuide?: string
 ): Promise<{ script: string; styleGuide: string; usage: TokenUsage }> => {
-    const schema: Schema = {
-        type: Type.OBJECT,
-        properties: {
-            script: { type: Type.STRING, description: "完整的剧本内容 (Plain Text)，必须严格换行" },
-            styleGuide: { type: Type.STRING, description: "与该剧本完美匹配的视觉风格概览 (Visual Style Guide)" }
-        },
-        required: ["script", "styleGuide"]
-    };
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      script: { type: Type.STRING, description: "完整的剧本内容 (Plain Text)，必须严格换行" },
+      styleGuide: { type: Type.STRING, description: "与该剧本完美匹配的视觉风格概览 (Visual Style Guide)" }
+    },
+    required: ["script", "styleGuide"]
+  };
 
-    const systemInstruction = "Role: Award-winning comedy screenwriter & Art Director. Task: Write a short, hilarious animal script AND its visual style. STRICT FORMATTING REQUIRED.";
-    const prompt = `
+  const systemInstruction = "Role: Award-winning comedy screenwriter & Art Director. Task: Write a short, hilarious animal script AND its visual style. STRICT FORMATTING REQUIRED.";
+  const prompt = `
         写一个关于动物的超短篇爆笑剧本（时长约1分钟），并附带一个独特的视觉风格定义。
         如果提供了创作指南，必须严格遵循其中的戏剧性和专业度要求：
         ${dramaGuide ? dramaGuide.substring(0, 2200) : '（无额外指南，按上面规则写）'}
@@ -260,13 +260,13 @@ export const generateDemoScript = async (
         }
     `;
 
-    const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-    const result = JSON.parse(text);
-    return {
-        script: result.script,
-        styleGuide: result.styleGuide,
-        usage
-    };
+  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const result = JSON.parse(text);
+  return {
+    script: result.script,
+    styleGuide: result.styleGuide,
+    usage
+  };
 };
 
 // --- PHASE 1: DEEP UNDERSTANDING SERVICES ---
@@ -323,9 +323,9 @@ export const generateEpisodeSummary = async (
 
   const recentSummaries = context.episodeSummaries
     ? context.episodeSummaries
-        .filter((s) => s.episodeId < currentEpisodeId)
-        .sort((a, b) => b.episodeId - a.episodeId)
-        .slice(0, 10)
+      .filter((s) => s.episodeId < currentEpisodeId)
+      .sort((a, b) => b.episodeId - a.episodeId)
+      .slice(0, 10)
     : [];
   const recentSummaryText = recentSummaries.length
     ? recentSummaries.map((s) => `- Ep ${s.episodeId}: ${s.summary}`).join('\n')
@@ -364,39 +364,39 @@ export const identifyCharacters = async (
 ): Promise<{ characters: Character[]; usage: TokenUsage }> => {
   const schema: Schema = {
     type: Type.OBJECT,
-  properties: {
-    characters: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          role: { type: Type.STRING, description: "e.g. Protagonist, Villain, Supporting" },
-          isMain: { type: Type.BOOLEAN, description: "True for core characters requiring deep analysis" },
-          bio: { type: Type.STRING, description: "Brief initial overview" },
-          assetPriority: { type: Type.STRING, enum: ["high", "medium", "low"] },
-          episodeUsage: { type: Type.STRING, description: "Episodes/scenes where this character appears" },
-          archetype: { type: Type.STRING, description: "简要人设/类型标签" },
-          forms: {
-            type: Type.ARRAY,
-            description: "Rough forms that likely need independent assets",
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                formName: { type: Type.STRING },
-                episodeRange: { type: Type.STRING },
-                identityOrState: { type: Type.STRING, description: "Age, disguise, rank, status" }
-              },
-              required: ["formName", "episodeRange"]
+    properties: {
+      characters: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            role: { type: Type.STRING, description: "e.g. Protagonist, Villain, Supporting" },
+            isMain: { type: Type.BOOLEAN, description: "True for core characters requiring deep analysis" },
+            bio: { type: Type.STRING, description: "Brief initial overview" },
+            assetPriority: { type: Type.STRING, enum: ["high", "medium", "low"] },
+            episodeUsage: { type: Type.STRING, description: "Episodes/scenes where this character appears" },
+            archetype: { type: Type.STRING, description: "简要人设/类型标签" },
+            forms: {
+              type: Type.ARRAY,
+              description: "Rough forms that likely need independent assets",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  formName: { type: Type.STRING },
+                  episodeRange: { type: Type.STRING },
+                  identityOrState: { type: Type.STRING, description: "Age, disguise, rank, status" }
+                },
+                required: ["formName", "episodeRange"]
+              }
             }
-          }
-        },
-        required: ["name", "role", "isMain", "bio", "assetPriority", "episodeUsage"]
+          },
+          required: ["name", "role", "isMain", "bio", "assetPriority", "episodeUsage"]
+        }
       }
-    }
-  },
-  required: ["characters"]
-};
+    },
+    required: ["characters"]
+  };
 
   const systemInstruction = "Role: Casting Director & Asset Producer.";
   const prompt = `
@@ -673,14 +673,17 @@ export const generateEpisodeShots = async (
   };
 
   const charContextStr = formatCharContext(context);
-  const locContextStr = context.locations 
+  const locContextStr = context.locations
     ? context.locations.filter(l => l.type === 'core').map(l => `- ${l.name}: ${l.visuals}`).join('\n')
     : '';
 
-  const systemInstruction = "角色设定：你是一位拥有10年经验的资深专业分镜师。";
+  const systemInstruction = `角色设定：你是一位好莱坞顶级的分镜师（Storyboard Artist）和摄影指导（DP）。
+  核心职责：将剧本文字转化为极具画面感、电影感和镜头张力的专业分镜脚本。
+  最重要的规则：拒绝平庸。你的每一个分镜描述都必须包含具体的【摄影运镜】、【光影氛围】和【构图细节】。`;
+
   const prompt = `
     任务：
-    依据项目背景、上文剧情，严格遵循【分镜制作指导文档】，将《${episodeTitle}》的剧本正文转换为一份专业的分镜脚本（Shooting Script）。
+    依据项目背景、上文剧情，严格遵循【分镜制作指导文档】，将《${episodeTitle}》的剧本正文转换为一份大师级的分镜脚本。
     
     【项目上下文】：
     - 项目简介：${context.projectSummary}
@@ -690,7 +693,7 @@ export const generateEpisodeShots = async (
     - 核心场景设定：
     ${locContextStr}
     
-    【分镜制作指导文档】：
+    【分镜制作指导文档 (必须严格执行)】：
     ${guide}
 
     ${styleGuide ? `
@@ -701,25 +704,29 @@ export const generateEpisodeShots = async (
     【当前待处理剧本 - ${episodeTitle}】：
     ${episodeContent}
     
-    【输出要求】：
-    1. 语言要求：除专有名词外，全流程使用**中文**工作。
-    2. 镜号格式 (CRITICAL)：分镜号格式必须为：**场景号-本场镜号**。例如：第12集第2场的第1个镜头，ID应为 **"12-2-01"**。
-    3. 画面描述 (Description)：必须具有极强的画面感。
-    4. 难度 (Difficulty)：为每个镜头给出 1-10 的制作难度整数评分（10 最难，1 最易），综合考虑拍摄/动画复杂度、人数、景别与运动、特效等。
-    4. soraPrompt 字段请务必保持为空字符串。
+    【输出要求 (CRITICAL)】：
+    1. **语言**：除专有名词（如 Dutch Angle, Rim Light）外，全流程使用**中文**。
+    2. **格式**：分镜号格式必须为：**场景号-本场镜号**。例如：第12集第2场的第1个镜头，ID应为 **"12-2-01"**。
+    3. **Description 字段标准**：
+       -  必须包含至少一处摄影/光影术语 (如 "侧光", "浅景深", "仰视")。
+       -  必须描述画面中的物理细节/材质/氛围。
+       -  ❌ 禁止: "拍他在说话"
+       -  ✅ 允许: "特写。侧逆光勾勒出他脸部的轮廓，他在阴影中低语，背景是虚化的雨夜街道。"
+    4. **Difficulty**: 为每个镜头给出 1-10 的制作难度整数评分（10 最难，1 最易），综合考虑拍摄/动画复杂度、人数、景别与运动、特效等。
+    5. **soraPrompt**：字段请务必保持为空字符串。
   `;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = JSON.parse(text) as { shots?: Shot[] };
   const shots = Array.isArray(parsed?.shots)
     ? parsed.shots.map((shot) => ({
-        ...shot,
-        soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : ""
-      }))
+      ...shot,
+      soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : ""
+    }))
     : [];
   return {
-      shots,
-      usage
+    shots,
+    usage
   };
 };
 
@@ -729,7 +736,7 @@ export const generateSoraPrompts = async (
   shots: Shot[],
   context: ProjectContext,
   soraGuide: string,
-  styleGuide?: string 
+  styleGuide?: string
 ): Promise<{ partialShots: { id: string; soraPrompt: string }[]; usage: TokenUsage }> => {
   const schema: Schema = {
     type: Type.OBJECT,
@@ -749,10 +756,10 @@ export const generateSoraPrompts = async (
   };
 
   const charContextStr = formatCharContext(context);
-  const locContextStr = context.locations 
+  const locContextStr = context.locations
     ? context.locations.filter(l => l.type === 'core').map(l => `- ${l.name}: ${l.visuals}`).join('\n')
     : '';
-  
+
   const batchContext = shots.map(s => ({
     id: s.id,
     type: s.shotType,
@@ -786,13 +793,13 @@ export const generateSoraPrompts = async (
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   const resultObj = JSON.parse(text) as { prompts: { id: string; soraPrompt: string }[] };
-  
+
   if (!resultObj.prompts && Array.isArray(resultObj)) {
-     return { partialShots: resultObj, usage };
+    return { partialShots: resultObj, usage };
   }
 
   return {
-      partialShots: resultObj.prompts,
-      usage
+    partialShots: resultObj.prompts,
+    usage
   };
 };

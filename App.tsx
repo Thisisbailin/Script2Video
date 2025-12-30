@@ -55,26 +55,26 @@ const App: React.FC = () => {
   const { openSignIn, signOut } = useClerk();
   const { getToken, isLoaded: isAuthLoaded, isSignedIn: authSignedIn } = useAuth();
   const getAuthToken = useCallback(async () => {
-      try {
-        return await getToken({ template: "default" });
-      } catch {
-        return null;
-      }
+    try {
+      return await getToken({ template: "default" });
+    } catch {
+      return null;
+    }
   }, [getToken]);
   const projectDataRef = useRef<ProjectData>(INITIAL_PROJECT_DATA);
 
   // Initialize state with Persisted hooks
   const [projectData, setProjectData] = usePersistedState<ProjectData>({
-      key: PROJECT_STORAGE_KEY,
-      initialValue: INITIAL_PROJECT_DATA,
-      deserialize: (value) => normalizeProjectData(JSON.parse(value)),
-      serialize: (value) => JSON.stringify(value),
+    key: PROJECT_STORAGE_KEY,
+    initialValue: INITIAL_PROJECT_DATA,
+    deserialize: (value) => normalizeProjectData(JSON.parse(value)),
+    serialize: (value) => JSON.stringify(value),
   });
 
   const { config, setConfig } = useConfig(CONFIG_STORAGE_KEY);
 
   const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
-  
+
   // Sync global theme classes for both Tailwind dark styles and CSS variable themes
   useEffect(() => {
     const root = document.documentElement;
@@ -96,30 +96,30 @@ const App: React.FC = () => {
   }, [isDarkMode]);
 
   const [uiState, setUiState] = usePersistedState<{
-      step: WorkflowStep;
-      analysisStep: AnalysisSubStep;
-      currentEpIndex: number;
-      activeTab: ActiveTab;
+    step: WorkflowStep;
+    analysisStep: AnalysisSubStep;
+    currentEpIndex: number;
+    activeTab: ActiveTab;
   }>({
-      key: UI_STATE_STORAGE_KEY,
-      initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'assets' },
-      deserialize: (value) => {
-          const parsed = JSON.parse(value);
-          return {
-              step: parsed.step ?? WorkflowStep.IDLE,
-              analysisStep: parsed.analysisStep ?? AnalysisSubStep.IDLE,
-              currentEpIndex: parsed.currentEpIndex ?? 0,
-              activeTab: parsed.activeTab ?? 'assets'
-          };
-      },
-      serialize: (value) => JSON.stringify(value)
+    key: UI_STATE_STORAGE_KEY,
+    initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'assets' },
+    deserialize: (value) => {
+      const parsed = JSON.parse(value);
+      return {
+        step: parsed.step ?? WorkflowStep.IDLE,
+        analysisStep: parsed.analysisStep ?? AnalysisSubStep.IDLE,
+        currentEpIndex: parsed.currentEpIndex ?? 0,
+        activeTab: parsed.activeTab ?? 'assets'
+      };
+    },
+    serialize: (value) => JSON.stringify(value)
   });
 
   const workflow = useWorkflowEngine({
-      step: uiState.step,
-      analysisStep: uiState.analysisStep,
-      currentEpIndex: uiState.currentEpIndex,
-      activeTab: uiState.activeTab
+    step: uiState.step,
+    analysisStep: uiState.analysisStep,
+    currentEpIndex: uiState.currentEpIndex,
+    activeTab: uiState.activeTab
   });
 
   const { state: wfState, setStep, setAnalysisStep, setCurrentEpIndex, setActiveTab, setProcessing, setStatus, setQueue, shiftQueue, resetWorkflow } = workflow;
@@ -128,17 +128,17 @@ const App: React.FC = () => {
 
   // Keep persisted uiState in sync with reducer core fields
   useEffect(() => {
-      setUiState(prev => ({
-          ...prev,
-          step,
-          analysisStep,
-          currentEpIndex,
-          activeTab
-      }));
+    setUiState(prev => ({
+      ...prev,
+      step,
+      analysisStep,
+      currentEpIndex,
+      activeTab
+    }));
   }, [step, analysisStep, currentEpIndex, activeTab, setUiState]);
 
   useEffect(() => {
-      setAnalysisError(null);
+    setAnalysisError(null);
   }, [analysisStep]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -146,298 +146,298 @@ const App: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>({
-      project: { status: 'idle' },
-      secrets: { status: 'disabled' }
+    project: { status: 'idle' },
+    secrets: { status: 'disabled' }
   });
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [syncRefreshKey, setSyncRefreshKey] = useState(0);
   const conflictQueueRef = useRef<Array<{ remote: ProjectData; local: ProjectData; resolve?: (useRemote: boolean) => void; mode: 'decision' | 'notice' }>>([]);
   const activeConflictRef = useRef<{ remote: ProjectData; local: ProjectData; resolve?: (useRemote: boolean) => void; mode: 'decision' | 'notice' } | null>(null);
   const [activeConflict, setActiveConflict] = useState<{ remote: ProjectData; local: ProjectData; resolve?: (useRemote: boolean) => void; mode: 'decision' | 'notice' } | null>(null);
-  
+
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = usePersistedState<string>({
-      key: 'script2video_avatar_url',
-      initialValue: '',
-      deserialize: (v) => JSON.parse(v),
-      serialize: (v) => JSON.stringify(v)
+    key: 'script2video_avatar_url',
+    initialValue: '',
+    deserialize: (v) => JSON.parse(v),
+    serialize: (v) => JSON.stringify(v)
   });
   const hasFetchedProfileAvatar = useRef(false);
   const syncRollout = useMemo(() => {
-      const percent = normalizeRolloutPercent(import.meta.env.VITE_SYNC_ROLLOUT_PERCENT);
-      const salt = import.meta.env.VITE_SYNC_ROLLOUT_SALT || "";
-      const allowlistRaw = import.meta.env.VITE_SYNC_ROLLOUT_ALLOWLIST || "";
-      const allowlist = allowlistRaw.split(",").map((value) => value.trim()).filter(Boolean);
-      const userId = user?.id || (userSignedIn ? "" : getDeviceId());
-      const allowlisted = !!user?.id && allowlist.includes(user.id);
-      if (!userId) {
-          return { enabled: percent >= 100, percent, bucket: null, allowlisted };
-      }
-      const bucket = hashToBucket(userId, salt);
-      const enabled = allowlisted || isInRollout(userId, percent, salt);
-      return { enabled, percent, bucket, allowlisted };
+    const percent = normalizeRolloutPercent(import.meta.env.VITE_SYNC_ROLLOUT_PERCENT);
+    const salt = import.meta.env.VITE_SYNC_ROLLOUT_SALT || "";
+    const allowlistRaw = import.meta.env.VITE_SYNC_ROLLOUT_ALLOWLIST || "";
+    const allowlist = allowlistRaw.split(",").map((value) => value.trim()).filter(Boolean);
+    const userId = user?.id || (userSignedIn ? "" : getDeviceId());
+    const allowlisted = !!user?.id && allowlist.includes(user.id);
+    if (!userId) {
+      return { enabled: percent >= 100, percent, bucket: null, allowlisted };
+    }
+    const bucket = hashToBucket(userId, salt);
+    const enabled = allowlisted || isInRollout(userId, percent, salt);
+    return { enabled, percent, bucket, allowlisted };
   }, [user?.id, userSignedIn]);
   const isSyncFeatureEnabled = !!authSignedIn && syncRollout.enabled;
 
   const openSettings = useCallback((tab?: 'text' | 'multimodal' | 'video' | 'sync' | 'about') => {
-      setSettingsTab(tab || null);
-      setIsSettingsOpen(true);
+    setSettingsTab(tab || null);
+    setIsSettingsOpen(true);
   }, []);
 
   const closeSettings = useCallback(() => {
-      setIsSettingsOpen(false);
-      setSettingsTab(null);
+    setIsSettingsOpen(false);
+    setSettingsTab(null);
   }, []);
-  
+
   // Processing Queues for Phase 1 Batches handled via reducer
 
   // --- Cloud Sync Helpers ---
 
   useEffect(() => {
-      projectDataRef.current = projectData;
+    projectDataRef.current = projectData;
   }, [projectData]);
 
   useEffect(() => {
-      activeConflictRef.current = activeConflict;
+    activeConflictRef.current = activeConflict;
   }, [activeConflict]);
 
   useEffect(() => {
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
-      const projectEnabled = authSignedIn && isSyncFeatureEnabled;
-      const secretsEnabled = authSignedIn && isSyncFeatureEnabled && config.syncApiKeys;
-      setSyncState(prev => ({
-          project: projectEnabled ? (prev.project.status === 'disabled' ? { status: 'loading' } : prev.project) : { status: 'disabled' },
-          secrets: secretsEnabled
-            ? (prev.secrets.status === 'disabled' ? { status: 'loading' } : prev.secrets)
-            : { status: 'disabled' }
-      }));
+    const projectEnabled = authSignedIn && isSyncFeatureEnabled;
+    const secretsEnabled = authSignedIn && isSyncFeatureEnabled && config.syncApiKeys;
+    setSyncState(prev => ({
+      project: projectEnabled ? (prev.project.status === 'disabled' ? { status: 'loading' } : prev.project) : { status: 'disabled' },
+      secrets: secretsEnabled
+        ? (prev.secrets.status === 'disabled' ? { status: 'loading' } : prev.secrets)
+        : { status: 'disabled' }
+    }));
   }, [authSignedIn, config.syncApiKeys, isSyncFeatureEnabled]);
 
   const updateProjectSyncStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
-      setSyncState(prev => ({
-          ...prev,
-          project: {
-              status,
-              lastSyncAt: detail?.lastSyncAt ?? prev.project.lastSyncAt,
-              lastError: status === 'error' ? detail?.error ?? prev.project.lastError : status === 'synced' ? undefined : prev.project.lastError,
-              pendingOps: detail?.pendingOps ?? prev.project.pendingOps,
-              retryCount: detail?.retryCount ?? prev.project.retryCount,
-              lastAttemptAt: detail?.lastAttemptAt ?? prev.project.lastAttemptAt
-          }
-      }));
+    setSyncState(prev => ({
+      ...prev,
+      project: {
+        status,
+        lastSyncAt: detail?.lastSyncAt ?? prev.project.lastSyncAt,
+        lastError: status === 'error' ? detail?.error ?? prev.project.lastError : status === 'synced' ? undefined : prev.project.lastError,
+        pendingOps: detail?.pendingOps ?? prev.project.pendingOps,
+        retryCount: detail?.retryCount ?? prev.project.retryCount,
+        lastAttemptAt: detail?.lastAttemptAt ?? prev.project.lastAttemptAt
+      }
+    }));
   }, []);
 
   const updateSecretsSyncStatus = useCallback((status: SyncStatus, detail?: { lastSyncAt?: number; error?: string; pendingOps?: number; retryCount?: number; lastAttemptAt?: number }) => {
-      setSyncState(prev => ({
-          ...prev,
-          secrets: {
-              status,
-              lastSyncAt: detail?.lastSyncAt ?? prev.secrets.lastSyncAt,
-              lastError: status === 'error' ? detail?.error ?? prev.secrets.lastError : status === 'synced' ? undefined : prev.secrets.lastError,
-              pendingOps: detail?.pendingOps ?? prev.secrets.pendingOps,
-              retryCount: detail?.retryCount ?? prev.secrets.retryCount,
-              lastAttemptAt: detail?.lastAttemptAt ?? prev.secrets.lastAttemptAt
-          }
-      }));
+    setSyncState(prev => ({
+      ...prev,
+      secrets: {
+        status,
+        lastSyncAt: detail?.lastSyncAt ?? prev.secrets.lastSyncAt,
+        lastError: status === 'error' ? detail?.error ?? prev.secrets.lastError : status === 'synced' ? undefined : prev.secrets.lastError,
+        pendingOps: detail?.pendingOps ?? prev.secrets.pendingOps,
+        retryCount: detail?.retryCount ?? prev.secrets.retryCount,
+        lastAttemptAt: detail?.lastAttemptAt ?? prev.secrets.lastAttemptAt
+      }
+    }));
   }, []);
 
   const handleCloudSyncError = useCallback((e: unknown) => {
-      console.warn("Cloud sync error", e);
+    console.warn("Cloud sync error", e);
   }, []);
 
   const forceCloudPull = useCallback(() => {
-      setSyncRefreshKey((v) => v + 1);
+    setSyncRefreshKey((v) => v + 1);
   }, []);
 
   const requestConflictResolution = useCallback(({ remote, local }: { remote: ProjectData; local: ProjectData }) => {
-      return new Promise<boolean>((resolve) => {
-          conflictQueueRef.current.push({ remote, local, resolve, mode: 'decision' });
-          if (!activeConflictRef.current) {
-              const next = conflictQueueRef.current.shift();
-              if (next) setActiveConflict(next);
-          }
-      });
+    return new Promise<boolean>((resolve) => {
+      conflictQueueRef.current.push({ remote, local, resolve, mode: 'decision' });
+      if (!activeConflictRef.current) {
+        const next = conflictQueueRef.current.shift();
+        if (next) setActiveConflict(next);
+      }
+    });
   }, []);
 
   const requestConflictNotice = useCallback(({ remote, local }: { remote: ProjectData; local: ProjectData }) => {
-      conflictQueueRef.current.push({ remote, local, mode: 'notice' });
-      if (!activeConflictRef.current) {
-          const next = conflictQueueRef.current.shift();
-          if (next) setActiveConflict(next);
-      }
+    conflictQueueRef.current.push({ remote, local, mode: 'notice' });
+    if (!activeConflictRef.current) {
+      const next = conflictQueueRef.current.shift();
+      if (next) setActiveConflict(next);
+    }
   }, []);
 
   const handleConflictChoice = useCallback((useRemote: boolean) => {
-      if (!activeConflict || activeConflict.mode !== 'decision') return;
-      activeConflict.resolve?.(useRemote);
-      setActiveConflict(null);
-      const next = conflictQueueRef.current.shift();
-      if (next) setActiveConflict(next);
+    if (!activeConflict || activeConflict.mode !== 'decision') return;
+    activeConflict.resolve?.(useRemote);
+    setActiveConflict(null);
+    const next = conflictQueueRef.current.shift();
+    if (next) setActiveConflict(next);
   }, [activeConflict]);
 
   const handleConflictAcknowledge = useCallback(() => {
-      if (!activeConflict || activeConflict.mode !== 'notice') return;
-      setActiveConflict(null);
-      const next = conflictQueueRef.current.shift();
-      if (next) setActiveConflict(next);
+    if (!activeConflict || activeConflict.mode !== 'notice') return;
+    setActiveConflict(null);
+    const next = conflictQueueRef.current.shift();
+    if (next) setActiveConflict(next);
   }, [activeConflict]);
 
 
   // --- Cloud Sync (Clerk + Cloudflare Pages) ---
   useCloudSync({
-      isSignedIn: !!authSignedIn && isSyncFeatureEnabled,
-      isLoaded: isAuthLoaded,
-      getToken: getAuthToken,
-      projectData,
-      setProjectData,
-      setHasLoadedRemote,
-      hasLoadedRemote,
-      refreshKey: syncRefreshKey,
-      localBackupKey: LOCAL_BACKUP_KEY,
-      remoteBackupKey: REMOTE_BACKUP_KEY,
-      onError: handleCloudSyncError,
-      onStatusChange: updateProjectSyncStatus,
-      onConflictConfirm: requestConflictResolution,
-      onConflictNotice: requestConflictNotice,
-      saveDebounceMs: 1200
+    isSignedIn: !!authSignedIn && isSyncFeatureEnabled,
+    isLoaded: isAuthLoaded,
+    getToken: getAuthToken,
+    projectData,
+    setProjectData,
+    setHasLoadedRemote,
+    hasLoadedRemote,
+    refreshKey: syncRefreshKey,
+    localBackupKey: LOCAL_BACKUP_KEY,
+    remoteBackupKey: REMOTE_BACKUP_KEY,
+    onError: handleCloudSyncError,
+    onStatusChange: updateProjectSyncStatus,
+    onConflictConfirm: requestConflictResolution,
+    onConflictNotice: requestConflictNotice,
+    saveDebounceMs: 1200
   });
 
   useVideoPolling({
-      episodes: projectData.episodes,
-      videoConfig: config.videoConfig,
-      onUpdate: (updater) => setProjectData(prev => updater(prev)),
-      intervalMs: 5000,
-      onError: (e) => console.warn("Video polling error", e)
+    episodes: projectData.episodes,
+    videoConfig: config.videoConfig,
+    onUpdate: (updater) => setProjectData(prev => updater(prev)),
+    intervalMs: 5000,
+    onError: (e) => console.warn("Video polling error", e)
   });
 
   useSecretsSync({
-      isSignedIn: !!authSignedIn && isSyncFeatureEnabled,
-      isLoaded: isAuthLoaded,
-      getToken: getAuthToken,
-      config,
-      setConfig,
-      debounceMs: 1200,
-      onStatusChange: updateSecretsSyncStatus
+    isSignedIn: !!authSignedIn && isSyncFeatureEnabled,
+    isLoaded: isAuthLoaded,
+    getToken: getAuthToken,
+    config,
+    setConfig,
+    debounceMs: 1200,
+    onStatusChange: updateSecretsSyncStatus
   });
 
   // Fetch avatar from profile (account-scoped) once per session
   useEffect(() => {
-      const fetchProfile = async () => {
-          if (!authSignedIn || !isAuthLoaded || hasFetchedProfileAvatar.current) return;
-          try {
-              const token = await getAuthToken();
-              if (!token) return;
-              hasFetchedProfileAvatar.current = true;
-              const res = await fetch(buildApiUrl('/api/profile'), { headers: { authorization: `Bearer ${token}` } });
-              if (res.ok) {
-                  const data = await res.json();
-                  if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
-              }
-          } catch (e) {
-              console.warn('Fetch profile avatar failed', e);
-          }
-      };
-      fetchProfile();
+    const fetchProfile = async () => {
+      if (!authSignedIn || !isAuthLoaded || hasFetchedProfileAvatar.current) return;
+      try {
+        const token = await getAuthToken();
+        if (!token) return;
+        hasFetchedProfileAvatar.current = true;
+        const res = await fetch(buildApiUrl('/api/profile'), { headers: { authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
+        }
+      } catch (e) {
+        console.warn('Fetch profile avatar failed', e);
+      }
+    };
+    fetchProfile();
   }, [authSignedIn, isAuthLoaded, getAuthToken, setAvatarUrl]);
 
   // Clamp current episode index when episodes change (e.g., after remote sync)
   useEffect(() => {
-      if (projectData.episodes.length === 0) {
-          setCurrentEpIndex(0);
-      } else if (currentEpIndex >= projectData.episodes.length) {
-          setCurrentEpIndex(0);
-      }
+    if (projectData.episodes.length === 0) {
+      setCurrentEpIndex(0);
+    } else if (currentEpIndex >= projectData.episodes.length) {
+      setCurrentEpIndex(0);
+    }
   }, [projectData.episodes.length]);
 
   // --- GLOBAL VIDEO TASK POLLING LOOP ---
   useEffect(() => {
-      const intervalId = setInterval(async () => {
-          // Identify shots that need checking
-          const tasksToCheck: { epId: number, shotId: string, taskId: string }[] = [];
-          
-          projectData.episodes.forEach(ep => {
-              ep.shots.forEach(s => {
-                  if ((s.videoStatus === 'queued' || s.videoStatus === 'generating') && s.videoId) {
-                      tasksToCheck.push({ epId: ep.id, shotId: s.id, taskId: s.videoId });
-                  }
-              });
-          });
+    const intervalId = setInterval(async () => {
+      // Identify shots that need checking
+      const tasksToCheck: { epId: number, shotId: string, taskId: string }[] = [];
 
-          if (tasksToCheck.length === 0) return;
-
-          // Check tasks (limit concurrency if needed, but 5-10 concurrent requests usually ok)
-          // We do them sequentially or in small batches to avoid flooding
-          for (const task of tasksToCheck) {
-              if (!config.videoConfig.baseUrl || !config.videoConfig.apiKey) continue;
-
-              try {
-                  const result = await VideoService.checkTaskStatus(task.taskId, config.videoConfig);
-                  
-                  // Only update state if status changed or URL became available
-                  if (result.status !== 'processing' && result.status !== 'queued') {
-                      setProjectData(prev => {
-                          const newEpisodes = prev.episodes.map(e => {
-                              if (e.id === task.epId) {
-                                  return {
-                                      ...e,
-                                      shots: e.shots.map(s => s.id === task.shotId ? {
-                                          ...s,
-                                          videoStatus: result.status === 'succeeded' ? 'completed' : 'error',
-                                          videoUrl: result.url,
-                                          videoErrorMsg: result.errorMsg,
-                                          // Keep start time for duration calc if needed
-                                      } : s)
-                                  } as Episode;
-                              }
-                              return e;
-                          });
-                          return { ...prev, episodes: newEpisodes };
-                      });
-                  } 
-                  // If status changed from queued to processing, update that
-                  else if (result.status === 'processing') {
-                       setProjectData(prev => {
-                          const currentEp = prev.episodes.find(e => e.id === task.epId);
-                          const currentShot = currentEp?.shots.find(s => s.id === task.shotId);
-                          
-                          if (currentShot && currentShot.videoStatus === 'queued') {
-                               const newEpisodes = prev.episodes.map(e => {
-                                  if (e.id === task.epId) {
-                                      return {
-                                          ...e,
-                                          shots: e.shots.map(s => s.id === task.shotId ? {
-                                              ...s,
-                                              videoStatus: 'generating'
-                                          } : s)
-                                      } as Episode;
-                                  }
-                                  return e;
-                              });
-                              return { ...prev, episodes: newEpisodes };
-                          }
-                          return prev;
-                       });
-                  }
-              } catch (e) {
-                  console.warn("Polling error for task " + task.taskId, e);
-              }
+      projectData.episodes.forEach(ep => {
+        ep.shots.forEach(s => {
+          if ((s.videoStatus === 'queued' || s.videoStatus === 'generating') && s.videoId) {
+            tasksToCheck.push({ epId: ep.id, shotId: s.id, taskId: s.videoId });
           }
-      }, 5000); // Poll every 5 seconds
+        });
+      });
 
-      return () => clearInterval(intervalId);
+      if (tasksToCheck.length === 0) return;
+
+      // Check tasks (limit concurrency if needed, but 5-10 concurrent requests usually ok)
+      // We do them sequentially or in small batches to avoid flooding
+      for (const task of tasksToCheck) {
+        if (!config.videoConfig.baseUrl || !config.videoConfig.apiKey) continue;
+
+        try {
+          const result = await VideoService.checkTaskStatus(task.taskId, config.videoConfig);
+
+          // Only update state if status changed or URL became available
+          if (result.status !== 'processing' && result.status !== 'queued') {
+            setProjectData(prev => {
+              const newEpisodes = prev.episodes.map(e => {
+                if (e.id === task.epId) {
+                  return {
+                    ...e,
+                    shots: e.shots.map(s => s.id === task.shotId ? {
+                      ...s,
+                      videoStatus: result.status === 'succeeded' ? 'completed' : 'error',
+                      videoUrl: result.url,
+                      videoErrorMsg: result.errorMsg,
+                      // Keep start time for duration calc if needed
+                    } : s)
+                  } as Episode;
+                }
+                return e;
+              });
+              return { ...prev, episodes: newEpisodes };
+            });
+          }
+          // If status changed from queued to processing, update that
+          else if (result.status === 'processing') {
+            setProjectData(prev => {
+              const currentEp = prev.episodes.find(e => e.id === task.epId);
+              const currentShot = currentEp?.shots.find(s => s.id === task.shotId);
+
+              if (currentShot && currentShot.videoStatus === 'queued') {
+                const newEpisodes = prev.episodes.map(e => {
+                  if (e.id === task.epId) {
+                    return {
+                      ...e,
+                      shots: e.shots.map(s => s.id === task.shotId ? {
+                        ...s,
+                        videoStatus: 'generating'
+                      } : s)
+                    } as Episode;
+                  }
+                  return e;
+                });
+                return { ...prev, episodes: newEpisodes };
+              }
+              return prev;
+            });
+          }
+        } catch (e) {
+          console.warn("Polling error for task " + task.taskId, e);
+        }
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(intervalId);
   }, [projectData, config.videoConfig]);
 
 
@@ -451,7 +451,7 @@ const App: React.FC = () => {
             fetch('guides/PromptGuide.md'),
             fetch('guides/DramaGuide.md')
           ]);
-          
+
           if (shotRes.ok && soraRes.ok && dramaRes.ok) {
             const [shotText, soraText, dramaText] = await Promise.all([
               shotRes.text(),
@@ -476,103 +476,103 @@ const App: React.FC = () => {
   // --- Helper: Stats Updater ---
   const updateStats = (phase: 'context' | 'shotGen' | 'soraGen', success: boolean) => {
     setProjectData(prev => {
-        const stats = { ...prev.stats };
-        stats[phase].total += 1;
-        if (success) stats[phase].success += 1;
-        else stats[phase].error += 1;
-        return { ...prev, stats };
+      const stats = { ...prev.stats };
+      stats[phase].total += 1;
+      if (success) stats[phase].success += 1;
+      else stats[phase].error += 1;
+      return { ...prev, stats };
     });
   };
 
   // --- New Helper: Usage Updater for Phase 4 ---
   const handleUsageUpdate = (newUsage: TokenUsage) => {
-      setProjectData(prev => ({
-          ...prev,
-          phase4Usage: GeminiService.addUsage(prev.phase4Usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, newUsage)
-      }));
+    setProjectData(prev => ({
+      ...prev,
+      phase4Usage: GeminiService.addUsage(prev.phase4Usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, newUsage)
+    }));
   };
 
   // --- Handlers ---
 
   const handleResetProject = () => {
-      if (window.confirm("确认清空整个项目吗？\n\n这会清空本地与云端的项目数据（脚本、镜头、生成内容等），且不可恢复。")) {
-          localStorage.setItem(FORCE_CLOUD_CLEAR_KEY, "1");
-          setProjectData(INITIAL_PROJECT_DATA);
-          setStep(WorkflowStep.IDLE);
-          setAnalysisStep(AnalysisSubStep.IDLE);
-          setCurrentEpIndex(0);
-          setActiveTab('assets');
-          localStorage.removeItem(PROJECT_STORAGE_KEY);
-          localStorage.removeItem(UI_STATE_STORAGE_KEY);
-          localStorage.removeItem(LOCAL_BACKUP_KEY);
-          localStorage.removeItem(REMOTE_BACKUP_KEY);
-          setAvatarUrl('');
-      }
+    if (window.confirm("确认清空整个项目吗？\n\n这会清空本地与云端的项目数据（脚本、镜头、生成内容等），且不可恢复。")) {
+      localStorage.setItem(FORCE_CLOUD_CLEAR_KEY, "1");
+      setProjectData(INITIAL_PROJECT_DATA);
+      setStep(WorkflowStep.IDLE);
+      setAnalysisStep(AnalysisSubStep.IDLE);
+      setCurrentEpIndex(0);
+      setActiveTab('assets');
+      localStorage.removeItem(PROJECT_STORAGE_KEY);
+      localStorage.removeItem(UI_STATE_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_BACKUP_KEY);
+      localStorage.removeItem(REMOTE_BACKUP_KEY);
+      setAvatarUrl('');
+    }
   };
 
   const handleAvatarUploadClick = () => {
-      avatarFileInputRef.current?.click();
+    avatarFileInputRef.current?.click();
   };
 
   const uploadAvatarToSupabase = async (file: File) => {
-      try {
-          const safeName = file.name
-              .normalize("NFKD")
-              .replace(/[^\w.\-]+/g, "_")
-              .toLowerCase();
-          const payload = {
-              fileName: `avatars/${Date.now()}-${safeName}`,
-              bucket: 'public-assets',
-              contentType: file.type
-          };
-          const res = await fetch(buildApiUrl('/api/upload-url'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-          });
-          if (!res.ok) throw new Error(`Upload URL error ${res.status}`);
-          const data = await res.json();
-          const signedUrl: string = data.signedUrl;
-          if (!signedUrl) throw new Error('No signedUrl returned');
+    try {
+      const safeName = file.name
+        .normalize("NFKD")
+        .replace(/[^\w.\-]+/g, "_")
+        .toLowerCase();
+      const payload = {
+        fileName: `avatars/${Date.now()}-${safeName}`,
+        bucket: 'public-assets',
+        contentType: file.type
+      };
+      const res = await fetch(buildApiUrl('/api/upload-url'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`Upload URL error ${res.status}`);
+      const data = await res.json();
+      const signedUrl: string = data.signedUrl;
+      if (!signedUrl) throw new Error('No signedUrl returned');
 
-          const uploadRes = await fetch(signedUrl, {
-              method: 'PUT',
-              headers: { 'Content-Type': file.type },
-              body: file
-          });
-          if (!uploadRes.ok) {
-              const txt = await uploadRes.text();
-              throw new Error(`Upload failed ${uploadRes.status}: ${txt}`);
-          }
-
-          const publicUrl: string | undefined = data.publicUrl;
-          const storedUrl = publicUrl || data.path || '';
-          if (!storedUrl) throw new Error('No public URL/path returned');
-          setAvatarUrl(storedUrl);
-          // Save to profile for multi-device sync
-          try {
-              const token = await getAuthToken();
-              if (token) {
-                  await fetch(buildApiUrl('/api/profile'), {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-                      body: JSON.stringify({ avatarUrl: storedUrl })
-                  });
-              }
-          } catch (e) {
-              console.warn('Save profile avatar failed', e);
-          }
-          alert('头像已上传并应用（Supabase public-assets）');
-      } catch (e: any) {
-          alert(`上传头像失败: ${e.message || e}`);
+      const uploadRes = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      });
+      if (!uploadRes.ok) {
+        const txt = await uploadRes.text();
+        throw new Error(`Upload failed ${uploadRes.status}: ${txt}`);
       }
+
+      const publicUrl: string | undefined = data.publicUrl;
+      const storedUrl = publicUrl || data.path || '';
+      if (!storedUrl) throw new Error('No public URL/path returned');
+      setAvatarUrl(storedUrl);
+      // Save to profile for multi-device sync
+      try {
+        const token = await getAuthToken();
+        if (token) {
+          await fetch(buildApiUrl('/api/profile'), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+            body: JSON.stringify({ avatarUrl: storedUrl })
+          });
+        }
+      } catch (e) {
+        console.warn('Save profile avatar failed', e);
+      }
+      alert('头像已上传并应用（Supabase public-assets）');
+    } catch (e: any) {
+      alert(`上传头像失败: ${e.message || e}`);
+    }
   };
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      uploadAvatarToSupabase(file);
-      e.target.value = '';
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadAvatarToSupabase(file);
+    e.target.value = '';
   };
 
   const handleAssetLoad = (
@@ -580,121 +580,121 @@ const App: React.FC = () => {
     content: string,
     fileName?: string
   ) => {
-      if (type === 'script') {
-        const episodes = parseScriptToEpisodes(content);
-        setProjectData(prev => ({ ...prev, fileName: fileName || 'script.txt', rawScript: content, episodes }));
-        if (episodes.length > 0) setCurrentEpIndex(0);
-        setActiveTab('script');
-      
-      } else if (type === 'csvShots') {
-        try {
-          const shotMap = parseCSVToShots(content);
-          setProjectData(prev => {
-            const updatedEpisodes = prev.episodes.map(ep => {
-              const matchedShots = shotMap.get(ep.title);
-              if (matchedShots && matchedShots.length > 0) {
-                return {
-                  ...ep,
-                  shots: matchedShots,
-                  status: matchedShots[0].soraPrompt ? 'completed' : 'confirmed_shots'
-                } as Episode;
-              }
-              return ep;
-            });
-            return { ...prev, episodes: updatedEpisodes };
-          });
-          alert(`Successfully imported shots for ${shotMap.size} episodes.`);
-          setActiveTab('table');
-        } catch (e: any) {
-          alert("Error importing CSV: " + e.message);
-        }
+    if (type === 'script') {
+      const episodes = parseScriptToEpisodes(content);
+      setProjectData(prev => ({ ...prev, fileName: fileName || 'script.txt', rawScript: content, episodes }));
+      if (episodes.length > 0) setCurrentEpIndex(0);
+      setActiveTab('script');
 
-      } else if (type === 'understandingJson') {
-        try {
-          const payload = parseUnderstandingJSON(content);
-          setProjectData(prev => {
-            const episodeSummaryMap = new Map(
-              payload.context.episodeSummaries.map(summary => [summary.episodeId, summary.summary])
-            );
-            const updatedEpisodes = prev.episodes.map(ep => {
-              const summary = episodeSummaryMap.get(ep.id);
-              return summary ? { ...ep, summary } : ep;
-            });
-            return {
-              ...prev,
-              context: payload.context,
-              episodes: updatedEpisodes,
-              contextUsage: payload.contextUsage ?? prev.contextUsage,
-              phase1Usage: payload.phase1Usage ? { ...prev.phase1Usage, ...payload.phase1Usage } : prev.phase1Usage
-            };
+    } else if (type === 'csvShots') {
+      try {
+        const shotMap = parseCSVToShots(content);
+        setProjectData(prev => {
+          const updatedEpisodes = prev.episodes.map(ep => {
+            const matchedShots = shotMap.get(ep.title);
+            if (matchedShots && matchedShots.length > 0) {
+              return {
+                ...ep,
+                shots: matchedShots,
+                status: matchedShots[0].soraPrompt ? 'completed' : 'confirmed_shots'
+              } as Episode;
+            }
+            return ep;
           });
-          alert('Successfully imported understanding data.');
-          setActiveTab('understanding');
-        } catch (e: any) {
-          alert("Error importing understanding JSON: " + e.message);
-        }
-
-      } else if (type === 'globalStyleGuide') {
-        setProjectData(prev => ({ ...prev, globalStyleGuide: content }));
-      } else if (type === 'shotGuide') {
-        setProjectData(prev => ({ ...prev, shotGuide: content }));
-      } else if (type === 'soraGuide') {
-        setProjectData(prev => ({ ...prev, soraGuide: content }));
-      } else if (type === 'dramaGuide') {
-        setProjectData(prev => ({ ...prev, dramaGuide: content }));
+          return { ...prev, episodes: updatedEpisodes };
+        });
+        alert(`Successfully imported shots for ${shotMap.size} episodes.`);
+        setActiveTab('table');
+      } catch (e: any) {
+        alert("Error importing CSV: " + e.message);
       }
+
+    } else if (type === 'understandingJson') {
+      try {
+        const payload = parseUnderstandingJSON(content);
+        setProjectData(prev => {
+          const episodeSummaryMap = new Map(
+            payload.context.episodeSummaries.map(summary => [summary.episodeId, summary.summary])
+          );
+          const updatedEpisodes = prev.episodes.map(ep => {
+            const summary = episodeSummaryMap.get(ep.id);
+            return summary ? { ...ep, summary } : ep;
+          });
+          return {
+            ...prev,
+            context: payload.context,
+            episodes: updatedEpisodes,
+            contextUsage: payload.contextUsage ?? prev.contextUsage,
+            phase1Usage: payload.phase1Usage ? { ...prev.phase1Usage, ...payload.phase1Usage } : prev.phase1Usage
+          };
+        });
+        alert('Successfully imported understanding data.');
+        setActiveTab('understanding');
+      } catch (e: any) {
+        alert("Error importing understanding JSON: " + e.message);
+      }
+
+    } else if (type === 'globalStyleGuide') {
+      setProjectData(prev => ({ ...prev, globalStyleGuide: content }));
+    } else if (type === 'shotGuide') {
+      setProjectData(prev => ({ ...prev, shotGuide: content }));
+    } else if (type === 'soraGuide') {
+      setProjectData(prev => ({ ...prev, soraGuide: content }));
+    } else if (type === 'dramaGuide') {
+      setProjectData(prev => ({ ...prev, dramaGuide: content }));
+    }
   };
 
   const handleTryMe = async () => {
-      setProcessing(true, "Concocting a hilarious script with AI...");
-      
-      try {
-          let dramaGuideText = projectData.dramaGuide;
-          if (!dramaGuideText) {
-            try {
-              const res = await fetch('guides/DramaGuide.md');
-              if (res.ok) {
-                dramaGuideText = await res.text();
-              }
-            } catch (err) {
-              console.warn('Load drama guide failed, fallback to prompt defaults', err);
-              dramaGuideText = '';
-            }
-          }
+    setProcessing(true, "Concocting a hilarious script with AI...");
 
-          const result = await GeminiService.generateDemoScript(config.textConfig, dramaGuideText);
-          
-          const episodes = parseScriptToEpisodes(result.script);
-          
-          setProjectData(prev => ({
-              ...prev,
-              fileName: 'AI_Generated_Joke.txt',
-              rawScript: result.script,
-              episodes: episodes,
-              globalStyleGuide: result.styleGuide, 
-              dramaGuide: prev.dramaGuide || dramaGuideText || '',
-              contextUsage: GeminiService.addUsage(prev.contextUsage || {promptTokens:0,responseTokens:0,totalTokens:0}, result.usage),
-              stats: {
-                  ...prev.stats,
-                  context: { 
-                      total: prev.stats.context.total + 1, 
-                      success: prev.stats.context.success + 1, 
-                      error: prev.stats.context.error 
-                  }
-              }
-          }));
-          
-          if (episodes.length > 0) setCurrentEpIndex(0);
-          setActiveTab('script');
-          setStep(WorkflowStep.IDLE);
-          setProcessing(false);
-          
-      } catch (e: any) {
-          console.error(e);
-          setProcessing(false);
-          alert("Failed to generate demo script: " + e.message);
-          updateStats('context', false);
+    try {
+      let dramaGuideText = projectData.dramaGuide;
+      if (!dramaGuideText) {
+        try {
+          const res = await fetch('guides/DramaGuide.md');
+          if (res.ok) {
+            dramaGuideText = await res.text();
+          }
+        } catch (err) {
+          console.warn('Load drama guide failed, fallback to prompt defaults', err);
+          dramaGuideText = '';
+        }
       }
+
+      const result = await GeminiService.generateDemoScript(config.textConfig, dramaGuideText);
+
+      const episodes = parseScriptToEpisodes(result.script);
+
+      setProjectData(prev => ({
+        ...prev,
+        fileName: 'AI_Generated_Joke.txt',
+        rawScript: result.script,
+        episodes: episodes,
+        globalStyleGuide: result.styleGuide,
+        dramaGuide: prev.dramaGuide || dramaGuideText || '',
+        contextUsage: GeminiService.addUsage(prev.contextUsage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, result.usage),
+        stats: {
+          ...prev.stats,
+          context: {
+            total: prev.stats.context.total + 1,
+            success: prev.stats.context.success + 1,
+            error: prev.stats.context.error
+          }
+        }
+      }));
+
+      if (episodes.length > 0) setCurrentEpIndex(0);
+      setActiveTab('script');
+      setStep(WorkflowStep.IDLE);
+      setProcessing(false);
+
+    } catch (e: any) {
+      console.error(e);
+      setProcessing(false);
+      alert("Failed to generate demo script: " + e.message);
+      updateStats('context', false);
+    }
   };
 
   // --- Workflow Logic ---
@@ -714,541 +714,541 @@ const App: React.FC = () => {
     setProcessing(true, "Step 1/6: Analyzing Global Project Arc...");
     setActiveTab('assets');
     try {
-        const result = await GeminiService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
-        
-        setProjectData(prev => ({
-            ...prev,
-            context: { ...prev.context, projectSummary: result.projectSummary },
-            contextUsage: GeminiService.addUsage(prev.contextUsage || {promptTokens:0,responseTokens:0,totalTokens:0}, result.usage),
-            phase1Usage: { ...prev.phase1Usage, projectSummary: GeminiService.addUsage(prev.phase1Usage.projectSummary, result.usage) }
-        }));
-        
-        setProcessing(false);
-        setAnalysisError(null);
-        updateStats('context', true);
+      const result = await GeminiService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
+
+      setProjectData(prev => ({
+        ...prev,
+        context: { ...prev.context, projectSummary: result.projectSummary },
+        contextUsage: GeminiService.addUsage(prev.contextUsage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, result.usage),
+        phase1Usage: { ...prev.phase1Usage, projectSummary: GeminiService.addUsage(prev.phase1Usage.projectSummary, result.usage) }
+      }));
+
+      setProcessing(false);
+      setAnalysisError(null);
+      updateStats('context', true);
     } catch (e: any) {
-        setProcessing(false);
-        setAnalysisError({ step: AnalysisSubStep.PROJECT_SUMMARY, message: e.message || "Unknown error" });
-        alert("Project summary failed: " + e.message);
-        updateStats('context', false);
+      setProcessing(false);
+      setAnalysisError({ step: AnalysisSubStep.PROJECT_SUMMARY, message: e.message || "Unknown error" });
+      alert("Project summary failed: " + e.message);
+      updateStats('context', false);
     }
   };
 
   const confirmSummaryAndNext = () => {
-      setAnalysisError(null);
-      // Prepare batch for Episode Summaries
-      const epQueue = projectData.episodes.map(ep => ep.id);
-      setQueue(epQueue, epQueue.length);
-      setAnalysisStep(AnalysisSubStep.EPISODE_SUMMARIES);
+    setAnalysisError(null);
+    // Prepare batch for Episode Summaries
+    const epQueue = projectData.episodes.map(ep => ep.id);
+    setQueue(epQueue, epQueue.length);
+    setAnalysisStep(AnalysisSubStep.EPISODE_SUMMARIES);
   };
 
   // Step 2: Episode Summaries (Batched 1-by-1 for Detail)
   useEffect(() => {
     if (analysisStep === AnalysisSubStep.EPISODE_SUMMARIES && analysisQueue.length > 0 && !isProcessing) {
-        processNextEpisodeSummary();
+      processNextEpisodeSummary();
     }
   }, [analysisStep, analysisQueue, isProcessing]);
 
   const processNextEpisodeSummary = async () => {
-      const epId = analysisQueue[0];
-      const episode = projectData.episodes.find(e => e.id === epId);
-      if (!episode) {
-          shiftQueue();
-          return;
-      }
+    const epId = analysisQueue[0];
+    const episode = projectData.episodes.find(e => e.id === epId);
+    if (!episode) {
+      shiftQueue();
+      return;
+    }
 
     setAnalysisError(null);
     setProcessing(true, `Step 2/6: Analyzing Episode ${epId} (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
 
-      try {
-          const result = await GeminiService.generateEpisodeSummary(
-             config.textConfig, 
-             episode.title, 
-             episode.content, 
-             projectData.context,
-             epId
-          );
+    try {
+      const result = await GeminiService.generateEpisodeSummary(
+        config.textConfig,
+        episode.title,
+        episode.content,
+        projectData.context,
+        epId
+      );
 
-          setProjectData(prev => {
-              const updatedEps = prev.episodes.map(e => e.id === epId ? { ...e, summary: result.summary } : e);
-              const updatedContextEpSummaries = [...prev.context.episodeSummaries, { episodeId: epId, summary: result.summary }];
-              
-              return {
-                  ...prev,
-                  episodes: updatedEps,
-                  context: { ...prev.context, episodeSummaries: updatedContextEpSummaries },
-                  contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-                  phase1Usage: { ...prev.phase1Usage, episodeSummaries: GeminiService.addUsage(prev.phase1Usage.episodeSummaries, result.usage) }
-              };
-          });
+      setProjectData(prev => {
+        const updatedEps = prev.episodes.map(e => e.id === epId ? { ...e, summary: result.summary } : e);
+        const updatedContextEpSummaries = [...prev.context.episodeSummaries, { episodeId: epId, summary: result.summary }];
 
-          shiftQueue();
-          setProcessing(false);
-          setAnalysisError(null);
-          updateStats('context', true);
-      } catch (e: any) {
-          setProcessing(false);
-          const ignore = window.confirm(`Failed to summarize Episode ${epId}: ${e.message}. Skip this episode?`);
-          if (ignore) {
-             shiftQueue();
-             updateStats('context', false);
-             setAnalysisError(null);
-          } else {
-             setAnalysisError({ step: AnalysisSubStep.EPISODE_SUMMARIES, message: e.message || "Unknown error" });
-          }
+        return {
+          ...prev,
+          episodes: updatedEps,
+          context: { ...prev.context, episodeSummaries: updatedContextEpSummaries },
+          contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
+          phase1Usage: { ...prev.phase1Usage, episodeSummaries: GeminiService.addUsage(prev.phase1Usage.episodeSummaries, result.usage) }
+        };
+      });
+
+      shiftQueue();
+      setProcessing(false);
+      setAnalysisError(null);
+      updateStats('context', true);
+    } catch (e: any) {
+      setProcessing(false);
+      const ignore = window.confirm(`Failed to summarize Episode ${epId}: ${e.message}. Skip this episode?`);
+      if (ignore) {
+        shiftQueue();
+        updateStats('context', false);
+        setAnalysisError(null);
+      } else {
+        setAnalysisError({ step: AnalysisSubStep.EPISODE_SUMMARIES, message: e.message || "Unknown error" });
       }
+    }
   };
 
   const confirmEpSummariesAndNext = () => {
-      setAnalysisError(null);
-      setAnalysisStep(AnalysisSubStep.CHAR_IDENTIFICATION);
-      processCharacterList();
+    setAnalysisError(null);
+    setAnalysisStep(AnalysisSubStep.CHAR_IDENTIFICATION);
+    processCharacterList();
   };
 
   // Step 3: Character List
   const processCharacterList = async () => {
+    setAnalysisError(null);
+    setProcessing(true, "Step 3/6: Identifying Character Roster...");
+    try {
+      const result = await GeminiService.identifyCharacters(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
+      setProjectData(prev => ({
+        ...prev,
+        context: { ...prev.context, characters: result.characters },
+        contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
+        phase1Usage: { ...prev.phase1Usage, charList: GeminiService.addUsage(prev.phase1Usage.charList, result.usage) }
+      }));
+      setProcessing(false);
       setAnalysisError(null);
-      setProcessing(true, "Step 3/6: Identifying Character Roster...");
-      try {
-          const result = await GeminiService.identifyCharacters(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
-          setProjectData(prev => ({
-              ...prev,
-              context: { ...prev.context, characters: result.characters },
-              contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-              phase1Usage: { ...prev.phase1Usage, charList: GeminiService.addUsage(prev.phase1Usage.charList, result.usage) }
-          }));
-          setProcessing(false);
-          setAnalysisError(null);
-          updateStats('context', true);
-      } catch (e: any) {
-          setProcessing(false);
-          setAnalysisError({ step: AnalysisSubStep.CHAR_IDENTIFICATION, message: e.message || "Unknown error" });
-          alert("Character list generation failed: " + e.message);
-          updateStats('context', false);
-      }
+      updateStats('context', true);
+    } catch (e: any) {
+      setProcessing(false);
+      setAnalysisError({ step: AnalysisSubStep.CHAR_IDENTIFICATION, message: e.message || "Unknown error" });
+      alert("Character list generation failed: " + e.message);
+      updateStats('context', false);
+    }
   };
 
   const confirmCharListAndNext = () => {
-      setAnalysisError(null);
-      // Setup Queue for deep dive
-      const mainChars = projectData.context.characters.filter(c => c.isMain).map(c => c.name);
-      setQueue(mainChars, mainChars.length);
-      setAnalysisStep(AnalysisSubStep.CHAR_DEEP_DIVE);
+    setAnalysisError(null);
+    // Setup Queue for deep dive
+    const mainChars = projectData.context.characters.filter(c => c.isMain).map(c => c.name);
+    setQueue(mainChars, mainChars.length);
+    setAnalysisStep(AnalysisSubStep.CHAR_DEEP_DIVE);
   };
 
   // Step 4: Character Deep Dive
   useEffect(() => {
     if (analysisStep === AnalysisSubStep.CHAR_DEEP_DIVE && analysisQueue.length > 0 && !isProcessing) {
-        processNextCharacter();
+      processNextCharacter();
     }
   }, [analysisStep, analysisQueue, isProcessing]);
 
   const processNextCharacter = async () => {
-      const charName = analysisQueue[0];
+    const charName = analysisQueue[0];
+    setAnalysisError(null);
+    setProcessing(true, `Step 4/6: Deep Analysis for '${charName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
+
+    try {
+      const result = await GeminiService.analyzeCharacterDepth(
+        config.textConfig,
+        charName,
+        projectData.rawScript,
+        projectData.context.projectSummary,
+        projectData.globalStyleGuide
+      );
+
+      setProjectData(prev => {
+        const updatedChars = prev.context.characters.map(c =>
+          c.name === charName ? { ...c, forms: result.forms } : c
+        );
+        return {
+          ...prev,
+          context: { ...prev.context, characters: updatedChars },
+          contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
+          phase1Usage: { ...prev.phase1Usage, charDeepDive: GeminiService.addUsage(prev.phase1Usage.charDeepDive, result.usage) }
+        };
+      });
+
+      shiftQueue();
+      setProcessing(false);
       setAnalysisError(null);
-      setProcessing(true, `Step 4/6: Deep Analysis for '${charName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
-      
-      try {
-          const result = await GeminiService.analyzeCharacterDepth(
-              config.textConfig, 
-              charName, 
-              projectData.rawScript, 
-              projectData.context.projectSummary, 
-              projectData.globalStyleGuide
-          );
-          
-          setProjectData(prev => {
-              const updatedChars = prev.context.characters.map(c => 
-                  c.name === charName ? { ...c, forms: result.forms } : c
-              );
-              return {
-                  ...prev,
-                  context: { ...prev.context, characters: updatedChars },
-                  contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-                  phase1Usage: { ...prev.phase1Usage, charDeepDive: GeminiService.addUsage(prev.phase1Usage.charDeepDive, result.usage) }
-              };
-          });
+      updateStats('context', true);
 
-          shiftQueue();
-          setProcessing(false);
-          setAnalysisError(null);
-          updateStats('context', true);
-
-      } catch (e: any) {
-          console.error(e);
-          setProcessing(false);
-          const ignore = window.confirm(`Failed to analyze ${charName}: ${e.message}. Skip?`);
-          if (ignore) {
-             shiftQueue();
-             updateStats('context', false);
-             setAnalysisError(null);
-          } else {
-             setAnalysisError({ step: AnalysisSubStep.CHAR_DEEP_DIVE, message: e.message || "Unknown error" });
-          }
+    } catch (e: any) {
+      console.error(e);
+      setProcessing(false);
+      const ignore = window.confirm(`Failed to analyze ${charName}: ${e.message}. Skip?`);
+      if (ignore) {
+        shiftQueue();
+        updateStats('context', false);
+        setAnalysisError(null);
+      } else {
+        setAnalysisError({ step: AnalysisSubStep.CHAR_DEEP_DIVE, message: e.message || "Unknown error" });
       }
+    }
   };
 
   const confirmCharDepthAndNext = () => {
-      setAnalysisError(null);
-      setAnalysisStep(AnalysisSubStep.LOC_IDENTIFICATION);
-      processLocationList();
+    setAnalysisError(null);
+    setAnalysisStep(AnalysisSubStep.LOC_IDENTIFICATION);
+    processLocationList();
   };
 
   // Step 5: Location List
   const processLocationList = async () => {
+    setAnalysisError(null);
+    setProcessing(true, "Step 5/6: Mapping Locations...");
+    try {
+      const result = await GeminiService.identifyLocations(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
+      setProjectData(prev => ({
+        ...prev,
+        context: { ...prev.context, locations: result.locations },
+        contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
+        phase1Usage: { ...prev.phase1Usage, locList: GeminiService.addUsage(prev.phase1Usage.locList, result.usage) }
+      }));
+      setProcessing(false);
       setAnalysisError(null);
-      setProcessing(true, "Step 5/6: Mapping Locations...");
-      try {
-          const result = await GeminiService.identifyLocations(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
-          setProjectData(prev => ({
-              ...prev,
-              context: { ...prev.context, locations: result.locations },
-              contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-              phase1Usage: { ...prev.phase1Usage, locList: GeminiService.addUsage(prev.phase1Usage.locList, result.usage) }
-          }));
-          setProcessing(false);
-          setAnalysisError(null);
-          updateStats('context', true);
-      } catch (e: any) {
-          setProcessing(false);
-          setAnalysisError({ step: AnalysisSubStep.LOC_IDENTIFICATION, message: e.message || "Unknown error" });
-          alert("Location mapping failed: " + e.message);
-          updateStats('context', false);
-      }
+      updateStats('context', true);
+    } catch (e: any) {
+      setProcessing(false);
+      setAnalysisError({ step: AnalysisSubStep.LOC_IDENTIFICATION, message: e.message || "Unknown error" });
+      alert("Location mapping failed: " + e.message);
+      updateStats('context', false);
+    }
   };
 
   const confirmLocListAndNext = () => {
-      setAnalysisError(null);
-      const coreLocs = projectData.context.locations.filter(l => l.type === 'core').map(l => l.name);
-      setQueue(coreLocs, coreLocs.length);
-      setAnalysisStep(AnalysisSubStep.LOC_DEEP_DIVE);
+    setAnalysisError(null);
+    const coreLocs = projectData.context.locations.filter(l => l.type === 'core').map(l => l.name);
+    setQueue(coreLocs, coreLocs.length);
+    setAnalysisStep(AnalysisSubStep.LOC_DEEP_DIVE);
   };
 
   // Step 6: Location Deep Dive
-   useEffect(() => {
+  useEffect(() => {
     if (analysisStep === AnalysisSubStep.LOC_DEEP_DIVE && analysisQueue.length > 0 && !isProcessing) {
-        processNextLocation();
+      processNextLocation();
     }
   }, [analysisStep, analysisQueue, isProcessing]);
 
   const processNextLocation = async () => {
-      const locName = analysisQueue[0];
+    const locName = analysisQueue[0];
+    setAnalysisError(null);
+    setProcessing(true, `Step 6/6: Visualizing '${locName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
+
+    try {
+      const result = await GeminiService.analyzeLocationDepth(
+        config.textConfig,
+        locName,
+        projectData.rawScript,
+        projectData.globalStyleGuide
+      );
+
+      setProjectData(prev => {
+        const updatedLocs = prev.context.locations.map(l =>
+          l.name === locName ? { ...l, visuals: result.visuals, zones: result.zones ?? l.zones } : l
+        );
+        return {
+          ...prev,
+          context: { ...prev.context, locations: updatedLocs },
+          contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
+          phase1Usage: { ...prev.phase1Usage, locDeepDive: GeminiService.addUsage(prev.phase1Usage.locDeepDive, result.usage) }
+        };
+      });
+
+      shiftQueue();
+      setProcessing(false);
       setAnalysisError(null);
-      setProcessing(true, `Step 6/6: Visualizing '${locName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
-      
-      try {
-          const result = await GeminiService.analyzeLocationDepth(
-              config.textConfig, 
-              locName, 
-              projectData.rawScript, 
-              projectData.globalStyleGuide
-          );
-          
-          setProjectData(prev => {
-              const updatedLocs = prev.context.locations.map(l => 
-                  l.name === locName ? { ...l, visuals: result.visuals, zones: result.zones ?? l.zones } : l
-              );
-              return {
-                  ...prev,
-                  context: { ...prev.context, locations: updatedLocs },
-                  contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-                  phase1Usage: { ...prev.phase1Usage, locDeepDive: GeminiService.addUsage(prev.phase1Usage.locDeepDive, result.usage) }
-              };
-          });
+      updateStats('context', true);
 
-          shiftQueue();
-          setProcessing(false);
-          setAnalysisError(null);
-          updateStats('context', true);
-
-      } catch (e: any) {
-          setProcessing(false);
-          const ignore = window.confirm(`Failed to visualize ${locName}: ${e.message}. Skip?`);
-          if (ignore) {
-             shiftQueue();
-             updateStats('context', false);
-             setAnalysisError(null);
-          } else {
-             setAnalysisError({ step: AnalysisSubStep.LOC_DEEP_DIVE, message: e.message || "Unknown error" });
-          }
+    } catch (e: any) {
+      setProcessing(false);
+      const ignore = window.confirm(`Failed to visualize ${locName}: ${e.message}. Skip?`);
+      if (ignore) {
+        shiftQueue();
+        updateStats('context', false);
+        setAnalysisError(null);
+      } else {
+        setAnalysisError({ step: AnalysisSubStep.LOC_DEEP_DIVE, message: e.message || "Unknown error" });
       }
+    }
   };
 
   const finishAnalysis = () => {
-      setAnalysisError(null);
-      setAnalysisStep(AnalysisSubStep.COMPLETE);
-      alert("Phase 1 Complete! Context is fully established.");
+    setAnalysisError(null);
+    setAnalysisStep(AnalysisSubStep.COMPLETE);
+    alert("Phase 1 Complete! Context is fully established.");
   };
 
   const retryAnalysisStep = () => {
-      if (isProcessing) return;
-      setAnalysisError(null);
-      switch (analysisStep) {
-        case AnalysisSubStep.PROJECT_SUMMARY:
-          processProjectSummary();
-          break;
-        case AnalysisSubStep.EPISODE_SUMMARIES:
-          if (analysisQueue.length > 0) processNextEpisodeSummary();
-          break;
-        case AnalysisSubStep.CHAR_IDENTIFICATION:
-          processCharacterList();
-          break;
-        case AnalysisSubStep.CHAR_DEEP_DIVE:
-          if (analysisQueue.length > 0) processNextCharacter();
-          break;
-        case AnalysisSubStep.LOC_IDENTIFICATION:
-          processLocationList();
-          break;
-        case AnalysisSubStep.LOC_DEEP_DIVE:
-          if (analysisQueue.length > 0) processNextLocation();
-          break;
-        default:
-          break;
-      }
+    if (isProcessing) return;
+    setAnalysisError(null);
+    switch (analysisStep) {
+      case AnalysisSubStep.PROJECT_SUMMARY:
+        processProjectSummary();
+        break;
+      case AnalysisSubStep.EPISODE_SUMMARIES:
+        if (analysisQueue.length > 0) processNextEpisodeSummary();
+        break;
+      case AnalysisSubStep.CHAR_IDENTIFICATION:
+        processCharacterList();
+        break;
+      case AnalysisSubStep.CHAR_DEEP_DIVE:
+        if (analysisQueue.length > 0) processNextCharacter();
+        break;
+      case AnalysisSubStep.LOC_IDENTIFICATION:
+        processLocationList();
+        break;
+      case AnalysisSubStep.LOC_DEEP_DIVE:
+        if (analysisQueue.length > 0) processNextLocation();
+        break;
+      default:
+        break;
+    }
   };
 
   // === PHASE 2 & 3 Hooks ===
   const { startPhase2, confirmEpisodeShots, retryCurrentEpisodeShots } = useShotGeneration({
-      projectDataRef,
-      setProjectData,
-      config,
-      setStep,
-      setCurrentEpIndex,
-      setProcessing,
-      setStatus,
-      setActiveTab,
-      updateStats,
-      currentEpIndex
+    projectDataRef,
+    setProjectData,
+    config,
+    setStep,
+    setCurrentEpIndex,
+    setProcessing,
+    setStatus,
+    setActiveTab,
+    updateStats,
+    currentEpIndex
   });
 
   const { startPhase3, continueNextEpisodeSora, retryCurrentEpisodeSora } = useSoraGeneration({
-      projectDataRef,
-      setProjectData,
-      config,
-      setStep,
-      setCurrentEpIndex,
-      setProcessing,
-      setStatus,
-      setActiveTab,
-      updateStats,
-      isProcessing,
-      currentEpIndex
+    projectDataRef,
+    setProjectData,
+    config,
+    setStep,
+    setCurrentEpIndex,
+    setProcessing,
+    setStatus,
+    setActiveTab,
+    updateStats,
+    isProcessing,
+    currentEpIndex
   });
 
   // === PHASE 5: VIDEO GENERATION ===
   const handleGenerateVideo = async (episodeId: number, shotId: string, customPrompt: string, params: VideoParams) => {
-      if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) {
-          alert("Video API settings missing. Please open Settings -> Video Generation.");
-          openSettings('video');
-          return;
+    if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) {
+      alert("Video API settings missing. Please open Settings -> Video Generation.");
+      openSettings('video');
+      return;
+    }
+
+    // Ad-hoc Logic
+    if (episodeId === -1) {
+      const playgroundId = -1;
+      let playgroundEpIndex = projectData.episodes.findIndex(e => e.id === playgroundId);
+
+      if (playgroundEpIndex === -1) {
+        const playgroundEp: Episode = {
+          id: playgroundId,
+          title: "Creative Playground",
+          content: "Ad-hoc generations",
+          scenes: [],
+          shots: [],
+          status: 'completed'
+        };
+        setProjectData(prev => ({
+          ...prev,
+          episodes: [...prev.episodes, playgroundEp]
+        }));
+        playgroundEpIndex = projectData.episodes.length;
       }
 
-      // Ad-hoc Logic
-      if (episodeId === -1) {
-          const playgroundId = -1;
-          let playgroundEpIndex = projectData.episodes.findIndex(e => e.id === playgroundId);
-          
-          if (playgroundEpIndex === -1) {
-              const playgroundEp: Episode = {
-                  id: playgroundId,
-                  title: "Creative Playground",
-                  content: "Ad-hoc generations",
-                  scenes: [],
-                  shots: [],
-                  status: 'completed'
-              };
-              setProjectData(prev => ({
-                  ...prev,
-                  episodes: [...prev.episodes, playgroundEp]
-              }));
-              playgroundEpIndex = projectData.episodes.length;
-          }
-
-          const newShotId = `gen-${Date.now()}`;
-          const newShot: Shot = {
-              id: newShotId,
-              duration: params.duration || '4s',
-              shotType: 'Custom',
-              movement: 'Custom',
-              description: 'Ad-hoc generation',
-              dialogue: '',
-              soraPrompt: customPrompt,
-              finalVideoPrompt: customPrompt,
-              videoStatus: 'queued',
-              videoParams: params,
-              videoStartTime: Date.now()
-          };
-
-          setProjectData(prev => {
-              const episodesCopy = [...prev.episodes];
-              let existingPlayground = episodesCopy.find(e => e.id === playgroundId);
-              if (!existingPlayground) {
-                  existingPlayground = {
-                      id: playgroundId,
-                      title: "Creative Playground",
-                      content: "Ad-hoc generations",
-                      scenes: [],
-                      shots: [],
-                      status: 'completed'
-                  };
-                  episodesCopy.push(existingPlayground);
-              }
-              existingPlayground.shots = [...existingPlayground.shots, newShot];
-              return { ...prev, episodes: episodesCopy };
-          });
-
-          try {
-              const { id } = await VideoService.submitVideoTask(customPrompt, config.videoConfig, params);
-              setProjectData(prev => {
-                  const episodesCopy = prev.episodes.map(e => {
-                      if (e.id === playgroundId) {
-                          return {
-                              ...e,
-                              shots: e.shots.map(s => s.id === newShotId ? {
-                                  ...s,
-                                  videoId: id
-                              } : s)
-                          } as Episode;
-                      }
-                      return e;
-                  });
-                  return { ...prev, episodes: episodesCopy };
-              });
-          } catch (e: any) {
-               setProjectData(prev => {
-                  const episodesCopy = prev.episodes.map(ep => {
-                      if (ep.id === playgroundId) {
-                          return {
-                              ...ep,
-                              shots: ep.shots.map(s => s.id === newShotId ? {
-                                  ...s,
-                                  videoStatus: 'error',
-                                  videoErrorMsg: e.message
-                              } : s)
-                          } as Episode;
-                      }
-                      return ep;
-                  });
-                  return { ...prev, episodes: episodesCopy };
-              });
-          }
-          return;
-      }
-
-      // Standard Logic
-      const episode = projectData.episodes.find(e => e.id === episodeId);
-      if(!episode) return;
-      const shot = episode.shots.find(s => s.id === shotId);
-      if(!shot) return;
+      const newShotId = `gen-${Date.now()}`;
+      const newShot: Shot = {
+        id: newShotId,
+        duration: params.duration || '4s',
+        shotType: 'Custom',
+        movement: 'Custom',
+        description: 'Ad-hoc generation',
+        dialogue: '',
+        soraPrompt: customPrompt,
+        finalVideoPrompt: customPrompt,
+        videoStatus: 'queued',
+        videoParams: params,
+        videoStartTime: Date.now()
+      };
 
       setProjectData(prev => {
-         const newEpisodes = prev.episodes.map(e => {
-             if (e.id === episodeId) {
-                 return {
-                     ...e,
-                     shots: e.shots.map(s => s.id === shotId ? { 
-                         ...s, 
-                         videoStatus: 'queued', 
-                         videoErrorMsg: undefined,
-                         finalVideoPrompt: customPrompt,
-                         videoParams: params,
-                         videoStartTime: Date.now()
-                     } : s)
-                 } as Episode;
-             }
-             return e;
-         });
-         return { ...prev, episodes: newEpisodes };
+        const episodesCopy = [...prev.episodes];
+        let existingPlayground = episodesCopy.find(e => e.id === playgroundId);
+        if (!existingPlayground) {
+          existingPlayground = {
+            id: playgroundId,
+            title: "Creative Playground",
+            content: "Ad-hoc generations",
+            scenes: [],
+            shots: [],
+            status: 'completed'
+          };
+          episodesCopy.push(existingPlayground);
+        }
+        existingPlayground.shots = [...existingPlayground.shots, newShot];
+        return { ...prev, episodes: episodesCopy };
       });
 
       try {
-          const { id } = await VideoService.submitVideoTask(customPrompt, config.videoConfig, params);
-           setProjectData(prev => {
-            const newEpisodes = prev.episodes.map(e => {
-                if (e.id === episodeId) {
-                    return {
-                        ...e,
-                        shots: e.shots.map(s => s.id === shotId ? { 
-                            ...s, 
-                            videoStatus: 'queued', 
-                            videoId: id,
-                        } : s)
-                    } as Episode;
-                }
-                return e;
-            });
-            return { ...prev, episodes: newEpisodes };
+        const { id } = await VideoService.submitVideoTask(customPrompt, config.videoConfig, params);
+        setProjectData(prev => {
+          const episodesCopy = prev.episodes.map(e => {
+            if (e.id === playgroundId) {
+              return {
+                ...e,
+                shots: e.shots.map(s => s.id === newShotId ? {
+                  ...s,
+                  videoId: id
+                } : s)
+              } as Episode;
+            }
+            return e;
           });
+          return { ...prev, episodes: episodesCopy };
+        });
       } catch (e: any) {
-          setProjectData(prev => {
-            const newEpisodes = prev.episodes.map(ep => {
-                if (ep.id === episodeId) {
-                    return {
-                        ...ep,
-                        shots: ep.shots.map(s => s.id === shotId ? { ...s, videoStatus: 'error', videoErrorMsg: e.message } : s)
-                    } as Episode;
-                }
-                return ep;
-            });
-            return { ...prev, episodes: newEpisodes };
+        setProjectData(prev => {
+          const episodesCopy = prev.episodes.map(ep => {
+            if (ep.id === playgroundId) {
+              return {
+                ...ep,
+                shots: ep.shots.map(s => s.id === newShotId ? {
+                  ...s,
+                  videoStatus: 'error',
+                  videoErrorMsg: e.message
+                } : s)
+              } as Episode;
+            }
+            return ep;
           });
+          return { ...prev, episodes: episodesCopy };
+        });
       }
+      return;
+    }
+
+    // Standard Logic
+    const episode = projectData.episodes.find(e => e.id === episodeId);
+    if (!episode) return;
+    const shot = episode.shots.find(s => s.id === shotId);
+    if (!shot) return;
+
+    setProjectData(prev => {
+      const newEpisodes = prev.episodes.map(e => {
+        if (e.id === episodeId) {
+          return {
+            ...e,
+            shots: e.shots.map(s => s.id === shotId ? {
+              ...s,
+              videoStatus: 'queued',
+              videoErrorMsg: undefined,
+              finalVideoPrompt: customPrompt,
+              videoParams: params,
+              videoStartTime: Date.now()
+            } : s)
+          } as Episode;
+        }
+        return e;
+      });
+      return { ...prev, episodes: newEpisodes };
+    });
+
+    try {
+      const { id } = await VideoService.submitVideoTask(customPrompt, config.videoConfig, params);
+      setProjectData(prev => {
+        const newEpisodes = prev.episodes.map(e => {
+          if (e.id === episodeId) {
+            return {
+              ...e,
+              shots: e.shots.map(s => s.id === shotId ? {
+                ...s,
+                videoStatus: 'queued',
+                videoId: id,
+              } : s)
+            } as Episode;
+          }
+          return e;
+        });
+        return { ...prev, episodes: newEpisodes };
+      });
+    } catch (e: any) {
+      setProjectData(prev => {
+        const newEpisodes = prev.episodes.map(ep => {
+          if (ep.id === episodeId) {
+            return {
+              ...ep,
+              shots: ep.shots.map(s => s.id === shotId ? { ...s, videoStatus: 'error', videoErrorMsg: e.message } : s)
+            } as Episode;
+          }
+          return ep;
+        });
+        return { ...prev, episodes: newEpisodes };
+      });
+    }
   };
 
   const handleRemixVideo = async (episodeId: number, shotId: string, customPrompt: string, originalVideoId: string) => {
-      if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) return;
+    if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) return;
 
-      setProjectData(prev => {
-         const newEpisodes = prev.episodes.map(e => {
-             if (e.id === episodeId) {
-                 return {
-                     ...e,
-                     shots: e.shots.map(s => s.id === shotId ? { 
-                         ...s, 
-                         videoStatus: 'queued', 
-                         videoErrorMsg: undefined,
-                         finalVideoPrompt: customPrompt,
-                         videoStartTime: Date.now()
-                     } : s)
-                 } as Episode;
-             }
-             return e;
-         });
-         return { ...prev, episodes: newEpisodes };
+    setProjectData(prev => {
+      const newEpisodes = prev.episodes.map(e => {
+        if (e.id === episodeId) {
+          return {
+            ...e,
+            shots: e.shots.map(s => s.id === shotId ? {
+              ...s,
+              videoStatus: 'queued',
+              videoErrorMsg: undefined,
+              finalVideoPrompt: customPrompt,
+              videoStartTime: Date.now()
+            } : s)
+          } as Episode;
+        }
+        return e;
       });
+      return { ...prev, episodes: newEpisodes };
+    });
 
-      try {
-          const { id } = await VideoService.remixVideo(originalVideoId, customPrompt, config.videoConfig);
-          setProjectData(prev => {
-            const newEpisodes = prev.episodes.map(e => {
-                if (e.id === episodeId) {
-                    return {
-                        ...e,
-                        shots: e.shots.map(s => s.id === shotId ? { 
-                            ...s, 
-                            videoStatus: 'queued', 
-                            videoId: id
-                        } : s)
-                    } as Episode;
-                }
-                return e;
-            });
-            return { ...prev, episodes: newEpisodes };
-          });
-      } catch (e: any) {
-          setProjectData(prev => {
-            const newEpisodes = prev.episodes.map(ep => {
-                if (ep.id === episodeId) {
-                    return {
-                        ...ep,
-                        shots: ep.shots.map(s => s.id === shotId ? { ...s, videoStatus: 'error', videoErrorMsg: e.message } : s)
-                    } as Episode;
-                }
-                return ep;
-            });
-            return { ...prev, episodes: newEpisodes };
-          });
-      }
+    try {
+      const { id } = await VideoService.remixVideo(originalVideoId, customPrompt, config.videoConfig);
+      setProjectData(prev => {
+        const newEpisodes = prev.episodes.map(e => {
+          if (e.id === episodeId) {
+            return {
+              ...e,
+              shots: e.shots.map(s => s.id === shotId ? {
+                ...s,
+                videoStatus: 'queued',
+                videoId: id
+              } : s)
+            } as Episode;
+          }
+          return e;
+        });
+        return { ...prev, episodes: newEpisodes };
+      });
+    } catch (e: any) {
+      setProjectData(prev => {
+        const newEpisodes = prev.episodes.map(ep => {
+          if (ep.id === episodeId) {
+            return {
+              ...ep,
+              shots: ep.shots.map(s => s.id === shotId ? { ...s, videoStatus: 'error', videoErrorMsg: e.message } : s)
+            } as Episode;
+          }
+          return ep;
+        });
+        return { ...prev, episodes: newEpisodes };
+      });
+    }
   };
 
   // --- Render Helpers ---
@@ -1261,9 +1261,9 @@ const App: React.FC = () => {
     projectData.context.locations.length > 0
   );
   const getActiveModelName = () => {
-      if (activeTab === 'visuals') return config.multimodalConfig.model || 'Multimodal';
-      if (activeTab === 'video') return config.videoConfig.model || 'Video';
-      return config.textConfig.model; 
+    if (activeTab === 'visuals') return config.multimodalConfig.model || 'Multimodal';
+    if (activeTab === 'video') return config.videoConfig.model || 'Video';
+    return config.textConfig.model;
   };
   const activeModelLabel = `${config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
@@ -1336,6 +1336,8 @@ const App: React.FC = () => {
         currentEpIndex,
         episodes: projectData.episodes,
         setCurrentEpIndex,
+        setStep,
+        setAnalysisStep,
         onStartAnalysis: startAnalysis,
         onConfirmSummaryNext: confirmSummaryAndNext,
         onConfirmEpSummariesNext: confirmEpSummariesAndNext,
@@ -1428,8 +1430,8 @@ const App: React.FC = () => {
         />
       }
     >
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
+      <SettingsModal
+        isOpen={isSettingsOpen}
         onClose={closeSettings}
         config={config}
         onConfigChange={setConfig}
