@@ -29,7 +29,7 @@ export const useShotGeneration = ({
   updateStats,
   currentEpIndex,
 }: ShotGenParams) => {
-  const generateCurrentEpisodeShots = useCallback(async (index: number) => {
+  const generateCurrentEpisodeShots = useCallback(async (index: number, autoNext = true) => {
     const episodes = projectDataRef.current.episodes;
 
     if (index >= episodes.length) {
@@ -43,8 +43,13 @@ export const useShotGeneration = ({
     const episode = episodes[index];
     if (episode.shots.length > 0 && (episode.status === 'confirmed_shots' || episode.status === 'completed')) {
       const next = index + 1;
-      setCurrentEpIndex(next);
-      return generateCurrentEpisodeShots(next);
+      if (autoNext) {
+        setCurrentEpIndex(next);
+        return generateCurrentEpisodeShots(next, true);
+      } else {
+        setProcessing(false);
+        return;
+      }
     }
 
     setProcessing(true, `Generating Shots for Episode ${episode.id}...`);
@@ -58,11 +63,20 @@ export const useShotGeneration = ({
     });
 
     try {
+      // Get summaries of up to 5 previous episodes for context
+      const previousSummaries = episodes
+        .slice(Math.max(0, index - 5), index)
+        .map(ep => ({
+          id: ep.id,
+          title: ep.title,
+          summary: ep.summary || "（暂无梗概）"
+        }));
+
       const result = await GeminiService.generateEpisodeShots(
         config.textConfig,
         episode.title,
         episode.content,
-        episode.summary,
+        previousSummaries,
         projectDataRef.current.context,
         projectDataRef.current.shotGuide,
         index,
@@ -86,15 +100,19 @@ export const useShotGeneration = ({
       setActiveTab('table');
 
       const nextIndex = index + 1;
-      if (nextIndex < projectDataRef.current.episodes.length) {
+      if (autoNext && nextIndex < projectDataRef.current.episodes.length) {
         setCurrentEpIndex(nextIndex);
-        return generateCurrentEpisodeShots(nextIndex);
+        return generateCurrentEpisodeShots(nextIndex, true);
       }
 
       setProcessing(false);
-      alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
-      setStep(WorkflowStep.GENERATE_SORA);
-      setCurrentEpIndex(0);
+      if (!autoNext) {
+        // Just stop for manual retry
+      } else {
+        alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
+        setStep(WorkflowStep.GENERATE_SORA);
+        setCurrentEpIndex(0);
+      }
     } catch (e: any) {
       console.error(e);
       setProjectData(prev => {
@@ -135,15 +153,15 @@ export const useShotGeneration = ({
     setCurrentEpIndex(startIdx);
 
     if (firstPending === -1 && !allEpisodesHaveShots) {
-      generateCurrentEpisodeShots(0);
+      generateCurrentEpisodeShots(0, true);
     } else if (firstPending >= 0) {
-      generateCurrentEpisodeShots(startIdx);
+      generateCurrentEpisodeShots(startIdx, true);
     } else {
-      generateCurrentEpisodeShots(0);
+      generateCurrentEpisodeShots(0, true);
     }
   }, [generateCurrentEpisodeShots, projectDataRef, setCurrentEpIndex, setStep]);
 
-  const confirmEpisodeShots = useCallback((targetIndex?: number) => {
+  const confirmEpisodeShots = useCallback((targetIndex?: number, autoNext = true) => {
     const index = typeof targetIndex === 'number' ? targetIndex : currentEpIndex;
     setProjectData(prev => {
       const newEpisodes = [...prev.episodes];
@@ -154,10 +172,10 @@ export const useShotGeneration = ({
     });
 
     const nextIndex = index + 1;
-    if (nextIndex < projectDataRef.current.episodes.length) {
+    if (autoNext && nextIndex < projectDataRef.current.episodes.length) {
       setCurrentEpIndex(nextIndex);
-      generateCurrentEpisodeShots(nextIndex);
-    } else {
+      generateCurrentEpisodeShots(nextIndex, true);
+    } else if (autoNext) {
       alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
       setStep(WorkflowStep.GENERATE_SORA);
       setCurrentEpIndex(0);
@@ -167,6 +185,6 @@ export const useShotGeneration = ({
   return {
     startPhase2,
     confirmEpisodeShots,
-    retryCurrentEpisodeShots: () => generateCurrentEpisodeShots(currentEpIndex)
+    retryCurrentEpisodeShots: () => generateCurrentEpisodeShots(currentEpIndex, false)
   };
 };

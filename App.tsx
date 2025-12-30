@@ -1388,7 +1388,7 @@ const App: React.FC = () => {
       case 'lab':
         return (
           <div className="h-full">
-            <NodeLab />
+            <NodeLab projectData={projectData} setProjectData={setProjectData} />
           </div>
         );
       case 'stats':

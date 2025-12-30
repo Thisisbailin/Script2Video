@@ -642,7 +642,7 @@ export const generateEpisodeShots = async (
   config: TextServiceConfig,
   episodeTitle: string,
   episodeContent: string,
-  episodeSummary: string | undefined,
+  previousEpisodes: { id: number; title: string; summary: string }[],
   context: ProjectContext,
   guide: string,
   episodeIndex: number,
@@ -677,22 +677,28 @@ export const generateEpisodeShots = async (
     ? context.locations.filter(l => l.type === 'core').map(l => `- ${l.name}: ${l.visuals}`).join('\n')
     : '';
 
+  const previousContextStr = previousEpisodes.length > 0
+    ? previousEpisodes.map(ep => `Episode ${ep.id} (${ep.title}): ${ep.summary}`).join('\n')
+    : '无（本集为起始章节）';
+
   const systemInstruction = `角色设定：你是一位好莱坞顶级的分镜师（Storyboard Artist）和摄影指导（DP）。
   核心职责：将剧本文字转化为极具画面感、电影感和镜头张力的专业分镜脚本。
   最重要的规则：拒绝平庸。你的每一个分镜描述都必须包含具体的【摄影运镜】、【光影氛围】和【构图细节】。`;
 
   const prompt = `
     任务：
-    依据项目背景、上文剧情，严格遵循【分镜制作指导文档】，将《${episodeTitle}》的剧本正文转换为一份大师级的分镜脚本。
+    依据项目整体背景、前序章节剧情，严格遵循【分镜制作指导文档】，将当前待处理章节《${episodeTitle}》的剧本正文转换为一份大师级的分镜脚本。
     
-    【项目上下文】：
+    【项目全局背景】：
     - 项目简介：${context.projectSummary}
-    ${episodeSummary ? `- **本集剧情梗概**：${episodeSummary}` : ''}
-    - 角色设定：
+    - 角色设定及视觉特征：
     ${charContextStr}
-    - 核心场景设定：
+    - 核心场景及视觉氛围：
     ${locContextStr}
     
+    【前序章节剧情回顾 (最近5集)】：
+    ${previousContextStr}
+
     【分镜制作指导文档 (必须严格执行)】：
     ${guide}
 
@@ -701,7 +707,7 @@ export const generateEpisodeShots = async (
     ${styleGuide}
     ` : ''}
     
-    【当前待处理剧本 - ${episodeTitle}】：
+    【当前待处理剧本正文 - ${episodeTitle}】：
     ${episodeContent}
     
     【输出要求 (CRITICAL)】：

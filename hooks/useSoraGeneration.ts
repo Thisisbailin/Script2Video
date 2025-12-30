@@ -48,15 +48,17 @@ export const useSoraGeneration = ({
 
     if (episode.shots.length === 0 || isEpisodeSoraComplete(episode)) {
       const nextIndex = findNextSoraIndex(projectDataRef.current.episodes || [], index + 1);
-      if (nextIndex === -1) {
-        setStep(WorkflowStep.COMPLETED);
-        alert("All Prompts Generated! Workflow is ready for Video Studio.");
-        setCurrentEpIndex(0);
+      if (nextIndex === -1 || !autoAdvance) {
+        if (nextIndex === -1 && autoAdvance) {
+          setStep(WorkflowStep.COMPLETED);
+          alert("All Prompts Generated! Workflow is ready for Video Studio.");
+          setCurrentEpIndex(0);
+        }
         setProcessing(false);
         return;
       }
       setCurrentEpIndex(nextIndex);
-      return generateCurrentEpisodeSora(nextIndex);
+      return generateCurrentEpisodeSora(nextIndex, true);
     }
 
     const shouldResume = episode.status === 'error';

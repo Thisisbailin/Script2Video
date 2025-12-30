@@ -5,7 +5,7 @@ export type HandleType = "image" | "text";
 export type NodeType =
   | "imageInput"
   | "annotation"
-  | "prompt"
+  | "text"
   | "imageGen"
   | "videoGen"
   | "llmGenerate"
@@ -79,8 +79,11 @@ export interface AnnotationNodeData extends BaseNodeData {
   outputImage: string | null;
 }
 
-export interface PromptNodeData extends BaseNodeData {
-  prompt: string;
+export interface TextNodeData extends BaseNodeData {
+  title: string;
+  text: string;
+  category?: 'project' | 'episode' | 'character' | 'location' | 'form' | 'zone';
+  refId?: string;
 }
 
 export interface ImageGenNodeData extends BaseNodeData {
@@ -120,7 +123,7 @@ export interface OutputNodeData extends BaseNodeData {
 export type WorkflowNodeData =
   | ImageInputNodeData
   | AnnotationNodeData
-  | PromptNodeData
+  | TextNodeData
   | ImageGenNodeData
   | VideoGenNodeData
   | LLMGenerateNodeData
@@ -139,4 +142,5 @@ export interface WorkflowFile {
   name: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  edgeStyle?: "angular" | "curved";
 }

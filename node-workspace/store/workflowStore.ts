@@ -14,7 +14,7 @@ import {
   NodeType,
   ImageInputNodeData,
   AnnotationNodeData,
-  PromptNodeData,
+  TextNodeData,
   ImageGenNodeData,
   LLMGenerateNodeData,
   OutputNodeData,
@@ -76,6 +76,9 @@ interface WorkflowStore {
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: { image: string; prompt: string; aspectRatio?: string; model?: string }) => void;
   clearGlobalHistory: () => void;
+
+  // Batch operations
+  addNodesAndEdges: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
 }
 
 const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
@@ -92,10 +95,11 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         annotations: [],
         outputImage: null,
       } as AnnotationNodeData;
-    case "prompt":
+    case "text":
       return {
-        prompt: "",
-      } as PromptNodeData;
+        title: "",
+        text: "",
+      } as TextNodeData;
     case "imageGen":
       return {
         inputImages: [],
@@ -150,7 +154,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const defaultDimensions: Record<NodeType, { width: number; height: number }> = {
       imageInput: { width: 300, height: 280 },
       annotation: { width: 300, height: 280 },
-      prompt: { width: 320, height: 220 },
+      text: { width: 320, height: 220 },
       imageGen: { width: 320, height: 320 },
       videoGen: { width: 320, height: 340 },
       llmGenerate: { width: 320, height: 320 },
@@ -278,8 +282,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           }
         }
         if (handleId === "text") {
-          if (sourceNode.type === "prompt") {
-            text = (sourceNode.data as PromptNodeData).prompt;
+          if (sourceNode.type === "text") {
+            text = (sourceNode.data as TextNodeData).text;
           } else if (sourceNode.type === "llmGenerate") {
             text = (sourceNode.data as LLMGenerateNodeData).outputText;
           }
@@ -378,4 +382,19 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     set((state) => ({ globalImageHistory: [newItem, ...state.globalImageHistory] }));
   },
   clearGlobalHistory: () => set({ globalImageHistory: [] }),
+
+  addNodesAndEdges: (newNodes, newEdges) => {
+    // Basic ID counter update logic
+    const maxId = [...newNodes].reduce((max, node) => {
+      const match = node.id.match(/-(\d+)$/);
+      if (match) return Math.max(max, parseInt(match[1], 10));
+      return max;
+    }, nodeIdCounter);
+    nodeIdCounter = maxId;
+
+    set((state) => ({
+      nodes: [...state.nodes, ...newNodes],
+      edges: [...state.edges, ...newEdges],
+    }));
+  },
 }));

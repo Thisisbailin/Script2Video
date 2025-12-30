@@ -9,16 +9,27 @@ type Props = {
 
 export const LLMGenerateNode: React.FC<Props> = ({ data }) => {
   return (
-    <BaseNode title="LLM" inputs={["text"]} outputs={["text"]}>
-      <div className="space-y-2">
-        <div className="text-xs text-gray-500">Status: {data.status}</div>
+    <BaseNode title="LLM Engine" inputs={["text"]} outputs={["text"]}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-gray-500'}`} />
+            <span className="text-[11px] font-medium uppercase tracking-wider opacity-60">{data.status}</span>
+          </div>
+        </div>
+
         <textarea
-          className="w-full h-20 text-xs bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-2"
+          className="w-full min-h-[120px] text-[13px] bg-white/5 dark:bg-black/20 rounded-xl border border-[var(--border-subtle)]/50 p-3 outline-none resize-none transition-all"
           value={data.outputText || ""}
-          onChange={(e) => (data.outputText = e.target.value)}
-          placeholder="LLM output"
+          readOnly
+          placeholder="Awaiting generation..."
         />
-        {data.error && <div className="text-xs text-red-500">{data.error}</div>}
+
+        {data.error && (
+          <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-[10px] text-red-400">
+            {data.error}
+          </div>
+        )}
       </div>
     </BaseNode>
   );
