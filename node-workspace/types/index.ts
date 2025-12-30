@@ -18,6 +18,7 @@ export type NodeStatus = "idle" | "loading" | "complete" | "error";
 
 export interface BaseNodeData extends Record<string, unknown> {
   label?: string;
+  title?: string;
 }
 
 export interface ImageInputNodeData extends BaseNodeData {
@@ -86,6 +87,7 @@ export interface TextNodeData extends BaseNodeData {
   title: string;
   text: string;
   category?: 'project' | 'episode' | 'character' | 'location' | 'form' | 'zone';
+  tags?: string[];
   refId?: string;
 }
 

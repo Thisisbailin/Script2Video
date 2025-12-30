@@ -1,6 +1,8 @@
-import React from "react";
-import { useWorkflowStore } from "../store/workflowStore";
+import React, { useRef, useLayoutEffect } from "react";
+import { BaseNode } from "./BaseNode";
 import { NoteNodeData } from "../types";
+import { useWorkflowStore } from "../store/workflowStore";
+import { StickyNote } from "lucide-react";
 
 type Props = {
     id: string;
@@ -9,43 +11,43 @@ type Props = {
 
 export const NoteNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
     const { updateNodeData } = useWorkflowStore();
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const autoResize = () => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+    };
+
+    useLayoutEffect(() => {
+        autoResize();
+    }, [data.text]);
 
     return (
-        <div
-            className="node-card-base transition-all duration-300 overflow-visible w-[240px]"
-            data-selected={!!selected}
+        <BaseNode
+            title={data.title || "Note"}
+            onTitleChange={(title) => updateNodeData(id, { title })}
+            selected={selected}
         >
-            <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
-                    <input
-                        className="bg-transparent font-black tracking-[0.2em] uppercase text-[10px] outline-none transition-colors w-full text-amber-500/80"
-                        value={data.title || "ANNOTATION"}
-                        onChange={(e) => updateNodeData(id, { title: e.target.value })}
-                        placeholder="NAME"
-                    />
+            <div className="flex-1 flex flex-col space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 shadow-sm w-fit">
+                    <StickyNote size={10} className="text-amber-500/70" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/80">ANNOTATION</span>
                 </div>
-                {selected && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-[var(--node-accent)]" />
-                )}
-            </div>
-            <div className="px-5 pb-5">
                 <textarea
-                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[100px]"
+                    ref={textareaRef}
+                    className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[100px] bg-amber-500/[0.03] border border-amber-500/5"
                     value={data.text}
                     onChange={(e) => {
                         updateNodeData(id, { text: e.target.value });
-                        e.target.style.height = 'auto';
-                        e.target.style.height = e.target.scrollHeight + 'px';
+                        autoResize();
                     }}
-                    onFocus={(e) => {
-                        e.target.style.height = 'auto';
-                        e.target.style.height = e.target.scrollHeight + 'px';
-                    }}
-                    placeholder="Write your note..."
+                    onFocus={autoResize}
+                    placeholder="Write your note here..."
                     style={{ height: 'auto' }}
                 />
             </div>
-        </div>
+        </BaseNode>
     );
 };

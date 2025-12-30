@@ -208,7 +208,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         category: 'project',
         refId: 'projectSummary'
       } as TextNodeData,
-      style: { width: 320 }
     });
     yOffset += 300;
 
@@ -243,7 +242,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           category: 'character',
           refId: char.id
         } as TextNodeData,
-        style: { width: 320 }
       });
 
       // Character Forms
@@ -261,7 +259,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
             category: 'form',
             refId: `${char.id}|${form.formName}`
           } as TextNodeData,
-          style: { width: 320 }
         });
 
         newEdges.push({
@@ -306,7 +303,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           category: 'location',
           refId: loc.id
         } as TextNodeData,
-        style: { width: 320 }
       });
 
       // Location Zones
@@ -324,7 +320,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
             category: 'zone',
             refId: `${loc.id}|${zone.name}`
           } as TextNodeData,
-          style: { width: 320 }
         });
 
         newEdges.push({
@@ -405,7 +400,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           category: 'episode',
           refId: `${episodeId}|${shot.id}`
         } as TextNodeData,
-        style: { width: 340 }
       });
 
       // Connect Shot -> Prompt

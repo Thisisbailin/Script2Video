@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useLayoutEffect } from "react";
 import { BaseNode } from "./BaseNode";
 import { LLMGenerateNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -10,6 +10,18 @@ type Props = {
 
 export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData } = useWorkflowStore();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  };
+
+  useLayoutEffect(() => {
+    autoResize();
+  }, [data.outputText]);
 
   return (
     <BaseNode
@@ -26,15 +38,13 @@ export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, 
         </div>
 
         <textarea
-          className="node-textarea w-full text-[13px] leading-relaxed p-3 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[100px]"
+          ref={textareaRef}
+          className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] flex-1 min-h-[100px]"
           value={data.outputText || ""}
           readOnly
           placeholder="Awaiting generation..."
           style={{ height: 'auto' }}
-          onFocus={(e) => {
-            e.target.style.height = 'auto';
-            e.target.style.height = e.target.scrollHeight + 'px';
-          }}
+          onFocus={autoResize}
         />
 
         {data.error && (

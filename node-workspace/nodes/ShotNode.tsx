@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import { Timer, MoveRight, MessageSquare, Star } from 'lucide-react';
+import React, { useRef, useLayoutEffect } from "react";
+import { Timer, MoveRight, MessageSquare, Star, Plus } from 'lucide-react';
 import { ShotNodeData } from "../types";
 import { Handle, Position } from "@xyflow/react";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -17,11 +17,11 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
     const autoResize = (textarea: HTMLTextAreaElement | null) => {
         if (textarea) {
             textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
         }
     };
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         autoResize(descriptionRef.current);
         autoResize(dialogueRef.current);
     }, [data.description, data.dialogue]);
@@ -47,7 +47,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
 
     return (
         <div
-            className="node-card-base transition-all duration-300 overflow-visible w-[340px] p-6 space-y-4"
+            className="node-card-base transition-all duration-300 overflow-visible w-[340px] p-6 space-y-4 flex flex-col"
             data-selected={!!selected}
         >
             {/* Handles */}
@@ -87,20 +87,28 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <input
-                        className="text-[9px] font-black text-[var(--node-accent)] uppercase tracking-widest bg-transparent outline-none w-24"
-                        value={data.shotType}
-                        onChange={(e) => updateNodeData(id, { shotType: e.target.value })}
-                        placeholder="SHOT TYPE"
-                    />
-                    <div className="h-1 w-1 rounded-full bg-[var(--node-text-secondary)] opacity-20" />
-                    <div className="flex items-center gap-1">
-                        <MoveRight size={10} className="text-[var(--node-text-secondary)] opacity-40" />
+                    {/* Shot Type Capsule */}
+                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--node-accent)]/10 border border-[var(--node-accent)]/20 shadow-sm transition-all duration-200">
                         <input
-                            className="text-[9px] text-[var(--node-text-secondary)] font-bold uppercase tracking-widest bg-transparent outline-none w-20"
+                            className="bg-transparent text-[9px] font-black text-[var(--node-accent)] uppercase tracking-[0.2em] outline-none text-center appearance-none"
+                            value={data.shotType}
+                            onChange={(e) => updateNodeData(id, { shotType: e.target.value })}
+                            placeholder="SHOT TYPE"
+                            style={{ width: Math.max(data.shotType?.length || 4, 4) + 'ch' }}
+                        />
+                    </div>
+
+                    <div className="h-1 w-1 rounded-full bg-[var(--node-text-secondary)] opacity-20" />
+
+                    {/* Movement Capsule */}
+                    <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                        <MoveRight size={10} className="text-[var(--node-text-secondary)] opacity-40 shrink-0" />
+                        <input
+                            className="bg-transparent text-[9px] text-[var(--node-text-secondary)] font-bold uppercase tracking-widest outline-none appearance-none"
                             value={data.movement}
                             onChange={(e) => updateNodeData(id, { movement: e.target.value })}
                             placeholder="MOVEMENT"
+                            style={{ width: Math.max(data.movement?.length || 4, 4) + 'ch' }}
                         />
                     </div>
                 </div>
@@ -108,7 +116,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
 
             <textarea
                 ref={descriptionRef}
-                className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] font-bold"
+                className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] font-bold flex-none"
                 value={data.description}
                 onChange={(e) => {
                     updateNodeData(id, { description: e.target.value });
@@ -119,23 +127,25 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
                 style={{ height: 'auto' }}
             />
 
-            <div className="relative">
-                <div className="text-[11px] italic text-[var(--node-text-secondary)] bg-[var(--node-textarea-bg)] rounded-xl px-4 py-3 flex items-start gap-3">
-                    <MessageSquare size={12} className="mt-1 flex-shrink-0 opacity-20" />
-                    <textarea
-                        ref={dialogueRef}
-                        className="bg-transparent w-full outline-none resize-none p-0 text-[var(--node-text-secondary)]"
-                        value={data.dialogue || ""}
-                        onChange={(e) => {
-                            updateNodeData(id, { dialogue: e.target.value });
-                            autoResize(e.target);
-                        }}
-                        onFocus={(e) => autoResize(e.target)}
-                        placeholder="Dialogue..."
-                        style={{ height: 'auto' }}
-                    />
+            {data.dialogue && (
+                <div className="relative">
+                    <div className="text-[11px] italic text-[var(--node-text-secondary)] bg-[var(--node-textarea-bg)] rounded-xl px-4 py-3 flex items-start gap-3">
+                        <MessageSquare size={12} className="mt-1 flex-shrink-0 opacity-20" />
+                        <textarea
+                            ref={dialogueRef}
+                            className="bg-transparent w-full outline-none resize-none p-0 text-[var(--node-text-secondary)]"
+                            value={data.dialogue}
+                            onChange={(e) => {
+                                updateNodeData(id, { dialogue: e.target.value });
+                                autoResize(e.target);
+                            }}
+                            onFocus={(e) => autoResize(e.target)}
+                            placeholder="Dialogue..."
+                            style={{ height: 'auto' }}
+                        />
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="pt-2 flex justify-end">
                 <div className="px-2 py-1 rounded-lg bg-[var(--node-accent)]/5 text-[8px] font-black text-[var(--node-accent)]/40 uppercase tracking-[0.2em]">
