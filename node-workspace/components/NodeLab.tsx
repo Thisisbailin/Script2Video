@@ -89,10 +89,21 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     [onConnect]
   );
 
+  /* New: Sync global style guide to store so executors can use it */
+  useEffect(() => {
+    if (projectData.globalStyleGuide) {
+      setGlobalStyleGuide(projectData.globalStyleGuide);
+    }
+  }, [projectData.globalStyleGuide, setGlobalStyleGuide]);
+
   const handleConnectEnd: OnConnectEnd = useCallback(
     (event, connectionState) => {
       if (connectionState.isValid || !connectionState.fromNode) return;
-      const { clientX, clientY } = event as MouseEvent;
+      // Extract clientX/clientY from the event correctly (it can be MouseEvent or TouchEvent)
+      const e = event as any;
+      const clientX = e.clientX || e.touches?.[0]?.clientX;
+      const clientY = e.clientY || e.touches?.[0]?.clientY;
+
       const fromHandleId = connectionState.fromHandle?.id || null;
       const fromHandleType = fromHandleId === "image" || fromHandleId === "text" ? fromHandleId : null;
       const isFromSource = connectionState.fromHandle?.type === "source";

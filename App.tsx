@@ -35,9 +35,7 @@ import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { AssetsModule } from './modules/assets/AssetsModule';
 import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
-import { VisualsModule } from './modules/visuals/VisualsModule';
 import { VideoModule } from './modules/video/VideoModule';
-import { MetricsModule } from './modules/metrics/MetricsModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
 import * as GeminiService from './services/geminiService';
 import * as VideoService from './services/videoService';
@@ -484,13 +482,6 @@ const App: React.FC = () => {
     });
   };
 
-  // --- New Helper: Usage Updater for Phase 4 ---
-  const handleUsageUpdate = (newUsage: TokenUsage) => {
-    setProjectData(prev => ({
-      ...prev,
-      phase4Usage: GeminiService.addUsage(prev.phase4Usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, newUsage)
-    }));
-  };
 
   // --- Handlers ---
 
@@ -1271,10 +1262,8 @@ const App: React.FC = () => {
     { key: 'assets', label: 'Assets', icon: FolderOpen },
     { key: 'script', label: 'Script', icon: FileText },
     { key: 'table', label: 'Shots', icon: List },
-    { key: 'visuals', label: 'Visuals', icon: Palette, hidden: true },
     { key: 'video', label: 'Video', icon: MonitorPlay, hidden: true },
     { key: 'lab', label: 'Node Lab', icon: Sparkles },
-    { key: 'stats', label: 'Stats', icon: BarChart2, hidden: true },
   ];
 
   const headerNode = (
@@ -1369,30 +1358,12 @@ const App: React.FC = () => {
             showSora={step >= WorkflowStep.GENERATE_SORA}
           />
         );
-      case 'visuals':
-        return (
-          <VisualsModule
-            data={projectData}
-            config={config}
-            onUpdateUsage={handleUsageUpdate}
-          />
-        );
-      case 'video':
-        return (
-          <VideoModule
-            episodes={projectData.episodes}
-            onGenerateVideo={handleGenerateVideo}
-            onRemixVideo={handleRemixVideo}
-          />
-        );
       case 'lab':
         return (
           <div className="h-full">
             <NodeLab projectData={projectData} setProjectData={setProjectData} />
           </div>
         );
-      case 'stats':
-        return <MetricsModule data={projectData} isDarkMode={isDarkMode} />;
       default:
         return null;
     }

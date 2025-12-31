@@ -39,9 +39,11 @@ interface WorkflowStore {
   edgeStyle: EdgeStyle;
   clipboard: ClipboardData | null;
   globalImageHistory: { id: string; image: string; prompt: string; aspectRatio?: string; model?: string; timestamp: number }[];
+  globalStyleGuide?: string;
 
   // Settings
   setEdgeStyle: (style: EdgeStyle) => void;
+  setGlobalStyleGuide: (guide: string) => void;
 
   // Node operations
   addNode: (type: NodeType, position: XYPosition, parentId?: string, extraData?: Partial<WorkflowNodeData>) => string;
@@ -172,9 +174,12 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   pausedAtNodeId: null,
   globalImageHistory: [],
   activeView: null,
+  globalStyleGuide: undefined,
+
   setActiveView: (view) => set({ activeView: view }),
 
   setEdgeStyle: (style: EdgeStyle) => set({ edgeStyle: style }),
+  setGlobalStyleGuide: (guide: string) => set({ globalStyleGuide: guide }),
 
   addNode: (type: NodeType, position: XYPosition, parentId?: string, extraData?: Partial<WorkflowNodeData>) => {
     const { activeView, nodes } = get();

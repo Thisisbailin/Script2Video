@@ -53,6 +53,11 @@ export const useLabExecutor = () => {
       // Append aspect ratio instruction for the model
       promptContent = `${text}\n\n[Aspect Ratio]: ${aspectRatio}`;
 
+      // Append Global Style Guide if available
+      if (store.globalStyleGuide) {
+        promptContent = `${promptContent}\n\n【Global Style Guide】\n${store.globalStyleGuide}`;
+      }
+
       if (images.length > 0) {
         const refs = images.map((img, i) => `![ref ${i}](${img})`).join('\n');
         promptContent = `${promptContent}\n\n${refs}`;
