@@ -3,14 +3,12 @@ import { BaseNode } from "./BaseNode";
 import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronUp } from "lucide-react";
 
 type Props = {
   id: string;
   data: ImageGenNodeData;
 };
-
-
 
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, getConnectedInputs, availableImageModels } = useWorkflowStore();
@@ -24,6 +22,9 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
   const { text: connectedText } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
+
+  // Derive display model name
+  const currentModel = data.model ? data.model.split('/').pop() : "Default";
 
   return (
     <BaseNode
@@ -50,7 +51,11 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
+            {currentModel}
+          </div>
+
+          <div className="grid grid-cols-1 gap-1.5">
             {/* Aspect Ratio */}
             <select
               className="text-[9px] font-bold px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors w-full"
@@ -62,18 +67,6 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
               <option value="9:16">9:16 Portrait</option>
               <option value="4:3">4:3 Standard</option>
               <option value="21:9">21:9 Ultrawide</option>
-            </select>
-
-            {/* Style Preset */}
-            <select
-              className="text-[9px] font-bold px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors w-full"
-              value={data.stylePreset || ""}
-              onChange={(e) => updateNodeData(id, { stylePreset: e.target.value })}
-            >
-              <option value="">No Style</option>
-              {STYLE_PRESETS.map(p => (
-                <option key={p.id} value={p.id}>{p.label}</option>
-              ))}
             </select>
           </div>
         </div>
@@ -89,22 +82,11 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
                 value={data.model || ""}
                 onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
               >
-                <option value="">Default (Global)</option>
+                <option value="">Use Default</option>
                 {availableImageModels.map(m => (
                   <option key={m} value={m}>{m.split('/').pop()}</option>
                 ))}
               </select>
-            </div>
-
-            {/* Negative Prompt */}
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Negative Prompt</label>
-              <textarea
-                className="w-full bg-white/[0.03] border border-white/5 rounded-lg p-2 text-[10px] leading-relaxed outline-none focus:border-white/10 transition-all resize-none min-h-[40px] placeholder:text-[var(--node-text-secondary)]/30 font-medium"
-                placeholder="Items to remove..."
-                value={data.negativePrompt || ""}
-                onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
-              />
             </div>
           </div>
         )}
@@ -113,7 +95,7 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
           <div className="group/prompt relative">
             <textarea
               className="w-full bg-white/[0.03] border border-white/5 rounded-xl p-3 text-[11px] leading-relaxed outline-none focus:border-white/10 transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/30 font-medium"
-              placeholder="Enter manual prompt or connect a Text node..."
+              placeholder="Enter prompt..."
               value={data.inputPrompt || ""}
               onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
             />

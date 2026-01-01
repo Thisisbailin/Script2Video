@@ -99,9 +99,7 @@ export interface ImageGenNodeData extends BaseNodeData {
   error: string | null;
   model?: string;
   aspectRatio: string;
-  stylePreset?: string;
   quality?: string;
-  negativePrompt?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {

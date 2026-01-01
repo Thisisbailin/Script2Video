@@ -48,8 +48,6 @@ export const useLabExecutor = () => {
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
       const aspectRatio = data.aspectRatio || "1:1";
-      const stylePreset = data.stylePreset;
-      const negativePrompt = data.negativePrompt;
       const modelOverride = data.model;
 
       let promptContent = text || "Generate an image based on the input";

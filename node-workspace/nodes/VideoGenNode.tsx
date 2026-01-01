@@ -37,6 +37,10 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
             </button>
           </div>
 
+          <div className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
+            {data.model ? data.model.split('/').pop() : "Default Model"}
+          </div>
+
           <div className="grid grid-cols-2 gap-1.5">
             {/* Aspect Ratio */}
             <select
