@@ -40,6 +40,10 @@ interface WorkflowStore {
   clipboard: ClipboardData | null;
   globalImageHistory: { id: string; image: string; prompt: string; aspectRatio?: string; model?: string; timestamp: number }[];
   globalStyleGuide?: string;
+  availableImageModels: string[];
+  availableVideoModels: string[];
+  setAvailableImageModels: (models: string[]) => void;
+  setAvailableVideoModels: (models: string[]) => void;
 
   // Settings
   setEdgeStyle: (style: EdgeStyle) => void;
@@ -175,6 +179,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   globalImageHistory: [],
   activeView: null,
   globalStyleGuide: undefined,
+  availableImageModels: [],
+  availableVideoModels: [],
+
+  setAvailableImageModels: (models) => set({ availableImageModels: models }),
+  setAvailableVideoModels: (models) => set({ availableVideoModels: models }),
 
   setActiveView: (view) => set({ activeView: view }),
 

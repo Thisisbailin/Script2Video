@@ -95,20 +95,26 @@ export interface ImageGenNodeData extends BaseNodeData {
   inputImages: string[];
   inputPrompt: string | null;
   outputImage: string | null;
-  status: NodeStatus;
+  status: 'idle' | 'loading' | 'complete' | 'error';
   error: string | null;
   model?: string;
-  aspectRatio?: string;
+  aspectRatio: string;
+  stylePreset?: string;
+  quality?: string;
+  negativePrompt?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {
   inputImages: string[];
   inputPrompt: string | null;
   videoId?: string;
-  videoUrl?: string;
-  status: NodeStatus;
+  videoUrl?: string; // For polling result
+  status: 'idle' | 'loading' | 'complete' | 'error';
   error: string | null;
-  aspectRatio?: string;
+  aspectRatio: string;
+  duration?: string;
+  model?: string;
+  quality?: string;
 }
 
 export interface LLMGenerateNodeData extends BaseNodeData {

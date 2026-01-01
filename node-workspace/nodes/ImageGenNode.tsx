@@ -1,18 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Sparkles, RefreshCw, AlertCircle } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronDown, ChevronUp } from "lucide-react";
 
 type Props = {
   id: string;
   data: ImageGenNodeData;
 };
 
+const STYLE_PRESETS = [
+  { id: 'cinematic', label: 'Cinematic' },
+  { id: 'photorealistic', label: 'Photorealistic' },
+  { id: 'anime', label: 'Anime' },
+  { id: 'digital-art', label: 'Digital Art' },
+  { id: 'concept-art', label: 'Concept Art' },
+  { id: '3d-render', label: '3D Render' },
+];
+
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs } = useWorkflowStore();
+  const { updateNodeData, getConnectedInputs, availableImageModels } = useWorkflowStore();
   const { runImageGen } = useLabExecutor();
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,29 +41,80 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
       selected={selected}
     >
       <div className="space-y-4 flex-1 flex flex-col">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`h-1.5 w-1.5 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-[var(--node-text-secondary)] opacity-30'}`} />
-            <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status || 'idle'}</span>
+        {/* Controls Header */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`h-1.5 w-1.5 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-[var(--node-text-secondary)] opacity-30'}`} />
+              <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status || 'idle'}</span>
+            </div>
+
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className={`p-1 rounded-full hover:bg-white/10 transition-colors ${showAdvanced ? 'text-[var(--node-accent)] bg-white/5' : 'text-[var(--node-text-secondary)]'}`}
+            >
+              <Settings2 size={12} />
+            </button>
           </div>
-          <div className="flex items-center gap-1.5">
+
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Aspect Ratio */}
             <select
-              className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+              className="text-[9px] font-bold px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors w-full"
               value={data.aspectRatio || "1:1"}
               onChange={(e) => updateNodeData(id, { aspectRatio: e.target.value })}
             >
-              <option value="1:1">1:1</option>
-              <option value="16:9">16:9</option>
-              <option value="9:16">9:16</option>
-              <option value="4:3">4:3</option>
+              <option value="1:1">1:1 Square</option>
+              <option value="16:9">16:9 Landscape</option>
+              <option value="9:16">9:16 Portrait</option>
+              <option value="4:3">4:3 Standard</option>
+              <option value="21:9">21:9 Ultrawide</option>
             </select>
-            {data.model && (
-              <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-[var(--node-text-secondary)] uppercase tracking-tighter">
-                {data.model.split('/').pop()}
-              </span>
-            )}
+
+            {/* Style Preset */}
+            <select
+              className="text-[9px] font-bold px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors w-full"
+              value={data.stylePreset || ""}
+              onChange={(e) => updateNodeData(id, { stylePreset: e.target.value })}
+            >
+              <option value="">No Style</option>
+              {STYLE_PRESETS.map(p => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {/* Advanced Controls (Collapsible) */}
+        {showAdvanced && (
+          <div className="space-y-3 p-3 bg-black/20 rounded-xl animate-in fade-in slide-in-from-top-1">
+            {/* Model Selector */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model Override</label>
+              <select
+                className="w-full text-[9px] font-medium px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                value={data.model || ""}
+                onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
+              >
+                <option value="">Default (Global)</option>
+                {availableImageModels.map(m => (
+                  <option key={m} value={m}>{m.split('/').pop()}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Negative Prompt */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Negative Prompt</label>
+              <textarea
+                className="w-full bg-white/[0.03] border border-white/5 rounded-lg p-2 text-[10px] leading-relaxed outline-none focus:border-white/10 transition-all resize-none min-h-[40px] placeholder:text-[var(--node-text-secondary)]/30 font-medium"
+                placeholder="Items to remove..."
+                value={data.negativePrompt || ""}
+                onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
 
         {showPromptInput && (
           <div className="group/prompt relative">
@@ -66,18 +127,25 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
           </div>
         )}
 
-        <div className="flex-1 relative group/img cursor-pointer">
+        <div className="flex-1 relative group/img cursor-pointer min-h-[200px]">
           {data.outputImage ? (
-            <div className="relative overflow-hidden rounded-[24px] bg-[var(--node-textarea-bg)] shadow-xl aspect-square border border-white/5">
+            <div className="relative overflow-hidden rounded-[24px] bg-[var(--node-textarea-bg)] shadow-xl w-full h-full border border-white/5 group-hover/img:border-white/20 transition-all">
               <img
                 src={data.outputImage}
                 alt="generated"
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover/img:scale-110"
+                className="w-full h-full object-contain bg-black/40"
               />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm">
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm gap-2">
+                <button
+                  onClick={() => window.open(data.outputImage!, '_blank')}
+                  className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/img:scale-100 border border-white/10"
+                  title="Open Full Size"
+                >
+                  <ChevronUp size={20} className="rotate-45" />
+                </button>
                 <button
                   onClick={handleGenerate}
-                  className="h-12 w-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/img:scale-100 border border-white/10"
+                  className="h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/img:scale-100 border border-white/10"
                 >
                   <RefreshCw size={24} className={data.status === 'loading' ? 'animate-spin' : ''} />
                 </button>
@@ -86,7 +154,7 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
           ) : (
             <div
               onClick={handleGenerate}
-              className={`w-full aspect-square rounded-[24px] flex flex-col items-center justify-center bg-[var(--node-textarea-bg)] border-2 border-dashed transition-all duration-500 overflow-hidden relative ${data.status === 'loading'
+              className={`w-full h-full rounded-[24px] flex flex-col items-center justify-center bg-[var(--node-textarea-bg)] border-2 border-dashed transition-all duration-500 overflow-hidden relative ${data.status === 'loading'
                 ? 'border-amber-500/40 bg-amber-500/[0.02]'
                 : 'border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]'
                 }`}

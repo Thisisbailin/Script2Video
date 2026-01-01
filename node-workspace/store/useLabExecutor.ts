@@ -36,22 +36,34 @@ export const useLabExecutor = () => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
     const { images, text: connectedText } = store.getConnectedInputs(nodeId);
-    const manualPrompt = (node.data as any).inputPrompt;
+    const data = node.data as any; // Cast for easier access to new fields
+    const manualPrompt = data.inputPrompt;
     const text = connectedText || manualPrompt;
 
-    if (!text) {
+    if (!text && images.length === 0) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)" });
       return;
     }
 
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
-      // Construction: text + optional image references + aspect ratio
-      const aspectRatio = (node.data as any).aspectRatio || "1:1";
-      let promptContent: any = text;
+      const aspectRatio = data.aspectRatio || "1:1";
+      const stylePreset = data.stylePreset;
+      const negativePrompt = data.negativePrompt;
+      const modelOverride = data.model;
 
-      // Append aspect ratio instruction for the model
-      promptContent = `${text}\n\n[Aspect Ratio]: ${aspectRatio}`;
+      let promptContent = text || "Generate an image based on the input";
+
+      // --- Prompt Engineering ---
+      if (stylePreset) {
+        promptContent = `[Style: ${stylePreset}] ${promptContent}`;
+      }
+
+      promptContent = `${promptContent}\n\n[Aspect Ratio]: ${aspectRatio}`;
+
+      if (negativePrompt) {
+        promptContent = `${promptContent}\n\n[Negative Prompt]: ${negativePrompt}`;
+      }
 
       // Append Global Style Guide if available
       if (store.globalStyleGuide) {
@@ -59,13 +71,19 @@ export const useLabExecutor = () => {
       }
 
       if (images.length > 0) {
-        const refs = images.map((img, i) => `![ref ${i}](${img})`).join('\n');
+        const refs = images.map((img: string, i: number) => `![ref ${i}](${img})`).join('\n');
         promptContent = `${promptContent}\n\n${refs}`;
       }
 
+      // Use node-specific model or fallback to config
+      const configToUse = {
+        ...config.multimodalConfig,
+        model: modelOverride || config.multimodalConfig.model
+      };
+
       const res = await MultimodalService.sendMessage(
         [{ role: "user", content: promptContent }],
-        config.multimodalConfig
+        configToUse
       );
 
       const url = extractImageUrl(res.content) || res.content.trim();
@@ -79,14 +97,15 @@ export const useLabExecutor = () => {
         status: "complete",
         outputImage: url,
         error: null,
-        model: config.multimodalConfig.model
+        model: configToUse.model // store used model for reference
       });
 
       // Add to global history for reuse
       store.addToGlobalHistory({
         image: url,
-        prompt: text,
-        model: config.multimodalConfig.model
+        prompt: text || "Image Input",
+        model: configToUse.model,
+        aspectRatio
       });
 
     } catch (e: any) {
@@ -98,14 +117,35 @@ export const useLabExecutor = () => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
     const { images, text } = store.getConnectedInputs(nodeId);
-    if (images.length === 0 || !text) {
-      store.updateNodeData(nodeId, { status: "error", error: "Missing image or text input" });
+    if (images.length === 0 && !text) { // Allow text-only video gen
+      store.updateNodeData(nodeId, { status: "error", error: "Missing text input" });
       return;
     }
     store.updateNodeData(nodeId, { status: "loading", error: null });
+
     try {
-      const params: any = { aspectRatio: (node.data as any).aspectRatio || "16:9" };
-      const { id } = await VideoService.submitVideoTask(text, config.videoConfig, params);
+      const data = node.data as any;
+      const params: any = {
+        aspectRatio: data.aspectRatio || "16:9",
+        duration: data.duration || "5s",
+        quality: data.quality || "standard"
+      };
+
+      // Use node-specific model or fallback to config
+      const configToUse = {
+        ...config.videoConfig,
+        model: data.model || config.videoConfig.model
+      };
+
+      // If we have strict model requirements or endpoints that need model in body, VideoService handles it via config/params usually, 
+      // but let's make sure we pass it if needed. For now, VideoService uses config.apiKey/baseUrl. 
+      // If the service allows passing model explicitly in submitVideoTask, we should updated VideoService or rely on it using config.
+
+      // We need to modify submitVideoTask signature if we want to pass explicit model override cleanly, 
+      // OR we just create a temp config object which we did above.
+
+      const { id } = await VideoService.submitVideoTask(text || "Animate this", configToUse, params);
+
       store.updateNodeData(nodeId, { status: "complete", videoId: id, videoUrl: undefined, error: null });
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Video submit failed" });
