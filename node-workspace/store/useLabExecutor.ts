@@ -55,20 +55,13 @@ export const useLabExecutor = () => {
       let promptContent = text || "Generate an image based on the input";
 
       // --- Prompt Engineering ---
-      if (stylePreset) {
-        promptContent = `[Style: ${stylePreset}] ${promptContent}`;
-      }
+      // Removed Style Preset injection as per user request for clean multimodal prompts
 
       promptContent = `${promptContent}\n\n[Aspect Ratio]: ${aspectRatio}`;
 
-      if (negativePrompt) {
-        promptContent = `${promptContent}\n\n[Negative Prompt]: ${negativePrompt}`;
-      }
+      // Removed Negative Prompt injection
 
-      // Append Global Style Guide if available
-      if (store.globalStyleGuide) {
-        promptContent = `${promptContent}\n\n【Global Style Guide】\n${store.globalStyleGuide}`;
-      }
+      // Removed Global Style Guide injection to prevent unwanted context leakage
 
       if (images.length > 0) {
         const refs = images.map((img: string, i: number) => `![ref ${i}](${img})`).join('\n');

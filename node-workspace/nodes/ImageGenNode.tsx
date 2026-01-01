@@ -10,14 +10,7 @@ type Props = {
   data: ImageGenNodeData;
 };
 
-const STYLE_PRESETS = [
-  { id: 'cinematic', label: 'Cinematic' },
-  { id: 'photorealistic', label: 'Photorealistic' },
-  { id: 'anime', label: 'Anime' },
-  { id: 'digital-art', label: 'Digital Art' },
-  { id: 'concept-art', label: 'Concept Art' },
-  { id: '3d-render', label: '3D Render' },
-];
+
 
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, getConnectedInputs, availableImageModels } = useWorkflowStore();
