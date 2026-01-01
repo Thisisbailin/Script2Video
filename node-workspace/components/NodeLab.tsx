@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -72,7 +72,7 @@ interface NodeLabProps {
 }
 
 const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) => {
-  const { nodes, edges, addNode, addNodesAndEdges, onNodesChange, onEdgesChange, onConnect, saveWorkflow, loadWorkflow, activeView, setActiveView } = useWorkflowStore();
+  const { nodes, edges, addNode, addNodesAndEdges, onNodesChange, onEdgesChange, onConnect, saveWorkflow, loadWorkflow, activeView, setActiveView, setGlobalStyleGuide } = useWorkflowStore();
   const [showEpisodeSelector, setShowEpisodeSelector] = useState(false);
   const { setViewport, screenToFlowPosition } = useReactFlow();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
