@@ -17,8 +17,8 @@ export const BaseNode: React.FC<Props> = ({ title, onTitleChange, children, inpu
       <NodeResizer
         color="var(--node-accent)"
         isVisible={selected}
-        minWidth={240}
-        minHeight={150}
+        minWidth={320}
+        minHeight={160}
         handleClassName="custom-node-handle"
         lineClassName="custom-node-line"
       />

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 import "../styles/nodelab.css";
 import { useWorkflowStore } from "../store/workflowStore";
 import { isValidConnection } from "../utils/handles";
-import { WorkflowFile, WorkflowNodeData, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData, VideoGenNodeData } from "../types";
+import { WorkflowFile, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData, VideoGenNodeData } from "../types";
 import { EditableEdge } from "../edges/EditableEdge";
 import {
   ImageInputNode, AnnotationNode, TextNode,
@@ -82,8 +82,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     onConnect,
     saveWorkflow,
     loadWorkflow,
-    activeView,
-    setActiveView,
     setGlobalStyleGuide,
     addToGlobalHistory,
     globalAssetHistory,
@@ -156,46 +154,13 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
   );
 
   const handleAddNode = useCallback((type: NodeType, position: XYPosition) => {
-    let parentId = undefined;
-    let finalPosition = position;
-    const extraData: any = {};
-
-    if (activeView) {
-      extraData.view = activeView;
-      // Find the group node that represents this view
-      const groupNode = nodes.find(n => n.type === 'group' && (n.data as any).view === activeView);
-      if (groupNode) {
-        parentId = groupNode.id;
-        // If the position looks like an absolute flow position (e.g. from drag & drop), 
-        // we should make it relative to the parent group.
-        // For the fixed positions from FloatingActionBar (like 100, 100), 
-        // they are already relative enough and will appear at the top-left of the group.
-
-        // Check if the position is far enough to be likely absolute
-        if (position.x > 0 || position.y > 0) {
-          // We only adjust if we suspect it's a world-space drop. 
-          // Actually, it's safer to always adjust if we know the source is world-space.
-        }
-      }
-    }
-    return addNode(type, finalPosition, parentId, extraData);
-  }, [nodes, activeView, addNode]);
+    return addNode(type, position);
+  }, [addNode]);
 
   const handleDropCreate = (type: NodeType) => {
     if (!connectionDrop) return;
 
     let position = connectionDrop.flowPosition;
-
-    // Adjust position if we are in an active view with a parent group
-    if (activeView) {
-      const groupNode = nodes.find(n => n.type === 'group' && (n.data as any).view === activeView);
-      if (groupNode) {
-        position = {
-          x: position.x - groupNode.position.x,
-          y: position.y - groupNode.position.y
-        };
-      }
-    }
 
     const newId = handleAddNode(type, position);
 
@@ -244,32 +209,41 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     alert("Run triggered");
   };
 
+  const getTemplateOrigin = useCallback(() => {
+    const topLevelNodes = nodes.filter((node) => !node.parentId);
+    if (topLevelNodes.length === 0) return { x: 50, y: 60 };
+    const maxY = Math.max(
+      ...topLevelNodes.map((node) => {
+        const height = typeof node.style?.height === "number" ? node.style.height : 320;
+        return node.position.y + height;
+      })
+    );
+    return { x: 50, y: maxY + 160 };
+  }, [nodes]);
+
+  const focusTemplate = useCallback((origin: XYPosition, zoom = 0.7) => {
+    setViewport({ x: -origin.x + 80, y: -origin.y + 80, zoom }, { duration: 800 });
+  }, [setViewport]);
+
   const handleImportUnderstanding = useCallback(() => {
-    const exists = nodes.some(n => (n.data as any).view === 'understanding');
-    if (exists) {
-      setActiveView(activeView === 'understanding' ? null : 'understanding');
-      if (activeView !== 'understanding') setViewport({ x: 0, y: 0, zoom: 0.8 }, { duration: 800 });
-      return;
-    }
 
     const context = projectData.context;
     const newNodes: WorkflowNode[] = [];
     const newEdges: WorkflowEdge[] = [];
+    const origin = getTemplateOrigin();
     let yOffset = 100;
-
-    const withView = (data: any) => ({ ...data, view: 'understanding' });
 
     const summaryId = `text-understanding-summary-${Date.now()}`;
     newNodes.push({
       id: summaryId,
       type: 'text',
-      position: { x: 400, y: yOffset },
-      data: withView({
+      position: { x: origin.x + 400, y: origin.y + yOffset },
+      data: {
         title: "Project Summary",
         text: context.projectSummary,
         category: 'project',
         refId: 'projectSummary'
-      }) as TextNodeData,
+      } as TextNodeData,
     });
     yOffset += 450;
 
@@ -282,10 +256,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       newNodes.push({
         id: charGroupId,
         type: 'group',
-        position: { x: charX - 25, y: yOffset - 80 },
-        data: withView({
+        position: { x: origin.x + charX - 25, y: origin.y + yOffset - 80 },
+        data: {
           title: `CHARACTER: ${char.name.toUpperCase()}`,
-        }) as GroupNodeData,
+        } as GroupNodeData,
         style: { width: 470, height: groupHeight },
       });
 
@@ -295,12 +269,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         position: { x: 25, y: 80 },
         parentId: charGroupId,
         extent: 'parent',
-        data: withView({
+        data: {
           title: `Bio`,
           text: char.bio,
           category: 'character',
           refId: char.id
-        }) as TextNodeData,
+        } as TextNodeData,
       });
 
       char.forms.forEach((form, formIdx) => {
@@ -311,12 +285,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           position: { x: 25, y: 350 + (formIdx * 350) },
           parentId: charGroupId,
           extent: 'parent',
-          data: withView({
+          data: {
             title: `Form: ${form.formName}`,
             text: form.description,
             category: 'form',
             refId: `${char.id}|${form.formName}`
-          }) as TextNodeData,
+          } as TextNodeData,
         });
         newEdges.push({ id: `edge-${charId}-${formId}`, source: charId, target: formId, sourceHandle: 'text', targetHandle: 'text' });
       });
@@ -332,8 +306,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       newNodes.push({
         id: locGroupId,
         type: 'group',
-        position: { x: locX - 25, y: 400 - 80 },
-        data: withView({ title: `LOCATION: ${loc.name.toUpperCase()}` }) as GroupNodeData,
+        position: { x: origin.x + locX - 25, y: origin.y + 400 - 80 },
+        data: { title: `LOCATION: ${loc.name.toUpperCase()}` } as GroupNodeData,
         style: { width: 470, height: groupHeight },
       });
 
@@ -343,12 +317,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         position: { x: 25, y: 80 },
         parentId: locGroupId,
         extent: 'parent',
-        data: withView({
+        data: {
           title: `Description`,
           text: loc.description,
           category: 'location',
           refId: loc.id
-        }) as TextNodeData,
+        } as TextNodeData,
       });
 
       (loc.zones || []).forEach((zone, zoneIdx) => {
@@ -359,12 +333,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           position: { x: 25, y: 350 + (zoneIdx * 350) },
           parentId: locGroupId,
           extent: 'parent',
-          data: withView({
+          data: {
             title: `Zone: ${zone.name}`,
             text: zone.layoutNotes,
             category: 'zone',
             refId: `${loc.id}|${zone.name}`
-          }) as TextNodeData,
+          } as TextNodeData,
         });
         newEdges.push({ id: `edge-${locId}-${zoneId}`, source: locId, target: zoneId, sourceHandle: 'text', targetHandle: 'text' });
       });
@@ -372,33 +346,23 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     });
 
     addNodesAndEdges(newNodes, newEdges);
-    setActiveView('understanding');
-    setViewport({ x: 0, y: 0, zoom: 0.8 }, { duration: 800 });
-  }, [projectData, addNodesAndEdges, nodes, setActiveView, activeView, setViewport]);
+    focusTemplate(origin, 0.7);
+  }, [projectData, addNodesAndEdges, getTemplateOrigin, focusTemplate]);
 
   const handleImportEpisode = useCallback((episodeId: number) => {
-    const viewId = `episode-${episodeId}`;
-    const exists = nodes.some(n => (n.data as any).view === viewId);
-    if (exists) {
-      setActiveView(activeView === viewId ? null : viewId);
-      if (activeView !== viewId) setViewport({ x: 0, y: 0, zoom: 0.6 }, { duration: 1000 });
-      setShowEpisodeSelector(false);
-      return;
-    }
-
     const episode = projectData.episodes.find(e => e.id === episodeId);
     if (!episode) return;
 
     const newNodes: WorkflowNode[] = [];
     const newEdges: WorkflowEdge[] = [];
+    const origin = getTemplateOrigin();
     const groupId = `group-episode-${episodeId}-${Date.now()}`;
-    const withView = (data: any) => ({ ...data, view: viewId });
 
     newNodes.push({
       id: groupId,
       type: 'group',
-      position: { x: 50, y: 50 },
-      data: withView({ title: `EPISODE ${episode.id}: ${episode.title.toUpperCase()}` }) as GroupNodeData,
+      position: { x: origin.x, y: origin.y },
+      data: { title: `EPISODE ${episode.id}: ${episode.title.toUpperCase()}` } as GroupNodeData,
       style: { width: 1000, height: 200 + (episode.shots.length * 400) },
     });
 
@@ -413,7 +377,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         position: { x: 40, y: yPos },
         parentId: groupId,
         extent: 'parent',
-        data: withView({
+        data: {
           shotId: shot.id,
           description: shot.description,
           duration: shot.duration,
@@ -421,7 +385,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           movement: shot.movement,
           difficulty: shot.difficulty,
           dialogue: shot.dialogue,
-        }) as ShotNodeData,
+        } as ShotNodeData,
       });
 
       newNodes.push({
@@ -430,32 +394,24 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         position: { x: 520, y: yPos + 20 },
         parentId: groupId,
         extent: 'parent',
-        data: withView({
+        data: {
           title: `Prompt: ${shot.id}`,
           text: shot.soraPrompt || "",
           category: 'episode',
           refId: `${episodeId}|${shot.id}`
-        }) as TextNodeData,
+        } as TextNodeData,
       });
 
       newEdges.push({ id: `edge-shot-prompt-${shot.id}`, source: shotNodeId, target: promptNodeId, sourceHandle: 'text', targetHandle: 'text' });
     });
 
     addNodesAndEdges(newNodes, newEdges);
-    setActiveView(viewId);
     setShowEpisodeSelector(false);
-    setViewport({ x: 0, y: 0, zoom: 0.6 }, { duration: 1000 });
-  }, [projectData, addNodesAndEdges, setViewport, nodes, setActiveView, activeView]);
+    focusTemplate(origin, 0.7);
+  }, [projectData, addNodesAndEdges, getTemplateOrigin, focusTemplate]);
 
-  const displayNodes = useMemo(() => {
-    if (!activeView) return nodes.filter(n => !(n.data as any).view);
-    return nodes.filter(n => (n.data as any).view === activeView);
-  }, [nodes, activeView]);
-
-  const displayEdges = useMemo(() => {
-    const visibleIds = new Set(displayNodes.map(n => n.id));
-    return edges.filter(e => visibleIds.has(e.source) && visibleIds.has(e.target));
-  }, [edges, displayNodes]);
+  const displayNodes = nodes;
+  const displayEdges = edges;
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-white">
@@ -472,7 +428,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           fitView
           connectionMode={ConnectionMode.Loose}
           proOptions={{ hideAttribution: true }}
-          data-active-mode={activeView || "default"}
+          data-active-mode="default"
         >
           <Background />
           {showMiniMap && (
@@ -513,8 +469,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
         onImportUnderstanding={handleImportUnderstanding}
         onImportEpisode={() => setShowEpisodeSelector(true)}
-        isUnderstandingActive={activeView === 'understanding'}
-        onToggleUnderstanding={() => setActiveView(activeView === 'understanding' ? null : 'understanding')}
         onImport={() => fileInputRef.current?.click()}
         onExport={() => saveWorkflow()}
         onRun={runAll}

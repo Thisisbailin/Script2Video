@@ -225,16 +225,16 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     }
 
     const defaultDimensions: Record<NodeType, { width: number; height?: number }> = {
-      imageInput: { width: 300, height: 280 },
-      annotation: { width: 300, height: 280 },
-      text: { width: 420 },
-      note: { width: 300 },
-      shot: { width: 440 },
-      imageGen: { width: 320, height: 320 },
-      videoGen: { width: 320, height: 340 },
-      llmGenerate: { width: 420 },
-      group: { width: 1000, height: 800 },
-      output: { width: 420 },
+      imageInput: { width: 360, height: 300 },
+      annotation: { width: 360, height: 320 },
+      text: { width: 500 },
+      note: { width: 380 },
+      shot: { width: 520 },
+      imageGen: { width: 420, height: 360 },
+      videoGen: { width: 420, height: 360 },
+      llmGenerate: { width: 520 },
+      group: { width: 1100, height: 900 },
+      output: { width: 460 },
     };
 
     const dim = defaultDimensions[type];

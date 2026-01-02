@@ -29,8 +29,6 @@ type Props = {
   onAddNote: () => void;
   onImportUnderstanding: () => void;
   onImportEpisode: () => void;
-  isUnderstandingActive: boolean;
-  onToggleUnderstanding: () => void;
   onImport: () => void;
   onExport: () => void;
   onRun: () => void;
@@ -47,8 +45,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddNote,
   onImportUnderstanding,
   onImportEpisode,
-  isUnderstandingActive,
-  onToggleUnderstanding,
   onImport,
   onExport,
   onRun,
