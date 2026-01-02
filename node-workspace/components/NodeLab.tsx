@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 import "../styles/nodelab.css";
 import { useWorkflowStore } from "../store/workflowStore";
 import { isValidConnection } from "../utils/handles";
-import { WorkflowFile, WorkflowNodeData, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData } from "../types";
+import { WorkflowFile, WorkflowNodeData, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData, VideoGenNodeData } from "../types";
 import { EditableEdge } from "../edges/EditableEdge";
 import {
   ImageInputNode, AnnotationNode, TextNode,
@@ -72,7 +72,22 @@ interface NodeLabProps {
 }
 
 const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) => {
-  const { nodes, edges, addNode, addNodesAndEdges, onNodesChange, onEdgesChange, onConnect, saveWorkflow, loadWorkflow, activeView, setActiveView, setGlobalStyleGuide } = useWorkflowStore();
+  const {
+    nodes,
+    edges,
+    addNode,
+    addNodesAndEdges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    saveWorkflow,
+    loadWorkflow,
+    activeView,
+    setActiveView,
+    setGlobalStyleGuide,
+    addToGlobalHistory,
+    globalAssetHistory,
+  } = useWorkflowStore();
   const [showEpisodeSelector, setShowEpisodeSelector] = useState(false);
   const { setViewport, screenToFlowPosition } = useReactFlow();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
@@ -95,6 +110,26 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       setGlobalStyleGuide(projectData.globalStyleGuide);
     }
   }, [projectData.globalStyleGuide, setGlobalStyleGuide]);
+
+  useEffect(() => {
+    const videoNodes = nodes.filter((node) => node.type === "videoGen");
+    videoNodes.forEach((node) => {
+      const data = node.data as VideoGenNodeData;
+      if (!data?.videoUrl) return;
+      const alreadyAdded = globalAssetHistory.some(
+        (item) => item.type === "video" && (item.sourceId === node.id || item.src === data.videoUrl)
+      );
+      if (alreadyAdded) return;
+      addToGlobalHistory({
+        type: "video",
+        src: data.videoUrl,
+        prompt: data.inputPrompt || "Video Output",
+        model: data.model,
+        aspectRatio: data.aspectRatio,
+        sourceId: node.id,
+      });
+    });
+  }, [addToGlobalHistory, globalAssetHistory, nodes]);
 
   const handleConnectEnd: OnConnectEnd = useCallback(
     (event, connectionState) => {

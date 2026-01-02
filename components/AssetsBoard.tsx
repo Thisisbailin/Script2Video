@@ -1,7 +1,8 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ProjectData } from '../types';
-import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks } from 'lucide-react';
+import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
+import { useWorkflowStore, GlobalAssetHistoryItem } from '../node-workspace/store/workflowStore';
 
 interface Props {
   data: ProjectData;
@@ -23,6 +24,15 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const [showAllCharacters, setShowAllCharacters] = useState(false);
   const [expandedCharacterForms, setExpandedCharacterForms] = useState<Record<string, boolean>>({});
+  const { globalAssetHistory, removeGlobalHistoryItem, clearGlobalHistory } = useWorkflowStore();
+  const imageAssets = useMemo(
+    () => globalAssetHistory.filter((item) => item.type === 'image'),
+    [globalAssetHistory]
+  );
+  const videoAssets = useMemo(
+    () => globalAssetHistory.filter((item) => item.type === 'video'),
+    [globalAssetHistory]
+  );
   const hasUnderstandingData = Boolean(
     data.context.projectSummary ||
       data.context.episodeSummaries.length > 0 ||
@@ -104,6 +114,86 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
         </button>
       ) : (
         <div className="text-xs text-[var(--text-secondary)]">Coming soon</div>
+      )}
+    </div>
+  );
+
+  const GeneratedLibraryCard = ({
+    title,
+    desc,
+    icon: Icon,
+    items,
+    toneClass,
+    type,
+  }: {
+    title: string;
+    desc: string;
+    icon: any;
+    items: GlobalAssetHistoryItem[];
+    toneClass: string;
+    type: 'image' | 'video';
+  }) => (
+    <div className="p-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/90 shadow-[var(--shadow-soft)]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-[var(--bg-muted)]/60">
+            <Icon size={22} className={toneClass} />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-[var(--text-primary)]">{title}</div>
+            <div className="text-[11px] text-[var(--text-secondary)]">
+              {items.length ? `${items.length} items · linked to history` : desc}
+            </div>
+          </div>
+        </div>
+        {items.length > 0 && (
+          <button
+            type="button"
+            onClick={() => clearGlobalHistory(type)}
+            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-blue)] transition"
+            title="Clear library"
+          >
+            <Trash2 size={14} className="mx-auto" />
+          </button>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <div className="mt-3 rounded-xl border border-dashed border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/50 p-3 text-xs text-[var(--text-secondary)]">
+          No generated {type === 'image' ? 'images' : 'videos'} yet.
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {items.slice(0, 4).map((item) => (
+              <div
+                key={item.id}
+                className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-black/30"
+              >
+                {item.type === 'image' ? (
+                  <img src={item.src} alt={item.prompt} className="h-full w-full object-cover" />
+                ) : (
+                  <video className="h-full w-full object-cover" muted preload="metadata" playsInline>
+                    <source src={item.src} />
+                  </video>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeGlobalHistoryItem(item.id)}
+                  className="absolute right-1 top-1 h-6 w-6 rounded-full border border-white/20 bg-black/50 text-white/70 opacity-0 transition group-hover:opacity-100 hover:text-white"
+                  title="Remove"
+                >
+                  <X size={12} className="mx-auto" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {items.length > 4 && (
+            <div className="mt-2 text-[10px] text-[var(--text-secondary)]">
+              + {items.length - 4} more assets
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -381,32 +471,32 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
           </div>
         </section>
 
-        {/* Generated Libraries Placeholder */}
+        {/* Generated Libraries */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-              Generated Libraries (Placeholder)
+              Generated Libraries
             </h3>
             <div className="text-xs text-[var(--text-secondary)] flex items-center gap-2">
-              <Sparkles size={14} /> Coming soon
+              <Sparkles size={14} /> Linked to Node Lab history
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AssetCard
+            <GeneratedLibraryCard
               title="Image Library"
               desc="Generated stills, references and concept frames."
               icon={Image}
-              isLoaded={false}
-              fileName="0 items · auto-saved"
-              colorClass="text-blue-300"
+              items={imageAssets}
+              toneClass="text-blue-300"
+              type="image"
             />
-            <AssetCard
+            <GeneratedLibraryCard
               title="Video Library"
               desc="Project videos and previews from generation."
               icon={Film}
-              isLoaded={false}
-              fileName="0 items · auto-saved"
-              colorClass="text-green-300"
+              items={videoAssets}
+              toneClass="text-green-300"
+              type="video"
             />
           </div>
         </section>

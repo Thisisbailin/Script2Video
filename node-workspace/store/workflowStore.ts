@@ -33,12 +33,25 @@ interface ClipboardData {
   edges: WorkflowEdge[];
 }
 
+export type GlobalAssetType = "image" | "video";
+
+export type GlobalAssetHistoryItem = {
+  id: string;
+  type: GlobalAssetType;
+  src: string;
+  prompt: string;
+  aspectRatio?: string;
+  model?: string;
+  timestamp: number;
+  sourceId?: string;
+};
+
 interface WorkflowStore {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   edgeStyle: EdgeStyle;
   clipboard: ClipboardData | null;
-  globalImageHistory: { id: string; image: string; prompt: string; aspectRatio?: string; model?: string; timestamp: number }[];
+  globalAssetHistory: GlobalAssetHistoryItem[];
   globalStyleGuide?: string;
   availableImageModels: string[];
   availableVideoModels: string[];
@@ -83,8 +96,9 @@ interface WorkflowStore {
   getNodeById: (id: string) => WorkflowNode | undefined;
   getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null };
   validateWorkflow: () => { valid: boolean; errors: string[] };
-  addToGlobalHistory: (item: { image: string; prompt: string; aspectRatio?: string; model?: string }) => void;
-  clearGlobalHistory: () => void;
+  addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
+  removeGlobalHistoryItem: (id: string) => void;
+  clearGlobalHistory: (type?: GlobalAssetType) => void;
 
   // Batch operations
   addNodesAndEdges: (nodes: WorkflowNode[], edges: WorkflowEdge[]) => void;
@@ -176,7 +190,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   isRunning: false,
   currentNodeId: null,
   pausedAtNodeId: null,
-  globalImageHistory: [],
+  globalAssetHistory: [],
   activeView: null,
   globalStyleGuide: undefined,
   availableImageModels: [],
@@ -458,9 +472,23 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
   addToGlobalHistory: (item) => {
     const newItem = { ...item, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, timestamp: Date.now() };
-    set((state) => ({ globalImageHistory: [newItem, ...state.globalImageHistory] }));
+    set((state) => {
+      if (item.sourceId) {
+        const existingIndex = state.globalAssetHistory.findIndex((entry) => entry.sourceId === item.sourceId && entry.type === item.type);
+        if (existingIndex !== -1) {
+          const updated = [...state.globalAssetHistory];
+          updated[existingIndex] = { ...updated[existingIndex], ...newItem, id: updated[existingIndex].id };
+          return { globalAssetHistory: updated };
+        }
+      }
+      return { globalAssetHistory: [newItem, ...state.globalAssetHistory] };
+    });
   },
-  clearGlobalHistory: () => set({ globalImageHistory: [] }),
+  removeGlobalHistoryItem: (id) => set((state) => ({ globalAssetHistory: state.globalAssetHistory.filter((item) => item.id !== id) })),
+  clearGlobalHistory: (type) =>
+    set((state) => ({
+      globalAssetHistory: type ? state.globalAssetHistory.filter((item) => item.type !== type) : [],
+    })),
 
   addNodesAndEdges: (newNodes, newEdges) => {
     // Basic ID counter update logic

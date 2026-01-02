@@ -97,7 +97,8 @@ export const useLabExecutor = () => {
 
       // Add to global history for reuse
       store.addToGlobalHistory({
-        image: url,
+        type: "image",
+        src: url,
         prompt: text || "Image Input",
         model: configToUse.model,
         aspectRatio
