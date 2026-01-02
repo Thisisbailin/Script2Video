@@ -112,19 +112,29 @@ export const useLabExecutor = () => {
   const runVideoGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
-    const { images, text } = store.getConnectedInputs(nodeId);
-    if (images.length === 0 && !text) { // Allow text-only video gen
-      store.updateNodeData(nodeId, { status: "error", error: "Missing text input" });
+    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const data = node.data as any;
+    const prompt = (connectedText || data.inputPrompt || "").trim();
+
+    if (images.length === 0 && !prompt) {
+      store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)." });
       return;
     }
+
+    if (!config.videoConfig.baseUrl || !config.videoConfig.apiKey) {
+      store.updateNodeData(nodeId, { status: "error", error: "Missing video API configuration." });
+      return;
+    }
+
     store.updateNodeData(nodeId, { status: "loading", error: null });
 
     try {
-      const data = node.data as any;
+      const refImage = images.find((src) => src.startsWith("http")) || undefined;
       const params: any = {
         aspectRatio: data.aspectRatio || "16:9",
         duration: data.duration || "5s",
-        quality: data.quality || "standard"
+        quality: data.quality || "standard",
+        inputImageUrl: refImage,
       };
 
       // Use node-specific model or fallback to config
@@ -133,16 +143,25 @@ export const useLabExecutor = () => {
         model: data.model || config.videoConfig.model
       };
 
-      // If we have strict model requirements or endpoints that need model in body, VideoService handles it via config/params usually, 
-      // but let's make sure we pass it if needed. For now, VideoService uses config.apiKey/baseUrl. 
-      // If the service allows passing model explicitly in submitVideoTask, we should updated VideoService or rely on it using config.
+      const { id } = await VideoService.submitVideoTask(prompt || "Animate this", configToUse, params);
 
-      // We need to modify submitVideoTask signature if we want to pass explicit model override cleanly, 
-      // OR we just create a temp config object which we did above.
+      store.updateNodeData(nodeId, { status: "loading", videoId: id, videoUrl: undefined, error: null });
 
-      const { id } = await VideoService.submitVideoTask(text || "Animate this", configToUse, params);
+      const maxAttempts = 60;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const result = await VideoService.checkTaskStatus(id, configToUse);
+        if (result.status === "succeeded") {
+          store.updateNodeData(nodeId, { status: "complete", videoUrl: result.url, error: null });
+          return;
+        }
+        if (result.status === "failed") {
+          store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Video generation failed." });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
 
-      store.updateNodeData(nodeId, { status: "complete", videoId: id, videoUrl: undefined, error: null });
+      store.updateNodeData(nodeId, { status: "error", error: "Video generation timed out." });
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Video submit failed" });
     }

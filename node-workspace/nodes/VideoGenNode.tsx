@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { VideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
-import { Settings2, Film, RefreshCw, AlertCircle } from "lucide-react";
+import { useLabExecutor } from "../store/useLabExecutor";
+import { Settings2, Film, RefreshCw, AlertCircle, ChevronUp } from "lucide-react";
 
 type Props = {
   id: string;
@@ -10,8 +11,18 @@ type Props = {
 };
 
 export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, availableVideoModels } = useWorkflowStore();
+  const { updateNodeData, availableVideoModels, getConnectedInputs } = useWorkflowStore();
+  const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
+  const showPromptInput = !connectedText;
+  const hasConnectedImages = connectedImages.length > 0;
+
+  const handleGenerate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await runVideoGen(id);
+  };
 
   return (
     <BaseNode
@@ -99,6 +110,24 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
           </div>
         )}
 
+        {showPromptInput && (
+          <div className="group/prompt relative">
+            <textarea
+              className="w-full bg-white/[0.03] border border-white/5 rounded-xl p-3 text-[11px] leading-relaxed outline-none focus:border-white/10 transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/30 font-medium"
+              placeholder="Enter prompt..."
+              value={data.inputPrompt || ""}
+              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+
+        {hasConnectedImages && (
+          <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/60">
+            {connectedImages.length} image reference{connectedImages.length > 1 ? "s" : ""} connected
+          </div>
+        )}
+
         {/* Video Preview */}
         {data.videoUrl ? (
           <div className="relative group/vid overflow-hidden rounded-[20px] bg-[var(--node-textarea-bg)] shadow-md border border-white/5">
@@ -108,19 +137,46 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
             >
               <source src={data.videoUrl} />
             </video>
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/vid:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm gap-2">
+              <button
+                onClick={() => window.open(data.videoUrl!, "_blank")}
+                className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/vid:scale-100 border border-white/10"
+                title="Open Video"
+              >
+                <ChevronUp size={20} className="rotate-45" />
+              </button>
+              <button
+                onClick={handleGenerate}
+                className="h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/vid:scale-100 border border-white/10"
+                title="Regenerate"
+              >
+                <RefreshCw size={24} className={data.status === 'loading' ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="w-full aspect-video rounded-[20px] flex flex-col items-center justify-center bg-[var(--node-textarea-bg)] border-2 border-dashed border-[var(--node-text-secondary)]/10">
+          <div
+            onClick={handleGenerate}
+            className={`w-full aspect-video rounded-[20px] flex flex-col items-center justify-center bg-[var(--node-textarea-bg)] border-2 border-dashed transition-all duration-500 ${data.status === 'loading'
+              ? 'border-amber-500/40 bg-amber-500/[0.02]'
+              : 'border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]'
+              }`}
+          >
             {data.status === 'loading' ? (
               <div className="flex flex-col items-center gap-3">
                 <RefreshCw size={24} className="text-[var(--node-accent)] animate-spin" />
                 <span className="text-[10px] opacity-50 uppercase tracking-[0.2em] font-black">Generating...</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 opacity-30">
-                <Film size={24} />
-                <span className="text-[10px] uppercase tracking-[0.2em] font-black">Ready</span>
-              </div>
+              <>
+                <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4 transition-all duration-500 shadow-inner">
+                  <Film className="text-[var(--node-text-secondary)]" size={28} />
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black transition-all duration-500 text-white">GENERATE</span>
+                  <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold transition-all duration-500">Click to run flow</span>
+                </div>
+              </>
             )}
           </div>
         )}

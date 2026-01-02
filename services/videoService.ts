@@ -100,6 +100,10 @@ export const submitVideoTask = async (
       formBody.append('size', sizeVal);
   }
 
+  if (params?.inputImageUrl && !params.inputImageUrl.startsWith('data:')) {
+      formBody.append('imageUrl', params.inputImageUrl);
+  }
+
   // Input Image (If supported by endpoint - standard OpenAI video doesn't usually take form data like this, 
   // but Wuyin/Sora adapters might. Assuming text-to-video for now mostly, 
   // but if inputImage exists we might need multipart/form-data. 

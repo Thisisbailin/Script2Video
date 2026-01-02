@@ -355,7 +355,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   getConnectedInputs: (nodeId) => {
     const { edges, nodes } = get();
     const images: string[] = [];
-    let text: string | null = null;
+    const texts: string[] = [];
     edges
       .filter((edge) => edge.target === nodeId)
       .forEach((edge) => {
@@ -376,12 +376,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         }
         if (handleId === "text") {
           if (sourceNode.type === "text") {
-            text = (sourceNode.data as TextNodeData).text;
+            const value = (sourceNode.data as TextNodeData).text;
+            if (value && value.trim()) texts.push(value.trim());
           } else if (sourceNode.type === "llmGenerate") {
-            text = (sourceNode.data as LLMGenerateNodeData).outputText;
+            const value = (sourceNode.data as LLMGenerateNodeData).outputText;
+            if (value && value.trim()) texts.push(value.trim());
           }
         }
       });
+    const text = texts.length ? texts.join("\n\n") : null;
     return { images, text };
   },
 
