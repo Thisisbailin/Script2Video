@@ -26,10 +26,10 @@ export const BaseNode: React.FC<Props> = ({ title, onTitleChange, children, inpu
         className="node-card-base transition-shadow duration-300 overflow-visible text-xs flex flex-col h-full w-full"
         data-selected={!!selected}
       >
-        <div className="relative px-5 py-4 flex items-center justify-between">
+        <div className="node-card-header relative px-5 py-3 flex items-center justify-between">
           {onTitleChange ? (
             <input
-              className={`bg-transparent font-black tracking-[0.2em] uppercase text-[10px] outline-none transition-colors w-full mr-4 ${selected ? "text-[var(--node-text-primary)]" : "text-[var(--node-text-secondary)]"
+              className={`node-title-input bg-transparent text-[10px] outline-none transition-colors w-full mr-4 ${selected ? "text-[var(--node-text-primary)]" : "text-[var(--node-text-secondary)]"
                 }`}
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
@@ -37,7 +37,7 @@ export const BaseNode: React.FC<Props> = ({ title, onTitleChange, children, inpu
             />
           ) : (
             <span
-              className={`font-black tracking-[0.2em] uppercase text-[10px] transition-colors ${selected ? "text-[var(--node-text-primary)]" : "text-[var(--node-text-secondary)]"
+              className={`node-title-input text-[10px] transition-colors ${selected ? "text-[var(--node-text-primary)]" : "text-[var(--node-text-secondary)]"
                 }`}
             >
               {title}
@@ -48,7 +48,7 @@ export const BaseNode: React.FC<Props> = ({ title, onTitleChange, children, inpu
           )}
         </div>
 
-        <div className="relative px-5 pb-5 space-y-4 flex-1 flex flex-col">
+        <div className="node-card-body relative px-5 py-4 space-y-4 flex-1 flex flex-col">
           {children}
         </div>
 

@@ -9,9 +9,9 @@ export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
     return (
         <div
-            className={`h-full w-full rounded-[32px] transition-all duration-300 overflow-visible relative group/node ${selected
-                ? "bg-[var(--group-bg-selected)] shadow-[0_0_40px_rgba(0,0,0,0.15)] ring-1 ring-[var(--node-accent)]/30"
-                : "bg-[var(--group-bg)]"
+            className={`h-full w-full rounded-[32px] transition-all duration-300 overflow-visible relative group/node border ${selected
+                ? "bg-[var(--group-bg-selected)] shadow-[0_24px_60px_rgba(0,0,0,0.35)] border-[var(--node-border-strong)]"
+                : "bg-[var(--group-bg)] border-[var(--node-border)]"
                 }`}
         >
             <NodeResizer
@@ -26,7 +26,7 @@ export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             {/* Group Title - Floating above */}
             <div className="absolute -top-7 left-4 flex items-center gap-3">
                 <input
-                    className="bg-transparent text-[var(--node-text-secondary)] hover:text-[var(--node-text-primary)] focus:text-[var(--node-text-primary)] font-black text-[11px] uppercase tracking-[0.2em] outline-none transition-colors px-1"
+                    className="node-title-input bg-transparent text-[11px] outline-none transition-colors px-1"
                     value={groupData.title}
                     onChange={(e) => updateNodeData(id, { title: e.target.value })}
                     placeholder="GROUP TITLE"

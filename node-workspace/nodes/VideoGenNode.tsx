@@ -42,20 +42,20 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className={`p-1 rounded-full hover:bg-white/10 transition-colors ${showAdvanced ? 'text-[var(--node-accent)] bg-white/5' : 'text-[var(--node-text-secondary)]'}`}
+              className={`p-1 rounded-full node-control hover:bg-white/10 transition-colors ${showAdvanced ? 'text-[var(--node-accent)] bg-white/5' : 'text-[var(--node-text-secondary)]'}`}
             >
               <Settings2 size={12} />
             </button>
           </div>
 
-          <div className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
+          <div className="node-control node-control--tight w-full px-2 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
             {data.model ? data.model.split('/').pop() : "Default Model"}
           </div>
 
           <div className="grid grid-cols-2 gap-1.5">
             {/* Aspect Ratio */}
             <select
-              className="text-[9px] font-bold px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors w-full"
+              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
               value={data.aspectRatio || "16:9"}
               onChange={(e) => updateNodeData(id, { aspectRatio: e.target.value })}
             >
@@ -67,7 +67,7 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
             {/* Duration */}
             <select
-              className="text-[9px] font-bold px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors w-full"
+              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
               value={data.duration || "5s"}
               onChange={(e) => updateNodeData(id, { duration: e.target.value })}
             >
@@ -79,12 +79,12 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
         {/* Advanced Controls */}
         {showAdvanced && (
-          <div className="space-y-3 p-3 bg-black/20 rounded-xl animate-in fade-in slide-in-from-top-1">
+          <div className="node-panel space-y-3 p-3 animate-in fade-in slide-in-from-top-1">
             {/* Model Selector */}
             <div className="space-y-1">
               <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model Override</label>
               <select
-                className="w-full text-[9px] font-medium px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
                 value={data.model || ""}
                 onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
               >
@@ -99,7 +99,7 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
             <div className="space-y-1">
               <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Quality</label>
               <select
-                className="w-full text-[9px] font-medium px-2 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
                 value={data.quality || "standard"}
                 onChange={(e) => updateNodeData(id, { quality: e.target.value })}
               >
@@ -113,7 +113,7 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
         {showPromptInput && (
           <div className="group/prompt relative">
             <textarea
-              className="w-full bg-white/[0.03] border border-white/5 rounded-xl p-3 text-[11px] leading-relaxed outline-none focus:border-white/10 transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/30 font-medium"
+              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
               placeholder="Enter prompt..."
               value={data.inputPrompt || ""}
               onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
@@ -123,14 +123,14 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
         )}
 
         {hasConnectedImages && (
-          <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/60">
+          <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/70">
             {connectedImages.length} image reference{connectedImages.length > 1 ? "s" : ""} connected
           </div>
         )}
 
         {/* Video Preview */}
         {data.videoUrl ? (
-          <div className="relative group/vid overflow-hidden rounded-[20px] bg-[var(--node-textarea-bg)] shadow-md border border-white/5">
+          <div className="node-surface relative group/vid overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
             <video
               controls
               className="w-full aspect-video transition-transform duration-700 bg-black/40"
@@ -157,9 +157,9 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
         ) : (
           <div
             onClick={handleGenerate}
-            className={`w-full aspect-video rounded-[20px] flex flex-col items-center justify-center bg-[var(--node-textarea-bg)] border-2 border-dashed transition-all duration-500 ${data.status === 'loading'
+            className={`node-surface node-surface--dashed w-full aspect-video rounded-[20px] flex flex-col items-center justify-center transition-all duration-500 ${data.status === 'loading'
               ? 'border-amber-500/40 bg-amber-500/[0.02]'
-              : 'border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]'
+              : 'hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]'
               }`}
           >
             {data.status === 'loading' ? (
@@ -182,7 +182,7 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
         )}
 
         {data.error && (
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex gap-2 items-start animate-in fade-in slide-in-from-top-2">
+          <div className="node-alert p-3 flex gap-2 items-start animate-in fade-in slide-in-from-top-2">
             <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
             <span className="text-[10px] text-red-500/90 font-bold uppercase tracking-tight leading-tight">
               {data.error}

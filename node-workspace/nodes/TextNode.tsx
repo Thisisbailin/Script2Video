@@ -53,7 +53,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                 {/* Tags Layout */}
                 <div className="flex flex-wrap items-center gap-2 min-h-[24px]">
                     {/* Primary Category - Capsule Style */}
-                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--node-accent)]/10 border border-[var(--node-accent)]/20 shadow-sm transition-all duration-200">
+                    <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
                         <input
                             className="bg-transparent text-[9px] font-black uppercase tracking-[0.2em] text-[var(--node-accent)] outline-none border-none text-center appearance-none"
                             value={data.category || ""}
@@ -67,7 +67,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                     {data.tags?.map((tag, idx) => (
                         <div
                             key={idx}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group/tag"
+                            className="node-pill inline-flex items-center gap-1.5 px-3 py-1 hover:bg-white/10 transition-colors group/tag"
                         >
                             <input
                                 className="bg-transparent text-[9px] font-bold uppercase tracking-widest text-[var(--node-text-secondary)] outline-none border-none appearance-none"
@@ -87,7 +87,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                     {/* Add Tag Button */}
                     <button
                         onClick={handleAddTag}
-                        className="h-6 w-6 flex items-center justify-center rounded-full bg-white/5 border border-dashed border-white/20 text-[var(--node-text-secondary)] hover:bg-[var(--node-accent)]/10 hover:border-[var(--node-accent)]/30 hover:text-[var(--node-accent)] transition-all active:scale-90"
+                        className="node-pill node-pill--dashed h-6 w-6 flex items-center justify-center text-[var(--node-text-secondary)] hover:border-[var(--node-accent)]/30 hover:text-[var(--node-accent)] transition-all active:scale-90"
                         title="Add Tag"
                     >
                         <Plus size={12} />

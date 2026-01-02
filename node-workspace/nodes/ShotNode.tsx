@@ -56,7 +56,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
             <div className="flex flex-col gap-4 flex-1">
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-[10px] text-[var(--node-text-secondary)] font-bold uppercase tracking-widest bg-[var(--node-textarea-bg)] px-3 py-1.5 rounded-full">
+                        <div className="node-pill flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5">
                             <Timer size={12} className="opacity-40" />
                             <input
                                 className="bg-transparent w-8 outline-none"
@@ -68,7 +68,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-[var(--node-accent)]/10 border border-[var(--node-accent)]/20 shadow-sm transition-all duration-200">
+                        <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
                             <input
                                 className="bg-transparent text-[9px] font-black text-[var(--node-accent)] uppercase tracking-[0.2em] outline-none text-center appearance-none"
                                 value={data.shotType}
@@ -80,7 +80,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
 
                         <div className="h-1 w-1 rounded-full bg-[var(--node-text-secondary)] opacity-20" />
 
-                        <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                        <div className="node-pill inline-flex items-center gap-1 px-3 py-1">
                             <MoveRight size={10} className="text-[var(--node-text-secondary)] opacity-40 shrink-0" />
                             <input
                                 className="bg-transparent text-[9px] text-[var(--node-text-secondary)] font-bold uppercase tracking-widest outline-none appearance-none"
@@ -93,7 +93,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
                     </div>
                 </div>
 
-                <div className="bg-[var(--node-textarea-bg)] rounded-2xl p-4 transition-all border border-white/5">
+                <div className="node-surface rounded-2xl p-4 transition-all">
                     <textarea
                         ref={descriptionRef}
                         className="bg-transparent w-full text-[13px] leading-relaxed outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] font-bold"
@@ -110,7 +110,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
 
                 {data.dialogue && (
                     <div className="relative">
-                        <div className="text-[11px] italic text-[var(--node-text-secondary)] bg-[var(--node-textarea-bg)] rounded-xl px-4 py-3 flex items-start gap-3">
+                        <div className="node-surface text-[11px] italic text-[var(--node-text-secondary)] rounded-xl px-4 py-3 flex items-start gap-3">
                             <MessageSquare size={12} className="mt-1 flex-shrink-0 opacity-20" />
                             <textarea
                                 ref={dialogueRef}
@@ -130,7 +130,7 @@ export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, s
             </div>
 
             <div className="pt-2 flex justify-end">
-                <div className="px-2 py-1 rounded-lg bg-[var(--node-accent)]/5 text-[8px] font-black text-[var(--node-accent)]/40 uppercase tracking-[0.2em]">
+                <div className="node-pill node-pill--accent px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em]">
                     Shot Component
                 </div>
             </div>

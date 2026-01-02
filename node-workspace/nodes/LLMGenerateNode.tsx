@@ -48,7 +48,7 @@ export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, 
         />
 
         {data.error && (
-          <div className="p-3 rounded-xl bg-red-500/10 text-[10px] text-red-500 font-bold uppercase tracking-tight">
+          <div className="node-alert p-3 text-[10px] font-bold uppercase tracking-tight">
             {data.error}
           </div>
         )}

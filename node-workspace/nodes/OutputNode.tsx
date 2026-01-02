@@ -12,7 +12,7 @@ export const OutputNode: React.FC<Props> = ({ data }) => {
     <BaseNode title="Final Asset" inputs={["image", "text"]}>
       <div className="space-y-4 flex-1 flex flex-col">
         {data.image && (
-          <div className="relative overflow-hidden rounded-[20px] bg-[var(--node-textarea-bg)] shadow-md">
+          <div className="node-surface relative overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.4)]">
             <img
               src={data.image}
               alt="output"

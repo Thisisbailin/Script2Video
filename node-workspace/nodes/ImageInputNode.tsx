@@ -34,12 +34,12 @@ export const ImageInputNode: React.FC<Props> = ({ data, selected }) => {
       <div className="space-y-4 flex-1 flex flex-col">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full h-11 flex items-center justify-center gap-2 rounded-2xl bg-[var(--node-accent)] hover:brightness-110 text-[11px] font-black uppercase tracking-[0.15em] text-white shadow-lg active:scale-95 transition-all"
+          className="node-button node-button-primary w-full h-11 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-[0.15em] active:scale-95"
         >
           <span>Select Asset</span>
         </button>
         {data.image && (
-          <div className="relative group/img overflow-hidden rounded-[20px] bg-[var(--node-textarea-bg)] shadow-md">
+          <div className="node-surface relative group/img overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.4)]">
             <img
               src={data.image}
               alt="preview"
