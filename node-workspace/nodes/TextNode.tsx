@@ -103,6 +103,9 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         updateNodeData(id, { text: e.target.value });
                         autoResize();
                     }}
+                    onKeyDown={(e) => {
+                        e.stopPropagation();
+                    }}
                     onFocus={autoResize}
                     placeholder="Describe or input text here..."
                     style={{ height: 'auto' }}

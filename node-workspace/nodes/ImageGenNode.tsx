@@ -98,6 +98,7 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
               placeholder="Enter prompt..."
               value={data.inputPrompt || ""}
               onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
+              onKeyDown={(e) => e.stopPropagation()}
             />
           </div>
         )}

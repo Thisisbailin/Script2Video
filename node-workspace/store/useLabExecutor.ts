@@ -77,6 +77,10 @@ export const useLabExecutor = () => {
         configToUse
       );
 
+      console.log('--- AI Full Response ---');
+      console.log(res);
+      console.log('------------------------');
+
       const url = extractImageUrl(res.content) || res.content.trim();
 
       // Basic validation if it's a URL or base64
