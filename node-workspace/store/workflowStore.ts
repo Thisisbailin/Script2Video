@@ -224,17 +224,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       }
     }
 
-    const defaultDimensions: Record<NodeType, { width: number; height?: number }> = {
-      imageInput: { width: 360, height: 300 },
-      annotation: { width: 360, height: 320 },
-      text: { width: 500 },
-      note: { width: 380 },
-      shot: { width: 520 },
-      imageGen: { width: 420, height: 360 },
-      videoGen: { width: 420, height: 360 },
-      llmGenerate: { width: 520 },
+    const defaultDimensions: Partial<Record<NodeType, { width: number; height?: number }>> = {
       group: { width: 1100, height: 900 },
-      output: { width: 460 },
     };
 
     const dim = defaultDimensions[type];
@@ -245,7 +236,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       parentId: effectiveParentId,
       extent: effectiveParentId ? 'parent' : undefined,
       data: { ...createDefaultNodeData(type), ...effectiveExtraData } as WorkflowNodeData,
-      style: { width: dim.width, height: dim.height },
+      style: dim ? { width: dim.width, height: dim.height } : undefined,
     };
     set((state) => ({ nodes: [...state.nodes, newNode] }));
     return id;

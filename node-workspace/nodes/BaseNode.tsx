@@ -23,7 +23,7 @@ export const BaseNode: React.FC<Props> = ({ title, onTitleChange, children, inpu
         lineClassName="custom-node-line"
       />
       <div
-        className="node-card-base transition-shadow duration-300 overflow-visible text-xs flex flex-col h-full w-full"
+        className="node-card-base transition-shadow duration-300 overflow-visible text-xs flex flex-col"
         data-selected={!!selected}
       >
         <div className="node-card-header relative px-5 py-3 flex items-center justify-between">
