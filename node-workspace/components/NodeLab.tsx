@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 import "../styles/nodelab.css";
 import { useWorkflowStore } from "../store/workflowStore";
 import { isValidConnection } from "../utils/handles";
-import { WorkflowFile, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData, VideoGenNodeData } from "../types";
+import { WorkflowFile, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData, VideoGenNodeData, ImageGenNodeData } from "../types";
 import { EditableEdge } from "../edges/EditableEdge";
 import {
   ImageInputNode, AnnotationNode, TextNode,
@@ -38,7 +38,7 @@ import { GlobalImageHistory } from "./GlobalImageHistory";
 import { Toast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
 import { MapPinned, MapPinOff, X, ChevronRight } from "lucide-react";
-import { ProjectData } from "../../types";
+import { DesignAssetItem, ProjectData } from "../../types";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -77,6 +77,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     edges,
     addNode,
     addNodesAndEdges,
+    updateNodeData,
     onNodesChange,
     onEdgesChange,
     onConnect,
@@ -93,6 +94,17 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
   const [connectionDrop, setConnectionDrop] = useState<ConnectionDropState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
+  const createDesignAssetId = useCallback(() => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }, []);
+  const buildDesignAssetKey = useCallback(
+    (asset: Pick<DesignAssetItem, "category" | "refId" | "url">) =>
+      `${asset.category}|${asset.refId}|${asset.url}`,
+    []
+  );
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -128,6 +140,135 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       });
     });
   }, [addToGlobalHistory, globalAssetHistory, nodes]);
+
+  useEffect(() => {
+    if (!edges.length || !nodes.length) return;
+    const existingAssets = projectData.designAssets || [];
+    const existingKeys = new Set(existingAssets.map(buildDesignAssetKey));
+    const nextAssets = [...existingAssets];
+    let changed = false;
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+    edges.forEach((edge) => {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) return;
+      if (source.type !== "text" || target.type !== "imageGen") return;
+      if (edge.sourceHandle && edge.sourceHandle !== "text") return;
+      if (edge.targetHandle && edge.targetHandle !== "text") return;
+
+      const textData = source.data as TextNodeData;
+      if (textData.category !== "form" && textData.category !== "zone") return;
+      if (!textData.refId) return;
+
+      const imageData = target.data as ImageGenNodeData;
+      if (!imageData.outputImage) return;
+
+      const asset: DesignAssetItem = {
+        id: createDesignAssetId(),
+        category: textData.category,
+        refId: textData.refId,
+        url: imageData.outputImage,
+        createdAt: Date.now(),
+        label: textData.title,
+      };
+      const key = buildDesignAssetKey(asset);
+      if (existingKeys.has(key)) return;
+
+      existingKeys.add(key);
+      nextAssets.push(asset);
+      changed = true;
+    });
+
+    if (changed) {
+      setProjectData((prev) => ({
+        ...prev,
+        designAssets: nextAssets,
+      }));
+    }
+  }, [buildDesignAssetKey, createDesignAssetId, edges, nodes, projectData.designAssets, setProjectData]);
+
+  useEffect(() => {
+    if (!projectData.designAssets.length) return;
+    if (!nodes.length) return;
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const textNodeByRef = new Map<string, typeof nodes[number]>();
+    const connectedImagesByRef = new Map<string, typeof nodes[number][]>();
+
+    nodes.forEach((node) => {
+      if (node.type !== "text") return;
+      const data = node.data as TextNodeData;
+      if (data.category !== "form" && data.category !== "zone") return;
+      if (!data.refId) return;
+      textNodeByRef.set(`${data.category}|${data.refId}`, node);
+    });
+
+    edges.forEach((edge) => {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) return;
+      if (source.type !== "text" || target.type !== "imageGen") return;
+      if (edge.sourceHandle && edge.sourceHandle !== "text") return;
+      if (edge.targetHandle && edge.targetHandle !== "text") return;
+      const data = source.data as TextNodeData;
+      if (data.category !== "form" && data.category !== "zone") return;
+      if (!data.refId) return;
+      const key = `${data.category}|${data.refId}`;
+      const list = connectedImagesByRef.get(key) || [];
+      list.push(target);
+      connectedImagesByRef.set(key, list);
+    });
+
+    projectData.designAssets.forEach((asset) => {
+      const key = `${asset.category}|${asset.refId}`;
+      const textNode = textNodeByRef.get(key);
+      if (!textNode) return;
+      const connectedImages = connectedImagesByRef.get(key) || [];
+      if (connectedImages.some((node) => (node.data as ImageGenNodeData).outputImage === asset.url)) {
+        return;
+      }
+
+      const emptyNode = connectedImages.find((node) => !(node.data as ImageGenNodeData).outputImage);
+      if (emptyNode) {
+        updateNodeData(emptyNode.id, {
+          outputImage: asset.url,
+          status: "complete",
+          error: null,
+          designCategory: asset.category,
+          designRefId: asset.refId,
+        });
+        return;
+      }
+
+      const offsetIndex = connectedImages.length;
+      const newId = addNode(
+        "imageGen",
+        {
+          x: textNode.position.x + 360 + offsetIndex * 260,
+          y: textNode.position.y,
+        },
+        textNode.parentId,
+        {
+          title: "Design Image",
+          inputImages: [],
+          inputPrompt: null,
+          outputImage: asset.url,
+          status: "complete",
+          error: null,
+          aspectRatio: "1:1",
+          designCategory: asset.category,
+          designRefId: asset.refId,
+        }
+      );
+
+      onConnect({
+        source: textNode.id,
+        sourceHandle: "text",
+        target: newId,
+        targetHandle: "text",
+      });
+    });
+  }, [addNode, nodes, edges, onConnect, projectData.designAssets, updateNodeData]);
 
   const handleConnectEnd: OnConnectEnd = useCallback(
     (event, connectionState) => {
@@ -225,124 +366,277 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     setViewport({ x: -origin.x + 80, y: -origin.y + 80, zoom }, { duration: 800 });
   }, [setViewport]);
 
-  const handleImportUnderstanding = useCallback(() => {
+  const handleImportCharacters = useCallback(() => {
+    const { characters } = projectData.context;
+    if (!characters.length) {
+      alert("暂无角色数据可导入。");
+      return;
+    }
 
-    const context = projectData.context;
     const newNodes: WorkflowNode[] = [];
     const newEdges: WorkflowEdge[] = [];
     const origin = getTemplateOrigin();
-    let yOffset = 100;
+    const groupId = `group-characters-${Date.now()}`;
+    const stamp = Date.now();
+    const assetsByRef = new Map<string, DesignAssetItem[]>();
+    const layout = {
+      col1: 40,
+      col2: 420,
+      col3: 820,
+      rowGap: 300,
+      blockGap: 140,
+      imageExtraGap: 260,
+      nodeWidth: 320,
+      topPadding: 80,
+    };
 
-    const summaryId = `text-understanding-summary-${Date.now()}`;
-    newNodes.push({
-      id: summaryId,
-      type: 'text',
-      position: { x: origin.x + 400, y: origin.y + yOffset },
-      data: {
-        title: "Project Summary",
-        text: context.projectSummary,
-        category: 'project',
-        refId: 'projectSummary'
-      } as TextNodeData,
+    (projectData.designAssets || []).forEach((asset) => {
+      const key = `${asset.category}|${asset.refId}`;
+      const list = assetsByRef.get(key) || [];
+      list.push(asset);
+      assetsByRef.set(key, list);
     });
-    yOffset += 450;
 
-    let charX = 50;
-    context.characters.forEach((char) => {
-      const charId = `text-char-${char.id}-${Date.now()}`;
-      const charGroupId = `group-char-${char.id}-${Date.now()}`;
-      const groupHeight = 450 + (char.forms.length * 400);
+    let yOffset = layout.topPadding;
+    let maxImageStack = 1;
 
+    characters.forEach((char, charIdx) => {
+      const forms = char.forms?.length
+        ? char.forms
+        : [{
+          formName: "Default",
+          episodeRange: "",
+          description: char.bio || "",
+          visualTags: "",
+        }];
+
+      const charNodeId = `text-char-${char.id}-${stamp}-${charIdx}`;
       newNodes.push({
-        id: charGroupId,
-        type: 'group',
-        position: { x: origin.x + charX - 25, y: origin.y + yOffset - 80 },
+        id: charNodeId,
+        type: "text",
+        position: { x: layout.col1, y: yOffset },
+        parentId: groupId,
+        extent: "parent",
         data: {
-          title: `CHARACTER: ${char.name.toUpperCase()}`,
-        } as GroupNodeData,
-        style: { width: 470, height: groupHeight },
-      });
-
-      newNodes.push({
-        id: charId,
-        type: 'text',
-        position: { x: 25, y: 80 },
-        parentId: charGroupId,
-        extent: 'parent',
-        data: {
-          title: `Bio`,
-          text: char.bio,
-          category: 'character',
-          refId: char.id
+          title: char.name,
+          text: char.bio || "",
+          category: "character",
+          refId: char.id,
         } as TextNodeData,
       });
 
-      char.forms.forEach((form, formIdx) => {
-        const formId = `text-form-${char.id}-${formIdx}-${Date.now()}`;
+      forms.forEach((form, formIdx) => {
+        const rowY = yOffset + formIdx * layout.rowGap;
+        const formRefId = `${char.id}|${form.formName}`;
+        const formNodeId = `text-form-${char.id}-${formIdx}-${stamp}`;
         newNodes.push({
-          id: formId,
-          type: 'text',
-          position: { x: 25, y: 350 + (formIdx * 350) },
-          parentId: charGroupId,
-          extent: 'parent',
+          id: formNodeId,
+          type: "text",
+          position: { x: layout.col2, y: rowY },
+          parentId: groupId,
+          extent: "parent",
           data: {
-            title: `Form: ${form.formName}`,
-            text: form.description,
-            category: 'form',
-            refId: `${char.id}|${form.formName}`
+            title: form.formName,
+            text: form.description || "",
+            category: "form",
+            refId: formRefId,
           } as TextNodeData,
         });
-        newEdges.push({ id: `edge-${charId}-${formId}`, source: charId, target: formId, sourceHandle: 'text', targetHandle: 'text' });
+        newEdges.push({
+          id: `edge-${charNodeId}-${formNodeId}-${stamp}`,
+          source: charNodeId,
+          target: formNodeId,
+          sourceHandle: "text",
+          targetHandle: "text",
+        });
+
+        const assets = assetsByRef.get(`form|${formRefId}`) || [];
+        const images = assets.length ? assets : [null];
+        maxImageStack = Math.max(maxImageStack, images.length);
+
+        images.forEach((asset, assetIdx) => {
+          const imageNodeId = `image-form-${char.id}-${formIdx}-${assetIdx}-${stamp}`;
+          newNodes.push({
+            id: imageNodeId,
+            type: "imageGen",
+            position: { x: layout.col3 + assetIdx * layout.imageExtraGap, y: rowY },
+            parentId: groupId,
+            extent: "parent",
+            data: {
+              title: "Design Image",
+              inputImages: [],
+              inputPrompt: null,
+              outputImage: asset ? asset.url : null,
+              status: asset ? "complete" : "idle",
+              error: null,
+              aspectRatio: "1:1",
+              designCategory: "form",
+              designRefId: formRefId,
+            } as ImageGenNodeData,
+          });
+          newEdges.push({
+            id: `edge-${formNodeId}-${imageNodeId}-${stamp}`,
+            source: formNodeId,
+            target: imageNodeId,
+            sourceHandle: "text",
+            targetHandle: "text",
+          });
+        });
       });
-      charX += 550;
+
+      yOffset += forms.length * layout.rowGap + layout.blockGap;
     });
 
-    let locX = charX + 200;
-    context.locations.forEach((loc) => {
-      const locId = `text-loc-${loc.id}-${Date.now()}`;
-      const locGroupId = `group-loc-${loc.id}-${Date.now()}`;
-      const groupHeight = 450 + ((loc.zones?.length || 0) * 400);
+    const baseWidth = layout.col3 + layout.nodeWidth + 80;
+    const groupWidth = baseWidth + (maxImageStack - 1) * layout.imageExtraGap;
+    const groupHeight = Math.max(480, yOffset + 40);
 
-      newNodes.push({
-        id: locGroupId,
-        type: 'group',
-        position: { x: origin.x + locX - 25, y: origin.y + 400 - 80 },
-        data: { title: `LOCATION: ${loc.name.toUpperCase()}` } as GroupNodeData,
-        style: { width: 470, height: groupHeight },
-      });
+    newNodes.unshift({
+      id: groupId,
+      type: "group",
+      position: { x: origin.x, y: origin.y },
+      data: { title: "CHARACTER ASSETS" } as GroupNodeData,
+      style: { width: groupWidth, height: groupHeight },
+    });
 
+    addNodesAndEdges(newNodes, newEdges);
+    focusTemplate(origin, 0.7);
+  }, [projectData, addNodesAndEdges, getTemplateOrigin, focusTemplate]);
+
+  const handleImportLocations = useCallback(() => {
+    const { locations } = projectData.context;
+    if (!locations.length) {
+      alert("暂无场景数据可导入。");
+      return;
+    }
+
+    const newNodes: WorkflowNode[] = [];
+    const newEdges: WorkflowEdge[] = [];
+    const origin = getTemplateOrigin();
+    const groupId = `group-locations-${Date.now()}`;
+    const stamp = Date.now();
+    const assetsByRef = new Map<string, DesignAssetItem[]>();
+    const layout = {
+      col1: 40,
+      col2: 420,
+      col3: 820,
+      rowGap: 300,
+      blockGap: 140,
+      imageExtraGap: 260,
+      nodeWidth: 320,
+      topPadding: 80,
+    };
+
+    (projectData.designAssets || []).forEach((asset) => {
+      const key = `${asset.category}|${asset.refId}`;
+      const list = assetsByRef.get(key) || [];
+      list.push(asset);
+      assetsByRef.set(key, list);
+    });
+
+    let yOffset = layout.topPadding;
+    let maxImageStack = 1;
+
+    locations.forEach((loc, locIdx) => {
+      const zones = loc.zones?.length
+        ? loc.zones
+        : [{
+          name: "Default Zone",
+          kind: "unspecified",
+          episodeRange: "",
+          layoutNotes: loc.description || "",
+          keyProps: "",
+          lightingWeather: "",
+          materialPalette: "",
+        }];
+
+      const locNodeId = `text-loc-${loc.id}-${stamp}-${locIdx}`;
       newNodes.push({
-        id: locId,
-        type: 'text',
-        position: { x: 25, y: 80 },
-        parentId: locGroupId,
-        extent: 'parent',
+        id: locNodeId,
+        type: "text",
+        position: { x: layout.col1, y: yOffset },
+        parentId: groupId,
+        extent: "parent",
         data: {
-          title: `Description`,
-          text: loc.description,
-          category: 'location',
-          refId: loc.id
+          title: loc.name,
+          text: loc.description || loc.visuals || "",
+          category: "location",
+          refId: loc.id,
         } as TextNodeData,
       });
 
-      (loc.zones || []).forEach((zone, zoneIdx) => {
-        const zoneId = `text-zone-${loc.id}-${zoneIdx}-${Date.now()}`;
+      zones.forEach((zone, zoneIdx) => {
+        const rowY = yOffset + zoneIdx * layout.rowGap;
+        const zoneRefId = `${loc.id}|${zone.name}`;
+        const zoneNodeId = `text-zone-${loc.id}-${zoneIdx}-${stamp}`;
         newNodes.push({
-          id: zoneId,
-          type: 'text',
-          position: { x: 25, y: 350 + (zoneIdx * 350) },
-          parentId: locGroupId,
-          extent: 'parent',
+          id: zoneNodeId,
+          type: "text",
+          position: { x: layout.col2, y: rowY },
+          parentId: groupId,
+          extent: "parent",
           data: {
-            title: `Zone: ${zone.name}`,
-            text: zone.layoutNotes,
-            category: 'zone',
-            refId: `${loc.id}|${zone.name}`
+            title: zone.name,
+            text: zone.layoutNotes || zone.keyProps || "",
+            category: "zone",
+            refId: zoneRefId,
           } as TextNodeData,
         });
-        newEdges.push({ id: `edge-${locId}-${zoneId}`, source: locId, target: zoneId, sourceHandle: 'text', targetHandle: 'text' });
+        newEdges.push({
+          id: `edge-${locNodeId}-${zoneNodeId}-${stamp}`,
+          source: locNodeId,
+          target: zoneNodeId,
+          sourceHandle: "text",
+          targetHandle: "text",
+        });
+
+        const assets = assetsByRef.get(`zone|${zoneRefId}`) || [];
+        const images = assets.length ? assets : [null];
+        maxImageStack = Math.max(maxImageStack, images.length);
+
+        images.forEach((asset, assetIdx) => {
+          const imageNodeId = `image-zone-${loc.id}-${zoneIdx}-${assetIdx}-${stamp}`;
+          newNodes.push({
+            id: imageNodeId,
+            type: "imageGen",
+            position: { x: layout.col3 + assetIdx * layout.imageExtraGap, y: rowY },
+            parentId: groupId,
+            extent: "parent",
+            data: {
+              title: "Design Image",
+              inputImages: [],
+              inputPrompt: null,
+              outputImage: asset ? asset.url : null,
+              status: asset ? "complete" : "idle",
+              error: null,
+              aspectRatio: "1:1",
+              designCategory: "zone",
+              designRefId: zoneRefId,
+            } as ImageGenNodeData,
+          });
+          newEdges.push({
+            id: `edge-${zoneNodeId}-${imageNodeId}-${stamp}`,
+            source: zoneNodeId,
+            target: imageNodeId,
+            sourceHandle: "text",
+            targetHandle: "text",
+          });
+        });
       });
-      locX += 550;
+
+      yOffset += zones.length * layout.rowGap + layout.blockGap;
+    });
+
+    const baseWidth = layout.col3 + layout.nodeWidth + 80;
+    const groupWidth = baseWidth + (maxImageStack - 1) * layout.imageExtraGap;
+    const groupHeight = Math.max(480, yOffset + 40);
+
+    newNodes.unshift({
+      id: groupId,
+      type: "group",
+      position: { x: origin.x, y: origin.y },
+      data: { title: "SCENE ASSETS" } as GroupNodeData,
+      style: { width: groupWidth, height: groupHeight },
     });
 
     addNodesAndEdges(newNodes, newEdges);
@@ -467,7 +761,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
         onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
         onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
-        onImportUnderstanding={handleImportUnderstanding}
+        onImportCharacters={handleImportCharacters}
+        onImportLocations={handleImportLocations}
         onImportEpisode={() => setShowEpisodeSelector(true)}
         onImport={() => fileInputRef.current?.click()}
         onExport={() => saveWorkflow()}

@@ -82,6 +82,7 @@ export const normalizeProjectData = (data: any): ProjectData => {
     ...INITIAL_PROJECT_DATA,
     ...data,
     context: { ...INITIAL_PROJECT_DATA.context, ...(data?.context || {}) },
+    designAssets: Array.isArray(data?.designAssets) ? data.designAssets : [],
     phase1Usage: { ...INITIAL_PROJECT_DATA.phase1Usage, ...(data?.phase1Usage || {}) },
     phase4Usage: data?.phase4Usage || INITIAL_PROJECT_DATA.phase4Usage,
     phase5Usage: data?.phase5Usage || INITIAL_PROJECT_DATA.phase5Usage,

@@ -11,6 +11,7 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
     characters: [],
     locations: []
   },
+  designAssets: [],
   shotGuide: '',
   soraGuide: '',
   dramaGuide: '',

@@ -1,11 +1,12 @@
 
 import React, { useMemo, useRef, useState } from 'react';
-import { ProjectData } from '../types';
+import { DesignAssetItem, ProjectData } from '../types';
 import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
 import { useWorkflowStore, GlobalAssetHistoryItem } from '../node-workspace/store/workflowStore';
 
 interface Props {
   data: ProjectData;
+  setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   onAssetLoad: (
     type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson',
     content: string,
@@ -13,7 +14,7 @@ interface Props {
   ) => void;
 }
 
-export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
+export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad }) => {
   // Input Refs
   const scriptInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -22,8 +23,14 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
   const shotGuideInputRef = useRef<HTMLInputElement>(null);
   const soraGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
+  const designUploadInputRef = useRef<HTMLInputElement>(null);
   const [showAllCharacters, setShowAllCharacters] = useState(false);
   const [expandedCharacterForms, setExpandedCharacterForms] = useState<Record<string, boolean>>({});
+  const [designUploadTarget, setDesignUploadTarget] = useState<{
+    refId: string;
+    category: 'form' | 'zone';
+    label: string;
+  } | null>(null);
   const { globalAssetHistory, removeGlobalHistoryItem, clearGlobalHistory } = useWorkflowStore();
   const imageAssets = useMemo(
     () => globalAssetHistory.filter((item) => item.type === 'image'),
@@ -33,6 +40,17 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
     () => globalAssetHistory.filter((item) => item.type === 'video'),
     [globalAssetHistory]
   );
+  const designAssets = data.designAssets || [];
+  const designAssetMap = useMemo(() => {
+    const map = new Map<string, DesignAssetItem[]>();
+    designAssets.forEach((asset) => {
+      const key = `${asset.category}|${asset.refId}`;
+      const list = map.get(key) || [];
+      list.push(asset);
+      map.set(key, list);
+    });
+    return map;
+  }, [designAssets]);
   const hasUnderstandingData = Boolean(
     data.context.projectSummary ||
       data.context.episodeSummaries.length > 0 ||
@@ -55,6 +73,60 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
       e.target.value = '';
     };
     reader.readAsText(file);
+  };
+
+  const createDesignAssetId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  };
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => resolve(event.target?.result as string);
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsDataURL(file);
+    });
+
+  const handleDesignUploadClick = (target: { refId: string; category: 'form' | 'zone'; label: string }) => {
+    setDesignUploadTarget(target);
+    designUploadInputRef.current?.click();
+  };
+
+  const handleDesignFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const target = designUploadTarget;
+    const files = Array.from(e.target.files || []);
+    if (!target || files.length === 0) return;
+    try {
+      const urls = await Promise.all(files.map((file) => readFileAsDataUrl(file)));
+      const createdAt = Date.now();
+      const newAssets: DesignAssetItem[] = urls.map((url) => ({
+        id: createDesignAssetId(),
+        category: target.category,
+        refId: target.refId,
+        url,
+        createdAt,
+        label: target.label,
+      }));
+      setProjectData((prev) => ({
+        ...prev,
+        designAssets: [...prev.designAssets, ...newAssets],
+      }));
+    } catch (err) {
+      alert((err as Error).message || '设定图上传失败');
+    } finally {
+      e.target.value = '';
+      setDesignUploadTarget(null);
+    }
+  };
+
+  const removeDesignAsset = (id: string) => {
+    setProjectData((prev) => ({
+      ...prev,
+      designAssets: prev.designAssets.filter((asset) => asset.id !== id),
+    }));
   };
 
   const AssetCard = ({
@@ -198,9 +270,56 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
     </div>
   );
 
+  const DesignAssetStrip = ({
+    assets,
+    onUpload,
+    onRemove,
+  }: {
+    assets: DesignAssetItem[];
+    onUpload: () => void;
+    onRemove: (id: string) => void;
+  }) => (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {assets.length === 0 && (
+        <span className="text-[10px] text-[var(--text-secondary)]">暂无设定图</span>
+      )}
+      {assets.map((asset) => (
+        <div
+          key={asset.id}
+          className="group relative h-16 w-20 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-black/30"
+        >
+          <img src={asset.url} alt={asset.label || 'design'} className="h-full w-full object-cover" />
+          <button
+            type="button"
+            onClick={() => onRemove(asset.id)}
+            className="absolute right-1 top-1 h-5 w-5 rounded-full border border-white/20 bg-black/50 text-white/70 opacity-0 transition group-hover:opacity-100 hover:text-white"
+            title="Remove"
+          >
+            <X size={10} className="mx-auto" />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={onUpload}
+        className="h-16 min-w-[100px] rounded-lg border border-dashed border-[var(--border-subtle)]/70 px-3 text-[11px] text-[var(--text-secondary)] hover:border-[var(--accent-blue)]/70 hover:text-[var(--text-primary)] transition"
+      >
+        上传设定图
+      </button>
+    </div>
+  );
+
   return (
     <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-transparent text-[var(--text-primary)] transition-colors">
       <div className="max-w-6xl mx-auto space-y-12">
+        <input
+          ref={designUploadInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleDesignFileChange}
+        />
         {/* Core Assets */}
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -350,15 +469,32 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
                       </div>
                       {c.forms?.length ? (
                         <div className="text-[12px] leading-5 space-y-1">
-                          {formsToShow.map((f, idx) => (
-                            <div key={idx} className="flex gap-2 flex-wrap">
-                              <span className="font-semibold text-[var(--text-primary)]">{f.formName}</span>
-                              {f.episodeRange && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{f.episodeRange}</span>}
-                              {(f.identityOrState || f.visualTags) && (
-                                <span className="text-[var(--text-secondary)]">{f.identityOrState || f.visualTags}</span>
-                              )}
-                            </div>
-                          ))}
+                          {formsToShow.map((f, idx) => {
+                            const formRefId = `${c.id}|${f.formName}`;
+                            const assets = designAssetMap.get(`form|${formRefId}`) || [];
+                            return (
+                              <div key={idx} className="space-y-1">
+                                <div className="flex gap-2 flex-wrap">
+                                  <span className="font-semibold text-[var(--text-primary)]">{f.formName}</span>
+                                  {f.episodeRange && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{f.episodeRange}</span>}
+                                  {(f.identityOrState || f.visualTags) && (
+                                    <span className="text-[var(--text-secondary)]">{f.identityOrState || f.visualTags}</span>
+                                  )}
+                                </div>
+                                <DesignAssetStrip
+                                  assets={assets}
+                                  onUpload={() =>
+                                    handleDesignUploadClick({
+                                      refId: formRefId,
+                                      category: 'form',
+                                      label: `${c.name} · ${f.formName}`,
+                                    })
+                                  }
+                                  onRemove={removeDesignAsset}
+                                />
+                              </div>
+                            );
+                          })}
                           {c.forms.length > 2 && (
                             <button
                               type="button"
@@ -422,16 +558,33 @@ export const AssetsBoard: React.FC<Props> = ({ data, onAssetLoad }) => {
                       <div className="text-[12px] leading-5 text-[var(--text-secondary)]">{l.description}</div>
                       {l.zones?.length ? (
                         <div className="text-[12px] leading-5 space-y-1">
-                          {l.zones.slice(0, 2).map((z, idx) => (
-                            <div key={idx} className="flex gap-2 flex-wrap">
-                              <span className="font-semibold text-[var(--text-primary)]">{z.name}</span>
-                              {z.kind && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{z.kind}</span>}
-                              {z.episodeRange && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{z.episodeRange}</span>}
-                              {(z.layoutNotes || z.keyProps) && (
-                                <span className="text-[var(--text-secondary)]">{z.layoutNotes || z.keyProps}</span>
-                              )}
-                            </div>
-                          ))}
+                          {l.zones.slice(0, 2).map((z, idx) => {
+                            const zoneRefId = `${l.id}|${z.name}`;
+                            const assets = designAssetMap.get(`zone|${zoneRefId}`) || [];
+                            return (
+                              <div key={idx} className="space-y-1">
+                                <div className="flex gap-2 flex-wrap">
+                                  <span className="font-semibold text-[var(--text-primary)]">{z.name}</span>
+                                  {z.kind && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{z.kind}</span>}
+                                  {z.episodeRange && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)]">{z.episodeRange}</span>}
+                                  {(z.layoutNotes || z.keyProps) && (
+                                    <span className="text-[var(--text-secondary)]">{z.layoutNotes || z.keyProps}</span>
+                                  )}
+                                </div>
+                                <DesignAssetStrip
+                                  assets={assets}
+                                  onUpload={() =>
+                                    handleDesignUploadClick({
+                                      refId: zoneRefId,
+                                      category: 'zone',
+                                      label: `${l.name} · ${z.name}`,
+                                    })
+                                  }
+                                  onRemove={removeDesignAsset}
+                                />
+                              </div>
+                            );
+                          })}
                           {l.zones.length > 2 && (
                             <div className="text-[11px] text-[var(--text-secondary)]">+ {l.zones.length - 2} 更多分区</div>
                           )}

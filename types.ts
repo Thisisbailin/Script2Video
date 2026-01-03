@@ -143,6 +143,17 @@ export interface ProjectContext {
   locations: Location[];
 }
 
+export type DesignAssetCategory = "form" | "zone";
+
+export interface DesignAssetItem {
+  id: string;
+  category: DesignAssetCategory;
+  refId: string;
+  url: string;
+  createdAt: number;
+  label?: string;
+}
+
 export interface RequestStats {
   total: number;
   success: number;
@@ -169,6 +180,7 @@ export interface ProjectData {
   rawScript: string;
   episodes: Episode[];
   context: ProjectContext;
+  designAssets: DesignAssetItem[];
   contextUsage?: TokenUsage; // Total usage (Phase 1 + Easter Eggs)
   phase1Usage: Phase1Usage; // Detailed breakdown of Phase 1
   

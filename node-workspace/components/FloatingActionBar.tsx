@@ -27,7 +27,8 @@ type Props = {
   onAddOutput: () => void;
   onAddGroup: () => void;
   onAddNote: () => void;
-  onImportUnderstanding: () => void;
+  onImportCharacters: () => void;
+  onImportLocations: () => void;
   onImportEpisode: () => void;
   onImport: () => void;
   onExport: () => void;
@@ -43,7 +44,8 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddOutput,
   onAddGroup,
   onAddNote,
-  onImportUnderstanding,
+  onImportCharacters,
+  onImportLocations,
   onImportEpisode,
   onImport,
   onExport,
@@ -85,7 +87,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
               <button
                 onClick={() => {
-                  onImportUnderstanding();
+                  onImportCharacters();
                   closeMenus();
                 }}
                 className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
@@ -95,8 +97,27 @@ export const FloatingActionBar: React.FC<Props> = ({
                     <Database size={20} />
                   </div>
                   <div className="text-left">
-                    <div className="text-sm font-bold text-[var(--text-primary)]">Understanding Group</div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">Import story assets & context</div>
+                    <div className="text-sm font-bold text-[var(--text-primary)]">Character Assets</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">Import character sheets + forms</div>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+              </button>
+
+              <button
+                onClick={() => {
+                  onImportLocations();
+                  closeMenus();
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
+                    <Projector size={20} />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-bold text-[var(--text-primary)]">Scene Assets</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">Import location zones + refs</div>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />

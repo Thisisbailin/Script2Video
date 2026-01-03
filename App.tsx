@@ -1348,7 +1348,7 @@ const App: React.FC = () => {
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
       case 'assets':
-        return <AssetsModule data={projectData} onAssetLoad={handleAssetLoad} />;
+        return <AssetsModule data={projectData} setProjectData={setProjectData} onAssetLoad={handleAssetLoad} />;
       case 'script':
         return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />;
       case 'table':

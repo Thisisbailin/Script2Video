@@ -100,6 +100,8 @@ export interface ImageGenNodeData extends BaseNodeData {
   model?: string;
   aspectRatio: string;
   quality?: string;
+  designCategory?: "form" | "zone";
+  designRefId?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {
