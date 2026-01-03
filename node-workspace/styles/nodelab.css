@@ -41,10 +41,21 @@
 .react-flow__node {
   font-family: inherit;
   cursor: grab !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .react-flow__node-group {
   z-index: 1 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 32px;
+}
+
+.react-flow__node-group > div {
+  border-radius: 32px;
 }
 
 .react-flow__node:not(.react-flow__node-group) {
@@ -153,20 +164,42 @@
 
 /* Custom classes for the monochromatic theme */
 .node-card-base {
-  background: linear-gradient(160deg, rgba(20, 26, 36, 0.95), rgba(10, 12, 16, 0.98));
+  position: relative;
+  background: transparent;
   border-radius: 24px;
-  border: 1px solid var(--node-border);
-  box-shadow: var(--node-shadow);
-  backdrop-filter: blur(14px);
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  isolation: isolate;
   transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   width: fit-content;
   min-width: 280px;
   max-width: min(560px, 80vw);
 }
 
+.node-card-base::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  border: 1px solid var(--node-border);
+  background: linear-gradient(160deg, rgba(20, 26, 36, 0.95), rgba(10, 12, 16, 0.98));
+  box-shadow: var(--node-shadow);
+  backdrop-filter: blur(14px);
+  z-index: 0;
+}
+
+.node-card-base > * {
+  position: relative;
+  z-index: 1;
+}
+
 .node-card-base[data-selected="true"] {
-  background: var(--node-bg-selected);
   transform: translateY(-2px) scale(1.01);
+}
+
+.node-card-base[data-selected="true"]::before {
+  background: var(--node-bg-selected);
   border-color: var(--node-border-strong);
   box-shadow: 0 32px 70px rgba(0, 0, 0, 0.7);
 }
@@ -178,14 +211,15 @@
   border: 1px solid var(--node-border);
   padding: 12px;
   box-sizing: border-box;
+  overflow: hidden;
   transition: all 0.2s ease;
 }
 
-.theme-light .node-card-base[data-selected="true"] {
+.theme-light .node-card-base[data-selected="true"]::before {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
-.theme-light .node-card-base {
+.theme-light .node-card-base::before {
   background: #ffffff;
 }
 

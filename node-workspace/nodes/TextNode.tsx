@@ -21,8 +21,8 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     };
 
     useLayoutEffect(() => {
-        // Initial resize after mount or when text changes
-        autoResize();
+        const id = window.requestAnimationFrame(autoResize);
+        return () => window.cancelAnimationFrame(id);
     }, [data.text]);
 
     const handleAddTag = () => {
