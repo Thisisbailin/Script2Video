@@ -11,7 +11,12 @@ export const isProjectEmpty = (data: ProjectData) => {
   const hasEps = Array.isArray(data.episodes) && data.episodes.length > 0;
   const hasScript = !!(data.rawScript && data.rawScript.trim().length > 0);
   const hasDesignAssets = Array.isArray(data.designAssets) && data.designAssets.length > 0;
-  return !hasEps && !hasScript && !hasDesignAssets;
+  const hasCharacters = Array.isArray(data.context?.characters) && data.context.characters.length > 0;
+  const hasLocations = Array.isArray(data.context?.locations) && data.context.locations.length > 0;
+  const hasSummary = !!(data.context?.projectSummary && data.context.projectSummary.trim().length > 0);
+  const hasEpisodeSummaries =
+    Array.isArray(data.context?.episodeSummaries) && data.context.episodeSummaries.length > 0;
+  return !hasEps && !hasScript && !hasDesignAssets && !hasCharacters && !hasLocations && !hasSummary && !hasEpisodeSummaries;
 };
 
 export const backupData = (key: string, data: ProjectData) => {

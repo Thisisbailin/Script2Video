@@ -1,5 +1,5 @@
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DesignAssetItem, ProjectData } from '../types';
 import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
 import { useWorkflowStore, GlobalAssetHistoryItem } from '../node-workspace/store/workflowStore';
@@ -528,6 +528,194 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
     </div>
   );
 
+  const EditableText = ({
+    value,
+    onChange,
+    placeholder,
+    displayClassName,
+    inputClassName,
+  }: {
+    value: string;
+    onChange: (next: string) => void;
+    placeholder?: string;
+    displayClassName?: string;
+    inputClassName?: string;
+  }) => {
+    const [editing, setEditing] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const isEmpty = !value || value.trim().length === 0;
+    const displayValue = isEmpty ? (placeholder || "单击编辑") : value;
+
+    useEffect(() => {
+      if (editing) inputRef.current?.focus();
+    }, [editing]);
+
+    if (!editing) {
+      return (
+        <div
+          className={`${displayClassName || ""} ${isEmpty ? "text-[var(--text-secondary)] italic" : ""} cursor-text`}
+          onClick={() => setEditing(true)}
+          role="textbox"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setEditing(true);
+          }}
+        >
+          {displayValue}
+        </div>
+      );
+    }
+
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") setEditing(false);
+          if (e.key === "Escape") {
+            setEditing(false);
+          }
+        }}
+        placeholder={placeholder}
+        className={inputClassName || ""}
+      />
+    );
+  };
+
+  const EditableTextarea = ({
+    value,
+    onChange,
+    placeholder,
+    displayClassName,
+    textareaClassName,
+  }: {
+    value: string;
+    onChange: (next: string) => void;
+    placeholder?: string;
+    displayClassName?: string;
+    textareaClassName?: string;
+  }) => {
+    const [editing, setEditing] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const isEmpty = !value || value.trim().length === 0;
+    const displayValue = isEmpty ? (placeholder || "单击编辑") : value;
+
+    const resize = () => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+
+    useLayoutEffect(() => {
+      if (editing) resize();
+    }, [editing, value]);
+
+    useEffect(() => {
+      if (editing) textareaRef.current?.focus();
+    }, [editing]);
+
+    if (!editing) {
+      return (
+        <div
+          className={`${displayClassName || ""} ${isEmpty ? "text-[var(--text-secondary)] italic" : ""} cursor-text whitespace-pre-wrap`}
+          onClick={() => setEditing(true)}
+          role="textbox"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setEditing(true);
+          }}
+        >
+          {displayValue}
+        </div>
+      );
+    }
+
+    return (
+      <textarea
+        ref={textareaRef}
+        value={value}
+        rows={1}
+        onChange={(e) => {
+          onChange(e.target.value);
+          window.requestAnimationFrame(resize);
+        }}
+        onBlur={() => setEditing(false)}
+        placeholder={placeholder}
+        className={textareaClassName || ""}
+      />
+    );
+  };
+
+  const EditableSelect = ({
+    value,
+    onChange,
+    options,
+    displayClassName,
+    selectClassName,
+  }: {
+    value: string;
+    onChange: (next: string) => void;
+    options: Array<{ value: string; label: string }>;
+    displayClassName?: string;
+    selectClassName?: string;
+  }) => {
+    const [editing, setEditing] = useState(false);
+    const selectRef = useRef<HTMLSelectElement>(null);
+    const selected = options.find((opt) => opt.value === value)?.label || value;
+
+    useEffect(() => {
+      if (editing) selectRef.current?.focus();
+    }, [editing]);
+
+    if (!editing) {
+      return (
+        <div
+          className={`${displayClassName || ""} cursor-pointer`}
+          onClick={() => setEditing(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setEditing(true);
+          }}
+        >
+          {selected || "单击编辑"}
+        </div>
+      );
+    }
+
+    return (
+      <select
+        ref={selectRef}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setEditing(false);
+        }}
+        onBlur={() => setEditing(false)}
+        className={selectClassName || ""}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
+  const fieldLabelClass = "text-[10px] uppercase tracking-wider text-[var(--text-secondary)]";
+  const fieldDisplayClass =
+    "rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 px-3 py-2 text-sm text-[var(--text-primary)]";
+  const fieldInputClass =
+    "w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]";
+  const fieldDisplaySmClass =
+    "rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 px-3 py-2 text-xs text-[var(--text-primary)]";
+  const fieldInputSmClass =
+    "w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-blue)]";
+
   return (
     <div className="h-full overflow-y-auto px-8 pt-20 pb-12 bg-transparent text-[var(--text-primary)] transition-colors">
       <div className="max-w-6xl mx-auto space-y-12">
@@ -844,15 +1032,15 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
         </section>
 
         {/* Asset Editor */}
-        <section className="space-y-4">
+        <section className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">
               Character & Scene Assets
             </div>
-            <div className="text-xs text-[var(--text-secondary)]">Assets 为主编辑入口</div>
+            <div className="text-xs text-[var(--text-secondary)]">单击内容即可编辑 · 文本自适应</div>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="p-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)] space-y-4">
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/90 shadow-[var(--shadow-soft)] p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <Users size={16} /> 角色资产编辑
@@ -868,65 +1056,105 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
               {data.context.characters?.length ? (
                 <div className="space-y-4">
                   {data.context.characters.map((char, charIdx) => (
-                    <div key={char.id} className="rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/70 p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 space-y-2">
-                          <input
-                            className="w-full text-sm font-semibold bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
-                            value={char.name}
-                            onChange={(e) => updateCharacterName(charIdx, e.target.value)}
-                            placeholder="角色名"
-                          />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                              value={char.role}
-                              onChange={(e) =>
-                                updateCharacters((items) =>
-                                  items.map((c, idx) => (idx === charIdx ? { ...c, role: e.target.value } : c))
-                                )
-                              }
-                              placeholder="角色定位"
-                            />
-                            <select
-                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                              value={char.assetPriority || "medium"}
-                              onChange={(e) =>
-                                updateCharacters((items) =>
-                                  items.map((c, idx) => (idx === charIdx ? { ...c, assetPriority: e.target.value as any } : c))
-                                )
-                              }
-                            >
-                              <option value="high">High</option>
-                              <option value="medium">Medium</option>
-                              <option value="low">Low</option>
-                            </select>
+                    <div
+                      key={char.id}
+                      className="rounded-2xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/75 p-5 space-y-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>角色名</div>
+                              <EditableText
+                                value={char.name}
+                                onChange={(val) => updateCharacterName(charIdx, val)}
+                                placeholder="角色名"
+                                displayClassName={`${fieldDisplayClass} font-semibold`}
+                                inputClassName={`${fieldInputClass} font-semibold`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>角色定位</div>
+                              <EditableText
+                                value={char.role}
+                                onChange={(val) =>
+                                  updateCharacters((items) =>
+                                    items.map((c, idx) => (idx === charIdx ? { ...c, role: val } : c))
+                                  )
+                                }
+                                placeholder="角色定位"
+                                displayClassName={fieldDisplayClass}
+                                inputClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>资产优先级</div>
+                              <EditableSelect
+                                value={char.assetPriority || "medium"}
+                                onChange={(val) =>
+                                  updateCharacters((items) =>
+                                    items.map((c, idx) =>
+                                      idx === charIdx ? { ...c, assetPriority: val as any } : c
+                                    )
+                                  )
+                                }
+                                options={[
+                                  { value: "high", label: "High" },
+                                  { value: "medium", label: "Medium" },
+                                  { value: "low", label: "Low" },
+                                ]}
+                                displayClassName={fieldDisplayClass}
+                                selectClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>出现集数</div>
+                              <EditableText
+                                value={char.episodeUsage || ""}
+                                onChange={(val) =>
+                                  updateCharacters((items) =>
+                                    items.map((c, idx) => (idx === charIdx ? { ...c, episodeUsage: val } : c))
+                                  )
+                                }
+                                placeholder="出现场次/集数"
+                                displayClassName={fieldDisplayClass}
+                                inputClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                              <div className={fieldLabelClass}>人设标签</div>
+                              <EditableText
+                                value={char.archetype || ""}
+                                onChange={(val) =>
+                                  updateCharacters((items) =>
+                                    items.map((c, idx) => (idx === charIdx ? { ...c, archetype: val } : c))
+                                  )
+                                }
+                                placeholder="职业/类型/关键词"
+                                displayClassName={fieldDisplayClass}
+                                inputClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                              <div className={fieldLabelClass}>角色概述</div>
+                              <EditableTextarea
+                                value={char.bio}
+                                onChange={(val) =>
+                                  updateCharacters((items) =>
+                                    items.map((c, idx) => (idx === charIdx ? { ...c, bio: val } : c))
+                                  )
+                                }
+                                placeholder="角色概述"
+                                displayClassName={`${fieldDisplayClass} whitespace-pre-wrap`}
+                                textareaClassName={`${fieldInputClass} resize-none overflow-hidden`}
+                              />
+                            </div>
                           </div>
-                          <input
-                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                            value={char.episodeUsage || ""}
-                            onChange={(e) =>
-                              updateCharacters((items) =>
-                                items.map((c, idx) => (idx === charIdx ? { ...c, episodeUsage: e.target.value } : c))
-                              )
-                            }
-                            placeholder="出现场次/集数"
-                          />
-                          <textarea
-                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[80px]"
-                            value={char.bio}
-                            onChange={(e) =>
-                              updateCharacters((items) =>
-                                items.map((c, idx) => (idx === charIdx ? { ...c, bio: e.target.value } : c))
-                              )
-                            }
-                            placeholder="角色概述"
-                          />
                         </div>
                         <div className="flex flex-col gap-2">
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             onClick={() => updateCharacters((items) => moveItem(items, charIdx, charIdx - 1))}
                             title="上移"
                           >
@@ -934,7 +1162,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                           </button>
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             onClick={() => updateCharacters((items) => moveItem(items, charIdx, charIdx + 1))}
                             title="下移"
                           >
@@ -942,7 +1170,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                           </button>
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                            className="h-8 w-8 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
                             onClick={() => removeCharacter(charIdx)}
                             title="删除"
                           >
@@ -951,9 +1179,9 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                         </div>
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-overlay)]/40 p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="text-[11px] font-semibold text-[var(--text-secondary)]">形态列表</div>
+                          <div className="text-[11px] font-semibold text-[var(--text-secondary)]">角色形态</div>
                           <button
                             type="button"
                             className="text-[11px] px-2 py-1 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -965,7 +1193,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                                         ...c,
                                         forms: [
                                           ...(c.forms || []),
-                                          { formName: "新形态", episodeRange: "", description: "", visualTags: "" },
+                                          { formName: "新形态", episodeRange: "", description: "", visualTags: "", identityOrState: "" },
                                         ],
                                       }
                                     : c
@@ -979,112 +1207,175 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                         {(char.forms || []).length === 0 ? (
                           <div className="text-xs text-[var(--text-secondary)]">暂无形态</div>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                             {(char.forms || []).map((form, formIdx) => {
                               const formRefId = `${char.id}|${form.formName}`;
                               const formAssets = designAssetMap.get(`form|${formRefId}`) || [];
                               return (
-                              <div key={`${char.id}-${formIdx}`} className="rounded-xl border border-[var(--border-subtle)]/60 bg-black/10 p-3 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <input
-                                    className="flex-1 text-xs bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
-                                    value={form.formName}
-                                    onChange={(e) => updateCharacterFormName(charIdx, formIdx, e.target.value)}
-                                    placeholder="形态名称"
-                                  />
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                                      onClick={() =>
-                                        updateCharacters((items) =>
-                                          items.map((c, idx) =>
-                                            idx === charIdx
-                                              ? { ...c, forms: moveItem(c.forms || [], formIdx, formIdx - 1) }
-                                              : c
+                                <div
+                                  key={`${char.id}-${formIdx}`}
+                                  className="rounded-2xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/70 p-4 space-y-3"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 space-y-1">
+                                      <div className={fieldLabelClass}>形态名称</div>
+                                      <EditableText
+                                        value={form.formName}
+                                        onChange={(val) => updateCharacterFormName(charIdx, formIdx, val)}
+                                        placeholder="形态名称"
+                                        displayClassName={`${fieldDisplaySmClass} font-semibold`}
+                                        inputClassName={`${fieldInputSmClass} font-semibold`}
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1 pt-5">
+                                      <button
+                                        type="button"
+                                        className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                        onClick={() =>
+                                          updateCharacters((items) =>
+                                            items.map((c, idx) =>
+                                              idx === charIdx
+                                                ? { ...c, forms: moveItem(c.forms || [], formIdx, formIdx - 1) }
+                                                : c
+                                            )
                                           )
-                                        )
-                                      }
-                                      title="上移"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                                      onClick={() =>
-                                        updateCharacters((items) =>
-                                          items.map((c, idx) =>
-                                            idx === charIdx
-                                              ? { ...c, forms: moveItem(c.forms || [], formIdx, formIdx + 1) }
-                                              : c
+                                        }
+                                        title="上移"
+                                      >
+                                        ↑
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                        onClick={() =>
+                                          updateCharacters((items) =>
+                                            items.map((c, idx) =>
+                                              idx === charIdx
+                                                ? { ...c, forms: moveItem(c.forms || [], formIdx, formIdx + 1) }
+                                                : c
+                                            )
                                           )
-                                        )
-                                      }
-                                      title="下移"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="h-6 w-6 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
-                                      onClick={() => removeCharacterForm(charIdx, formIdx)}
-                                      title="删除"
-                                    >
-                                      ×
-                                    </button>
+                                        }
+                                        title="下移"
+                                      >
+                                        ↓
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="h-7 w-7 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                                        onClick={() => removeCharacterForm(charIdx, formIdx)}
+                                        title="删除"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
                                   </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>出现集数</div>
+                                      <EditableText
+                                        value={form.episodeRange || ""}
+                                        onChange={(val) =>
+                                          updateCharacters((items) =>
+                                            items.map((c, idx) =>
+                                              idx === charIdx
+                                                ? {
+                                                    ...c,
+                                                    forms: (c.forms || []).map((f, i) =>
+                                                      i === formIdx ? { ...f, episodeRange: val } : f
+                                                    ),
+                                                  }
+                                                : c
+                                            )
+                                          )
+                                        }
+                                        placeholder="出现集数"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>形态标签</div>
+                                      <EditableText
+                                        value={form.visualTags || ""}
+                                        onChange={(val) =>
+                                          updateCharacters((items) =>
+                                            items.map((c, idx) =>
+                                              idx === charIdx
+                                                ? {
+                                                    ...c,
+                                                    forms: (c.forms || []).map((f, i) =>
+                                                      i === formIdx ? { ...f, visualTags: val } : f
+                                                    ),
+                                                  }
+                                                : c
+                                            )
+                                          )
+                                        }
+                                        placeholder="标签/关键词"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1 md:col-span-2">
+                                      <div className={fieldLabelClass}>身份/状态</div>
+                                      <EditableText
+                                        value={form.identityOrState || ""}
+                                        onChange={(val) =>
+                                          updateCharacters((items) =>
+                                            items.map((c, idx) =>
+                                              idx === charIdx
+                                                ? {
+                                                    ...c,
+                                                    forms: (c.forms || []).map((f, i) =>
+                                                      i === formIdx ? { ...f, identityOrState: val } : f
+                                                    ),
+                                                  }
+                                                : c
+                                            )
+                                          )
+                                        }
+                                        placeholder="年龄/身份/状态"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1 md:col-span-2">
+                                      <div className={fieldLabelClass}>形态概述</div>
+                                      <EditableTextarea
+                                        value={form.description}
+                                        onChange={(val) =>
+                                          updateCharacters((items) =>
+                                            items.map((c, idx) =>
+                                              idx === charIdx
+                                                ? {
+                                                    ...c,
+                                                    forms: (c.forms || []).map((f, i) =>
+                                                      i === formIdx ? { ...f, description: val } : f
+                                                    ),
+                                                  }
+                                                : c
+                                            )
+                                          )
+                                        }
+                                        placeholder="形态概述"
+                                        displayClassName={`${fieldDisplaySmClass} whitespace-pre-wrap`}
+                                        textareaClassName={`${fieldInputSmClass} resize-none overflow-hidden`}
+                                      />
+                                    </div>
+                                  </div>
+                                  <DesignAssetStrip
+                                    assets={formAssets}
+                                    onUpload={() =>
+                                      handleDesignUploadClick({
+                                        refId: formRefId,
+                                        category: "form",
+                                        label: `${char.name} · ${form.formName}`,
+                                      })
+                                    }
+                                    onRemove={removeDesignAsset}
+                                  />
                                 </div>
-                                <input
-                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                                  value={form.visualTags || ""}
-                                  onChange={(e) =>
-                                    updateCharacters((items) =>
-                                      items.map((c, idx) =>
-                                        idx === charIdx
-                                          ? {
-                                              ...c,
-                                              forms: (c.forms || []).map((f, i) =>
-                                                i === formIdx ? { ...f, visualTags: e.target.value } : f
-                                              ),
-                                            }
-                                          : c
-                                      )
-                                    )
-                                  }
-                                  placeholder="形态标签（逗号分隔）"
-                                />
-                                <textarea
-                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[70px]"
-                                  value={form.description}
-                                  onChange={(e) =>
-                                    updateCharacters((items) =>
-                                      items.map((c, idx) =>
-                                        idx === charIdx
-                                          ? {
-                                              ...c,
-                                              forms: (c.forms || []).map((f, i) =>
-                                                i === formIdx ? { ...f, description: e.target.value } : f
-                                              ),
-                                            }
-                                          : c
-                                      )
-                                    )
-                                  }
-                                  placeholder="形态概述"
-                                />
-                                <DesignAssetStrip
-                                  assets={formAssets}
-                                  onUpload={() =>
-                                    handleDesignUploadClick({
-                                      refId: formRefId,
-                                      category: 'form',
-                                      label: `${char.name} · ${form.formName}`,
-                                    })
-                                  }
-                                  onRemove={removeDesignAsset}
-                                />
-                              </div>
                               );
                             })}
                           </div>
@@ -1098,7 +1389,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
               )}
             </div>
 
-            <div className="p-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)] space-y-4">
+            <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/90 shadow-[var(--shadow-soft)] p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <MapPin size={16} /> 场景资产编辑
@@ -1114,77 +1405,108 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
               {data.context.locations?.length ? (
                 <div className="space-y-4">
                   {data.context.locations.map((loc, locIdx) => (
-                    <div key={loc.id} className="rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/70 p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 space-y-2">
-                          <input
-                            className="w-full text-sm font-semibold bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
-                            value={loc.name}
-                            onChange={(e) => updateLocationName(locIdx, e.target.value)}
-                            placeholder="场景名"
-                          />
-                          <div className="grid grid-cols-2 gap-2">
-                            <select
-                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                              value={loc.type}
-                              onChange={(e) =>
-                                updateLocations((items) =>
-                                  items.map((l, idx) => (idx === locIdx ? { ...l, type: e.target.value as any } : l))
-                                )
-                              }
-                            >
-                              <option value="core">Core</option>
-                              <option value="secondary">Secondary</option>
-                            </select>
-                            <select
-                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                              value={loc.assetPriority || "medium"}
-                              onChange={(e) =>
-                                updateLocations((items) =>
-                                  items.map((l, idx) => (idx === locIdx ? { ...l, assetPriority: e.target.value as any } : l))
-                                )
-                              }
-                            >
-                              <option value="high">High</option>
-                              <option value="medium">Medium</option>
-                              <option value="low">Low</option>
-                            </select>
+                    <div
+                      key={loc.id}
+                      className="rounded-2xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/75 p-5 space-y-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>场景名称</div>
+                              <EditableText
+                                value={loc.name}
+                                onChange={(val) => updateLocationName(locIdx, val)}
+                                placeholder="场景名"
+                                displayClassName={`${fieldDisplayClass} font-semibold`}
+                                inputClassName={`${fieldInputClass} font-semibold`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>场景类型</div>
+                              <EditableSelect
+                                value={loc.type}
+                                onChange={(val) =>
+                                  updateLocations((items) =>
+                                    items.map((l, idx) => (idx === locIdx ? { ...l, type: val as any } : l))
+                                  )
+                                }
+                                options={[
+                                  { value: "core", label: "Core" },
+                                  { value: "secondary", label: "Secondary" },
+                                ]}
+                                displayClassName={fieldDisplayClass}
+                                selectClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>资产优先级</div>
+                              <EditableSelect
+                                value={loc.assetPriority || "medium"}
+                                onChange={(val) =>
+                                  updateLocations((items) =>
+                                    items.map((l, idx) =>
+                                      idx === locIdx ? { ...l, assetPriority: val as any } : l
+                                    )
+                                  )
+                                }
+                                options={[
+                                  { value: "high", label: "High" },
+                                  { value: "medium", label: "Medium" },
+                                  { value: "low", label: "Low" },
+                                ]}
+                                displayClassName={fieldDisplayClass}
+                                selectClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <div className={fieldLabelClass}>出现集数</div>
+                              <EditableText
+                                value={loc.episodeUsage || ""}
+                                onChange={(val) =>
+                                  updateLocations((items) =>
+                                    items.map((l, idx) => (idx === locIdx ? { ...l, episodeUsage: val } : l))
+                                  )
+                                }
+                                placeholder="出现场次/集数"
+                                displayClassName={fieldDisplayClass}
+                                inputClassName={fieldInputClass}
+                              />
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                              <div className={fieldLabelClass}>场景概述</div>
+                              <EditableTextarea
+                                value={loc.description}
+                                onChange={(val) =>
+                                  updateLocations((items) =>
+                                    items.map((l, idx) => (idx === locIdx ? { ...l, description: val } : l))
+                                  )
+                                }
+                                placeholder="场景概述"
+                                displayClassName={`${fieldDisplayClass} whitespace-pre-wrap`}
+                                textareaClassName={`${fieldInputClass} resize-none overflow-hidden`}
+                              />
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                              <div className={fieldLabelClass}>视觉氛围</div>
+                              <EditableTextarea
+                                value={loc.visuals || ""}
+                                onChange={(val) =>
+                                  updateLocations((items) =>
+                                    items.map((l, idx) => (idx === locIdx ? { ...l, visuals: val } : l))
+                                  )
+                                }
+                                placeholder="光感/材质/色调"
+                                displayClassName={`${fieldDisplayClass} whitespace-pre-wrap`}
+                                textareaClassName={`${fieldInputClass} resize-none overflow-hidden`}
+                              />
+                            </div>
                           </div>
-                          <input
-                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                            value={loc.episodeUsage || ""}
-                            onChange={(e) =>
-                              updateLocations((items) =>
-                                items.map((l, idx) => (idx === locIdx ? { ...l, episodeUsage: e.target.value } : l))
-                              )
-                            }
-                            placeholder="出现场次/集数"
-                          />
-                          <textarea
-                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[80px]"
-                            value={loc.description}
-                            onChange={(e) =>
-                              updateLocations((items) =>
-                                items.map((l, idx) => (idx === locIdx ? { ...l, description: e.target.value } : l))
-                              )
-                            }
-                            placeholder="场景概述"
-                          />
-                          <textarea
-                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[70px]"
-                            value={loc.visuals || ""}
-                            onChange={(e) =>
-                              updateLocations((items) =>
-                                items.map((l, idx) => (idx === locIdx ? { ...l, visuals: e.target.value } : l))
-                              )
-                            }
-                            placeholder="视觉氛围/材质/光感"
-                          />
                         </div>
                         <div className="flex flex-col gap-2">
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             onClick={() => updateLocations((items) => moveItem(items, locIdx, locIdx - 1))}
                             title="上移"
                           >
@@ -1192,7 +1514,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                           </button>
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            className="h-8 w-8 rounded-full border border-[var(--border-subtle)] text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             onClick={() => updateLocations((items) => moveItem(items, locIdx, locIdx + 1))}
                             title="下移"
                           >
@@ -1200,7 +1522,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                           </button>
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                            className="h-8 w-8 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
                             onClick={() => removeLocation(locIdx)}
                             title="删除"
                           >
@@ -1209,9 +1531,9 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                         </div>
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-overlay)]/40 p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="text-[11px] font-semibold text-[var(--text-secondary)]">分区列表</div>
+                          <div className="text-[11px] font-semibold text-[var(--text-secondary)]">场景分区</div>
                           <button
                             type="button"
                             className="text-[11px] px-2 py-1 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -1237,194 +1559,226 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                         {(loc.zones || []).length === 0 ? (
                           <div className="text-xs text-[var(--text-secondary)]">暂无分区</div>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                             {(loc.zones || []).map((zone, zoneIdx) => {
                               const zoneRefId = `${loc.id}|${zone.name}`;
                               const zoneAssets = designAssetMap.get(`zone|${zoneRefId}`) || [];
                               return (
-                              <div key={`${loc.id}-${zoneIdx}`} className="rounded-xl border border-[var(--border-subtle)]/60 bg-black/10 p-3 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <input
-                                    className="flex-1 text-xs bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
-                                    value={zone.name}
-                                    onChange={(e) => updateLocationZoneName(locIdx, zoneIdx, e.target.value)}
-                                    placeholder="分区名称"
-                                  />
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                                      onClick={() =>
-                                        updateLocations((items) =>
-                                          items.map((l, idx) =>
-                                            idx === locIdx
-                                              ? { ...l, zones: moveItem(l.zones || [], zoneIdx, zoneIdx - 1) }
-                                              : l
+                                <div
+                                  key={`${loc.id}-${zoneIdx}`}
+                                  className="rounded-2xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/70 p-4 space-y-3"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 space-y-1">
+                                      <div className={fieldLabelClass}>分区名称</div>
+                                      <EditableText
+                                        value={zone.name}
+                                        onChange={(val) => updateLocationZoneName(locIdx, zoneIdx, val)}
+                                        placeholder="分区名称"
+                                        displayClassName={`${fieldDisplaySmClass} font-semibold`}
+                                        inputClassName={`${fieldInputSmClass} font-semibold`}
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1 pt-5">
+                                      <button
+                                        type="button"
+                                        className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                        onClick={() =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? { ...l, zones: moveItem(l.zones || [], zoneIdx, zoneIdx - 1) }
+                                                : l
+                                            )
                                           )
-                                        )
-                                      }
-                                      title="上移"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                                      onClick={() =>
-                                        updateLocations((items) =>
-                                          items.map((l, idx) =>
-                                            idx === locIdx
-                                              ? { ...l, zones: moveItem(l.zones || [], zoneIdx, zoneIdx + 1) }
-                                              : l
+                                        }
+                                        title="上移"
+                                      >
+                                        ↑
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                        onClick={() =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? { ...l, zones: moveItem(l.zones || [], zoneIdx, zoneIdx + 1) }
+                                                : l
+                                            )
                                           )
-                                        )
-                                      }
-                                      title="下移"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="h-6 w-6 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
-                                      onClick={() => removeLocationZone(locIdx, zoneIdx)}
-                                      title="删除"
-                                    >
-                                      ×
-                                    </button>
+                                        }
+                                        title="下移"
+                                      >
+                                        ↓
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="h-7 w-7 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                                        onClick={() => removeLocationZone(locIdx, zoneIdx)}
+                                        title="删除"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <select
-                                    className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                                    value={zone.kind || "unspecified"}
-                                    onChange={(e) =>
-                                      updateLocations((items) =>
-                                        items.map((l, idx) =>
-                                          idx === locIdx
-                                            ? {
-                                                ...l,
-                                                zones: (l.zones || []).map((z, i) =>
-                                                  i === zoneIdx ? { ...z, kind: e.target.value as any } : z
-                                                ),
-                                              }
-                                            : l
-                                        )
-                                      )
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>类型</div>
+                                      <EditableSelect
+                                        value={zone.kind || "unspecified"}
+                                        onChange={(val) =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? {
+                                                    ...l,
+                                                    zones: (l.zones || []).map((z, i) =>
+                                                      i === zoneIdx ? { ...z, kind: val as any } : z
+                                                    ),
+                                                  }
+                                                : l
+                                            )
+                                          )
+                                        }
+                                        options={[
+                                          { value: "interior", label: "Interior" },
+                                          { value: "exterior", label: "Exterior" },
+                                          { value: "transition", label: "Transition" },
+                                          { value: "unspecified", label: "Unspecified" },
+                                        ]}
+                                        displayClassName={fieldDisplaySmClass}
+                                        selectClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>出现集数</div>
+                                      <EditableText
+                                        value={zone.episodeRange || ""}
+                                        onChange={(val) =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? {
+                                                    ...l,
+                                                    zones: (l.zones || []).map((z, i) =>
+                                                      i === zoneIdx ? { ...z, episodeRange: val } : z
+                                                    ),
+                                                  }
+                                                : l
+                                            )
+                                          )
+                                        }
+                                        placeholder="出现集数"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>关键元素</div>
+                                      <EditableText
+                                        value={zone.keyProps || ""}
+                                        onChange={(val) =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? {
+                                                    ...l,
+                                                    zones: (l.zones || []).map((z, i) =>
+                                                      i === zoneIdx ? { ...z, keyProps: val } : z
+                                                    ),
+                                                  }
+                                                : l
+                                            )
+                                          )
+                                        }
+                                        placeholder="分区标签/关键元素"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>光照/天气</div>
+                                      <EditableText
+                                        value={zone.lightingWeather || ""}
+                                        onChange={(val) =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? {
+                                                    ...l,
+                                                    zones: (l.zones || []).map((z, i) =>
+                                                      i === zoneIdx ? { ...z, lightingWeather: val } : z
+                                                    ),
+                                                  }
+                                                : l
+                                            )
+                                          )
+                                        }
+                                        placeholder="光照/天气"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className={fieldLabelClass}>材质/色盘</div>
+                                      <EditableText
+                                        value={zone.materialPalette || ""}
+                                        onChange={(val) =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? {
+                                                    ...l,
+                                                    zones: (l.zones || []).map((z, i) =>
+                                                      i === zoneIdx ? { ...z, materialPalette: val } : z
+                                                    ),
+                                                  }
+                                                : l
+                                            )
+                                          )
+                                        }
+                                        placeholder="材质/色盘"
+                                        displayClassName={fieldDisplaySmClass}
+                                        inputClassName={fieldInputSmClass}
+                                      />
+                                    </div>
+                                    <div className="space-y-1 md:col-span-2">
+                                      <div className={fieldLabelClass}>分区概述</div>
+                                      <EditableTextarea
+                                        value={zone.layoutNotes || ""}
+                                        onChange={(val) =>
+                                          updateLocations((items) =>
+                                            items.map((l, idx) =>
+                                              idx === locIdx
+                                                ? {
+                                                    ...l,
+                                                    zones: (l.zones || []).map((z, i) =>
+                                                      i === zoneIdx ? { ...z, layoutNotes: val } : z
+                                                    ),
+                                                  }
+                                                : l
+                                            )
+                                          )
+                                        }
+                                        placeholder="分区概述"
+                                        displayClassName={`${fieldDisplaySmClass} whitespace-pre-wrap`}
+                                        textareaClassName={`${fieldInputSmClass} resize-none overflow-hidden`}
+                                      />
+                                    </div>
+                                  </div>
+                                  <DesignAssetStrip
+                                    assets={zoneAssets}
+                                    onUpload={() =>
+                                      handleDesignUploadClick({
+                                        refId: zoneRefId,
+                                        category: "zone",
+                                        label: `${loc.name} · ${zone.name}`,
+                                      })
                                     }
-                                  >
-                                    <option value="interior">Interior</option>
-                                    <option value="exterior">Exterior</option>
-                                    <option value="transition">Transition</option>
-                                    <option value="unspecified">Unspecified</option>
-                                  </select>
-                                  <input
-                                    className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                                    value={zone.episodeRange || ""}
-                                    onChange={(e) =>
-                                      updateLocations((items) =>
-                                        items.map((l, idx) =>
-                                          idx === locIdx
-                                            ? {
-                                                ...l,
-                                                zones: (l.zones || []).map((z, i) =>
-                                                  i === zoneIdx ? { ...z, episodeRange: e.target.value } : z
-                                                ),
-                                              }
-                                            : l
-                                        )
-                                      )
-                                    }
-                                    placeholder="出现集数"
+                                    onRemove={removeDesignAsset}
                                   />
                                 </div>
-                                <input
-                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                                  value={zone.keyProps || ""}
-                                  onChange={(e) =>
-                                    updateLocations((items) =>
-                                      items.map((l, idx) =>
-                                        idx === locIdx
-                                          ? {
-                                              ...l,
-                                              zones: (l.zones || []).map((z, i) =>
-                                                i === zoneIdx ? { ...z, keyProps: e.target.value } : z
-                                              ),
-                                            }
-                                          : l
-                                      )
-                                    )
-                                  }
-                                  placeholder="分区标签/关键元素"
-                                />
-                                <input
-                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                                  value={zone.lightingWeather || ""}
-                                  onChange={(e) =>
-                                    updateLocations((items) =>
-                                      items.map((l, idx) =>
-                                        idx === locIdx
-                                          ? {
-                                              ...l,
-                                              zones: (l.zones || []).map((z, i) =>
-                                                i === zoneIdx ? { ...z, lightingWeather: e.target.value } : z
-                                              ),
-                                            }
-                                          : l
-                                      )
-                                    )
-                                  }
-                                  placeholder="光照/天气"
-                                />
-                                <input
-                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
-                                  value={zone.materialPalette || ""}
-                                  onChange={(e) =>
-                                    updateLocations((items) =>
-                                      items.map((l, idx) =>
-                                        idx === locIdx
-                                          ? {
-                                              ...l,
-                                              zones: (l.zones || []).map((z, i) =>
-                                                i === zoneIdx ? { ...z, materialPalette: e.target.value } : z
-                                              ),
-                                            }
-                                          : l
-                                      )
-                                    )
-                                  }
-                                  placeholder="材质/色盘"
-                                />
-                                <textarea
-                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[70px]"
-                                  value={zone.layoutNotes || ""}
-                                  onChange={(e) =>
-                                    updateLocations((items) =>
-                                      items.map((l, idx) =>
-                                        idx === locIdx
-                                          ? {
-                                              ...l,
-                                              zones: (l.zones || []).map((z, i) =>
-                                                i === zoneIdx ? { ...z, layoutNotes: e.target.value } : z
-                                              ),
-                                            }
-                                          : l
-                                      )
-                                    )
-                                  }
-                                  placeholder="分区概述"
-                                />
-                                <DesignAssetStrip
-                                  assets={zoneAssets}
-                                  onUpload={() =>
-                                    handleDesignUploadClick({
-                                      refId: zoneRefId,
-                                      category: 'zone',
-                                      label: `${loc.name} · ${zone.name}`,
-                                    })
-                                  }
-                                  onRemove={removeDesignAsset}
-                                />
-                              </div>
                               );
                             })}
                           </div>

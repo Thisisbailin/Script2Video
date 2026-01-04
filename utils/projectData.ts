@@ -1,4 +1,4 @@
-import { Episode, ProjectData, Shot } from "../types";
+import { Character, CharacterForm, Episode, Location, LocationZone, ProjectData, Shot } from "../types";
 import { INITIAL_PROJECT_DATA } from "../constants";
 
 const stripConflictMarkers = (value: string) => {
@@ -77,6 +77,132 @@ const normalizeEpisode = (episode: any): Episode => {
   };
 };
 
+const normalizeCharacterForm = (form: any): CharacterForm => {
+  if (!form || typeof form !== "object") {
+    return {
+      formName: "",
+      episodeRange: "",
+      description: "",
+      visualTags: ""
+    };
+  }
+  return {
+    ...form,
+    formName: toSafeString(form.formName),
+    episodeRange: toSafeString(form.episodeRange),
+    description: toSafeString(form.description),
+    visualTags: toSafeString(form.visualTags),
+    identityOrState: toOptionalString(form.identityOrState),
+    hair: toOptionalString(form.hair),
+    face: toOptionalString(form.face),
+    body: toOptionalString(form.body),
+    costume: toOptionalString(form.costume),
+    accessories: toOptionalString(form.accessories),
+    props: toOptionalString(form.props),
+    materialPalette: toOptionalString(form.materialPalette),
+    poses: toOptionalString(form.poses),
+    expressions: toOptionalString(form.expressions),
+    lightingOrPalette: toOptionalString(form.lightingOrPalette),
+    turnaroundNeeded: typeof form.turnaroundNeeded === "boolean" ? form.turnaroundNeeded : undefined,
+    deliverables: toOptionalString(form.deliverables),
+    designRationale: toOptionalString(form.designRationale),
+    styleRef: toOptionalString(form.styleRef),
+    genPrompts: toOptionalString(form.genPrompts)
+  };
+};
+
+const normalizeCharacter = (character: any): Character => {
+  if (!character || typeof character !== "object") {
+    return {
+      id: "",
+      name: "",
+      role: "",
+      isMain: false,
+      bio: "",
+      forms: []
+    };
+  }
+  const forms = Array.isArray(character.forms)
+    ? character.forms.map(normalizeCharacterForm)
+    : [];
+  return {
+    ...character,
+    id: toSafeString(character.id || character.name),
+    name: toSafeString(character.name),
+    role: toSafeString(character.role),
+    isMain: typeof character.isMain === "boolean" ? character.isMain : false,
+    bio: toSafeString(character.bio),
+    forms,
+    assetPriority: character.assetPriority,
+    archetype: toOptionalString(character.archetype),
+    episodeUsage: toOptionalString(character.episodeUsage)
+  };
+};
+
+const normalizeLocationZone = (zone: any): LocationZone => {
+  if (!zone || typeof zone !== "object") {
+    return {
+      name: "",
+      kind: "unspecified",
+      episodeRange: "",
+      layoutNotes: "",
+      keyProps: "",
+      lightingWeather: "",
+      materialPalette: ""
+    };
+  }
+  return {
+    ...zone,
+    name: toSafeString(zone.name),
+    kind:
+      zone.kind === "interior" ||
+      zone.kind === "exterior" ||
+      zone.kind === "transition" ||
+      zone.kind === "unspecified"
+        ? zone.kind
+        : "unspecified",
+    episodeRange: toSafeString(zone.episodeRange),
+    layoutNotes: toSafeString(zone.layoutNotes),
+    keyProps: toSafeString(zone.keyProps),
+    lightingWeather: toSafeString(zone.lightingWeather),
+    materialPalette: toSafeString(zone.materialPalette),
+    designRationale: toOptionalString(zone.designRationale),
+    deliverables: toOptionalString(zone.deliverables),
+    genPrompts: toOptionalString(zone.genPrompts)
+  };
+};
+
+const normalizeLocation = (location: any): Location => {
+  if (!location || typeof location !== "object") {
+    return {
+      id: "",
+      name: "",
+      type: "secondary",
+      description: "",
+      visuals: "",
+      zones: []
+    };
+  }
+  const zones = Array.isArray(location.zones)
+    ? location.zones.map(normalizeLocationZone)
+    : [];
+  const type =
+    location.type === "core" || location.type === "secondary"
+      ? location.type
+      : "secondary";
+  return {
+    ...location,
+    id: toSafeString(location.id || location.name),
+    name: toSafeString(location.name),
+    type,
+    description: toSafeString(location.description),
+    visuals: toSafeString(location.visuals),
+    assetPriority: location.assetPriority,
+    episodeUsage: toOptionalString(location.episodeUsage),
+    zones
+  };
+};
+
 export const normalizeProjectData = (data: any): ProjectData => {
   const base: ProjectData = {
     ...INITIAL_PROJECT_DATA,
@@ -89,6 +215,12 @@ export const normalizeProjectData = (data: any): ProjectData => {
     stats: { ...INITIAL_PROJECT_DATA.stats, ...(data?.stats || {}) }
   };
   base.episodes = Array.isArray(data?.episodes) ? data.episodes.map(normalizeEpisode) : [];
+  base.context.characters = Array.isArray(base.context.characters)
+    ? base.context.characters.map(normalizeCharacter)
+    : [];
+  base.context.locations = Array.isArray(base.context.locations)
+    ? base.context.locations.map(normalizeLocation)
+    : [];
   base.shotGuide = data?.shotGuide || INITIAL_PROJECT_DATA.shotGuide;
   base.soraGuide = data?.soraGuide || INITIAL_PROJECT_DATA.soraGuide;
   base.globalStyleGuide = data?.globalStyleGuide || INITIAL_PROJECT_DATA.globalStyleGuide;
