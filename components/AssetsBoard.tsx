@@ -51,6 +51,225 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
     });
     return map;
   }, [designAssets]);
+  const updateCharacters = (updater: (items: ProjectData["context"]["characters"]) => ProjectData["context"]["characters"]) => {
+    setProjectData((prev) => ({
+      ...prev,
+      context: {
+        ...prev.context,
+        characters: updater(prev.context.characters || []),
+      },
+    }));
+  };
+  const updateLocations = (updater: (items: ProjectData["context"]["locations"]) => ProjectData["context"]["locations"]) => {
+    setProjectData((prev) => ({
+      ...prev,
+      context: {
+        ...prev.context,
+        locations: updater(prev.context.locations || []),
+      },
+    }));
+  };
+  const moveItem = <T,>(items: T[], from: number, to: number) => {
+    if (to < 0 || to >= items.length) return items;
+    const next = [...items];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    return next;
+  };
+  const addCharacter = () => {
+    const id = `char-${Date.now()}`;
+    updateCharacters((items) => [
+      ...items,
+      {
+        id,
+        name: "新角色",
+        role: "",
+        isMain: false,
+        bio: "",
+        forms: [],
+      },
+    ]);
+  };
+  const addLocation = () => {
+    const id = `loc-${Date.now()}`;
+    updateLocations((items) => [
+      ...items,
+      {
+        id,
+        name: "新场景",
+        type: "core",
+        description: "",
+        visuals: "",
+        zones: [],
+      },
+    ]);
+  };
+  const updateCharacterName = (charIdx: number, name: string) => {
+    setProjectData((prev) => {
+      const characters = [...(prev.context.characters || [])];
+      const current = characters[charIdx];
+      if (!current) return prev;
+      characters[charIdx] = { ...current, name };
+      const prefix = `${current.id}|`;
+      const designAssets = prev.designAssets.map((asset) => {
+        if (asset.category !== "form" || !asset.refId.startsWith(prefix)) return asset;
+        const formName = asset.refId.slice(prefix.length);
+        return { ...asset, label: `${name} · ${formName}` };
+      });
+      return {
+        ...prev,
+        context: { ...prev.context, characters },
+        designAssets,
+      };
+    });
+  };
+  const updateLocationName = (locIdx: number, name: string) => {
+    setProjectData((prev) => {
+      const locations = [...(prev.context.locations || [])];
+      const current = locations[locIdx];
+      if (!current) return prev;
+      locations[locIdx] = { ...current, name };
+      const prefix = `${current.id}|`;
+      const designAssets = prev.designAssets.map((asset) => {
+        if (asset.category !== "zone" || !asset.refId.startsWith(prefix)) return asset;
+        const zoneName = asset.refId.slice(prefix.length);
+        return { ...asset, label: `${name} · ${zoneName}` };
+      });
+      return {
+        ...prev,
+        context: { ...prev.context, locations },
+        designAssets,
+      };
+    });
+  };
+  const updateCharacterFormName = (charIdx: number, formIdx: number, formName: string) => {
+    setProjectData((prev) => {
+      const characters = [...(prev.context.characters || [])];
+      const current = characters[charIdx];
+      if (!current) return prev;
+      const forms = [...(current.forms || [])];
+      const currentForm = forms[formIdx];
+      const prevRefId = currentForm ? `${current.id}|${currentForm.formName}` : "";
+      forms[formIdx] = { ...currentForm, formName };
+      characters[charIdx] = { ...current, forms };
+      const nextRefId = `${current.id}|${formName}`;
+      const designAssets = prev.designAssets.map((asset) => {
+        if (asset.category !== "form" || asset.refId !== prevRefId) return asset;
+        return { ...asset, refId: nextRefId, label: `${current.name} · ${formName}` };
+      });
+      return {
+        ...prev,
+        context: { ...prev.context, characters },
+        designAssets,
+      };
+    });
+  };
+  const updateLocationZoneName = (locIdx: number, zoneIdx: number, zoneName: string) => {
+    setProjectData((prev) => {
+      const locations = [...(prev.context.locations || [])];
+      const current = locations[locIdx];
+      if (!current) return prev;
+      const zones = [...(current.zones || [])];
+      const currentZone = zones[zoneIdx];
+      const prevRefId = currentZone ? `${current.id}|${currentZone.name}` : "";
+      zones[zoneIdx] = { ...currentZone, name: zoneName };
+      locations[locIdx] = { ...current, zones };
+      const nextRefId = `${current.id}|${zoneName}`;
+      const designAssets = prev.designAssets.map((asset) => {
+        if (asset.category !== "zone" || asset.refId !== prevRefId) return asset;
+        return { ...asset, refId: nextRefId, label: `${current.name} · ${zoneName}` };
+      });
+      return {
+        ...prev,
+        context: { ...prev.context, locations },
+        designAssets,
+      };
+    });
+  };
+  const removeCharacter = (charIdx: number) => {
+    setProjectData((prev) => {
+      const characters = [...(prev.context.characters || [])];
+      const target = characters[charIdx];
+      const nextCharacters = characters.filter((_, idx) => idx !== charIdx);
+      let designAssets = prev.designAssets;
+      if (target) {
+        const prefix = `${target.id}|`;
+        designAssets = designAssets.filter(
+          (asset) => !(asset.category === "form" && asset.refId.startsWith(prefix))
+        );
+      }
+      return {
+        ...prev,
+        context: { ...prev.context, characters: nextCharacters },
+        designAssets,
+      };
+    });
+  };
+  const removeLocation = (locIdx: number) => {
+    setProjectData((prev) => {
+      const locations = [...(prev.context.locations || [])];
+      const target = locations[locIdx];
+      const nextLocations = locations.filter((_, idx) => idx !== locIdx);
+      let designAssets = prev.designAssets;
+      if (target) {
+        const prefix = `${target.id}|`;
+        designAssets = designAssets.filter(
+          (asset) => !(asset.category === "zone" && asset.refId.startsWith(prefix))
+        );
+      }
+      return {
+        ...prev,
+        context: { ...prev.context, locations: nextLocations },
+        designAssets,
+      };
+    });
+  };
+  const removeCharacterForm = (charIdx: number, formIdx: number) => {
+    setProjectData((prev) => {
+      const characters = [...(prev.context.characters || [])];
+      const current = characters[charIdx];
+      if (!current) return prev;
+      const forms = [...(current.forms || [])];
+      const targetForm = forms[formIdx];
+      const nextForms = forms.filter((_, idx) => idx !== formIdx);
+      characters[charIdx] = { ...current, forms: nextForms };
+      let designAssets = prev.designAssets;
+      if (targetForm) {
+        const refId = `${current.id}|${targetForm.formName}`;
+        designAssets = designAssets.filter(
+          (asset) => !(asset.category === "form" && asset.refId === refId)
+        );
+      }
+      return {
+        ...prev,
+        context: { ...prev.context, characters },
+        designAssets,
+      };
+    });
+  };
+  const removeLocationZone = (locIdx: number, zoneIdx: number) => {
+    setProjectData((prev) => {
+      const locations = [...(prev.context.locations || [])];
+      const current = locations[locIdx];
+      if (!current) return prev;
+      const zones = [...(current.zones || [])];
+      const targetZone = zones[zoneIdx];
+      const nextZones = zones.filter((_, idx) => idx !== zoneIdx);
+      locations[locIdx] = { ...current, zones: nextZones };
+      let designAssets = prev.designAssets;
+      if (targetZone) {
+        const refId = `${current.id}|${targetZone.name}`;
+        designAssets = designAssets.filter(
+          (asset) => !(asset.category === "zone" && asset.refId === refId)
+        );
+      }
+      return {
+        ...prev,
+        context: { ...prev.context, locations },
+        designAssets,
+      };
+    });
+  };
   const hasUnderstandingData = Boolean(
     data.context.projectSummary ||
       data.context.episodeSummaries.length > 0 ||
@@ -441,6 +660,28 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
             </div>
             <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)]">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
+                <ListChecks size={16} /> 集梗概（横向滚动，避免超长）
+              </div>
+              {data.context.episodeSummaries?.length ? (
+                <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+                  {data.context.episodeSummaries.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="min-w-[220px] max-w-[260px] snap-start border border-[var(--border-subtle)] rounded-xl p-3 bg-[var(--bg-panel)]/70 shadow-[var(--shadow-soft)] text-sm text-[var(--text-secondary)] flex flex-col gap-2"
+                    >
+                      <div className="text-[var(--text-primary)] font-semibold">Ep {s.episodeId}</div>
+                      <div className="text-xs leading-5 max-h-40 overflow-y-auto pr-1">
+                        {s.summary}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--text-secondary)]">尚未生成集梗概</p>
+              )}
+            </div>
+            <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)]">
+              <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
                 <Users size={16} /> 主要角色 / 资产优先级
               </div>
               {data.context.characters?.length ? (
@@ -599,26 +840,601 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                 <p className="text-sm text-[var(--text-secondary)]">尚未识别场景</p>
               )}
             </div>
-            <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)]">
-              <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
-                <ListChecks size={16} /> 集梗概（横向滚动，避免超长）
+          </div>
+        </section>
+
+        {/* Asset Editor */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+              Character & Scene Assets
+            </div>
+            <div className="text-xs text-[var(--text-secondary)]">Assets 为主编辑入口</div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="p-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)] space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Users size={16} /> 角色资产编辑
+                </div>
+                <button
+                  type="button"
+                  onClick={addCharacter}
+                  className="px-3 py-1.5 rounded-full border border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-blue)] transition"
+                >
+                  + 新角色
+                </button>
               </div>
-              {data.context.episodeSummaries?.length ? (
-                <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
-                  {data.context.episodeSummaries.map((s, idx) => (
-                    <div
-                      key={idx}
-                      className="min-w-[220px] max-w-[260px] snap-start border border-[var(--border-subtle)] rounded-xl p-3 bg-[var(--bg-panel)]/70 shadow-[var(--shadow-soft)] text-sm text-[var(--text-secondary)] flex flex-col gap-2"
-                    >
-                      <div className="text-[var(--text-primary)] font-semibold">Ep {s.episodeId}</div>
-                      <div className="text-xs leading-5 max-h-40 overflow-y-auto pr-1">
-                        {s.summary}
+              {data.context.characters?.length ? (
+                <div className="space-y-4">
+                  {data.context.characters.map((char, charIdx) => (
+                    <div key={char.id} className="rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/70 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-2">
+                          <input
+                            className="w-full text-sm font-semibold bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
+                            value={char.name}
+                            onChange={(e) => updateCharacterName(charIdx, e.target.value)}
+                            placeholder="角色名"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                              value={char.role}
+                              onChange={(e) =>
+                                updateCharacters((items) =>
+                                  items.map((c, idx) => (idx === charIdx ? { ...c, role: e.target.value } : c))
+                                )
+                              }
+                              placeholder="角色定位"
+                            />
+                            <select
+                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                              value={char.assetPriority || "medium"}
+                              onChange={(e) =>
+                                updateCharacters((items) =>
+                                  items.map((c, idx) => (idx === charIdx ? { ...c, assetPriority: e.target.value as any } : c))
+                                )
+                              }
+                            >
+                              <option value="high">High</option>
+                              <option value="medium">Medium</option>
+                              <option value="low">Low</option>
+                            </select>
+                          </div>
+                          <input
+                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                            value={char.episodeUsage || ""}
+                            onChange={(e) =>
+                              updateCharacters((items) =>
+                                items.map((c, idx) => (idx === charIdx ? { ...c, episodeUsage: e.target.value } : c))
+                              )
+                            }
+                            placeholder="出现场次/集数"
+                          />
+                          <textarea
+                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[80px]"
+                            value={char.bio}
+                            onChange={(e) =>
+                              updateCharacters((items) =>
+                                items.map((c, idx) => (idx === charIdx ? { ...c, bio: e.target.value } : c))
+                              )
+                            }
+                            placeholder="角色概述"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            onClick={() => updateCharacters((items) => moveItem(items, charIdx, charIdx - 1))}
+                            title="上移"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            onClick={() => updateCharacters((items) => moveItem(items, charIdx, charIdx + 1))}
+                            title="下移"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                            onClick={() => removeCharacter(charIdx)}
+                            title="删除"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-[11px] font-semibold text-[var(--text-secondary)]">形态列表</div>
+                          <button
+                            type="button"
+                            className="text-[11px] px-2 py-1 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            onClick={() =>
+                              updateCharacters((items) =>
+                                items.map((c, idx) =>
+                                  idx === charIdx
+                                    ? {
+                                        ...c,
+                                        forms: [
+                                          ...(c.forms || []),
+                                          { formName: "新形态", episodeRange: "", description: "", visualTags: "" },
+                                        ],
+                                      }
+                                    : c
+                                )
+                              )
+                            }
+                          >
+                            + 新形态
+                          </button>
+                        </div>
+                        {(char.forms || []).length === 0 ? (
+                          <div className="text-xs text-[var(--text-secondary)]">暂无形态</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {(char.forms || []).map((form, formIdx) => {
+                              const formRefId = `${char.id}|${form.formName}`;
+                              const formAssets = designAssetMap.get(`form|${formRefId}`) || [];
+                              return (
+                              <div key={`${char.id}-${formIdx}`} className="rounded-xl border border-[var(--border-subtle)]/60 bg-black/10 p-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <input
+                                    className="flex-1 text-xs bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
+                                    value={form.formName}
+                                    onChange={(e) => updateCharacterFormName(charIdx, formIdx, e.target.value)}
+                                    placeholder="形态名称"
+                                  />
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                      onClick={() =>
+                                        updateCharacters((items) =>
+                                          items.map((c, idx) =>
+                                            idx === charIdx
+                                              ? { ...c, forms: moveItem(c.forms || [], formIdx, formIdx - 1) }
+                                              : c
+                                          )
+                                        )
+                                      }
+                                      title="上移"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                      onClick={() =>
+                                        updateCharacters((items) =>
+                                          items.map((c, idx) =>
+                                            idx === charIdx
+                                              ? { ...c, forms: moveItem(c.forms || [], formIdx, formIdx + 1) }
+                                              : c
+                                          )
+                                        )
+                                      }
+                                      title="下移"
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                                      onClick={() => removeCharacterForm(charIdx, formIdx)}
+                                      title="删除"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                </div>
+                                <input
+                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                                  value={form.visualTags || ""}
+                                  onChange={(e) =>
+                                    updateCharacters((items) =>
+                                      items.map((c, idx) =>
+                                        idx === charIdx
+                                          ? {
+                                              ...c,
+                                              forms: (c.forms || []).map((f, i) =>
+                                                i === formIdx ? { ...f, visualTags: e.target.value } : f
+                                              ),
+                                            }
+                                          : c
+                                      )
+                                    )
+                                  }
+                                  placeholder="形态标签（逗号分隔）"
+                                />
+                                <textarea
+                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[70px]"
+                                  value={form.description}
+                                  onChange={(e) =>
+                                    updateCharacters((items) =>
+                                      items.map((c, idx) =>
+                                        idx === charIdx
+                                          ? {
+                                              ...c,
+                                              forms: (c.forms || []).map((f, i) =>
+                                                i === formIdx ? { ...f, description: e.target.value } : f
+                                              ),
+                                            }
+                                          : c
+                                      )
+                                    )
+                                  }
+                                  placeholder="形态概述"
+                                />
+                                <DesignAssetStrip
+                                  assets={formAssets}
+                                  onUpload={() =>
+                                    handleDesignUploadClick({
+                                      refId: formRefId,
+                                      category: 'form',
+                                      label: `${char.name} · ${form.formName}`,
+                                    })
+                                  }
+                                  onRemove={removeDesignAsset}
+                                />
+                              </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[var(--text-secondary)]">尚未生成集梗概</p>
+                <div className="text-xs text-[var(--text-secondary)]">暂无角色资产</div>
+              )}
+            </div>
+
+            <div className="p-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] shadow-[var(--shadow-soft)] space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <MapPin size={16} /> 场景资产编辑
+                </div>
+                <button
+                  type="button"
+                  onClick={addLocation}
+                  className="px-3 py-1.5 rounded-full border border-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-blue)] transition"
+                >
+                  + 新场景
+                </button>
+              </div>
+              {data.context.locations?.length ? (
+                <div className="space-y-4">
+                  {data.context.locations.map((loc, locIdx) => (
+                    <div key={loc.id} className="rounded-2xl border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/70 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-2">
+                          <input
+                            className="w-full text-sm font-semibold bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
+                            value={loc.name}
+                            onChange={(e) => updateLocationName(locIdx, e.target.value)}
+                            placeholder="场景名"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <select
+                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                              value={loc.type}
+                              onChange={(e) =>
+                                updateLocations((items) =>
+                                  items.map((l, idx) => (idx === locIdx ? { ...l, type: e.target.value as any } : l))
+                                )
+                              }
+                            >
+                              <option value="core">Core</option>
+                              <option value="secondary">Secondary</option>
+                            </select>
+                            <select
+                              className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                              value={loc.assetPriority || "medium"}
+                              onChange={(e) =>
+                                updateLocations((items) =>
+                                  items.map((l, idx) => (idx === locIdx ? { ...l, assetPriority: e.target.value as any } : l))
+                                )
+                              }
+                            >
+                              <option value="high">High</option>
+                              <option value="medium">Medium</option>
+                              <option value="low">Low</option>
+                            </select>
+                          </div>
+                          <input
+                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                            value={loc.episodeUsage || ""}
+                            onChange={(e) =>
+                              updateLocations((items) =>
+                                items.map((l, idx) => (idx === locIdx ? { ...l, episodeUsage: e.target.value } : l))
+                              )
+                            }
+                            placeholder="出现场次/集数"
+                          />
+                          <textarea
+                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[80px]"
+                            value={loc.description}
+                            onChange={(e) =>
+                              updateLocations((items) =>
+                                items.map((l, idx) => (idx === locIdx ? { ...l, description: e.target.value } : l))
+                              )
+                            }
+                            placeholder="场景概述"
+                          />
+                          <textarea
+                            className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[70px]"
+                            value={loc.visuals || ""}
+                            onChange={(e) =>
+                              updateLocations((items) =>
+                                items.map((l, idx) => (idx === locIdx ? { ...l, visuals: e.target.value } : l))
+                              )
+                            }
+                            placeholder="视觉氛围/材质/光感"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            onClick={() => updateLocations((items) => moveItem(items, locIdx, locIdx - 1))}
+                            title="上移"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            onClick={() => updateLocations((items) => moveItem(items, locIdx, locIdx + 1))}
+                            title="下移"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                            onClick={() => removeLocation(locIdx)}
+                            title="删除"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-[11px] font-semibold text-[var(--text-secondary)]">分区列表</div>
+                          <button
+                            type="button"
+                            className="text-[11px] px-2 py-1 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            onClick={() =>
+                              updateLocations((items) =>
+                                items.map((l, idx) =>
+                                  idx === locIdx
+                                    ? {
+                                        ...l,
+                                        zones: [
+                                          ...(l.zones || []),
+                                          { name: "新分区", kind: "unspecified", episodeRange: "", layoutNotes: "", keyProps: "", lightingWeather: "", materialPalette: "" },
+                                        ],
+                                      }
+                                    : l
+                                )
+                              )
+                            }
+                          >
+                            + 新分区
+                          </button>
+                        </div>
+                        {(loc.zones || []).length === 0 ? (
+                          <div className="text-xs text-[var(--text-secondary)]">暂无分区</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {(loc.zones || []).map((zone, zoneIdx) => {
+                              const zoneRefId = `${loc.id}|${zone.name}`;
+                              const zoneAssets = designAssetMap.get(`zone|${zoneRefId}`) || [];
+                              return (
+                              <div key={`${loc.id}-${zoneIdx}`} className="rounded-xl border border-[var(--border-subtle)]/60 bg-black/10 p-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <input
+                                    className="flex-1 text-xs bg-transparent border-b border-[var(--border-subtle)]/60 focus:border-[var(--accent-blue)] outline-none pb-1"
+                                    value={zone.name}
+                                    onChange={(e) => updateLocationZoneName(locIdx, zoneIdx, e.target.value)}
+                                    placeholder="分区名称"
+                                  />
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                      onClick={() =>
+                                        updateLocations((items) =>
+                                          items.map((l, idx) =>
+                                            idx === locIdx
+                                              ? { ...l, zones: moveItem(l.zones || [], zoneIdx, zoneIdx - 1) }
+                                              : l
+                                          )
+                                        )
+                                      }
+                                      title="上移"
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                      onClick={() =>
+                                        updateLocations((items) =>
+                                          items.map((l, idx) =>
+                                            idx === locIdx
+                                              ? { ...l, zones: moveItem(l.zones || [], zoneIdx, zoneIdx + 1) }
+                                              : l
+                                          )
+                                        )
+                                      }
+                                      title="下移"
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-red-400/40 text-red-400 hover:bg-red-500/10"
+                                      onClick={() => removeLocationZone(locIdx, zoneIdx)}
+                                      title="删除"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <select
+                                    className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                                    value={zone.kind || "unspecified"}
+                                    onChange={(e) =>
+                                      updateLocations((items) =>
+                                        items.map((l, idx) =>
+                                          idx === locIdx
+                                            ? {
+                                                ...l,
+                                                zones: (l.zones || []).map((z, i) =>
+                                                  i === zoneIdx ? { ...z, kind: e.target.value as any } : z
+                                                ),
+                                              }
+                                            : l
+                                        )
+                                      )
+                                    }
+                                  >
+                                    <option value="interior">Interior</option>
+                                    <option value="exterior">Exterior</option>
+                                    <option value="transition">Transition</option>
+                                    <option value="unspecified">Unspecified</option>
+                                  </select>
+                                  <input
+                                    className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                                    value={zone.episodeRange || ""}
+                                    onChange={(e) =>
+                                      updateLocations((items) =>
+                                        items.map((l, idx) =>
+                                          idx === locIdx
+                                            ? {
+                                                ...l,
+                                                zones: (l.zones || []).map((z, i) =>
+                                                  i === zoneIdx ? { ...z, episodeRange: e.target.value } : z
+                                                ),
+                                              }
+                                            : l
+                                        )
+                                      )
+                                    }
+                                    placeholder="出现集数"
+                                  />
+                                </div>
+                                <input
+                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                                  value={zone.keyProps || ""}
+                                  onChange={(e) =>
+                                    updateLocations((items) =>
+                                      items.map((l, idx) =>
+                                        idx === locIdx
+                                          ? {
+                                              ...l,
+                                              zones: (l.zones || []).map((z, i) =>
+                                                i === zoneIdx ? { ...z, keyProps: e.target.value } : z
+                                              ),
+                                            }
+                                          : l
+                                      )
+                                    )
+                                  }
+                                  placeholder="分区标签/关键元素"
+                                />
+                                <input
+                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                                  value={zone.lightingWeather || ""}
+                                  onChange={(e) =>
+                                    updateLocations((items) =>
+                                      items.map((l, idx) =>
+                                        idx === locIdx
+                                          ? {
+                                              ...l,
+                                              zones: (l.zones || []).map((z, i) =>
+                                                i === zoneIdx ? { ...z, lightingWeather: e.target.value } : z
+                                              ),
+                                            }
+                                          : l
+                                      )
+                                    )
+                                  }
+                                  placeholder="光照/天气"
+                                />
+                                <input
+                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none"
+                                  value={zone.materialPalette || ""}
+                                  onChange={(e) =>
+                                    updateLocations((items) =>
+                                      items.map((l, idx) =>
+                                        idx === locIdx
+                                          ? {
+                                              ...l,
+                                              zones: (l.zones || []).map((z, i) =>
+                                                i === zoneIdx ? { ...z, materialPalette: e.target.value } : z
+                                              ),
+                                            }
+                                          : l
+                                      )
+                                    )
+                                  }
+                                  placeholder="材质/色盘"
+                                />
+                                <textarea
+                                  className="text-xs bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded-lg px-3 py-2 outline-none min-h-[70px]"
+                                  value={zone.layoutNotes || ""}
+                                  onChange={(e) =>
+                                    updateLocations((items) =>
+                                      items.map((l, idx) =>
+                                        idx === locIdx
+                                          ? {
+                                              ...l,
+                                              zones: (l.zones || []).map((z, i) =>
+                                                i === zoneIdx ? { ...z, layoutNotes: e.target.value } : z
+                                              ),
+                                            }
+                                          : l
+                                      )
+                                    )
+                                  }
+                                  placeholder="分区概述"
+                                />
+                                <DesignAssetStrip
+                                  assets={zoneAssets}
+                                  onUpload={() =>
+                                    handleDesignUploadClick({
+                                      refId: zoneRefId,
+                                      category: 'zone',
+                                      label: `${loc.name} · ${zone.name}`,
+                                    })
+                                  }
+                                  onRemove={removeDesignAsset}
+                                />
+                              </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-[var(--text-secondary)]">暂无场景资产</div>
               )}
             </div>
           </div>
