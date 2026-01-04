@@ -327,7 +327,22 @@ const normalizeGroupBindings = (nodes: WorkflowNode[], edges: WorkflowEdge[]) =>
     }
   }
 
-  return changed ? nextNodes : nodes;
+  const orderedNodes = nextNodes.slice().sort((a, b) => {
+    const aGroup = a.type === "group";
+    const bGroup = b.type === "group";
+    if (aGroup !== bGroup) return aGroup ? -1 : 1;
+    return 0;
+  });
+
+  const orderChanged =
+    orderedNodes.length !== nodes.length ||
+    orderedNodes.some((node, index) => nodes[index]?.id !== node.id);
+
+  if (changed || orderChanged) {
+    return orderedNodes;
+  }
+
+  return nodes;
 };
 
 interface WorkflowStore {
