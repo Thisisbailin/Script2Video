@@ -24,7 +24,7 @@ export const useLabExecutor = () => {
     const contextParts: string[] = [];
 
     if (selection.script && labContext.rawScript) {
-      contextParts.push(`[Script]\n${labContext.rawScript.slice(0, 12000)}`);
+      contextParts.push(`[Script]\n${labContext.rawScript}`);
     }
     if (selection.globalStyleGuide && labContext.globalStyleGuide) {
       contextParts.push(`[Global Style Guide]\n${labContext.globalStyleGuide.slice(0, 6000)}`);
@@ -67,7 +67,7 @@ export const useLabExecutor = () => {
     }
 
     const contextBlock = contextParts.length ? `\n\nContext:\n${contextParts.join("\n\n")}` : "";
-    const prompt = `${text}${contextBlock}`;
+    const prompt = `${text}${contextBlock}\n\n请直接输出结果内容，不要回复“好的/明白”等礼貌性文字。`;
     const configToUse = {
       ...config.textConfig,
       model: data.model || config.textConfig.model,
@@ -75,7 +75,11 @@ export const useLabExecutor = () => {
 
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
-      const result = await GeminiService.generateFreeformText(configToUse, prompt);
+      const result = await GeminiService.generateFreeformText(
+        configToUse,
+        prompt,
+        "Role: Creative Assistant. Output only the requested content with no pleasantries or confirmations."
+      );
       store.updateNodeData(nodeId, { status: "complete", outputText: result.outputText, error: null });
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "LLM failed" });

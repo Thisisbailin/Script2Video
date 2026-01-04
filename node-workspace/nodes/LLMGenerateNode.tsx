@@ -4,6 +4,8 @@ import { LLMGenerateNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useConfig } from "../../hooks/useConfig";
 import { AVAILABLE_MODELS } from "../../constants";
+import { Loader2, Play } from "lucide-react";
+import { useLabExecutor } from "../store/useLabExecutor";
 
 type Props = {
   id: string;
@@ -13,7 +15,9 @@ type Props = {
 export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, labContext } = useWorkflowStore();
   const { config } = useConfig("script2video_config_v1");
+  const { runLLM } = useLabExecutor();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isLoading = data.status === "loading";
 
   const modelOptions = useMemo(() => {
     const options = AVAILABLE_MODELS.map((m) => ({ id: m.id, name: m.name }));
@@ -43,7 +47,8 @@ export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, 
   };
 
   useLayoutEffect(() => {
-    autoResize();
+    const frame = window.requestAnimationFrame(autoResize);
+    return () => window.cancelAnimationFrame(frame);
   }, [data.outputText]);
 
   return (
@@ -55,9 +60,23 @@ export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, 
       selected={selected}
     >
       <div className="space-y-3 flex-1 flex flex-col">
-        <div className="flex items-center gap-2">
-          <div className={`h-1.5 w-1.5 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-[var(--node-text-secondary)] opacity-20'}`} />
-          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status}</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className={`h-1.5 w-1.5 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-[var(--node-text-secondary)] opacity-20'}`} />
+            <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              runLLM(id);
+            }}
+            disabled={isLoading}
+            className={`node-button node-button-primary h-7 px-3 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 ${isLoading ? "opacity-70 cursor-not-allowed" : ""}`}
+          >
+            {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+            {isLoading ? "Generating" : "Run"}
+          </button>
         </div>
 
         <div className="space-y-2">
