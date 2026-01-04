@@ -12,9 +12,12 @@ export type ProjectMetaDelta = {
   soraGuide: string;
   dramaGuide: string;
   globalStyleGuide: string;
+  designAssets: ProjectData["designAssets"];
   context: {
     projectSummary: string;
     episodeSummaries: { episodeId: number; summary: string }[];
+    characters: Character[];
+    locations: Location[];
   };
   contextUsage: ProjectData["contextUsage"];
   phase1Usage: ProjectData["phase1Usage"];
@@ -54,9 +57,12 @@ const buildMeta = (data: ProjectData): ProjectMetaDelta => ({
   soraGuide: data.soraGuide,
   dramaGuide: data.dramaGuide,
   globalStyleGuide: data.globalStyleGuide,
+  designAssets: data.designAssets,
   context: {
     projectSummary: data.context.projectSummary,
-    episodeSummaries: data.context.episodeSummaries
+    episodeSummaries: data.context.episodeSummaries,
+    characters: data.context.characters,
+    locations: data.context.locations
   },
   contextUsage: data.contextUsage,
   phase1Usage: data.phase1Usage,

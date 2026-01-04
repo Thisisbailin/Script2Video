@@ -60,9 +60,12 @@ type ProjectMeta = {
   soraGuide: string;
   dramaGuide: string;
   globalStyleGuide: string;
+  designAssets: Array<Record<string, unknown>>;
   context: {
     projectSummary: string;
     episodeSummaries: { episodeId: number; summary: string }[];
+    characters: Array<Record<string, unknown>>;
+    locations: Array<Record<string, unknown>>;
   };
   contextUsage: Record<string, unknown>;
   phase1Usage: Record<string, unknown>;
@@ -79,9 +82,12 @@ const DEFAULT_META: ProjectMeta = {
   soraGuide: "",
   dramaGuide: "",
   globalStyleGuide: "",
+  designAssets: [],
   context: {
     projectSummary: "",
-    episodeSummaries: []
+    episodeSummaries: [],
+    characters: [],
+    locations: []
   },
   contextUsage: emptyTokenUsage,
   phase1Usage: {},
@@ -106,9 +112,12 @@ const buildMetaFromProject = (projectData: any): ProjectMeta => ({
   soraGuide: typeof projectData?.soraGuide === "string" ? projectData.soraGuide : "",
   dramaGuide: typeof projectData?.dramaGuide === "string" ? projectData.dramaGuide : "",
   globalStyleGuide: typeof projectData?.globalStyleGuide === "string" ? projectData.globalStyleGuide : "",
+  designAssets: Array.isArray(projectData?.designAssets) ? projectData.designAssets : [],
   context: {
     projectSummary: typeof projectData?.context?.projectSummary === "string" ? projectData.context.projectSummary : "",
-    episodeSummaries: Array.isArray(projectData?.context?.episodeSummaries) ? projectData.context.episodeSummaries : []
+    episodeSummaries: Array.isArray(projectData?.context?.episodeSummaries) ? projectData.context.episodeSummaries : [],
+    characters: Array.isArray(projectData?.context?.characters) ? projectData.context.characters : [],
+    locations: Array.isArray(projectData?.context?.locations) ? projectData.context.locations : []
   },
   contextUsage: projectData?.contextUsage || emptyTokenUsage,
   phase1Usage: projectData?.phase1Usage || {},
@@ -330,6 +339,9 @@ const loadCurrentProjectSnapshot = async (env: Env, userId: string) => {
     return { ...data, id: row.loc_id };
   });
 
+  const metaCharacters = Array.isArray(meta.context?.characters) ? meta.context.characters : [];
+  const metaLocations = Array.isArray(meta.context?.locations) ? meta.context.locations : [];
+
   const projectData = {
     fileName: meta.fileName || "",
     rawScript: meta.rawScript || "",
@@ -337,13 +349,14 @@ const loadCurrentProjectSnapshot = async (env: Env, userId: string) => {
     context: {
       projectSummary: meta.context?.projectSummary || "",
       episodeSummaries: meta.context?.episodeSummaries || [],
-      characters,
-      locations
+      characters: characters.length > 0 ? characters : metaCharacters,
+      locations: locations.length > 0 ? locations : metaLocations
     },
     shotGuide: meta.shotGuide || "",
     soraGuide: meta.soraGuide || "",
     dramaGuide: meta.dramaGuide || "",
     globalStyleGuide: meta.globalStyleGuide || "",
+    designAssets: Array.isArray(meta.designAssets) ? meta.designAssets : [],
     contextUsage: meta.contextUsage || emptyTokenUsage,
     phase1Usage: meta.phase1Usage || {},
     phase4Usage: meta.phase4Usage || emptyTokenUsage,

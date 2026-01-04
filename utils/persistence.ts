@@ -10,7 +10,8 @@ export const dropFileReplacer = (_key: string, value: any) => {
 export const isProjectEmpty = (data: ProjectData) => {
   const hasEps = Array.isArray(data.episodes) && data.episodes.length > 0;
   const hasScript = !!(data.rawScript && data.rawScript.trim().length > 0);
-  return !hasEps && !hasScript;
+  const hasDesignAssets = Array.isArray(data.designAssets) && data.designAssets.length > 0;
+  return !hasEps && !hasScript && !hasDesignAssets;
 };
 
 export const backupData = (key: string, data: ProjectData) => {

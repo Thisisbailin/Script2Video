@@ -21,6 +21,7 @@ const PROJECT_PATCH_KEYS = new Set([
   "soraGuide",
   "dramaGuide",
   "globalStyleGuide",
+  "designAssets",
   "stats"
 ]);
 
@@ -87,6 +88,9 @@ export const validateProjectDelta = (delta: unknown): ValidationResult => {
         return { ok: false, error: `delta.meta.${key} is not a string` };
       }
     }
+    if (meta.designAssets !== undefined && !Array.isArray(meta.designAssets)) {
+      return { ok: false, error: "delta.meta.designAssets is not an array" };
+    }
     if (meta.context !== undefined) {
       if (!isRecord(meta.context)) return { ok: false, error: "delta.meta.context is not an object" };
       const context = meta.context as Record<string, unknown>;
@@ -95,6 +99,12 @@ export const validateProjectDelta = (delta: unknown): ValidationResult => {
       }
       if (context.episodeSummaries !== undefined) {
         if (!Array.isArray(context.episodeSummaries)) return { ok: false, error: "delta.meta.context.episodeSummaries is not an array" };
+      }
+      if (context.characters !== undefined) {
+        if (!Array.isArray(context.characters)) return { ok: false, error: "delta.meta.context.characters is not an array" };
+      }
+      if (context.locations !== undefined) {
+        if (!Array.isArray(context.locations)) return { ok: false, error: "delta.meta.context.locations is not an array" };
       }
     }
   }
