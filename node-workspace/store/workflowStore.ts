@@ -118,11 +118,20 @@ const normalizeGroupBindings = (nodes: WorkflowNode[], edges: WorkflowEdge[]) =>
   };
 
   const pickPrimaryGroup = (groupIds: Set<string>) => {
+    const selectedGroups = Array.from(groupIds).filter((id) => nodeMap.get(id)?.selected);
+    if (selectedGroups.length > 0) {
+      return selectedGroups.reduce((winner, id) => {
+        const winnerOrder = groupOrder.get(winner) ?? -1;
+        const currentOrder = groupOrder.get(id) ?? -1;
+        return currentOrder > winnerOrder ? id : winner;
+      }, selectedGroups[0]);
+    }
+
     let winner: string | null = null;
-    let bestOrder = Number.MAX_SAFE_INTEGER;
+    let bestOrder = -1;
     groupIds.forEach((id) => {
-      const order = groupOrder.get(id) ?? Number.MAX_SAFE_INTEGER;
-      if (order < bestOrder) {
+      const order = groupOrder.get(id) ?? -1;
+      if (order > bestOrder) {
         bestOrder = order;
         winner = id;
       }
@@ -165,88 +174,95 @@ const normalizeGroupBindings = (nodes: WorkflowNode[], edges: WorkflowEdge[]) =>
     const primaryGroup = nodeMap.get(primaryGroupId);
     if (!primaryGroup) return;
 
-    const primaryChildren = nextNodes
-      .filter((child) => child.parentId === primaryGroupId && child.type !== "group")
-      .map((child) => child.id);
-    const affectedIds = new Set([...primaryChildren, ...componentIds]);
-    const absPositions = new Map<string, XYPosition>();
-
-    affectedIds.forEach((id) => {
+    const needsMerge = componentIds.some((id) => {
       const target = nodeMap.get(id);
-      if (!target) return;
-      absPositions.set(id, getAbsolutePosition(target, nodeMap));
+      return !target || target.parentId !== primaryGroupId;
     });
 
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    componentIds.forEach((id) => {
-      const target = nodeMap.get(id);
-      if (!target) return;
-      const abs = absPositions.get(id) ?? getAbsolutePosition(target, nodeMap);
-      const size = getNodeDimensions(target);
-      minX = Math.min(minX, abs.x);
-      minY = Math.min(minY, abs.y);
-      maxX = Math.max(maxX, abs.x + size.width);
-      maxY = Math.max(maxY, abs.y + size.height);
-    });
+    if (needsMerge) {
+      const primaryChildren = nextNodes
+        .filter((child) => child.parentId === primaryGroupId && child.type !== "group")
+        .map((child) => child.id);
+      const affectedIds = new Set([...primaryChildren, ...componentIds]);
+      const absPositions = new Map<string, XYPosition>();
 
-    const paddingX = 80;
-    const paddingY = 100;
-    const componentBounds = {
-      x: minX - paddingX,
-      y: minY - paddingY,
-      width: maxX - minX + paddingX * 2,
-      height: maxY - minY + paddingY * 2,
-    };
-    const groupAbs = getAbsolutePosition(primaryGroup, nodeMap);
-    const groupSize = getNodeDimensions(primaryGroup);
-    const groupBounds = {
-      x: groupAbs.x,
-      y: groupAbs.y,
-      width: groupSize.width,
-      height: groupSize.height,
-    };
-    const nextX = Math.min(groupBounds.x, componentBounds.x);
-    const nextY = Math.min(groupBounds.y, componentBounds.y);
-    const nextMaxX = Math.max(groupBounds.x + groupBounds.width, componentBounds.x + componentBounds.width);
-    const nextMaxY = Math.max(groupBounds.y + groupBounds.height, componentBounds.y + componentBounds.height);
-    const nextBounds = {
-      x: nextX,
-      y: nextY,
-      width: nextMaxX - nextX,
-      height: nextMaxY - nextY,
-    };
-    const nextGroupPosition = { x: nextBounds.x, y: nextBounds.y };
+      affectedIds.forEach((id) => {
+        const target = nodeMap.get(id);
+        if (!target) return;
+        absPositions.set(id, getAbsolutePosition(target, nodeMap));
+      });
 
-    if (
-      nextBounds.x !== groupBounds.x ||
-      nextBounds.y !== groupBounds.y ||
-      nextBounds.width !== groupBounds.width ||
-      nextBounds.height !== groupBounds.height
-    ) {
-      updateNode(primaryGroupId, {
-        position: nextGroupPosition,
-        style: { ...(primaryGroup.style || {}), width: nextBounds.width, height: nextBounds.height },
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      componentIds.forEach((id) => {
+        const target = nodeMap.get(id);
+        if (!target) return;
+        const abs = absPositions.get(id) ?? getAbsolutePosition(target, nodeMap);
+        const size = getNodeDimensions(target);
+        minX = Math.min(minX, abs.x);
+        minY = Math.min(minY, abs.y);
+        maxX = Math.max(maxX, abs.x + size.width);
+        maxY = Math.max(maxY, abs.y + size.height);
+      });
+
+      const paddingX = 80;
+      const paddingY = 100;
+      const componentBounds = {
+        x: minX - paddingX,
+        y: minY - paddingY,
+        width: maxX - minX + paddingX * 2,
+        height: maxY - minY + paddingY * 2,
+      };
+      const groupAbs = getAbsolutePosition(primaryGroup, nodeMap);
+      const groupSize = getNodeDimensions(primaryGroup);
+      const groupBounds = {
+        x: groupAbs.x,
+        y: groupAbs.y,
+        width: groupSize.width,
+        height: groupSize.height,
+      };
+      const nextX = Math.min(groupBounds.x, componentBounds.x);
+      const nextY = Math.min(groupBounds.y, componentBounds.y);
+      const nextMaxX = Math.max(groupBounds.x + groupBounds.width, componentBounds.x + componentBounds.width);
+      const nextMaxY = Math.max(groupBounds.y + groupBounds.height, componentBounds.y + componentBounds.height);
+      const nextBounds = {
+        x: nextX,
+        y: nextY,
+        width: nextMaxX - nextX,
+        height: nextMaxY - nextY,
+      };
+      const nextGroupPosition = { x: nextBounds.x, y: nextBounds.y };
+
+      if (
+        nextBounds.x !== groupBounds.x ||
+        nextBounds.y !== groupBounds.y ||
+        nextBounds.width !== groupBounds.width ||
+        nextBounds.height !== groupBounds.height
+      ) {
+        updateNode(primaryGroupId, {
+          position: nextGroupPosition,
+          style: { ...(primaryGroup.style || {}), width: nextBounds.width, height: nextBounds.height },
+        });
+      }
+
+      componentIds.forEach((id) => {
+        const target = nodeMap.get(id);
+        if (!target || target.parentId === primaryGroupId) return;
+        updateNode(id, { parentId: primaryGroupId });
+      });
+
+      affectedIds.forEach((id) => {
+        const abs = absPositions.get(id);
+        if (!abs) return;
+        updateNode(id, { position: { x: abs.x - nextGroupPosition.x, y: abs.y - nextGroupPosition.y } });
+      });
+
+      componentGroupIds.forEach((groupId) => {
+        if (groupId !== primaryGroupId) mergedGroupIds.add(groupId);
       });
     }
-
-    componentIds.forEach((id) => {
-      const target = nodeMap.get(id);
-      if (!target || target.parentId === primaryGroupId) return;
-      updateNode(id, { parentId: primaryGroupId });
-    });
-
-    affectedIds.forEach((id) => {
-      const abs = absPositions.get(id);
-      if (!abs) return;
-      updateNode(id, { position: { x: abs.x - nextGroupPosition.x, y: abs.y - nextGroupPosition.y } });
-    });
-
-    componentGroupIds.forEach((groupId) => {
-      if (groupId !== primaryGroupId) mergedGroupIds.add(groupId);
-    });
   });
 
   const groupNodes = nextNodes.filter((node) => node.type === "group");
