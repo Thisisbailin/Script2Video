@@ -9,10 +9,8 @@ export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
     return (
         <div
-            className={`h-full w-full rounded-[32px] transition-all duration-300 overflow-visible relative group/node ${selected
-                ? "bg-[var(--group-bg-selected)] shadow-[0_24px_60px_rgba(0,0,0,0.25)]"
-                : "bg-[var(--group-bg)]"
-                }`}
+            className="group-surface h-full w-full rounded-[32px] transition-all duration-300 overflow-visible relative group/node"
+            data-selected={selected ? "true" : "false"}
         >
             <NodeResizer
                 color="var(--node-accent)"

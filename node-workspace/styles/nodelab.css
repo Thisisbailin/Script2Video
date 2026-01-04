@@ -10,8 +10,12 @@
   --node-surface: rgba(255, 255, 255, 0.05);
   --node-surface-strong: rgba(255, 255, 255, 0.08);
   --node-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  --group-bg: rgba(11, 13, 16, 0.45);
-  --group-bg-selected: rgba(15, 19, 24, 0.65);
+  --group-bg: rgba(13, 17, 24, 0.62);
+  --group-bg-selected: rgba(18, 24, 34, 0.78);
+  --group-border: rgba(255, 255, 255, 0.12);
+  --group-border-strong: rgba(255, 255, 255, 0.22);
+  --group-highlight: rgba(255, 255, 255, 0.08);
+  --group-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
 }
 
 .theme-light {
@@ -26,8 +30,12 @@
   --node-surface: rgba(15, 23, 42, 0.04);
   --node-surface-strong: rgba(15, 23, 42, 0.08);
   --node-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-  --group-bg: rgba(15, 23, 42, 0.03);
-  --group-bg-selected: rgba(15, 23, 42, 0.06);
+  --group-bg: rgba(15, 23, 42, 0.06);
+  --group-bg-selected: rgba(15, 23, 42, 0.1);
+  --group-border: rgba(15, 23, 42, 0.14);
+  --group-border-strong: rgba(15, 23, 42, 0.24);
+  --group-highlight: rgba(255, 255, 255, 0.8);
+  --group-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
 }
 
 /* Base canvas */
@@ -56,6 +64,30 @@
 
 .react-flow__node-group > div {
   border-radius: 32px;
+}
+
+.group-surface {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), transparent), var(--group-bg);
+  border: 1px solid var(--group-border);
+  box-shadow: var(--group-shadow);
+  backdrop-filter: blur(10px);
+  position: relative;
+}
+
+.group-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 32px;
+  border: 1px solid transparent;
+  box-shadow: inset 0 1px 0 var(--group-highlight);
+  pointer-events: none;
+}
+
+.group-surface[data-selected="true"] {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent), var(--group-bg-selected);
+  border-color: var(--group-border-strong);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(59, 130, 246, 0.12);
 }
 
 .react-flow__node:not(.react-flow__node-group) {
