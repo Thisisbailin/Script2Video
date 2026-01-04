@@ -305,6 +305,27 @@ export const generateProjectSummary = async (
   };
 };
 
+export const generateFreeformText = async (
+  config: TextServiceConfig,
+  prompt: string,
+  systemInstruction = "Role: Creative Assistant."
+): Promise<{ outputText: string; usage: TokenUsage }> => {
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      outputText: { type: Type.STRING, description: "Generated text response in Chinese" }
+    },
+    required: ["outputText"]
+  };
+
+  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = JSON.parse(text || "{}");
+  return {
+    outputText: parsed.outputText || "",
+    usage
+  };
+};
+
 // 1.2 Single Episode Summary
 export const generateEpisodeSummary = async (
   config: TextServiceConfig,

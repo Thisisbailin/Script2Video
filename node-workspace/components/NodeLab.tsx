@@ -84,6 +84,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     saveWorkflow,
     loadWorkflow,
     setGlobalStyleGuide,
+    setLabContext,
     addToGlobalHistory,
     globalAssetHistory,
   } = useWorkflowStore();
@@ -120,6 +121,17 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       setGlobalStyleGuide(projectData.globalStyleGuide);
     }
   }, [projectData.globalStyleGuide, setGlobalStyleGuide]);
+
+  useEffect(() => {
+    setLabContext({
+      rawScript: projectData.rawScript || "",
+      globalStyleGuide: projectData.globalStyleGuide || "",
+      shotGuide: projectData.shotGuide || "",
+      soraGuide: projectData.soraGuide || "",
+      dramaGuide: projectData.dramaGuide || "",
+      context: projectData.context,
+    });
+  }, [projectData, setLabContext]);
 
   useEffect(() => {
     const videoNodes = nodes.filter((node) => node.type === "videoGen");

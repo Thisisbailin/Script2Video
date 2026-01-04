@@ -25,6 +25,7 @@ import {
   NoteNodeData,
   ShotNodeData,
 } from "../types";
+import { ProjectContext } from "../../types";
 
 export type EdgeStyle = "angular" | "curved";
 
@@ -46,6 +47,15 @@ export type GlobalAssetHistoryItem = {
   sourceId?: string;
 };
 
+type LabContextSnapshot = {
+  rawScript: string;
+  globalStyleGuide: string;
+  shotGuide: string;
+  soraGuide: string;
+  dramaGuide: string;
+  context: ProjectContext;
+};
+
 interface WorkflowStore {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -57,6 +67,8 @@ interface WorkflowStore {
   availableVideoModels: string[];
   setAvailableImageModels: (models: string[]) => void;
   setAvailableVideoModels: (models: string[]) => void;
+  labContext: LabContextSnapshot;
+  setLabContext: (ctx: LabContextSnapshot) => void;
 
   // Settings
   setEdgeStyle: (style: EdgeStyle) => void;
@@ -144,6 +156,17 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         maxTokens: 1024,
         status: "idle",
         error: null,
+        contextSelection: {
+          script: false,
+          globalStyleGuide: false,
+          shotGuide: false,
+          soraGuide: false,
+          dramaGuide: false,
+          projectSummary: false,
+          episodeSummaries: false,
+          characters: false,
+          locations: false,
+        },
       } as LLMGenerateNodeData;
     case "videoGen":
       return {
@@ -195,9 +218,23 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   globalStyleGuide: undefined,
   availableImageModels: [],
   availableVideoModels: [],
+  labContext: {
+    rawScript: "",
+    globalStyleGuide: "",
+    shotGuide: "",
+    soraGuide: "",
+    dramaGuide: "",
+    context: {
+      projectSummary: "",
+      episodeSummaries: [],
+      characters: [],
+      locations: [],
+    },
+  },
 
   setAvailableImageModels: (models) => set({ availableImageModels: models }),
   setAvailableVideoModels: (models) => set({ availableVideoModels: models }),
+  setLabContext: (ctx) => set({ labContext: ctx }),
 
   setActiveView: (view) => set({ activeView: view }),
 

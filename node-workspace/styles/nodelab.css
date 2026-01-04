@@ -90,6 +90,112 @@
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(59, 130, 246, 0.12);
 }
 
+/* Connection drop menu */
+.connection-menu {
+  background: var(--node-bg);
+  border: 1px solid var(--node-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.theme-light .connection-menu {
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.connection-menu-header {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--node-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.connection-menu-title {
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--node-text-secondary);
+  font-weight: 700;
+}
+
+.connection-menu-subtitle {
+  font-size: 11px;
+  color: var(--node-text-secondary);
+  margin-top: 4px;
+}
+
+.connection-menu-list {
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.connection-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+  color: var(--node-text-primary);
+  text-align: left;
+}
+
+.connection-menu-item:hover {
+  border-color: var(--node-border-strong);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.connection-menu-icon {
+  height: 32px;
+  width: 32px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--node-text-primary);
+}
+
+.connection-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.connection-menu-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.connection-menu-hint {
+  font-size: 10px;
+  color: var(--node-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.connection-menu-cancel {
+  width: 100%;
+  padding: 10px 12px;
+  border-top: 1px solid var(--node-border);
+  font-size: 11px;
+  color: var(--node-text-secondary);
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.connection-menu-cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--node-text-primary);
+}
+
 .react-flow__node:not(.react-flow__node-group) {
   z-index: 2 !important;
 }

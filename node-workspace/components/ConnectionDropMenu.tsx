@@ -1,4 +1,5 @@
 import React from "react";
+import { MessageSquare, Image as ImageIcon, Bot, Sparkles, Video, SquareStack, PenTool } from "lucide-react";
 import { NodeType } from "../types";
 
 type Props = {
@@ -8,40 +9,46 @@ type Props = {
 };
 
 export const ConnectionDropMenu: React.FC<Props> = ({ position, onCreate, onClose }) => {
-  const options: { label: string; type: NodeType }[] = [
-    { label: "Prompt", type: "prompt" },
-    { label: "Image Input", type: "imageInput" },
-    { label: "LLM", type: "llmGenerate" },
-    { label: "Image Gen", type: "imageGen" },
-    { label: "Video Gen", type: "videoGen" },
-    { label: "Output", type: "output" },
-    { label: "Annotation", type: "annotation" },
+  const options: { label: string; hint: string; type: NodeType; Icon: React.ComponentType<{ size?: number }> }[] = [
+    { label: "Text", hint: "Text or notes", type: "text", Icon: MessageSquare },
+    { label: "Image Input", hint: "Upload an image", type: "imageInput", Icon: ImageIcon },
+    { label: "LLM", hint: "Generate or refine text", type: "llmGenerate", Icon: Bot },
+    { label: "Image Gen", hint: "Create images", type: "imageGen", Icon: Sparkles },
+    { label: "Video Gen", hint: "Generate clips", type: "videoGen", Icon: Video },
+    { label: "Output", hint: "Final outputs", type: "output", Icon: SquareStack },
+    { label: "Annotation", hint: "Markup image", type: "annotation", Icon: PenTool },
   ];
 
   return (
     <div
-      className="absolute z-20 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded shadow-lg w-48"
+      className="connection-menu absolute z-20 w-64"
       style={{ left: position.x, top: position.y }}
     >
-      <div className="px-3 py-2 text-xs text-gray-500">Create node</div>
-      <div className="divide-y divide-gray-200 dark:divide-gray-800">
+      <div className="connection-menu-header">
+        <div className="connection-menu-title">Create Node</div>
+        <div className="connection-menu-subtitle">Quick add from the flow</div>
+      </div>
+      <div className="connection-menu-list">
         {options.map((opt) => (
           <button
             key={opt.type}
-            className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+            className="connection-menu-item"
             onClick={() => {
               onCreate(opt.type);
               onClose();
             }}
           >
-            {opt.label}
+            <div className="connection-menu-icon">
+              <opt.Icon size={16} />
+            </div>
+            <div className="connection-menu-text">
+              <div className="connection-menu-label">{opt.label}</div>
+              <div className="connection-menu-hint">{opt.hint}</div>
+            </div>
           </button>
         ))}
       </div>
-      <button
-        onClick={onClose}
-        className="w-full text-center text-xs text-gray-500 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
-      >
+      <button onClick={onClose} className="connection-menu-cancel">
         Cancel
       </button>
     </div>

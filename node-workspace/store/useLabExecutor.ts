@@ -18,10 +18,65 @@ export const useLabExecutor = () => {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input" });
       return;
     }
+
+    const selection = data.contextSelection || {};
+    const labContext = store.labContext;
+    const contextParts: string[] = [];
+
+    if (selection.script && labContext.rawScript) {
+      contextParts.push(`[Script]\n${labContext.rawScript.slice(0, 12000)}`);
+    }
+    if (selection.globalStyleGuide && labContext.globalStyleGuide) {
+      contextParts.push(`[Global Style Guide]\n${labContext.globalStyleGuide.slice(0, 6000)}`);
+    }
+    if (selection.shotGuide && labContext.shotGuide) {
+      contextParts.push(`[Shot Guide]\n${labContext.shotGuide.slice(0, 6000)}`);
+    }
+    if (selection.soraGuide && labContext.soraGuide) {
+      contextParts.push(`[Sora Guide]\n${labContext.soraGuide.slice(0, 6000)}`);
+    }
+    if (selection.dramaGuide && labContext.dramaGuide) {
+      contextParts.push(`[Drama Guide]\n${labContext.dramaGuide.slice(0, 6000)}`);
+    }
+    if (selection.projectSummary && labContext.context.projectSummary) {
+      contextParts.push(`[Project Summary]\n${labContext.context.projectSummary.slice(0, 6000)}`);
+    }
+    if (selection.episodeSummaries && labContext.context.episodeSummaries.length) {
+      const summaries = labContext.context.episodeSummaries
+        .slice(0, 10)
+        .map((s) => `- Ep ${s.episodeId}: ${s.summary}`)
+        .join("\n");
+      contextParts.push(`[Episode Summaries]\n${summaries}`);
+    }
+    if (selection.characters && labContext.context.characters.length) {
+      const characters = labContext.context.characters
+        .slice(0, 12)
+        .map((c) => {
+          const forms = c.forms?.slice(0, 4).map((f) => f.formName).join(", ");
+          return `- ${c.name} (${c.role})${forms ? ` | Forms: ${forms}` : ""}`;
+        })
+        .join("\n");
+      contextParts.push(`[Characters]\n${characters}`);
+    }
+    if (selection.locations && labContext.context.locations.length) {
+      const locations = labContext.context.locations
+        .slice(0, 12)
+        .map((l) => `- ${l.name} (${l.type})`)
+        .join("\n");
+      contextParts.push(`[Locations]\n${locations}`);
+    }
+
+    const contextBlock = contextParts.length ? `\n\nContext:\n${contextParts.join("\n\n")}` : "";
+    const prompt = `${text}${contextBlock}`;
+    const configToUse = {
+      ...config.textConfig,
+      model: data.model || config.textConfig.model,
+    };
+
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
-      const result = await GeminiService.generateProjectSummary(config.textConfig, text);
-      store.updateNodeData(nodeId, { status: "complete", outputText: result.projectSummary, error: null });
+      const result = await GeminiService.generateFreeformText(configToUse, prompt);
+      store.updateNodeData(nodeId, { status: "complete", outputText: result.outputText, error: null });
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "LLM failed" });
     }

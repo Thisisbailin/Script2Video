@@ -121,6 +121,17 @@ export interface LLMGenerateNodeData extends BaseNodeData {
   inputPrompt: string | null;
   outputText: string | null;
   model?: string;
+  contextSelection?: {
+    script?: boolean;
+    globalStyleGuide?: boolean;
+    shotGuide?: boolean;
+    soraGuide?: boolean;
+    dramaGuide?: boolean;
+    projectSummary?: boolean;
+    episodeSummaries?: boolean;
+    characters?: boolean;
+    locations?: boolean;
+  };
   temperature: number;
   maxTokens: number;
   status: NodeStatus;
