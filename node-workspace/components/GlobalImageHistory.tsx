@@ -9,7 +9,7 @@ const formatTime = (timestamp: number) =>
 
 export const GlobalImageHistory: React.FC = () => {
   const { globalAssetHistory, removeGlobalHistoryItem, clearGlobalHistory } = useWorkflowStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
 
   const counts = useMemo(() => {
@@ -22,8 +22,6 @@ export const GlobalImageHistory: React.FC = () => {
     if (filter === "all") return globalAssetHistory;
     return globalAssetHistory.filter((item) => item.type === filter);
   }, [filter, globalAssetHistory]);
-
-  if (globalAssetHistory.length === 0) return null;
 
   if (collapsed) {
     return (

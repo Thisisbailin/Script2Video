@@ -55,7 +55,7 @@
 }
 
 .react-flow__node-group {
-  z-index: 1 !important;
+  z-index: 0 !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -198,6 +198,10 @@
 
 .react-flow__node:not(.react-flow__node-group) {
   z-index: 2 !important;
+}
+
+.react-flow__edges {
+  z-index: 1 !important;
 }
 
 .react-flow__panel,

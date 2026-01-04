@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect } from "react";
+import React, { useRef, useLayoutEffect, useState, useEffect } from "react";
 import { BaseNode } from "./BaseNode";
 import { TextNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -12,6 +12,8 @@ type Props = {
 export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, selected }) => {
     const { updateNodeData } = useWorkflowStore();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const isComposingRef = useRef(false);
+    const [draftText, setDraftText] = useState(data.text || "");
 
     const autoResize = () => {
         if (textareaRef.current) {
@@ -23,6 +25,11 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     useLayoutEffect(() => {
         const id = window.requestAnimationFrame(autoResize);
         return () => window.cancelAnimationFrame(id);
+    }, [draftText]);
+
+    useEffect(() => {
+        if (isComposingRef.current) return;
+        setDraftText(data.text || "");
     }, [data.text]);
 
     const handleAddTag = () => {
@@ -98,10 +105,27 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                 <textarea
                     ref={textareaRef}
                     className="node-textarea w-full text-[13px] leading-relaxed p-4 outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[60px] font-medium"
-                    value={data.text}
+                    value={draftText}
                     onChange={(e) => {
-                        updateNodeData(id, { text: e.target.value });
-                        autoResize();
+                        const value = e.target.value;
+                        setDraftText(value);
+                        if (!isComposingRef.current) {
+                            updateNodeData(id, { text: value });
+                        }
+                    }}
+                    onCompositionStart={() => {
+                        isComposingRef.current = true;
+                    }}
+                    onCompositionEnd={(e) => {
+                        isComposingRef.current = false;
+                        const value = e.currentTarget.value;
+                        setDraftText(value);
+                        updateNodeData(id, { text: value });
+                    }}
+                    onBlur={() => {
+                        if (!isComposingRef.current && draftText !== data.text) {
+                            updateNodeData(id, { text: draftText });
+                        }
                     }}
                     onKeyDown={(e) => {
                         e.stopPropagation();

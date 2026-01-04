@@ -64,6 +64,256 @@ const persistTemplates = (templates: WorkflowTemplate[]) => {
   }
 };
 
+const getNodeDimensions = (node: WorkflowNode) => {
+  const styleWidth = typeof node.style?.width === "number" ? node.style.width : undefined;
+  const styleHeight = typeof node.style?.height === "number" ? node.style.height : undefined;
+  const measuredWidth = typeof node.measured?.width === "number" ? node.measured.width : undefined;
+  const measuredHeight = typeof node.measured?.height === "number" ? node.measured.height : undefined;
+  return {
+    width: measuredWidth ?? styleWidth ?? 280,
+    height: measuredHeight ?? styleHeight ?? 200,
+  };
+};
+
+const getAbsolutePosition = (node: WorkflowNode, nodeMap: Map<string, WorkflowNode>) => {
+  let x = node.position.x;
+  let y = node.position.y;
+  let parentId = node.parentId;
+  while (parentId) {
+    const parent = nodeMap.get(parentId);
+    if (!parent) break;
+    x += parent.position.x;
+    y += parent.position.y;
+    parentId = parent.parentId;
+  }
+  return { x, y };
+};
+
+const normalizeGroupBindings = (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const adjacency = new Map<string, Set<string>>();
+  edges.forEach((edge) => {
+    if (!adjacency.has(edge.source)) adjacency.set(edge.source, new Set());
+    if (!adjacency.has(edge.target)) adjacency.set(edge.target, new Set());
+    adjacency.get(edge.source)!.add(edge.target);
+    adjacency.get(edge.target)!.add(edge.source);
+  });
+
+  const groupOrder = new Map<string, number>();
+  nodes.forEach((node, index) => {
+    if (node.type === "group") groupOrder.set(node.id, index);
+  });
+  const groupIdSet = new Set(Array.from(groupOrder.keys()));
+
+  let changed = false;
+  let nextNodes = nodes.slice();
+
+  const updateNode = (nodeId: string, updates: Partial<WorkflowNode>) => {
+    const index = nextNodes.findIndex((node) => node.id === nodeId);
+    if (index === -1) return;
+    const updated = { ...nextNodes[index], ...updates };
+    nextNodes[index] = updated;
+    nodeMap.set(nodeId, updated);
+    changed = true;
+  };
+
+  const pickPrimaryGroup = (groupIds: Set<string>) => {
+    let winner: string | null = null;
+    let bestOrder = Number.MAX_SAFE_INTEGER;
+    groupIds.forEach((id) => {
+      const order = groupOrder.get(id) ?? Number.MAX_SAFE_INTEGER;
+      if (order < bestOrder) {
+        bestOrder = order;
+        winner = id;
+      }
+    });
+    return winner;
+  };
+
+  const visited = new Set<string>();
+  const mergedGroupIds = new Set<string>();
+  const nonGroupNodes = nodes.filter((node) => node.type !== "group");
+
+  nonGroupNodes.forEach((node) => {
+    if (visited.has(node.id)) return;
+    const queue = [node.id];
+    visited.add(node.id);
+    const componentIds: string[] = [];
+    const componentGroupIds = new Set<string>();
+
+    while (queue.length) {
+      const currentId = queue.shift()!;
+      componentIds.push(currentId);
+      const currentNode = nodeMap.get(currentId);
+      if (currentNode?.parentId && groupIdSet.has(currentNode.parentId)) {
+        componentGroupIds.add(currentNode.parentId);
+      }
+      const neighbors = adjacency.get(currentId);
+      if (!neighbors) continue;
+      neighbors.forEach((neighborId) => {
+        if (visited.has(neighborId)) return;
+        const neighbor = nodeMap.get(neighborId);
+        if (!neighbor || neighbor.type === "group") return;
+        visited.add(neighborId);
+        queue.push(neighborId);
+      });
+    }
+
+    if (componentGroupIds.size === 0) return;
+    const primaryGroupId = pickPrimaryGroup(componentGroupIds);
+    if (!primaryGroupId) return;
+    const primaryGroup = nodeMap.get(primaryGroupId);
+    if (!primaryGroup) return;
+
+    const primaryChildren = nextNodes
+      .filter((child) => child.parentId === primaryGroupId && child.type !== "group")
+      .map((child) => child.id);
+    const affectedIds = new Set([...primaryChildren, ...componentIds]);
+    const absPositions = new Map<string, XYPosition>();
+
+    affectedIds.forEach((id) => {
+      const target = nodeMap.get(id);
+      if (!target) return;
+      absPositions.set(id, getAbsolutePosition(target, nodeMap));
+    });
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    componentIds.forEach((id) => {
+      const target = nodeMap.get(id);
+      if (!target) return;
+      const abs = absPositions.get(id) ?? getAbsolutePosition(target, nodeMap);
+      const size = getNodeDimensions(target);
+      minX = Math.min(minX, abs.x);
+      minY = Math.min(minY, abs.y);
+      maxX = Math.max(maxX, abs.x + size.width);
+      maxY = Math.max(maxY, abs.y + size.height);
+    });
+
+    const paddingX = 80;
+    const paddingY = 100;
+    const componentBounds = {
+      x: minX - paddingX,
+      y: minY - paddingY,
+      width: maxX - minX + paddingX * 2,
+      height: maxY - minY + paddingY * 2,
+    };
+    const groupAbs = getAbsolutePosition(primaryGroup, nodeMap);
+    const groupSize = getNodeDimensions(primaryGroup);
+    const groupBounds = {
+      x: groupAbs.x,
+      y: groupAbs.y,
+      width: groupSize.width,
+      height: groupSize.height,
+    };
+    const nextX = Math.min(groupBounds.x, componentBounds.x);
+    const nextY = Math.min(groupBounds.y, componentBounds.y);
+    const nextMaxX = Math.max(groupBounds.x + groupBounds.width, componentBounds.x + componentBounds.width);
+    const nextMaxY = Math.max(groupBounds.y + groupBounds.height, componentBounds.y + componentBounds.height);
+    const nextBounds = {
+      x: nextX,
+      y: nextY,
+      width: nextMaxX - nextX,
+      height: nextMaxY - nextY,
+    };
+    const nextGroupPosition = { x: nextBounds.x, y: nextBounds.y };
+
+    if (
+      nextBounds.x !== groupBounds.x ||
+      nextBounds.y !== groupBounds.y ||
+      nextBounds.width !== groupBounds.width ||
+      nextBounds.height !== groupBounds.height
+    ) {
+      updateNode(primaryGroupId, {
+        position: nextGroupPosition,
+        style: { ...(primaryGroup.style || {}), width: nextBounds.width, height: nextBounds.height },
+      });
+    }
+
+    componentIds.forEach((id) => {
+      const target = nodeMap.get(id);
+      if (!target || target.parentId === primaryGroupId) return;
+      updateNode(id, { parentId: primaryGroupId });
+    });
+
+    affectedIds.forEach((id) => {
+      const abs = absPositions.get(id);
+      if (!abs) return;
+      updateNode(id, { position: { x: abs.x - nextGroupPosition.x, y: abs.y - nextGroupPosition.y } });
+    });
+
+    componentGroupIds.forEach((groupId) => {
+      if (groupId !== primaryGroupId) mergedGroupIds.add(groupId);
+    });
+  });
+
+  const groupNodes = nextNodes.filter((node) => node.type === "group");
+  groupNodes.forEach((groupNode) => {
+    const groupId = groupNode.id;
+    const groupChildren = nextNodes.filter((node) => node.parentId === groupId && node.type !== "group");
+    const childSet = new Set(groupChildren.map((node) => node.id));
+    if (childSet.size === 0) return;
+
+    const groupAbs = getAbsolutePosition(groupNode, nodeMap);
+    const groupSize = getNodeDimensions(groupNode);
+    const groupBounds = {
+      x: groupAbs.x,
+      y: groupAbs.y,
+      width: groupSize.width,
+      height: groupSize.height,
+    };
+    const margin = 40;
+
+    childSet.forEach((nodeId) => {
+      const node = nodeMap.get(nodeId);
+      if (!node || node.parentId !== groupId) return;
+      const neighbors = adjacency.get(nodeId);
+      const hasGroupLink = neighbors ? Array.from(neighbors).some((id) => childSet.has(id)) : false;
+      const desiredExtent = hasGroupLink ? "parent" : undefined;
+      if (node.extent !== desiredExtent) {
+        updateNode(nodeId, { extent: desiredExtent });
+      }
+
+      if (hasGroupLink) return;
+      const abs = getAbsolutePosition(node, nodeMap);
+      const size = getNodeDimensions(node);
+      const outside =
+        abs.x + size.width < groupBounds.x - margin ||
+        abs.x > groupBounds.x + groupBounds.width + margin ||
+        abs.y + size.height < groupBounds.y - margin ||
+        abs.y > groupBounds.y + groupBounds.height + margin;
+      if (outside) {
+        updateNode(nodeId, {
+          parentId: undefined,
+          extent: undefined,
+          position: abs,
+        });
+      }
+    });
+  });
+
+  if (mergedGroupIds.size > 0) {
+    const childCount = new Map<string, number>();
+    nextNodes.forEach((node) => {
+      if (node.parentId) {
+        childCount.set(node.parentId, (childCount.get(node.parentId) ?? 0) + 1);
+      }
+    });
+    const removableIds = new Set<string>();
+    mergedGroupIds.forEach((id) => {
+      if ((childCount.get(id) ?? 0) === 0) removableIds.add(id);
+    });
+    if (removableIds.size > 0) {
+      nextNodes = nextNodes.filter((node) => !(node.type === "group" && removableIds.has(node.id)));
+      changed = true;
+    }
+  }
+
+  return changed ? nextNodes : nodes;
+};
+
 interface WorkflowStore {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -117,6 +367,7 @@ interface WorkflowStore {
   saveGroupTemplate: (groupId: string, name?: string) => { ok: boolean; error?: string };
   deleteGroupTemplate: (templateId: string) => void;
   applyGroupTemplate: (templateId: string, offset: XYPosition) => { ok: boolean; error?: string };
+  createGroupFromSelection: () => { ok: boolean; error?: string };
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
@@ -313,23 +564,45 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     }));
   },
 
-  onNodesChange: (changes) => set((state) => ({ nodes: applyNodeChanges(changes, state.nodes) })),
+  onNodesChange: (changes) =>
+    set((state) => {
+      const nextNodes = applyNodeChanges(changes, state.nodes);
+      return { nodes: normalizeGroupBindings(nextNodes, state.edges) };
+    }),
 
-  onEdgesChange: (changes) => set((state) => ({ edges: applyEdgeChanges(changes, state.edges) })),
+  onEdgesChange: (changes) =>
+    set((state) => {
+      const nextEdges = applyEdgeChanges(changes, state.edges);
+      return {
+        edges: nextEdges,
+        nodes: normalizeGroupBindings(state.nodes, nextEdges),
+      };
+    }),
 
   onConnect: (connection) => {
-    set((state) => ({
-      edges: addEdge(
+    set((state) => {
+      const nextEdges = addEdge(
         {
           ...connection,
           id: `edge-${connection.source}-${connection.target}-${connection.sourceHandle || "default"}-${connection.targetHandle || "default"}`,
         },
         state.edges
-      ),
-    }));
+      );
+      return {
+        edges: nextEdges,
+        nodes: normalizeGroupBindings(state.nodes, nextEdges),
+      };
+    });
   },
 
-  removeEdge: (edgeId) => set((state) => ({ edges: state.edges.filter((edge) => edge.id !== edgeId) })),
+  removeEdge: (edgeId) =>
+    set((state) => {
+      const nextEdges = state.edges.filter((edge) => edge.id !== edgeId);
+      return {
+        edges: nextEdges,
+        nodes: normalizeGroupBindings(state.nodes, nextEdges),
+      };
+    }),
 
   toggleEdgePause: (edgeId) => {
     set((state) => ({
@@ -604,6 +877,66 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
     const updatedNodes = nodes.map((node) => ({ ...node, selected: false }));
     set({ nodes: [...updatedNodes, ...newNodes], edges: [...edges, ...newEdges] });
+    return { ok: true };
+  },
+
+  createGroupFromSelection: () => {
+    const { nodes, edges } = get();
+    const selectedNodes = nodes.filter((node) => node.selected && node.type !== "group");
+    if (selectedNodes.length === 0) {
+      return { ok: false, error: "未选中可分组的节点。" };
+    }
+
+    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+    const bounds = selectedNodes.reduce(
+      (acc, node) => {
+        const abs = getAbsolutePosition(node, nodeMap);
+        const size = getNodeDimensions(node);
+        return {
+          minX: Math.min(acc.minX, abs.x),
+          minY: Math.min(acc.minY, abs.y),
+          maxX: Math.max(acc.maxX, abs.x + size.width),
+          maxY: Math.max(acc.maxY, abs.y + size.height),
+        };
+      },
+      { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+    );
+
+    const paddingX = 80;
+    const paddingY = 100;
+    const groupPosition = { x: bounds.minX - paddingX, y: bounds.minY - paddingY };
+    const groupSize = {
+      width: bounds.maxX - bounds.minX + paddingX * 2,
+      height: bounds.maxY - bounds.minY + paddingY * 2,
+    };
+
+    const groupId = `group-${++nodeIdCounter}`;
+    const groupNode: WorkflowNode = {
+      id: groupId,
+      type: "group",
+      position: groupPosition,
+      data: { title: "New Group" } as GroupNodeData,
+      style: { width: groupSize.width, height: groupSize.height },
+      selected: true,
+    };
+
+    const selectedIds = new Set(selectedNodes.map((node) => node.id));
+    const nextNodes = nodes.map((node) => {
+      if (!selectedIds.has(node.id)) {
+        return { ...node, selected: false };
+      }
+      const abs = getAbsolutePosition(node, nodeMap);
+      return {
+        ...node,
+        parentId: groupId,
+        extent: "parent",
+        position: { x: abs.x - groupPosition.x, y: abs.y - groupPosition.y },
+        selected: true,
+      };
+    });
+
+    const mergedNodes = normalizeGroupBindings([...nextNodes, groupNode], edges);
+    set({ nodes: mergedNodes });
     return { ok: true };
   },
 

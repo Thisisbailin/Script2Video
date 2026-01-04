@@ -1,11 +1,13 @@
 import React, { useMemo } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useWorkflowStore } from "../store/workflowStore";
-import { Copy, ClipboardType, Trash2 } from "lucide-react";
+import { Copy, ClipboardType, Trash2, BoxSelect } from "lucide-react";
+import { useToast } from "./Toast";
 
 export const MultiSelectToolbar: React.FC = () => {
-  const { nodes, removeNode, clearClipboard, copySelectedNodes, pasteNodes } = useWorkflowStore();
+  const { nodes, removeNode, clearClipboard, copySelectedNodes, pasteNodes, createGroupFromSelection } = useWorkflowStore();
   const { getNodes, flowToScreenPosition } = useReactFlow();
+  const { show: showToast } = useToast();
 
   const selectedNodes = useMemo(() => nodes.filter((n) => n.selected), [nodes]);
 
@@ -48,6 +50,26 @@ export const MultiSelectToolbar: React.FC = () => {
           {selectedNodes.length} Selected
         </span>
       </div>
+
+      <button
+        onClick={() => {
+          if (selectedNodes.length < 2) {
+            showToast("至少选择两个节点才能分组", "warning");
+            return;
+          }
+          const result = createGroupFromSelection();
+          if (!result.ok) {
+            showToast(result.error || "分组失败", "error");
+          } else {
+            showToast("已创建 Group", "success");
+          }
+        }}
+        className="h-8 px-3 flex items-center gap-2 hover:bg-white/10 rounded-full transition-all group"
+        title="Group"
+      >
+        <BoxSelect size={14} className="text-white/40 group-hover:text-white" />
+        <span className="text-[10px] font-bold uppercase tracking-tight">Group</span>
+      </button>
 
       <button
         onClick={() => copySelectedNodes()}
