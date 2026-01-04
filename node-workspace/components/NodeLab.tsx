@@ -35,7 +35,7 @@ import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { GlobalImageHistory } from "./GlobalImageHistory";
-import { Toast } from "./Toast";
+import { Toast, useToast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
 import { MapPinned, MapPinOff, X, ChevronRight } from "lucide-react";
 import { DesignAssetItem, ProjectData } from "../../types";
@@ -85,11 +85,18 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     loadWorkflow,
     setGlobalStyleGuide,
     setLabContext,
+    setViewportState,
+    saveGroupTemplate,
+    applyGroupTemplate,
+    deleteGroupTemplate,
+    groupTemplates,
+    viewport,
     addToGlobalHistory,
     globalAssetHistory,
   } = useWorkflowStore();
   const [showEpisodeSelector, setShowEpisodeSelector] = useState(false);
-  const { setViewport, screenToFlowPosition } = useReactFlow();
+  const { setViewport, screenToFlowPosition, getViewport } = useReactFlow();
+  const { show: showToast } = useToast();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
 
   const [connectionDrop, setConnectionDrop] = useState<ConnectionDropState | null>(null);
@@ -132,6 +139,19 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       context: projectData.context,
     });
   }, [projectData, setLabContext]);
+
+  useEffect(() => {
+    setViewportState(getViewport());
+  }, [getViewport, setViewportState]);
+
+  const lastViewportRef = useRef<string>("");
+  useEffect(() => {
+    if (!viewport) return;
+    const key = `${viewport.x}:${viewport.y}:${viewport.zoom}`;
+    if (lastViewportRef.current === key) return;
+    lastViewportRef.current = key;
+    setViewport(viewport, { duration: 0 });
+  }, [setViewport, viewport]);
 
   useEffect(() => {
     const videoNodes = nodes.filter((node) => node.type === "videoGen");
@@ -352,6 +372,52 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     reader.readAsText(file);
     e.target.value = "";
   };
+
+  const getSelectedGroup = useCallback(
+    () => nodes.find((node) => node.selected && node.type === "group"),
+    [nodes]
+  );
+
+  const handleCreateTemplate = useCallback(() => {
+    const selectedGroup = getSelectedGroup();
+    if (!selectedGroup) {
+      showToast("请先选中一个 Group", "warning");
+      return;
+    }
+    const defaultName = (selectedGroup.data as GroupNodeData).title || "Group Template";
+    const name = window.prompt("模板名称", defaultName);
+    if (!name || !name.trim()) return;
+    const result = saveGroupTemplate(selectedGroup.id, name.trim());
+    if (!result.ok) {
+      showToast(result.error || "创建模板失败", "error");
+      return;
+    }
+    showToast("已保存为模板", "success");
+  }, [getSelectedGroup, saveGroupTemplate, showToast]);
+
+  const handleLoadTemplate = useCallback(
+    (templateId: string) => {
+      const center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      const flowPos = screenToFlowPosition(center);
+      const result = applyGroupTemplate(templateId, flowPos);
+      if (!result.ok) {
+        showToast(result.error || "加载模板失败", "error");
+        return;
+      }
+      showToast("模板已加载", "success");
+    },
+    [applyGroupTemplate, screenToFlowPosition, showToast]
+  );
+
+  const handleDeleteTemplate = useCallback(
+    (templateId: string) => {
+      const confirmed = window.confirm("确认删除该模板？");
+      if (!confirmed) return;
+      deleteGroupTemplate(templateId);
+      showToast("模板已删除", "success");
+    },
+    [deleteGroupTemplate, showToast]
+  );
 
   const runAll = async () => {
     for (const n of nodes) {
@@ -718,6 +784,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
 
   const displayNodes = nodes;
   const displayEdges = edges;
+  const selectedGroup = getSelectedGroup();
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-white">
@@ -729,6 +796,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
           onConnectEnd={handleConnectEnd}
+          onMoveEnd={(_, vp) => setViewportState(vp)}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
@@ -779,6 +847,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         onImport={() => fileInputRef.current?.click()}
         onExport={() => saveWorkflow()}
         onRun={runAll}
+        templates={groupTemplates}
+        canCreateTemplate={!!selectedGroup}
+        onCreateTemplate={handleCreateTemplate}
+        onLoadTemplate={handleLoadTemplate}
+        onDeleteTemplate={handleDeleteTemplate}
       />
 
       {showEpisodeSelector && (

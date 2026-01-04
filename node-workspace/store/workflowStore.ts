@@ -24,8 +24,14 @@ import {
   GroupNodeData,
   NoteNodeData,
   ShotNodeData,
+  GlobalAssetHistoryItem,
+  GlobalAssetType,
+  LabContextSnapshot,
+  WorkflowViewport,
+  WorkflowTemplate,
 } from "../types";
-import { ProjectContext } from "../../types";
+
+export type { GlobalAssetHistoryItem, GlobalAssetType };
 
 export type EdgeStyle = "angular" | "curved";
 
@@ -34,26 +40,28 @@ interface ClipboardData {
   edges: WorkflowEdge[];
 }
 
-export type GlobalAssetType = "image" | "video";
+const TEMPLATE_STORAGE_KEY = "script2video_group_templates_v1";
 
-export type GlobalAssetHistoryItem = {
-  id: string;
-  type: GlobalAssetType;
-  src: string;
-  prompt: string;
-  aspectRatio?: string;
-  model?: string;
-  timestamp: number;
-  sourceId?: string;
+const loadTemplates = (): WorkflowTemplate[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => item && typeof item === "object");
+  } catch {
+    return [];
+  }
 };
 
-type LabContextSnapshot = {
-  rawScript: string;
-  globalStyleGuide: string;
-  shotGuide: string;
-  soraGuide: string;
-  dramaGuide: string;
-  context: ProjectContext;
+const persistTemplates = (templates: WorkflowTemplate[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+  } catch {
+    // Ignore persistence failures.
+  }
 };
 
 interface WorkflowStore {
@@ -62,6 +70,8 @@ interface WorkflowStore {
   edgeStyle: EdgeStyle;
   clipboard: ClipboardData | null;
   globalAssetHistory: GlobalAssetHistoryItem[];
+  viewport: WorkflowViewport | null;
+  groupTemplates: WorkflowTemplate[];
   globalStyleGuide?: string;
   availableImageModels: string[];
   availableVideoModels: string[];
@@ -69,6 +79,7 @@ interface WorkflowStore {
   setAvailableVideoModels: (models: string[]) => void;
   labContext: LabContextSnapshot;
   setLabContext: (ctx: LabContextSnapshot) => void;
+  setViewportState: (viewport: WorkflowViewport | null) => void;
 
   // Settings
   setEdgeStyle: (style: EdgeStyle) => void;
@@ -103,6 +114,9 @@ interface WorkflowStore {
   saveWorkflow: (name?: string) => void;
   loadWorkflow: (workflow: WorkflowFile) => void;
   clearWorkflow: () => void;
+  saveGroupTemplate: (groupId: string, name?: string) => { ok: boolean; error?: string };
+  deleteGroupTemplate: (templateId: string) => void;
+  applyGroupTemplate: (templateId: string, offset: XYPosition) => { ok: boolean; error?: string };
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
@@ -214,6 +228,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   currentNodeId: null,
   pausedAtNodeId: null,
   globalAssetHistory: [],
+  viewport: null,
+  groupTemplates: loadTemplates(),
   activeView: null,
   globalStyleGuide: undefined,
   availableImageModels: [],
@@ -235,6 +251,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   setAvailableImageModels: (models) => set({ availableImageModels: models }),
   setAvailableVideoModels: (models) => set({ availableVideoModels: models }),
   setLabContext: (ctx) => set({ labContext: ctx }),
+  setViewportState: (viewport) => set({ viewport }),
 
   setActiveView: (view) => set({ activeView: view }),
 
@@ -458,13 +475,17 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   },
 
   saveWorkflow: (name) => {
-    const { nodes, edges, edgeStyle } = get();
+    const { nodes, edges, edgeStyle, globalAssetHistory, labContext, viewport, activeView } = get();
     const workflow: WorkflowFile = {
-      version: 1,
+      version: 2,
       name: name || `workflow-${new Date().toISOString().slice(0, 10)}`,
       nodes,
       edges,
       edgeStyle,
+      globalAssetHistory,
+      labContext,
+      viewport: viewport || undefined,
+      activeView,
     };
     const json = JSON.stringify(workflow, null, 2);
     const blob = new Blob([json], { type: "application/json" });
@@ -485,14 +506,105 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       return max;
     }, 0);
     nodeIdCounter = maxId;
+    const current = get();
     set({
       nodes: workflow.nodes,
       edges: workflow.edges,
       edgeStyle: workflow.edgeStyle || "angular",
+      activeView: workflow.activeView ?? null,
+      globalAssetHistory: workflow.globalAssetHistory ?? [],
+      labContext: workflow.labContext ?? current.labContext,
+      viewport: workflow.viewport ?? null,
       isRunning: false,
       currentNodeId: null,
       pausedAtNodeId: null,
     });
+  },
+
+  saveGroupTemplate: (groupId, name) => {
+    const { nodes, edges, edgeStyle, groupTemplates } = get();
+    const groupNode = nodes.find((node) => node.id === groupId && node.type === "group");
+    if (!groupNode) {
+      return { ok: false, error: "未找到可保存的 Group 节点。" };
+    }
+    const childNodes = nodes.filter((node) => node.parentId === groupId);
+    const templateNodes = [groupNode, ...childNodes].map((node) => ({
+      ...node,
+      position: node.id === groupId ? { x: 0, y: 0 } : node.position,
+      selected: false,
+    }));
+    const nodeIds = new Set(templateNodes.map((node) => node.id));
+    const templateEdges = edges
+      .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+      .map((edge) => ({ ...edge }));
+    const workflow: WorkflowFile = {
+      version: 2,
+      name: name || groupNode.data?.title || "Group Template",
+      nodes: templateNodes,
+      edges: templateEdges,
+      edgeStyle,
+    };
+    const template: WorkflowTemplate = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: workflow.name,
+      createdAt: Date.now(),
+      workflow,
+    };
+    const nextTemplates = [...groupTemplates, template];
+    persistTemplates(nextTemplates);
+    set({ groupTemplates: nextTemplates });
+    return { ok: true };
+  },
+
+  deleteGroupTemplate: (templateId) => {
+    const { groupTemplates } = get();
+    const nextTemplates = groupTemplates.filter((tpl) => tpl.id !== templateId);
+    persistTemplates(nextTemplates);
+    set({ groupTemplates: nextTemplates });
+  },
+
+  applyGroupTemplate: (templateId, offset) => {
+    const { groupTemplates, nodes, edges, activeView } = get();
+    const template = groupTemplates.find((tpl) => tpl.id === templateId);
+    if (!template) return { ok: false, error: "模板不存在或已被删除。" };
+    if (!template.workflow.nodes.length) return { ok: false, error: "模板内容为空。" };
+
+    const idMapping = new Map<string, string>();
+    template.workflow.nodes.forEach((node) => {
+      const newId = `${node.type}-${++nodeIdCounter}`;
+      idMapping.set(node.id, newId);
+    });
+
+    const newNodes: WorkflowNode[] = template.workflow.nodes.map((node) => {
+      const parentId = node.parentId ? idMapping.get(node.parentId) : undefined;
+      const position = parentId
+        ? node.position
+        : { x: node.position.x + offset.x, y: node.position.y + offset.y };
+      const newData = { ...node.data };
+      if (activeView) {
+        (newData as any).view = activeView;
+      }
+      return {
+        ...node,
+        id: idMapping.get(node.id)!,
+        position,
+        parentId,
+        extent: parentId ? "parent" : undefined,
+        selected: true,
+        data: newData as WorkflowNodeData,
+      };
+    });
+
+    const newEdges: WorkflowEdge[] = template.workflow.edges.map((edge) => ({
+      ...edge,
+      id: `edge-${idMapping.get(edge.source)}-${idMapping.get(edge.target)}-${edge.sourceHandle || "default"}-${edge.targetHandle || "default"}`,
+      source: idMapping.get(edge.source)!,
+      target: idMapping.get(edge.target)!,
+    }));
+
+    const updatedNodes = nodes.map((node) => ({ ...node, selected: false }));
+    set({ nodes: [...updatedNodes, ...newNodes], edges: [...edges, ...newEdges] });
+    return { ok: true };
   },
 
   clearWorkflow: () => set({ nodes: [], edges: [], isRunning: false, currentNodeId: null, pausedAtNodeId: null }),

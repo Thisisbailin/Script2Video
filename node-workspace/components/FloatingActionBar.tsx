@@ -17,6 +17,7 @@ import {
   Database,
   Projector,
 } from "lucide-react";
+import { WorkflowTemplate } from "../types";
 
 type Props = {
   onAddText: () => void;
@@ -33,6 +34,11 @@ type Props = {
   onImport: () => void;
   onExport: () => void;
   onRun: () => void;
+  templates: WorkflowTemplate[];
+  canCreateTemplate: boolean;
+  onCreateTemplate: () => void;
+  onLoadTemplate: (templateId: string) => void;
+  onDeleteTemplate: (templateId: string) => void;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -50,6 +56,11 @@ export const FloatingActionBar: React.FC<Props> = ({
   onImport,
   onExport,
   onRun,
+  templates,
+  canCreateTemplate,
+  onCreateTemplate,
+  onLoadTemplate,
+  onDeleteTemplate,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -83,7 +94,71 @@ export const FloatingActionBar: React.FC<Props> = ({
             className="absolute bottom-20 left-1/2 -translate-x-1/2 w-80 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/90 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
           >
             <div className="p-4 space-y-3">
-              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2">Library Templates</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2">Template Builder</div>
+              <button
+                onClick={() => {
+                  onCreateTemplate();
+                  closeMenus();
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all group ${canCreateTemplate ? "hover:bg-white/5" : "opacity-50 cursor-not-allowed"}`}
+                disabled={!canCreateTemplate}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                    <Library size={18} />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-bold text-[var(--text-primary)]">保存为模板</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">选中 Group 后保存</div>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+              </button>
+
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2 pt-2">My Templates</div>
+              {templates.length === 0 ? (
+                <div className="px-2 py-3 text-[11px] text-[var(--text-secondary)]">暂无自定义模板</div>
+              ) : (
+                <div className="space-y-2">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
+                    >
+                      <button
+                        onClick={() => {
+                          onLoadTemplate(template.id);
+                          closeMenus();
+                        }}
+                        className="flex-1 flex items-center gap-3 text-left"
+                      >
+                        <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/70">
+                          <Library size={18} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-[var(--text-primary)]">{template.name}</div>
+                          <div className="text-[10px] text-[var(--text-secondary)]">
+                            {new Date(template.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTemplate(template.id);
+                          closeMenus();
+                        }}
+                        className="h-8 w-8 rounded-full border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/40 transition"
+                        title="删除模板"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2 pt-2">Library Templates</div>
 
               <button
                 onClick={() => {

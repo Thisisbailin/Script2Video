@@ -1,4 +1,5 @@
 import { Node, Edge } from "@xyflow/react";
+import { ProjectContext } from "../../types";
 
 export type HandleType = "image" | "text";
 
@@ -186,10 +187,49 @@ export interface WorkflowEdgeData extends Record<string, unknown> {
 
 export type WorkflowEdge = Edge<WorkflowEdgeData>;
 
+export type GlobalAssetType = "image" | "video";
+
+export type GlobalAssetHistoryItem = {
+  id: string;
+  type: GlobalAssetType;
+  src: string;
+  prompt: string;
+  aspectRatio?: string;
+  model?: string;
+  timestamp: number;
+  sourceId?: string;
+};
+
+export type LabContextSnapshot = {
+  rawScript: string;
+  globalStyleGuide: string;
+  shotGuide: string;
+  soraGuide: string;
+  dramaGuide: string;
+  context: ProjectContext;
+};
+
+export type WorkflowViewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 export interface WorkflowFile {
-  version: 1;
+  version: number;
   name: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   edgeStyle?: "angular" | "curved";
+  globalAssetHistory?: GlobalAssetHistoryItem[];
+  labContext?: LabContextSnapshot;
+  viewport?: WorkflowViewport;
+  activeView?: string | null;
 }
+
+export type WorkflowTemplate = {
+  id: string;
+  name: string;
+  createdAt: number;
+  workflow: WorkflowFile;
+};
