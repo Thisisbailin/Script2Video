@@ -218,7 +218,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         <div
-          className="flex items-center gap-2 h-9 px-3 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 backdrop-blur-2xl shadow-2xl min-w-[320px]"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 backdrop-blur-2xl shadow-2xl"
         >
           {/* Menu */}
           <button
