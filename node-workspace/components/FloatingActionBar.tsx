@@ -11,10 +11,8 @@ import {
   SquareStack,
   StickyNote,
   BoxSelect,
-  Clapperboard,
   Library,
   ChevronRight,
-  Database,
   Projector,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
@@ -28,9 +26,6 @@ type Props = {
   onAddOutput: () => void;
   onAddGroup: () => void;
   onAddNote: () => void;
-  onImportCharacters: () => void;
-  onImportLocations: () => void;
-  onImportEpisode: () => void;
   onImport: () => void;
   onExport: () => void;
   onRun: () => void;
@@ -50,9 +45,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddOutput,
   onAddGroup,
   onAddNote,
-  onImportCharacters,
-  onImportLocations,
-  onImportEpisode,
   onImport,
   onExport,
   onRun,
@@ -158,64 +150,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2 pt-2">Library Templates</div>
-
-              <button
-                onClick={() => {
-                  onImportCharacters();
-                  closeMenus();
-                }}
-                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
-                    <Database size={20} />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-bold text-[var(--text-primary)]">Character Assets</div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">Import character sheets + forms</div>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-              </button>
-
-              <button
-                onClick={() => {
-                  onImportLocations();
-                  closeMenus();
-                }}
-                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
-                    <Projector size={20} />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-bold text-[var(--text-primary)]">Scene Assets</div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">Import location zones + refs</div>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-              </button>
-
-              <button
-                onClick={() => {
-                  onImportEpisode();
-                  closeMenus();
-                }}
-                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-                    <Clapperboard size={20} />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-bold text-[var(--text-primary)]">Episode List</div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">Import storyboard shots</div>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-              </button>
             </div>
           </div>
         )}
