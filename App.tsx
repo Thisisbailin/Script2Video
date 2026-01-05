@@ -573,7 +573,36 @@ const App: React.FC = () => {
   ) => {
     if (type === 'script') {
       const episodes = parseScriptToEpisodes(content);
-      setProjectData(prev => ({ ...prev, fileName: fileName || 'script.txt', rawScript: content, episodes }));
+      const parsedCast = Array.from(
+        new Set(
+          episodes.flatMap((ep) => ep.characters || [])
+        )
+      );
+      setProjectData(prev => {
+        const existingChars = prev.context.characters || [];
+        const existingNames = new Set(existingChars.map(c => c.name));
+        let counter = 0;
+        const newChars = parsedCast
+          .filter(name => name && !existingNames.has(name))
+          .map(name => ({
+            id: `char-script-${Date.now()}-${counter++}`,
+            name,
+            role: "",
+            isMain: false,
+            bio: "",
+            forms: [],
+          }));
+        return {
+          ...prev,
+          fileName: fileName || 'script.txt',
+          rawScript: content,
+          episodes,
+          context: {
+            ...prev.context,
+            characters: [...existingChars, ...newChars],
+          }
+        };
+      });
       if (episodes.length > 0) setCurrentEpIndex(0);
       setActiveTab('script');
 

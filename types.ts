@@ -64,6 +64,7 @@ export interface Episode {
   title: string;
   content: string; // Original text
   scenes: Scene[]; // Parsed scenes
+  characters?: string[]; // Parsed character list for this episode (optional)
   summary?: string; // Generated summary
   shots: Shot[];
   status: 'pending' | 'generating' | 'review_shots' | 'confirmed_shots' | 'generating_sora' | 'review_sora' | 'completed' | 'error';

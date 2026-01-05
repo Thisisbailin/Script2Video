@@ -17,6 +17,9 @@ import {
 const normalizeDigits = (text: string) =>
   text.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
 
+// Normalize mixed newline styles: convert lone \r (old Mac) into \n, keep \r\n intact
+const normalizeNewlines = (text: string) => text.replace(/\r(?!\n)/g, "\n");
+
 const parseScenes = (episodeContent: string): Scene[] => {
   const lines = episodeContent.split(/\r?\n/);
   const scenes: Scene[] = [];
@@ -75,18 +78,22 @@ const normalizeScriptText = (text: string): string => {
 };
 
 export const parseScriptToEpisodes = (rawText: string): Episode[] => {
+  // Normalize line endings first to tolerate mixed/newline styles
+  const withNormalizedNewlines = normalizeNewlines(rawText);
   // Normalize Input First
-  const normalizedText = normalizeScriptText(rawText);
+  const normalizedText = normalizeScriptText(withNormalizedNewlines);
 
   // Split by newline, handling potential Windows CRLF
   const lines = normalizedText.split(/\r?\n/);
   const episodes: Episode[] = [];
   let currentEpisode: Episode | null = null;
   let buffer: string[] = [];
+  let currentCast: Set<string> = new Set();
 
   // Robust Regex to match "第X集" at the start of a line
   // Supports both Arabic (1) and Chinese (一) numerals
   const episodeStartRegex = /^\s*第\s*[0-90-9\d零一二三四五六七八九十百千两]+\s*集/;
+  const castLineRegex = /^\s*人物[:：]\s*(.+)$/;
 
   lines.forEach((line) => {
     // Check if line matches Episode Header AND isn't absurdly long (e.g. accidentally captured a whole paragraph)
@@ -96,22 +103,33 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
         currentEpisode.content = fullContent;
         // Parse scenes within this episode
         currentEpisode.scenes = parseScenes(fullContent);
+        currentEpisode.characters = Array.from(currentCast);
         episodes.push(currentEpisode);
       }
 
       buffer = [];
+      currentCast = new Set();
       const title = line.trim();
       currentEpisode = {
         id: episodes.length + 1,
         title: title,
         content: '',
         scenes: [],
+        characters: [],
         shots: [],
         status: 'pending'
       };
       buffer.push(line); 
     } else {
       if (currentEpisode) {
+        const castMatch = line.match(castLineRegex);
+        if (castMatch && castMatch[1]) {
+          const names = castMatch[1]
+            .split(/[、，,／/|\s]+/)
+            .map((n) => n.trim())
+            .filter(Boolean);
+          names.forEach((name) => currentCast.add(name));
+        }
         buffer.push(line);
       }
     }
@@ -121,17 +139,27 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
     const fullContent = buffer.join('\n').trim();
     currentEpisode.content = fullContent;
     currentEpisode.scenes = parseScenes(fullContent);
+    currentEpisode.characters = Array.from(currentCast);
     episodes.push(currentEpisode);
   }
 
   // Fallback: if no episode headers were found, treat entire script as a single episode
   if (episodes.length === 0 && normalizedText.trim().length > 0) {
     const fullContent = normalizedText.trim();
+    const fallbackCast = (() => {
+      const match = fullContent.match(castLineRegex);
+      if (!match || !match[1]) return [];
+      return match[1]
+        .split(/[、，,／/|\s]+/)
+        .map((n) => n.trim())
+        .filter(Boolean);
+    })();
     episodes.push({
       id: 1,
       title: "第1集",
       content: fullContent,
       scenes: parseScenes(fullContent),
+      characters: fallbackCast,
       shots: [],
       status: 'pending'
     });
