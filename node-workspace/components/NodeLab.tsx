@@ -595,25 +595,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       </div>
 
       <MultiSelectToolbar />
-      <div className="fixed bottom-4 right-4 z-30 flex items-end gap-4">
-        <div className="flex items-end gap-3">
-          <ViewportControls
-            zoom={zoomValue}
-            minZoom={minZoom}
-            maxZoom={maxZoom}
-            onZoomChange={handleZoomChange}
-            isLocked={isLocked}
-            onToggleLock={handleToggleLock}
-            showMiniMap={showMiniMap}
-            onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
-          />
-          <AssetsPanel
-            projectData={projectData}
-            onInsertTextNode={handleInsertTextNode}
-            onImportEpisodeShots={handleImportEpisode}
-            floating={false}
-          />
-        </div>
+      <div className="fixed bottom-4 left-4 z-30">
         <FloatingActionBar
           onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
           onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
@@ -633,6 +615,26 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           onDeleteTemplate={handleDeleteTemplate}
           floating={false}
         />
+      </div>
+      <div className="fixed bottom-4 right-4 z-30 flex items-end gap-4">
+        <div className="flex items-end gap-3">
+          <ViewportControls
+            zoom={zoomValue}
+            minZoom={minZoom}
+            maxZoom={maxZoom}
+            onZoomChange={handleZoomChange}
+            isLocked={isLocked}
+            onToggleLock={handleToggleLock}
+            showMiniMap={showMiniMap}
+            onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
+          />
+          <AssetsPanel
+            projectData={projectData}
+            onInsertTextNode={handleInsertTextNode}
+            onImportEpisodeShots={handleImportEpisode}
+            floating={false}
+          />
+        </div>
       </div>
       <Toast />
       <AnnotationModal />
