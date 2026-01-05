@@ -37,6 +37,7 @@ type Props = {
   projectData: ProjectData;
   onInsertTextNode: (payload: InsertTextPayload) => void;
   onImportEpisodeShots: (episodeId: number) => void;
+  floating?: boolean;
 };
 
 const formatTime = (timestamp: number) =>
@@ -58,7 +59,12 @@ const getSnippet = (text: string, limit = 120) => {
   return normalized.length > limit ? `${normalized.slice(0, limit)}...` : normalized;
 };
 
-export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, onImportEpisodeShots }) => {
+export const AssetsPanel: React.FC<Props> = ({
+  projectData,
+  onInsertTextNode,
+  onImportEpisodeShots,
+  floating = true,
+}) => {
   const { globalAssetHistory, removeGlobalHistoryItem, clearGlobalHistory } = useWorkflowStore();
   const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<AssetTab>("images");
@@ -134,60 +140,65 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
     });
   };
 
+  const anchorClass = floating ? "fixed bottom-4 right-4 z-30" : "";
+
   if (collapsed) {
     return (
-      <button
-        type="button"
-        onClick={() => setCollapsed(false)}
-        className="fixed bottom-4 right-4 z-30 flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur"
-      >
-        <span className="flex items-center gap-1.5">
-          <ImageIcon size={14} className="text-sky-300" />
-          <Film size={14} className="text-emerald-300" />
-          <BookOpen size={14} className="text-violet-300" />
-        </span>
-        <span className="text-xs font-semibold">Assets</span>
-        <span className="text-[10px] text-white/60">{totalCount}</span>
-        <ChevronUp size={14} className="text-white/60" />
-      </button>
+      <div className={anchorClass}>
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur"
+        >
+          <span className="flex items-center gap-1.5">
+            <ImageIcon size={14} className="text-sky-300" />
+            <Film size={14} className="text-emerald-300" />
+            <BookOpen size={14} className="text-violet-300" />
+          </span>
+          <span className="text-xs font-semibold">Assets</span>
+          <span className="text-[10px] text-white/60">{totalCount}</span>
+          <ChevronUp size={14} className="text-white/60" />
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-30 w-[380px] max-h-[70vh] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500/30 via-blue-500/10 to-transparent border border-white/10 flex items-center justify-center">
-            <Sparkles size={16} className="text-sky-200" />
+    <div className={anchorClass}>
+      <div className="w-[380px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500/30 via-blue-500/10 to-transparent border border-white/10 flex items-center justify-center">
+              <Sparkles size={16} className="text-sky-200" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Assets</div>
+              <div className="text-[11px] text-white/50">{totalCount} items</div>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold">Assets</div>
-            <div className="text-[11px] text-white/50">{totalCount} items</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {showClear && (
+          <div className="flex items-center gap-2">
+            {showClear && (
+              <button
+                type="button"
+                onClick={() => clearGlobalHistory(clearType)}
+                className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+                title="Clear"
+              >
+                <Trash2 size={14} className="mx-auto text-white/60" />
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => clearGlobalHistory(clearType)}
+              onClick={() => setCollapsed(true)}
               className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
-              title="Clear"
+              title="Collapse"
             >
-              <Trash2 size={14} className="mx-auto text-white/60" />
+              <ChevronDown size={14} className="mx-auto text-white/70" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
-            title="Collapse"
-          >
-            <ChevronDown size={14} className="mx-auto text-white/70" />
-          </button>
+          </div>
         </div>
-      </div>
 
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2 overflow-x-auto">
+      <div className="px-4 pt-3 pb-3 flex items-center gap-2 overflow-x-auto assets-tabs">
         {tabs.map((tab) => {
           const isActive = tab.key === activeTab;
           return (
@@ -207,7 +218,7 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
         })}
       </div>
 
-      <div className="px-3 pb-4 max-h-[50vh] overflow-y-auto space-y-2">
+      <div className="px-4 pb-4 flex-1 overflow-y-auto space-y-3">
         {activeTab === "images" && (
           <>
             {imageAssets.length === 0 ? (
@@ -309,7 +320,7 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
                   className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/30 transition"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                       <BookOpen size={16} className="text-violet-300" />
                     </div>
                     <div className="min-w-0">
@@ -352,7 +363,7 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
                   className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/30 transition"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                       <FileText size={16} className="text-sky-300" />
                     </div>
                     <div className="min-w-0">
@@ -396,7 +407,7 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
                   className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/30 transition"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                       <Clapperboard size={16} className="text-emerald-300" />
                     </div>
                     <div className="min-w-0">
@@ -442,12 +453,12 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
                     key={character.id}
                     className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/30 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                        <Users size={16} className="text-purple-300" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-white truncate">{character.name}</div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                      <Users size={16} className="text-purple-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{character.name}</div>
                         <div className="text-[10px] text-white/40 truncate">
                           {character.role || "Character"}
                         </div>
@@ -488,12 +499,12 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
                     key={scene.id}
                     className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/30 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                        <MapPin size={16} className="text-amber-300" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-white truncate">{scene.name}</div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                      <MapPin size={16} className="text-amber-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{scene.name}</div>
                         <div className="text-[10px] text-white/40 truncate">
                           {scene.type === "core" ? "Core scene" : "Secondary scene"}
                         </div>
@@ -512,6 +523,7 @@ export const AssetsPanel: React.FC<Props> = ({ projectData, onInsertTextNode, on
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );

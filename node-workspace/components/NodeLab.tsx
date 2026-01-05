@@ -2,7 +2,6 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   ReactFlow,
   Background,
-  Controls,
   MiniMap,
   Connection,
   NodeTypes,
@@ -10,7 +9,6 @@ import {
   useReactFlow,
   OnConnectEnd,
   ReactFlowProvider,
-  ControlButton,
   ConnectionMode,
   XYPosition,
 } from "@xyflow/react";
@@ -35,9 +33,9 @@ import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { AssetsPanel } from "./AssetsPanel";
+import { ViewportControls } from "./ViewportControls";
 import { Toast, useToast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
-import { MapPinned, MapPinOff } from "lucide-react";
 import { DesignAssetItem, ProjectData } from "../../types";
 
 const nodeTypes: NodeTypes = {
@@ -98,9 +96,13 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
   const { show: showToast } = useToast();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
 
+  const minZoom = 0.25;
+  const maxZoom = 1.6;
   const [connectionDrop, setConnectionDrop] = useState<ConnectionDropState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [zoomValue, setZoomValue] = useState(() => getViewport().zoom ?? 1);
   const createDesignAssetId = useCallback(() => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
       return crypto.randomUUID();
@@ -151,6 +153,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     lastViewportRef.current = key;
     setViewport(viewport, { duration: 0 });
   }, [setViewport, viewport]);
+
+  useEffect(() => {
+    if (!viewport) return;
+    setZoomValue(viewport.zoom);
+  }, [viewport]);
 
   useEffect(() => {
     const videoNodes = nodes.filter((node) => node.type === "videoGen");
@@ -443,6 +450,22 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     setViewport({ x: -origin.x + 80, y: -origin.y + 80, zoom }, { duration: 800 });
   }, [setViewport]);
 
+  const handleZoomChange = useCallback(
+    (value: number) => {
+      const nextZoom = Math.min(maxZoom, Math.max(minZoom, value));
+      setZoomValue(nextZoom);
+      const current = getViewport();
+      const nextViewport = { ...current, zoom: nextZoom };
+      setViewport(nextViewport, { duration: 120 });
+      setViewportState(nextViewport);
+    },
+    [getViewport, maxZoom, minZoom, setViewport, setViewportState]
+  );
+
+  const handleToggleLock = useCallback(() => {
+    setIsLocked((prev) => !prev);
+  }, []);
+
   const handleInsertTextNode = useCallback(
     (payload: { title: string; text: string; category?: TextNodeData["category"]; refId?: string }) => {
       const origin = getTemplateOrigin();
@@ -532,6 +555,15 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
           onConnect={handleConnect}
           onConnectEnd={handleConnectEnd}
           onMoveEnd={(_, vp) => setViewportState(vp)}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
+          nodesDraggable={!isLocked}
+          nodesConnectable={!isLocked}
+          elementsSelectable={!isLocked}
+          panOnDrag={!isLocked}
+          zoomOnScroll={!isLocked}
+          zoomOnPinch={!isLocked}
+          zoomOnDoubleClick={!isLocked}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
@@ -551,11 +583,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
               />
             </div>
           )}
-          <Controls position="bottom-left">
-            <ControlButton onClick={() => setShowMiniMap((v) => !v)}>
-              {showMiniMap ? <MapPinOff size={16} /> : <MapPinned size={16} />}
-            </ControlButton>
-          </Controls>
         </ReactFlow>
 
         {connectionDrop && (
@@ -587,11 +614,24 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       />
 
       <MultiSelectToolbar />
-      <AssetsPanel
-        projectData={projectData}
-        onInsertTextNode={handleInsertTextNode}
-        onImportEpisodeShots={handleImportEpisode}
-      />
+      <div className="fixed bottom-4 right-4 z-30 flex items-end gap-3">
+        <ViewportControls
+          zoom={zoomValue}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
+          onZoomChange={handleZoomChange}
+          isLocked={isLocked}
+          onToggleLock={handleToggleLock}
+          showMiniMap={showMiniMap}
+          onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
+        />
+        <AssetsPanel
+          projectData={projectData}
+          onInsertTextNode={handleInsertTextNode}
+          onImportEpisodeShots={handleImportEpisode}
+          floating={false}
+        />
+      </div>
       <Toast />
       <AnnotationModal />
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileImport} />
