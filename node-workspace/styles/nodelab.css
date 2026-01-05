@@ -218,44 +218,6 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-.viewport-slider {
-  width: 140px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  appearance: none;
-  cursor: pointer;
-}
-
-.viewport-slider:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.viewport-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
-}
-
-.viewport-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  border: none;
-  background: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
-}
-
-.viewport-slider::-moz-range-track {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
 .react-flow__node:not(.react-flow__node-group) {
   z-index: 2 !important;
 }

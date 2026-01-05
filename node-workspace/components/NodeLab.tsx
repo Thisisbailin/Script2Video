@@ -97,7 +97,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
 
   const minZoom = 0.25;
-  const maxZoom = 1.6;
+  const maxZoom = 4;
   const [connectionDrop, setConnectionDrop] = useState<ConnectionDropState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
@@ -594,41 +594,43 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         )}
       </div>
 
-      <FloatingActionBar
-        onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
-        onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
-        onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
-        onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
-        onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
-        onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
-        onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
-        onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
-        onImport={() => fileInputRef.current?.click()}
-        onExport={() => saveWorkflow()}
-        onRun={runAll}
-        templates={groupTemplates}
-        canCreateTemplate={!!selectedGroup}
-        onCreateTemplate={handleCreateTemplate}
-        onLoadTemplate={handleLoadTemplate}
-        onDeleteTemplate={handleDeleteTemplate}
-      />
-
       <MultiSelectToolbar />
-      <div className="fixed bottom-4 right-4 z-30 flex items-end gap-3">
-        <ViewportControls
-          zoom={zoomValue}
-          minZoom={minZoom}
-          maxZoom={maxZoom}
-          onZoomChange={handleZoomChange}
-          isLocked={isLocked}
-          onToggleLock={handleToggleLock}
-          showMiniMap={showMiniMap}
-          onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
-        />
-        <AssetsPanel
-          projectData={projectData}
-          onInsertTextNode={handleInsertTextNode}
-          onImportEpisodeShots={handleImportEpisode}
+      <div className="fixed bottom-4 right-4 z-30 flex items-end gap-4">
+        <div className="flex items-end gap-3">
+          <ViewportControls
+            zoom={zoomValue}
+            minZoom={minZoom}
+            maxZoom={maxZoom}
+            onZoomChange={handleZoomChange}
+            isLocked={isLocked}
+            onToggleLock={handleToggleLock}
+            showMiniMap={showMiniMap}
+            onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
+          />
+          <AssetsPanel
+            projectData={projectData}
+            onInsertTextNode={handleInsertTextNode}
+            onImportEpisodeShots={handleImportEpisode}
+            floating={false}
+          />
+        </div>
+        <FloatingActionBar
+          onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+          onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
+          onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
+          onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+          onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
+          onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
+          onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
+          onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
+          onImport={() => fileInputRef.current?.click()}
+          onExport={() => saveWorkflow()}
+          onRun={runAll}
+          templates={groupTemplates}
+          canCreateTemplate={!!selectedGroup}
+          onCreateTemplate={handleCreateTemplate}
+          onLoadTemplate={handleLoadTemplate}
+          onDeleteTemplate={handleDeleteTemplate}
           floating={false}
         />
       </div>
