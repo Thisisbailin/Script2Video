@@ -30,12 +30,12 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="inline-flex items-center gap-3 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
+    <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onToggleLock}
-          className="h-7 w-7 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-center justify-center"
+          className="h-7 w-7 flex items-center justify-center transition hover:text-white"
           title={isLocked ? "解锁画布" : "锁定画布"}
         >
           {isLocked ? (
@@ -47,7 +47,7 @@ export const ViewportControls: React.FC<Props> = ({
         <button
           type="button"
           onClick={onToggleMiniMap}
-          className="h-7 w-7 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-center justify-center"
+          className="h-7 w-7 flex items-center justify-center transition hover:text-white"
           title={showMiniMap ? "隐藏地图" : "显示地图"}
         >
           <Map size={14} className={showMiniMap ? "text-sky-300" : "text-sky-300/70"} />
@@ -58,19 +58,19 @@ export const ViewportControls: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleMinus}
-          className="h-7 w-7 rounded-md hover:bg-white/10 transition flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
           title="缩小"
           disabled={isLocked}
         >
           <Minus size={14} className="text-white/70" />
         </button>
-        <span className="text-[12px] font-semibold text-white/80 tabular-nums w-12 text-center">
+        <span className="text-xs font-semibold leading-none text-white/80 tabular-nums px-1">
           {zoomPercent}%
         </span>
         <button
           type="button"
           onClick={handlePlus}
-          className="h-7 w-7 rounded-md hover:bg-white/10 transition flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
           title="放大"
           disabled={isLocked}
         >
