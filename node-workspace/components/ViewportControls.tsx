@@ -30,7 +30,7 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="flex items-center gap-3 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
       <div className="flex items-center gap-2">
         <button
           type="button"
