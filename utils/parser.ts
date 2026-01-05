@@ -17,8 +17,14 @@ import {
 const normalizeDigits = (text: string) =>
   text.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
 
-// Normalize mixed newline styles: convert lone \r (old Mac) into \n, keep \r\n intact
-const normalizeNewlines = (text: string) => text.replace(/\r(?!\n)/g, "\n");
+// Normalize mixed newline styles:
+// - convert lone \r (old Mac) into \n
+// - convert Unicode line/paragraph separators (e.g., \u2028 from some editors) into \n
+// keep existing \r\n intact
+const normalizeNewlines = (text: string) =>
+  text
+    .replace(/\r(?!\n)/g, "\n")
+    .replace(/[\u2028\u2029]/g, "\n");
 
 const parseScenes = (episodeContent: string): Scene[] => {
   const lines = episodeContent.split(/\r?\n/);
