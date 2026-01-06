@@ -108,9 +108,11 @@ export interface Character {
   isMain: boolean; // Determines if we do deep analysis
   bio: string; // General bio
   forms: CharacterForm[]; // Specific visual/personality stages
+  appearanceCount?: number; // 解析出现次数
   assetPriority?: "high" | "medium" | "low";
   archetype?: string;
   episodeUsage?: string; // 出现的集/场景标记
+  tags?: string[]; // 角色标签/关键词
 }
 
 export interface Location {

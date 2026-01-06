@@ -40,6 +40,38 @@ import { NodeLab } from './node-workspace/components/NodeLab';
 import * as GeminiService from './services/geminiService';
 import * as VideoService from './services/videoService';
 
+// --- Helpers: Character stats derived from parsed episodes ---
+const buildCharacterStats = (episodes: Episode[]) => {
+  const stats = new Map<
+    string,
+    {
+      count: number;
+      episodeIds: Set<number>;
+    }
+  >();
+
+  episodes.forEach((ep) => {
+    (ep.characters || []).forEach((rawName) => {
+      const name = rawName.trim();
+      if (!name) return;
+      if (!stats.has(name)) {
+        stats.set(name, { count: 0, episodeIds: new Set<number>() });
+      }
+      const entry = stats.get(name)!;
+      entry.count += 1;
+      entry.episodeIds.add(ep.id);
+    });
+  });
+
+  return stats;
+};
+
+const formatEpisodeUsage = (episodeIds: Set<number>) => {
+  const sorted = Array.from(episodeIds).sort((a, b) => a - b);
+  if (!sorted.length) return "";
+  return sorted.map((id) => `Ep${id}`).join(", ");
+};
+
 const PROJECT_STORAGE_KEY = 'script2video_project_v1';
 const CONFIG_STORAGE_KEY = 'script2video_config_v1';
 const UI_STATE_STORAGE_KEY = 'script2video_ui_state_v1';
@@ -573,25 +605,42 @@ const App: React.FC = () => {
   ) => {
     if (type === 'script') {
       const episodes = parseScriptToEpisodes(content);
-      const parsedCast = Array.from(
-        new Set(
-          episodes.flatMap((ep) => ep.characters || [])
-        )
-      );
+      const stats = buildCharacterStats(episodes);
       setProjectData(prev => {
         const existingChars = prev.context.characters || [];
         const existingNames = new Set(existingChars.map(c => c.name));
+
+        // Update existing characters with fresh stats
+        const updatedExisting = existingChars.map((c) => {
+          const stat = stats.get(c.name);
+          if (!stat) return c;
+          const appearanceCount = stat.count;
+          const episodeUsage = formatEpisodeUsage(stat.episodeIds);
+          return {
+            ...c,
+            appearanceCount,
+            episodeUsage,
+            isMain: appearanceCount > 1 || c.isMain,
+            assetPriority: c.assetPriority || (appearanceCount > 1 ? "medium" : "low"),
+          };
+        });
+
+        // Add any new characters parsed from script
         let counter = 0;
-        const newChars = parsedCast
-          .filter(name => name && !existingNames.has(name))
-          .map(name => ({
+        const newChars = Array.from(stats.entries())
+          .filter(([name]) => name && !existingNames.has(name))
+          .map(([name, stat]) => ({
             id: `char-script-${Date.now()}-${counter++}`,
             name,
             role: "",
-            isMain: false,
+            isMain: stat.count > 1,
             bio: "",
             forms: [],
+            appearanceCount: stat.count,
+            episodeUsage: formatEpisodeUsage(stat.episodeIds),
+            assetPriority: stat.count > 1 ? "medium" : "low",
           }));
+
         return {
           ...prev,
           fileName: fileName || 'script.txt',
@@ -599,7 +648,7 @@ const App: React.FC = () => {
           episodes,
           context: {
             ...prev.context,
-            characters: [...existingChars, ...newChars],
+            characters: [...updatedExisting, ...newChars],
           }
         };
       });
@@ -830,12 +879,80 @@ const App: React.FC = () => {
     setAnalysisError(null);
     setProcessing(true, "Step 3/6: Identifying Character Roster...");
     try {
-      const result = await GeminiService.identifyCharacters(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
+      // 基于解析结果先标注出现次数 & 主次角色
+      const stats = buildCharacterStats(projectData.episodes);
+      const mergedCharacters = (() => {
+        const existing = projectData.context.characters || [];
+        const existingNames = new Set(existing.map((c) => c.name));
+        const updatedExisting = existing.map((c) => {
+          const stat = stats.get(c.name);
+          if (!stat) return c;
+          const appearanceCount = stat.count;
+          return {
+            ...c,
+            appearanceCount,
+            episodeUsage: c.episodeUsage || formatEpisodeUsage(stat.episodeIds),
+            isMain: appearanceCount > 1,
+            assetPriority: c.assetPriority || (appearanceCount > 1 ? "medium" : "low"),
+          };
+        });
+        const newOnes = Array.from(stats.entries())
+          .filter(([name]) => name && !existingNames.has(name))
+          .map(([name, stat]) => ({
+            id: `char-script-${Date.now()}-${name}`,
+            name,
+            role: "",
+            isMain: stat.count > 1,
+            bio: "",
+            forms: [],
+            appearanceCount: stat.count,
+            episodeUsage: formatEpisodeUsage(stat.episodeIds),
+            assetPriority: stat.count > 1 ? "medium" : "low",
+          }));
+        return [...updatedExisting, ...newOnes];
+      })();
+
+      const minorNames = mergedCharacters
+        .filter((c) => (c.appearanceCount ?? 0) <= 1)
+        .map((c) => c.name);
+
+      let briefResult: { characters: any[]; usage: TokenUsage } | null = null;
+      if (minorNames.length) {
+        briefResult = await GeminiService.generateCharacterBriefs(
+          config.textConfig,
+          minorNames,
+          projectData.rawScript,
+          projectData.context.projectSummary
+        );
+      }
+
+      const briefMap = new Map<string, any>(
+        (briefResult?.characters || []).map((c) => [c.name, c])
+      );
+
+      const updatedCharacters = mergedCharacters.map((c) => {
+        const brief = briefMap.get(c.name);
+        return {
+          ...c,
+          role: brief?.role || c.role,
+          bio: brief?.bio || c.bio,
+          archetype: brief?.archetype || c.archetype,
+          assetPriority: brief?.assetPriority || c.assetPriority || (c.isMain ? "medium" : "low"),
+          episodeUsage: c.episodeUsage || brief?.episodeUsage,
+          tags: brief?.tags || c.tags,
+        };
+      });
+
       setProjectData(prev => ({
         ...prev,
-        context: { ...prev.context, characters: result.characters },
-        contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-        phase1Usage: { ...prev.phase1Usage, charList: GeminiService.addUsage(prev.phase1Usage.charList, result.usage) }
+        context: { ...prev.context, characters: updatedCharacters },
+        contextUsage: briefResult ? GeminiService.addUsage(prev.contextUsage!, briefResult.usage) : prev.contextUsage!,
+        phase1Usage: {
+          ...prev.phase1Usage,
+          charList: briefResult
+            ? GeminiService.addUsage(prev.phase1Usage.charList, briefResult.usage)
+            : prev.phase1Usage.charList
+        }
       }));
       setProcessing(false);
       setAnalysisError(null);
@@ -878,8 +995,22 @@ const App: React.FC = () => {
       );
 
       setProjectData(prev => {
+        const normalizedForms = (result.forms || []).map((f) => {
+          const base = f.formName || "Standard";
+          const prefix = base.startsWith(`${charName}-`) ? base : `${charName}-${base}`;
+          return { ...f, formName: prefix };
+        });
         const updatedChars = prev.context.characters.map(c =>
-          c.name === charName ? { ...c, forms: result.forms } : c
+          c.name === charName
+            ? {
+                ...c,
+                forms: normalizedForms,
+                bio: result.bio || c.bio,
+                archetype: result.archetype || c.archetype,
+                episodeUsage: result.episodeUsage || c.episodeUsage,
+                tags: result.tags || c.tags
+              }
+            : c
         );
         return {
           ...prev,
@@ -1379,7 +1510,7 @@ const App: React.FC = () => {
       case 'assets':
         return <AssetsModule data={projectData} setProjectData={setProjectData} onAssetLoad={handleAssetLoad} />;
       case 'script':
-        return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />;
+        return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} characters={projectData.context.characters} />;
       case 'table':
         return (
           <ShotsModule

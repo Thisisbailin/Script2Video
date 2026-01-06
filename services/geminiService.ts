@@ -448,6 +448,72 @@ export const identifyCharacters = async (
   return { characters: chars, usage };
 };
 
+// 1.3.1 Character Briefs (for minor / cameo roles)
+export const generateCharacterBriefs = async (
+  config: TextServiceConfig,
+  characterNames: string[],
+  script: string,
+  projectSummary: string
+): Promise<{ characters: Character[]; usage: TokenUsage }> => {
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      characters: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            role: { type: Type.STRING, description: "一句话身份/功能" },
+            bio: { type: Type.STRING, description: "1-2 句简短概述，用中文" },
+            archetype: { type: Type.STRING, description: "类型标签/职业标签" },
+            assetPriority: { type: Type.STRING },
+            episodeUsage: { type: Type.STRING, description: "出现集数标记" },
+            tags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          },
+          required: ["name", "bio"]
+        }
+      }
+    },
+    required: ["characters"]
+  };
+
+  const systemInstruction = "Role: Casting Director. 给次要/路人角色生成极简角色卡。";
+  const prompt = `
+    这些角色仅出现 1 次，视为路人/次要：${characterNames.join("，")}
+    任务：基于项目摘要/脚本文本，给每人生成 1-2 句角色概述（bio），可补充身份 role、archetype 标签，episodeUsage（若可推断），并给 assetPriority=low。
+    请保持名字一致，不要改写。
+
+    项目摘要：
+    ${projectSummary}
+
+    脚本片段：
+    ${script.slice(0, 40000)}
+
+    用中文 JSON 输出，遵循 schema。
+  `;
+
+  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const raw = JSON.parse(text).characters || [];
+  const characters: Character[] = raw.map((c: any) => ({
+    id: c.name,
+    name: c.name,
+    role: c.role || "",
+    isMain: false,
+    bio: c.bio || "",
+    forms: [],
+    assetPriority: c.assetPriority || "low",
+    archetype: c.archetype,
+    episodeUsage: c.episodeUsage,
+    tags: c.tags
+  }));
+
+  return { characters, usage };
+};
+
 // 1.4 Character Deep Dive
 export const analyzeCharacterDepth = async (
   config: TextServiceConfig,
@@ -455,10 +521,17 @@ export const analyzeCharacterDepth = async (
   script: string,
   projectSummary: string,
   styleGuide?: string
-): Promise<{ forms: CharacterForm[]; usage: TokenUsage }> => {
+): Promise<{ forms: CharacterForm[]; bio?: string; archetype?: string; episodeUsage?: string; tags?: string[]; usage: TokenUsage }> => {
   const schema: Schema = {
     type: Type.OBJECT,
     properties: {
+      bio: { type: Type.STRING, description: "核心角色概述，2-3 句中文" },
+      archetype: { type: Type.STRING, description: "身份/标签" },
+      episodeUsage: { type: Type.STRING, description: "出现集数/桥段" },
+      tags: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      },
       forms: {
         type: Type.ARRAY,
         items: {
@@ -498,7 +571,11 @@ export const analyzeCharacterDepth = async (
     项目摘要: ${projectSummary}
     风格指导: ${styleGuide || "Standard Cinematic"}
 
-    任务: 生成角色定模美术资产清单，覆盖该角色所有形态/阶段（年龄/身份/状态）。
+    任务: 深描该角色，生成：
+      - 核心角色概述（bio，2-3 句中文）
+      - archetype/标签
+      - episodeUsage（出现集数）
+      - 角色定模美术资产清单，覆盖该角色所有形态/阶段（年龄/身份/状态）。
     每个形态需要提供：
       - identityOrState: 年龄/身份/状态
       - appearance 分层: hair, face, body, costume, accessories, props, materialPalette, lightingOrPalette
@@ -517,8 +594,13 @@ export const analyzeCharacterDepth = async (
     用中文 JSON 输出。`;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = JSON.parse(text);
   return {
-    forms: JSON.parse(text).forms,
+    forms: parsed.forms,
+    bio: parsed.bio,
+    archetype: parsed.archetype,
+    episodeUsage: parsed.episodeUsage,
+    tags: parsed.tags,
     usage
   };
 };
