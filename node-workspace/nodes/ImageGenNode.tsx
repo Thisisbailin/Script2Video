@@ -3,7 +3,7 @@ import { BaseNode } from "./BaseNode";
 import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronUp } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronUp, X } from "lucide-react";
 
 type Props = {
   id: string;
@@ -14,6 +14,7 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
   const { updateNodeData, getConnectedInputs, availableImageModels } = useWorkflowStore();
   const { runImageGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -113,7 +114,10 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
               />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm gap-2">
                 <button
-                  onClick={() => window.open(data.outputImage!, '_blank')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPreviewOpen(true);
+                  }}
                   className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/img:scale-100 border border-white/10"
                   title="Open Full Size"
                 >
@@ -167,6 +171,29 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
           </div>
         )}
       </div>
+
+      {isPreviewOpen && data.outputImage && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setIsPreviewOpen(false)}>
+          <div className="relative max-h-[90vh] max-w-[90vw]">
+            <button
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border border-white/10 shadow-lg"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPreviewOpen(false);
+              }}
+              aria-label="Close preview"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={data.outputImage}
+              alt="Generated preview"
+              className="max-h-[90vh] max-w-[90vw] object-contain rounded-xl shadow-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </BaseNode>
   );
 };
