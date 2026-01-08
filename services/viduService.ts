@@ -75,6 +75,23 @@ const postJson = async <T>(path: string, body: Record<string, unknown>, config?:
   }
 };
 
+export const fetchViduModels = async (config?: ViduServiceConfig): Promise<string[]> => {
+  const { baseUrl, apiKey } = resolveConfig(config);
+  const url = `${baseUrl}/models`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Vidu models: ${response.status}`);
+  }
+  const data = await response.json();
+  const list = data?.data || data?.models || [];
+  return Array.isArray(list) ? list.map((m: any) => (typeof m === "string" ? m : m.id || "")).filter(Boolean) : [];
+};
+
 // --- Reference to Video: audio+video output ---
 export const createReferenceVideoWithAudio = async (
   params: ViduReferenceVideoAudioParams,

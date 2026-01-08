@@ -956,7 +956,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       style: { width: 1100, height: 900 },
     };
 
-    const promptText = "@1 和 @2 在一起吃火锅，并且旁白音说火锅大家都爱吃。";
+    const promptText = "@Chef 和 @Guest 在一起吃火锅，并且旁白音说火锅大家都爱吃。";
     const textNode: WorkflowNode = {
       id: `text-${++nodeIdCounter}`,
       type: "text",
@@ -966,27 +966,32 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       data: {
         title: "参考提示词",
         text: promptText,
+        atMentions: [
+          { name: "Chef", status: "match" },
+          { name: "Guest", status: "match" },
+          { name: "Narrator", status: "missing" },
+        ],
         view: activeView || undefined,
       } as any,
     };
 
     const imageUrls = [
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", formTag: "Chef" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png", formTag: "Chef" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png", formTag: "Chef" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg", formTag: "Guest" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg", formTag: "Guest" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg", formTag: "Narrator" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png", formTag: "Chef" },
     ];
 
-    const imageNodes: WorkflowNode[] = imageUrls.map((url, idx) => ({
+    const imageNodes: WorkflowNode[] = imageUrls.map((img, idx) => ({
       id: `image-${++nodeIdCounter}`,
       type: "imageInput",
       position: { x: 80 + (idx % 3) * 180, y: 260 + Math.floor(idx / 3) * 180 },
       parentId: groupId,
       extent: "parent",
-      data: { image: url, filename: `ref-${idx + 1}.png`, dimensions: null, view: activeView || undefined } as any,
+      data: { image: img.url, filename: `ref-${idx + 1}.png`, dimensions: null, formTag: img.formTag, view: activeView || undefined } as any,
     }));
 
     const viduNode: WorkflowNode = {
@@ -1004,15 +1009,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         movementAmplitude: "auto",
         offPeak: true,
         model: "viduq2-pro",
-        subjects: [
-          { id: "subject1", images: imageUrls.slice(0, 3), voiceId: "professional_host" },
-          { id: "subject2", images: imageUrls.slice(3, 5), voiceId: "professional_host" },
-          { id: "subject3", images: imageUrls.slice(5, 7), voiceId: "professional_host" },
-        ],
+        subjects: [],
         inputPrompt: promptText,
         status: "idle",
         error: null,
-        inputImages: imageUrls,
+        inputImages: imageUrls.map((i) => i.url),
         view: activeView || undefined,
       } as any,
       style: { width: 360 },

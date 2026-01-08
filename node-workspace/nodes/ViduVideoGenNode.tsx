@@ -3,7 +3,7 @@ import { BaseNode } from "./BaseNode";
 import { ViduVideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Settings2, RefreshCw, AlertCircle, Film, Sparkles, ShieldCheck } from "lucide-react";
+import { Settings2, RefreshCw, AlertCircle, Film, Sparkles, ShieldCheck, RefreshCcw } from "lucide-react";
 
 type Props = {
   id: string;
@@ -12,9 +12,10 @@ type Props = {
 };
 
 export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs } = useWorkflowStore();
+  const { updateNodeData, getConnectedInputs, availableVideoModels, setAvailableVideoModels } = useWorkflowStore();
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(true);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
 
   const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
@@ -107,6 +108,39 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
             <div className="flex items-center gap-2 text-[9px] text-[var(--node-text-secondary)]">
               <Sparkles size={12} className="text-amber-300" />
               默认模型：{data.model || "viduq2-pro"} · 动效 {data.movementAmplitude || "auto"} · 错峰 {data.offPeak !== false ? "On" : "Off"}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model</label>
+              <select
+                className="node-control node-control--tight text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                value={data.model || ""}
+                onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
+              >
+                <option value="">viduq2-pro (默认)</option>
+                {availableVideoModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <button
+                onClick={async () => {
+                  if (isFetchingModels) return;
+                  setIsFetchingModels(true);
+                  try {
+                    const models = await (await import("../../services/viduService")).fetchViduModels?.();
+                    if (models && Array.isArray(models)) {
+                      setAvailableVideoModels(models);
+                    }
+                  } catch (err) {
+                    console.warn("Fetch Vidu models failed", err);
+                  } finally {
+                    setIsFetchingModels(false);
+                  }
+                }}
+                className="node-control node-control--tight h-8 w-8 flex items-center justify-center"
+                title="拉取 Vidu 模型"
+              >
+                <RefreshCcw size={12} className={isFetchingModels ? "animate-spin" : ""} />
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[9px] text-[var(--node-text-secondary)]">
               <label className="flex items-center gap-2">
