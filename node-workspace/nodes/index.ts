@@ -6,5 +6,6 @@ export * from "./GroupNode";
 export * from "./ShotNode";
 export { ImageGenNode } from "./ImageGenNode";
 export { VideoGenNode } from "./VideoGenNode";
+export { ViduVideoGenNode } from "./ViduVideoGenNode";
 export { LLMGenerateNode } from "./LLMGenerateNode";
 export { OutputNode } from "./OutputNode";

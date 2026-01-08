@@ -1,5 +1,5 @@
 import { Node, Edge } from "@xyflow/react";
-import { ProjectContext } from "../../types";
+import { ProjectContext, ViduReferenceMode } from "../../types";
 
 export type HandleType = "image" | "text";
 
@@ -9,6 +9,7 @@ export type NodeType =
   | "text"
   | "imageGen"
   | "videoGen"
+  | "viduVideoGen"
   | "llmGenerate"
   | "group"
   | "note"
@@ -118,6 +119,25 @@ export interface VideoGenNodeData extends BaseNodeData {
   quality?: string;
 }
 
+export interface ViduVideoGenNodeData extends BaseNodeData {
+  inputImages: string[];
+  inputPrompt?: string | null;
+  videoId?: string;
+  videoUrl?: string;
+  status: 'idle' | 'loading' | 'complete' | 'error';
+  error: string | null;
+  mode: ViduReferenceMode;
+  subjects?: { id?: string; images: string[]; voiceId?: string }[];
+  voiceId?: string;
+  aspectRatio?: string;
+  resolution?: string;
+  duration?: number;
+  movementAmplitude?: string;
+  offPeak?: boolean;
+  model?: string;
+  seed?: number;
+}
+
 export interface LLMGenerateNodeData extends BaseNodeData {
   inputPrompt: string | null;
   outputText: string | null;
@@ -173,6 +193,7 @@ export type WorkflowNodeData =
   | TextNodeData
   | ImageGenNodeData
   | VideoGenNodeData
+  | ViduVideoGenNodeData
   | LLMGenerateNodeData
   | GroupNodeData
   | NoteNodeData

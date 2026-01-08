@@ -1,5 +1,5 @@
 
-import { ProjectData, TextServiceConfig, VideoServiceConfig, MultimodalConfig } from './types';
+import { ProjectData, TextServiceConfig, VideoServiceConfig, MultimodalConfig, ViduServiceConfig } from './types';
 
 export const INITIAL_PROJECT_DATA: ProjectData = {
   fileName: '',
@@ -52,6 +52,12 @@ export const INITIAL_VIDEO_CONFIG: VideoServiceConfig = {
   baseUrl: '', // Default empty to force user input
   apiKey: '',
   model: 'sora-2'
+};
+
+export const INITIAL_VIDU_CONFIG: ViduServiceConfig = {
+  baseUrl: 'https://api.deyunai.com/ent/v2',
+  apiKey: '',
+  defaultModel: 'viduq2-pro'
 };
 
 export const INITIAL_MULTIMODAL_CONFIG: MultimodalConfig = {

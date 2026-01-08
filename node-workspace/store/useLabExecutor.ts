@@ -3,6 +3,7 @@ import { useConfig } from "../../hooks/useConfig";
 import * as GeminiService from "../../services/geminiService";
 import * as MultimodalService from "../../services/multimodalService";
 import * as VideoService from "../../services/videoService";
+import * as ViduService from "../../services/viduService";
 import { useCallback } from "react";
 
 export const useLabExecutor = () => {
@@ -168,9 +169,128 @@ export const useLabExecutor = () => {
     }
   }, [config.multimodalConfig, store]);
 
+  const runViduVideoGen = useCallback(async (nodeId: string) => {
+    const node = store.getNodeById(nodeId);
+    if (!node) return;
+    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const data = node.data as any;
+    const prompt = (connectedText || data.inputPrompt || "").trim() || "The astronaut waved and the camera moved up.";
+
+    const viduConfig = {
+      ...config.viduConfig,
+      defaultModel: data.model || config.viduConfig?.defaultModel || "viduq2-pro",
+    };
+
+    if (!viduConfig.apiKey && !config.videoConfig.apiKey) {
+      store.updateNodeData(nodeId, { status: "error", error: "Missing Vidu API key." });
+      return;
+    }
+
+    const mode = data.mode || "audioVideo";
+    const subjects = (data.subjects && data.subjects.length > 0)
+      ? data.subjects
+      : (() => {
+          const chunkSize = 3;
+          const result: { id?: string; images: string[]; voiceId?: string }[] = [];
+          for (let i = 0; i < images.length; i += chunkSize) {
+            result.push({
+              id: `subject${result.length + 1}`,
+              images: images.slice(i, i + chunkSize),
+              voiceId: data.voiceId || "professional_host",
+            });
+          }
+          return result.length ? result : [
+            {
+              id: "subject1",
+              images: [
+                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
+                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+              ],
+              voiceId: data.voiceId || "professional_host",
+            }
+          ];
+        })();
+
+    const visualImages = images.length ? images : [
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
+    ];
+
+    if (mode === "videoOnly" && visualImages.length === 0) {
+      store.updateNodeData(nodeId, { status: "error", error: "需要至少一张参考图" });
+      return;
+    }
+
+    store.updateNodeData(nodeId, { status: "loading", error: null });
+
+    try {
+      const request = mode === "audioVideo"
+        ? {
+            mode: "audioVideo" as const,
+            audioParams: {
+              model: data.model || viduConfig.defaultModel,
+              subjects,
+              prompt,
+              duration: data.duration ?? 10,
+              audio: true,
+              offPeak: data.offPeak !== false,
+            },
+          }
+        : {
+            mode: "videoOnly" as const,
+            visualParams: {
+              model: data.model || viduConfig.defaultModel,
+              images: visualImages,
+              prompt,
+              duration: data.duration ?? 10,
+              aspectRatio: data.aspectRatio || "16:9",
+              resolution: data.resolution || "1080p",
+              movementAmplitude: data.movementAmplitude || "auto",
+              seed: data.seed ?? 0,
+              offPeak: data.offPeak !== false,
+              audio: false,
+            },
+          };
+
+      const { taskId } = await ViduService.createReferenceVideo(request as any, {
+        ...viduConfig,
+        apiKey: viduConfig.apiKey || config.videoConfig.apiKey,
+      });
+
+      store.updateNodeData(nodeId, { status: "loading", videoId: taskId, videoUrl: undefined, error: null });
+
+      const maxAttempts = 60;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const result = await ViduService.fetchTaskResult(taskId, {
+          ...viduConfig,
+          apiKey: viduConfig.apiKey || config.videoConfig.apiKey,
+        });
+        if (result.state === "success") {
+          const url = result.creations?.[0]?.url || result.creations?.[0]?.watermarked_url;
+          store.updateNodeData(nodeId, { status: "complete", videoUrl: url, error: null });
+          return;
+        }
+        if (result.state === "failed") {
+          store.updateNodeData(nodeId, { status: "error", error: result.err_code || "Vidu 生成失败" });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+
+      store.updateNodeData(nodeId, { status: "error", error: "Vidu 生成超时" });
+    } catch (e: any) {
+      store.updateNodeData(nodeId, { status: "error", error: e.message || "Vidu 提交失败" });
+    }
+  }, [config.videoConfig, config.viduConfig, store]);
+
   const runVideoGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
+    if (node.type === "viduVideoGen") {
+      return runViduVideoGen(nodeId);
+    }
     const { images, text: connectedText } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
     const prompt = (connectedText || data.inputPrompt || "").trim();
@@ -224,7 +344,7 @@ export const useLabExecutor = () => {
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Video submit failed" });
     }
-  }, [config.videoConfig, store]);
+  }, [config.videoConfig, runViduVideoGen, store]);
 
   return {
     runLLM,

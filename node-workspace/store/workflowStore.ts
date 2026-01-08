@@ -399,6 +399,7 @@ interface WorkflowStore {
   deleteGroupTemplate: (templateId: string) => void;
   applyGroupTemplate: (templateId: string, offset: XYPosition) => { ok: boolean; error?: string };
   createGroupFromSelection: () => { ok: boolean; error?: string };
+  applyViduReferenceDemo: (offset?: XYPosition) => { ok: boolean; error?: string };
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
@@ -474,6 +475,21 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         error: null,
         aspectRatio: "16:9",
       } as VideoGenNodeData;
+    case "viduVideoGen":
+      return {
+        inputImages: [],
+        inputPrompt: null,
+        videoId: undefined,
+        videoUrl: undefined,
+        status: "idle",
+        error: null,
+        mode: "audioVideo",
+        aspectRatio: "16:9",
+        resolution: "1080p",
+        duration: 10,
+        movementAmplitude: "auto",
+        offPeak: true,
+      } as any;
     case "group":
       return {
         title: "Node Group",
@@ -908,6 +924,107 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
     const updatedNodes = nodes.map((node) => ({ ...node, selected: false }));
     set({ nodes: [...updatedNodes, ...newNodes], edges: [...edges, ...newEdges] });
+    return { ok: true };
+  },
+
+  applyViduReferenceDemo: (offset = { x: 120, y: 120 }) => {
+    const { nodes, edges, activeView } = get();
+    const deselected = nodes.map((n) => ({ ...n, selected: false }));
+
+    const groupId = `group-${++nodeIdCounter}`;
+    const groupNode: WorkflowNode = {
+      id: groupId,
+      type: "group",
+      position: offset,
+      data: {
+        title: "Vidu 参考生视频演示",
+        description: "音视频直出默认启用，1080p，错峰开启，示例含 3 主体与场景参考。",
+        view: activeView || undefined,
+      } as GroupNodeData,
+      style: { width: 1100, height: 900 },
+    };
+
+    const promptText = "@1 和 @2 在一起吃火锅，并且旁白音说火锅大家都爱吃。";
+    const textNode: WorkflowNode = {
+      id: `text-${++nodeIdCounter}`,
+      type: "text",
+      position: { x: 80, y: 120 },
+      parentId: groupId,
+      extent: "parent",
+      data: {
+        title: "参考提示词",
+        text: promptText,
+        view: activeView || undefined,
+      } as any,
+    };
+
+    const imageUrls = [
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
+    ];
+
+    const imageNodes: WorkflowNode[] = imageUrls.map((url, idx) => ({
+      id: `image-${++nodeIdCounter}`,
+      type: "imageInput",
+      position: { x: 80 + (idx % 3) * 180, y: 260 + Math.floor(idx / 3) * 180 },
+      parentId: groupId,
+      extent: "parent",
+      data: { image: url, filename: `ref-${idx + 1}.png`, dimensions: null, view: activeView || undefined } as any,
+    }));
+
+    const viduNode: WorkflowNode = {
+      id: `vidu-${++nodeIdCounter}`,
+      type: "viduVideoGen",
+      position: { x: 620, y: 260 },
+      parentId: groupId,
+      extent: "parent",
+      data: {
+        title: "Vidu 参考生视频",
+        mode: "audioVideo",
+        aspectRatio: "16:9",
+        resolution: "1080p",
+        duration: 10,
+        movementAmplitude: "auto",
+        offPeak: true,
+        model: "viduq2-pro",
+        subjects: [
+          { id: "subject1", images: imageUrls.slice(0, 3), voiceId: "professional_host" },
+          { id: "subject2", images: imageUrls.slice(3, 5), voiceId: "professional_host" },
+          { id: "subject3", images: imageUrls.slice(5, 7), voiceId: "professional_host" },
+        ],
+        inputPrompt: promptText,
+        status: "idle",
+        error: null,
+        inputImages: imageUrls,
+        view: activeView || undefined,
+      } as any,
+      style: { width: 360 },
+    };
+
+    const newEdges: WorkflowEdge[] = [
+      {
+        id: `edge-${textNode.id}-${viduNode.id}-text`,
+        source: textNode.id,
+        target: viduNode.id,
+        targetHandle: "text",
+      },
+      ...imageNodes.map((img) => ({
+        id: `edge-${img.id}-${viduNode.id}-image`,
+        source: img.id,
+        target: viduNode.id,
+        targetHandle: "image",
+      })),
+    ];
+
+    set({
+      nodes: [...deselected, groupNode, textNode, ...imageNodes, viduNode],
+      edges: [...edges, ...newEdges],
+    });
     return { ok: true };
   },
 

@@ -269,6 +269,25 @@ export interface ViduReferenceRequest {
   visualParams?: ViduReferenceVideoVisualParams;
 }
 
+export interface ViduVideoGenNodeData extends BaseNodeData {
+  inputImages: string[];
+  inputPrompt?: string | null;
+  videoId?: string;
+  videoUrl?: string;
+  status: 'idle' | 'loading' | 'complete' | 'error';
+  error: string | null;
+  mode: ViduReferenceMode;
+  subjects?: ViduSubject[];
+  voiceId?: string;
+  aspectRatio?: string;
+  resolution?: string;
+  duration?: number;
+  movementAmplitude?: string;
+  offPeak?: boolean;
+  model?: string;
+  seed?: number;
+}
+
 export type TextProvider = 'gemini' | 'openrouter';
 
 export interface TextServiceConfig {
@@ -288,6 +307,8 @@ export interface AppConfig {
   textConfig: TextServiceConfig;
   videoConfig: VideoServiceConfig;
   multimodalConfig: MultimodalConfig; // New Phase 4 Config
+  viduConfig?: ViduServiceConfig;
+  videoProvider?: 'default' | 'vidu';
   rememberApiKeys?: boolean;
   syncApiKeys?: boolean;
 }

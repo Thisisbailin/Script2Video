@@ -24,6 +24,7 @@ import {
   GroupNode,
   ImageGenNode,
   VideoGenNode,
+  ViduVideoGenNode,
   LLMGenerateNode,
   OutputNode,
   ShotNode,
@@ -46,6 +47,7 @@ const nodeTypes: NodeTypes = {
   group: GroupNode,
   imageGen: ImageGenNode,
   videoGen: VideoGenNode,
+  viduVideoGen: ViduVideoGenNode,
   llmGenerate: LLMGenerateNode,
   shot: ShotNode,
   output: OutputNode,
@@ -429,7 +431,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
     for (const n of nodes) {
       if (n.type === "llmGenerate") await runLLM(n.id);
       if (n.type === "imageGen") await runImageGen(n.id);
-      if (n.type === "videoGen") await runVideoGen(n.id);
+      if (n.type === "videoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
     }
     alert("Run triggered");
   };

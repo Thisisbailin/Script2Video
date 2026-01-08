@@ -1,5 +1,5 @@
 import { AppConfig } from "../types";
-import { INITIAL_TEXT_CONFIG, INITIAL_VIDEO_CONFIG, INITIAL_MULTIMODAL_CONFIG, INITIAL_REMEMBER_KEYS, INITIAL_SYNC_KEYS } from "../constants";
+import { INITIAL_TEXT_CONFIG, INITIAL_VIDEO_CONFIG, INITIAL_MULTIMODAL_CONFIG, INITIAL_REMEMBER_KEYS, INITIAL_SYNC_KEYS, INITIAL_VIDU_CONFIG } from "../constants";
 import { usePersistedState } from "./usePersistedState";
 
 export const useConfig = (key: string) => {
@@ -9,6 +9,8 @@ export const useConfig = (key: string) => {
       textConfig: INITIAL_TEXT_CONFIG,
       videoConfig: INITIAL_VIDEO_CONFIG,
       multimodalConfig: INITIAL_MULTIMODAL_CONFIG,
+       viduConfig: INITIAL_VIDU_CONFIG,
+       videoProvider: "default",
       rememberApiKeys: INITIAL_REMEMBER_KEYS,
       syncApiKeys: INITIAL_SYNC_KEYS
     },
@@ -19,12 +21,15 @@ export const useConfig = (key: string) => {
       const safeText = rememberApiKeys ? parsed.textConfig : { ...parsed.textConfig, apiKey: '' };
       const safeVideo = rememberApiKeys ? parsed.videoConfig : { ...parsed.videoConfig, apiKey: '' };
       const safeMulti = rememberApiKeys ? parsed.multimodalConfig : { ...parsed.multimodalConfig, apiKey: '' };
+      const safeVidu = rememberApiKeys ? (parsed.viduConfig || INITIAL_VIDU_CONFIG) : { ...(parsed.viduConfig || INITIAL_VIDU_CONFIG), apiKey: '' };
       return {
         syncApiKeys,
         rememberApiKeys,
         textConfig: { ...INITIAL_TEXT_CONFIG, ...safeText },
         videoConfig: { ...INITIAL_VIDEO_CONFIG, ...safeVideo },
-        multimodalConfig: { ...INITIAL_MULTIMODAL_CONFIG, ...safeMulti }
+        multimodalConfig: { ...INITIAL_MULTIMODAL_CONFIG, ...safeMulti },
+        viduConfig: { ...INITIAL_VIDU_CONFIG, ...safeVidu },
+        videoProvider: parsed.videoProvider || "default",
       } as AppConfig;
     },
     serialize: (value) => {
@@ -34,12 +39,15 @@ export const useConfig = (key: string) => {
       const textConfig = allowPersistKeys ? value.textConfig : { ...value.textConfig, apiKey: '' };
       const videoConfig = allowPersistKeys ? value.videoConfig : { ...value.videoConfig, apiKey: '' };
       const multimodalConfig = allowPersistKeys ? value.multimodalConfig : { ...value.multimodalConfig, apiKey: '' };
+      const viduConfig = allowPersistKeys ? value.viduConfig : { ...(value.viduConfig || INITIAL_VIDU_CONFIG), apiKey: '' };
       return JSON.stringify({
         syncApiKeys,
         rememberApiKeys,
         textConfig,
         videoConfig,
-        multimodalConfig
+        multimodalConfig,
+        viduConfig,
+        videoProvider: value.videoProvider || "default",
       });
     }
   });
