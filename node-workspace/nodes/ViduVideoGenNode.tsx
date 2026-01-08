@@ -32,7 +32,21 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
       }));
     }
     return [];
-  }, [data.subjects, data.useCharacters, atMentions, connectedImages.length]);
+  }, [data.subjects, data.useCharacters, atMentions, connectedImages.length, imageRefs]);
+
+  const warnings = useMemo(() => {
+    const msgs: string[] = [];
+    if (data.mode !== "videoOnly") {
+      if (!derivedSubjects.length) msgs.push("未检测到主体引用：请在提示词中添加 @形态 或手动配置 subjects。");
+      derivedSubjects.forEach((s) => {
+        if ((s.images || 0) === 0) msgs.push(`主体 @${s.name} 缺少参考图，将影响生成质量。`);
+        if (s.status === "missing") msgs.push(`主体 @${s.name} 未匹配角色形态，请检查名称或创建形态。`);
+      });
+    } else if (data.mode === "videoOnly" && connectedImages.length === 0) {
+      msgs.push("纯视频模式至少需要一张参考图。");
+    }
+    return msgs;
+  }, [data.mode, derivedSubjects, connectedImages.length]);
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -200,6 +214,14 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+            {warnings.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-[8px] font-black uppercase tracking-widest text-amber-300">Warnings</div>
+                <ul className="text-[10px] text-amber-200 list-disc list-inside space-y-0.5">
+                  {warnings.map((w, idx) => <li key={idx}>{w}</li>)}
+                </ul>
               </div>
             )}
           </div>
