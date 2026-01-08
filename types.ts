@@ -39,14 +39,14 @@ export interface Shot {
   description: string;
   dialogue: string;
   soraPrompt: string;
-  
+
   // Phase 5: Video Gen Fields
   videoStatus?: 'idle' | 'queued' | 'generating' | 'completed' | 'error'; // Added 'queued'
   videoUrl?: string;
   videoId?: string; // New: Store the API ID for Remixing
   videoStartTime?: number; // New: Timestamp when generation started
   videoErrorMsg?: string;
-  
+
   // User customizations for Video
   finalVideoPrompt?: string; // The actual prompt used (user edited)
   videoParams?: VideoParams;
@@ -186,7 +186,7 @@ export interface ProjectData {
   designAssets: DesignAssetItem[];
   contextUsage?: TokenUsage; // Total usage (Phase 1 + Easter Eggs)
   phase1Usage: Phase1Usage; // Detailed breakdown of Phase 1
-  
+
   // New usage tracking fields
   phase4Usage?: TokenUsage; // Visual Assets (Multimodal)
   phase5Usage?: TokenUsage; // Video Studio (Reserved for Prompt Refinement or API cost mapping)
@@ -195,17 +195,78 @@ export interface ProjectData {
   shotGuide: string;
   soraGuide: string;
   dramaGuide?: string;
-  
+
   // Project-Specific Assets (User Uploaded)
   globalStyleGuide?: string; // Unified Style Bible for the project
-  
+
   stats: PerformanceMetrics;
 }
 
 export interface VideoServiceConfig {
   baseUrl: string;
   apiKey: string;
-  model?: string; 
+  model?: string;
+}
+
+// Vidu service config and task types
+export interface ViduServiceConfig {
+  baseUrl?: string;
+  apiKey?: string;
+  defaultModel?: string;
+}
+
+export type ViduTaskState = 'created' | 'scheduled' | 'processing' | 'success' | 'failed' | 'canceled';
+
+export interface ViduCreationItem {
+  id?: string;
+  url?: string;
+  cover_url?: string;
+  watermarked_url?: string;
+}
+
+export interface ViduTaskResult {
+  id: string;
+  state: ViduTaskState;
+  err_code?: string;
+  credits?: number;
+  payload?: string;
+  creations?: ViduCreationItem[];
+}
+
+export interface ViduSubject {
+  id?: string;
+  images: string[];
+  voiceId?: string;
+}
+
+export interface ViduReferenceVideoAudioParams {
+  model?: string;
+  subjects: ViduSubject[];
+  prompt: string;
+  duration?: number;
+  audio?: boolean;
+  offPeak?: boolean;
+}
+
+export interface ViduReferenceVideoVisualParams {
+  model?: string;
+  images: string[];
+  prompt: string;
+  duration?: number;
+  aspectRatio?: string;
+  resolution?: string;
+  movementAmplitude?: string;
+  seed?: number;
+  offPeak?: boolean;
+  audio?: boolean;
+}
+
+export type ViduReferenceMode = 'audioVideo' | 'videoOnly';
+
+export interface ViduReferenceRequest {
+  mode: ViduReferenceMode;
+  audioParams?: ViduReferenceVideoAudioParams;
+  visualParams?: ViduReferenceVideoVisualParams;
 }
 
 export type TextProvider = 'gemini' | 'openrouter';

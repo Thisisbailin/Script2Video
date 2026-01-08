@@ -5,7 +5,7 @@ import { AVAILABLE_MODELS } from '../constants';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film } from 'lucide-react';
+import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
@@ -56,6 +56,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     const syncAllowed = syncRollout?.enabled ?? true;
     const syncPercent = syncRollout?.percent ?? 100;
     const syncIsRollout = syncPercent < 100;
+    const [showViduOverlay, setShowViduOverlay] = useState(false);
 
     useEffect(() => {
         if (isOpen && activeTabOverride) {
@@ -79,6 +80,57 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         if (typeof detail.videoKey === "boolean") parts.push(`videoKey ${detail.videoKey ? "yes" : "no"}`);
         if (typeof detail.deviceId === "string") parts.push(`device ${detail.deviceId}`);
         return parts.join(" · ");
+    };
+
+    const isViduEndpoint = () => {
+        const url = config.videoConfig?.baseUrl?.toLowerCase() || '';
+        const model = config.videoConfig?.model?.toLowerCase() || '';
+        return url.includes("api.deyunai.com") || url.includes("vidu") || model.includes("vidu");
+    };
+
+    const viduDemoAudioPayload = {
+        mode: "audioVideo",
+        audioParams: {
+            model: "viduq2-pro",
+            subjects: [
+                { id: "subject1", images: ["https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png"], voiceId: "professional_host" },
+                { id: "subject2", images: ["https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg"], voiceId: "professional_host" },
+                { id: "subject3", images: ["https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png"], voiceId: "professional_host" }
+            ],
+            prompt: "@1 和 @2 在一起吃火锅，并且旁白音说火锅大家都爱吃。",
+            duration: 10,
+            audio: true,
+            offPeak: true
+        }
+    };
+
+    const viduDemoVisualPayload = {
+        mode: "videoOnly",
+        visualParams: {
+            model: "viduq2-pro",
+            images: [
+                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png"
+            ],
+            prompt: "Santa Claus and the bear hug by the lakeside.",
+            duration: 10,
+            seed: 0,
+            aspectRatio: "16:9",
+            resolution: "1080p",
+            movementAmplitude: "auto",
+            offPeak: true,
+            audio: false
+        }
+    };
+
+    const copyViduPayload = async (payload: unknown) => {
+        try {
+            await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+            setModelFetchMessage({ type: 'success', text: 'Vidu 演示 payload 已复制' });
+        } catch (err) {
+            setModelFetchMessage({ type: 'error', text: '复制失败，请手动复制' });
+        }
     };
     const statusLabel = (status?: string) => {
         switch (status) {
@@ -606,6 +658,66 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                         <div className="space-y-4">
                             <div className="p-3 bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded text-xs text-indigo-200 mb-4">
                                 Phase 5 requires an external Video Generation API. You can use standard proxies (OneAPI) or direct endpoints.
+                            </div>
+
+                            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 p-3">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2 text-[var(--text-primary)] text-sm font-semibold">
+                                        <Sparkles size={16} className="text-amber-300" />
+                                        Vidu 参考生视频快速演示
+                                    </div>
+                                    <button
+                                        onClick={() => setShowViduOverlay(!showViduOverlay)}
+                                        className="text-xs px-3 py-1 rounded-lg border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-[var(--text-secondary)]"
+                                    >
+                                        {showViduOverlay ? "收起" : "展开"}
+                                    </button>
+                                </div>
+                                {(showViduOverlay || isViduEndpoint()) && (
+                                    <div className="space-y-3 text-xs text-[var(--text-secondary)]">
+                                        <div className="p-3 rounded-lg bg-[var(--bg-muted)]/60 border border-[var(--border-subtle)]">
+                                            <div className="flex items-start gap-2">
+                                                <Info size={14} className="mt-0.5 text-[var(--accent-blue)]" />
+                                                <div className="space-y-1">
+                                                    <div className="text-[var(--text-primary)] font-medium">官方参考：音视频直出/纯视频共用 `reference2video`</div>
+                                                    <div>默认启用音视频直出，模型 `viduq2-pro`，时长上限预填 10s，可编辑；分辨率 1080p，动效 `auto`，错峰模式已开启。</div>
+                                                    <div>主体参考：示例 3 个主体，每个 3 张参考图，prompt 中用 <code>@1</code>/<code>@2</code>/<code>@3</code> 绑定。</div>
+                                                    <div>切换到 Vidu 服务商时，可直接复制演示 payload 调用后端 `viduService.createReferenceVideo`。</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="grid md:grid-cols-2 gap-3">
+                                            <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-[var(--text-primary)] font-semibold">音视频直出示例</div>
+                                                    <button
+                                                        onClick={() => copyViduPayload(viduDemoAudioPayload)}
+                                                        className="flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300"
+                                                    >
+                                                        <Copy size={14} /> 复制
+                                                    </button>
+                                                </div>
+                                                <pre className="text-[10px] whitespace-pre-wrap break-all bg-[var(--bg-panel)]/60 p-2 rounded border border-[var(--border-subtle)]">
+{JSON.stringify(viduDemoAudioPayload, null, 2)}
+                                                </pre>
+                                            </div>
+                                            <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-[var(--text-primary)] font-semibold">纯视频直出示例</div>
+                                                    <button
+                                                        onClick={() => copyViduPayload(viduDemoVisualPayload)}
+                                                        className="flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300"
+                                                    >
+                                                        <Copy size={14} /> 复制
+                                                    </button>
+                                                </div>
+                                                <pre className="text-[10px] whitespace-pre-wrap break-all bg-[var(--bg-panel)]/60 p-2 rounded border border-[var(--border-subtle)]">
+{JSON.stringify(viduDemoVisualPayload, null, 2)}
+                                                </pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div>
