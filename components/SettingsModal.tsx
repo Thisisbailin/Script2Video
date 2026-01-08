@@ -712,16 +712,9 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                             })}
                                             className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-xs focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                         />
-                                        <input
-                                            type="password"
-                                            placeholder="VIDU_API_KEY"
-                                            value={config.viduConfig?.apiKey || ''}
-                                            onChange={(e) => onConfigChange({
-                                                ...config,
-                                                viduConfig: { ...config.viduConfig, apiKey: e.target.value }
-                                            })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-xs focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
+                                        <div className="text-[11px] text-[var(--text-secondary)] p-2 bg-[var(--bg-panel)]/60 rounded border border-dashed border-[var(--border-subtle)]">
+                                            已在 Pages 配置环境变量 <code>VIDU_API_KEY</code>，无需在此输入。
+                                        </div>
                                         <input
                                             type="text"
                                             placeholder="默认模型（如 viduq2-pro）"

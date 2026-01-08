@@ -194,11 +194,6 @@ export const useLabExecutor = () => {
       defaultModel: data.model || config.viduConfig?.defaultModel || "viduq2-pro",
     };
 
-    if (!viduConfig.apiKey && !config.videoConfig.apiKey) {
-      store.updateNodeData(nodeId, { status: "error", error: "Missing Vidu API key." });
-      return;
-    }
-
     const mode = data.mode || "audioVideo";
     const useCharacters = data.useCharacters !== false;
 
