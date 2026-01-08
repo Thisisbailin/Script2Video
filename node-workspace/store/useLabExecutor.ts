@@ -5,6 +5,19 @@ import * as MultimodalService from "../../services/multimodalService";
 import * as VideoService from "../../services/videoService";
 import * as ViduService from "../../services/viduService";
 import { useCallback } from "react";
+import { Character, CharacterForm } from "../../types";
+
+const parseAtMentions = (text: string): string[] => {
+  const matches = text.match(/@([\p{L}\w-]+)/gu) || [];
+  const names = matches.map((m) => m.slice(1));
+  const unique: string[] = [];
+  names.forEach((n) => {
+    if (!unique.includes(n)) unique.push(n);
+  });
+  return unique;
+};
+
+const escapeRegex = (str: string) => str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 
 export const useLabExecutor = () => {
   const store = useWorkflowStore();
@@ -187,41 +200,86 @@ export const useLabExecutor = () => {
     }
 
     const mode = data.mode || "audioVideo";
-    const subjects = (data.subjects && data.subjects.length > 0)
-      ? data.subjects
-      : (() => {
-          const chunkSize = 3;
-          const result: { id?: string; images: string[]; voiceId?: string }[] = [];
-          for (let i = 0; i < images.length; i += chunkSize) {
-            result.push({
-              id: `subject${result.length + 1}`,
-              images: images.slice(i, i + chunkSize),
-              voiceId: data.voiceId || "professional_host",
-            });
-          }
-          return result.length ? result : [
-            {
-              id: "subject1",
-              images: [
-                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
-                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
-                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
-              ],
-              voiceId: data.voiceId || "professional_host",
-            }
-          ];
-        })();
+    const useCharacters = data.useCharacters !== false;
 
-    const visualImages = images.length ? images : [
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
-      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
-    ];
+    const labContext = store.labContext;
+    const allForms: { form: CharacterForm; characterId: string }[] =
+      (labContext?.context?.characters || []).flatMap((c: Character) =>
+        (c.forms || []).map((f) => ({ form: f, characterId: c.id }))
+      );
+
+    const mentions = parseAtMentions(prompt);
+
+    const chunkImagesForSubjects = (count: number) => {
+      if (!images.length || count === 0) return Array.from({ length: count }, () => [] as string[]);
+      const chunkSize = Math.max(1, Math.ceil(images.length / count));
+      const buckets: string[][] = [];
+      for (let i = 0; i < count; i++) {
+        buckets.push(images.slice(i * chunkSize, (i + 1) * chunkSize));
+      }
+      return buckets;
+    };
+
+    const resolvedSubjects =
+      useCharacters && mentions.length > 0
+        ? (() => {
+            const buckets = chunkImagesForSubjects(mentions.length);
+            return mentions.map((m, idx) => {
+              const hit = allForms.find((entry) => entry.form.formName.toLowerCase() === m.toLowerCase());
+              return {
+                id: hit?.form.formName || m,
+                images: buckets[idx] || [],
+                voiceId: data.voiceId || "professional_host",
+              };
+            });
+          })()
+        : (data.subjects && data.subjects.length > 0)
+            ? data.subjects
+            : (() => {
+                const fallbackBuckets = chunkImagesForSubjects(3);
+                const result: { id?: string; images: string[]; voiceId?: string }[] = [];
+                for (let i = 0; i < fallbackBuckets.length; i++) {
+                  result.push({
+                    id: `subject${i + 1}`,
+                    images: fallbackBuckets[i],
+                    voiceId: data.voiceId || "professional_host",
+                  });
+                }
+                return result.length
+                  ? result
+                  : [
+                      {
+                        id: "subject1",
+                        images: [
+                          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
+                          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+                          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+                        ],
+                        voiceId: data.voiceId || "professional_host",
+                      },
+                    ];
+              })();
+
+    const visualImages = images.length
+      ? images
+      : [
+          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
+        ];
 
     if (mode === "videoOnly" && visualImages.length === 0) {
       store.updateNodeData(nodeId, { status: "error", error: "需要至少一张参考图" });
       return;
     }
+
+    const promptForVidu =
+      useCharacters && mentions.length > 0
+        ? mentions.reduce((acc, name, idx) => {
+            const reg = new RegExp(`@${escapeRegex(name)}`, "g");
+            return acc.replace(reg, `@${idx + 1}`);
+          }, prompt)
+        : prompt;
 
     store.updateNodeData(nodeId, { status: "loading", error: null });
 
@@ -231,8 +289,8 @@ export const useLabExecutor = () => {
             mode: "audioVideo" as const,
             audioParams: {
               model: data.model || viduConfig.defaultModel,
-              subjects,
-              prompt,
+              subjects: resolvedSubjects,
+              prompt: promptForVidu,
               duration: data.duration ?? 10,
               audio: true,
               offPeak: data.offPeak !== false,
@@ -243,7 +301,7 @@ export const useLabExecutor = () => {
             visualParams: {
               model: data.model || viduConfig.defaultModel,
               images: visualImages,
-              prompt,
+              prompt: promptForVidu,
               duration: data.duration ?? 10,
               aspectRatio: data.aspectRatio || "16:9",
               resolution: data.resolution || "1080p",

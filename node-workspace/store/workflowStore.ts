@@ -484,6 +484,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         status: "idle",
         error: null,
         mode: "audioVideo",
+        useCharacters: true,
         aspectRatio: "16:9",
         resolution: "1080p",
         duration: 10,

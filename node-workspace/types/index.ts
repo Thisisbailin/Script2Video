@@ -127,6 +127,7 @@ export interface ViduVideoGenNodeData extends BaseNodeData {
   status: 'idle' | 'loading' | 'complete' | 'error';
   error: string | null;
   mode: ViduReferenceMode;
+  useCharacters?: boolean;
   subjects?: { id?: string; images: string[]; voiceId?: string }[];
   voiceId?: string;
   aspectRatio?: string;

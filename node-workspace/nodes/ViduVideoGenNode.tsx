@@ -113,6 +113,15 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                 />
                 音视频直出
               </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={data.useCharacters !== false}
+                  onChange={(e) => updateNodeData(id, { useCharacters: e.target.checked })}
+                  className="accent-[var(--node-accent)]"
+                />
+                使用角色形态主体
+              </label>
             </div>
             <div className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors">
               <div className="flex items-center gap-2">
