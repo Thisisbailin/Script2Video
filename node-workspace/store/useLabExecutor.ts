@@ -108,7 +108,7 @@ export const useLabExecutor = () => {
   const runImageGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
-    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const { images, text: connectedText, atMentions, imageRefs } = store.getConnectedInputs(nodeId);
     const data = node.data as any; // Cast for easier access to new fields
     const manualPrompt = data.inputPrompt;
     const text = connectedText || manualPrompt;
@@ -203,7 +203,17 @@ export const useLabExecutor = () => {
         (c.forms || []).map((f) => ({ form: f, characterId: c.id }))
       );
 
-    const mentions = parseAtMentions(prompt);
+    const mentions = atMentions?.length ? atMentions.map(m => m.name) : parseAtMentions(prompt);
+
+    const formImageMap = new Map<string, string[]>();
+    (imageRefs || []).forEach((ref) => {
+      if (ref.formTag) {
+        const key = ref.formTag.toLowerCase();
+        const arr = formImageMap.get(key) || [];
+        arr.push(ref.src);
+        formImageMap.set(key, arr);
+      }
+    });
 
     const chunkImagesForSubjects = (count: number) => {
       if (!images.length || count === 0) return Array.from({ length: count }, () => [] as string[]);
@@ -220,10 +230,11 @@ export const useLabExecutor = () => {
         ? (() => {
             const buckets = chunkImagesForSubjects(mentions.length);
             return mentions.map((m, idx) => {
+              const mapped = formImageMap.get(m.toLowerCase()) || [];
               const hit = allForms.find((entry) => entry.form.formName.toLowerCase() === m.toLowerCase());
               return {
                 id: hit?.form.formName || m,
-                images: buckets[idx] || [],
+                images: (mapped.length ? mapped : buckets[idx]) || [],
                 voiceId: data.voiceId || "professional_host",
               };
             });

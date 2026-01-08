@@ -16,7 +16,7 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(true);
 
-  const { text: connectedText, images: connectedImages, atMentions } = getConnectedInputs(id);
+  const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
 
   const derivedSubjects = useMemo(() => {
@@ -25,7 +25,8 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
       return atMentions.map((m, idx) => ({
         name: m.formName || m.name,
         status: m.status,
-        images: connectedImages.length ? Math.ceil(connectedImages.length / atMentions.length) : 0,
+        images: (imageRefs || []).filter((r) => r.formTag && r.formTag.toLowerCase() === (m.formName || m.name).toLowerCase()).length
+          || (connectedImages.length ? Math.ceil(connectedImages.length / atMentions.length) : 0),
         order: idx + 1,
       }));
     }

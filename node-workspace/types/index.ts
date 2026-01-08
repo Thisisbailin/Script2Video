@@ -27,6 +27,7 @@ export interface ImageInputNodeData extends BaseNodeData {
   image: string | null;
   filename: string | null;
   dimensions: { width: number; height: number } | null;
+  formTag?: string;
 }
 
 export type ShapeType = "rectangle" | "circle" | "arrow" | "freehand" | "text";
@@ -112,6 +113,7 @@ export interface ImageGenNodeData extends BaseNodeData {
   quality?: string;
   designCategory?: "form" | "zone";
   designRefId?: string;
+  formTag?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {

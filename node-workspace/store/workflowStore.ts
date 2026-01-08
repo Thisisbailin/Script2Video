@@ -403,7 +403,7 @@ interface WorkflowStore {
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
-  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null; atMentions?: TextNodeData['atMentions'] };
+  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null; atMentions?: TextNodeData['atMentions']; imageRefs?: { src: string; formTag?: string | null }[] };
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
   removeGlobalHistoryItem: (id: string) => void;
@@ -723,6 +723,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const images: string[] = [];
     const texts: string[] = [];
     const mentions: TextNodeData['atMentions'] = [];
+    const imageRefs: { src: string; formTag?: string | null }[] = [];
     edges
       .filter((edge) => edge.target === nodeId)
       .forEach((edge) => {
@@ -733,12 +734,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           if (sourceNode.type === "imageInput") {
             const src = (sourceNode.data as ImageInputNodeData).image;
             if (src) images.push(src);
+            if (src) imageRefs.push({ src, formTag: (sourceNode.data as ImageInputNodeData).formTag });
           } else if (sourceNode.type === "annotation") {
             const src = (sourceNode.data as AnnotationNodeData).outputImage;
             if (src) images.push(src);
+            if (src) imageRefs.push({ src });
           } else if (sourceNode.type === "imageGen") {
             const src = (sourceNode.data as ImageGenNodeData).outputImage;
             if (src) images.push(src);
+            if (src) imageRefs.push({ src, formTag: (sourceNode.data as ImageGenNodeData).formTag });
           }
         }
         if (handleId === "text") {
@@ -758,7 +762,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         }
       });
     const text = texts.length ? texts.join("\n\n") : null;
-    return { images, text, atMentions: mentions.length ? mentions : undefined };
+    return { images, text, atMentions: mentions.length ? mentions : undefined, imageRefs: imageRefs.length ? imageRefs : undefined };
   },
 
   validateWorkflow: () => {

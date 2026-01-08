@@ -11,7 +11,12 @@ type Props = {
 
 export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
+  const { updateNodeData, labContext } = useWorkflowStore();
+
+  const forms = useMemo(() => {
+    const chars = labContext?.context?.characters || [];
+    return chars.flatMap((c) => (c.forms || []).map((f) => f.formName)).filter(Boolean);
+  }, [labContext]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,6 +69,19 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
             </div>
           </div>
         )}
+        <div className="space-y-1">
+          <label className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
+          <select
+            className="node-control node-control--tight text-[10px] font-semibold px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+            value={data.formTag || ""}
+            onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
+          >
+            <option value="">未指定</option>
+            {forms.map((f) => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
+        </div>
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       </div>
     </BaseNode>

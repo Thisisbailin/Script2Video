@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -11,7 +11,7 @@ type Props = {
 };
 
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs, availableImageModels } = useWorkflowStore();
+  const { updateNodeData, getConnectedInputs, availableImageModels, labContext } = useWorkflowStore();
   const { runImageGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -23,6 +23,11 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
   const { text: connectedText } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
+
+  const forms = useMemo(() => {
+    const chars = labContext?.context?.characters || [];
+    return chars.flatMap((c) => (c.forms || []).map((f) => f.formName)).filter(Boolean);
+  }, [labContext]);
 
   // Derive display model name
   const currentModel = data.model ? data.model.split('/').pop() : "Default";
@@ -86,6 +91,19 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
                 <option value="">Use Default</option>
                 {availableImageModels.map(m => (
                   <option key={m} value={m}>{m.split('/').pop()}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
+              <select
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                value={data.formTag || ""}
+                onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
+              >
+                <option value="">未指定</option>
+                {forms.map((f) => (
+                  <option key={f} value={f}>{f}</option>
                 ))}
               </select>
             </div>
