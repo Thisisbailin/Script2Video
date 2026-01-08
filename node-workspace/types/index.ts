@@ -91,6 +91,14 @@ export interface TextNodeData extends BaseNodeData {
   category?: 'project' | 'episode' | 'script' | 'guide' | 'character' | 'scene' | 'location' | 'form' | 'zone';
   tags?: string[];
   refId?: string;
+  atMentions?: {
+    name: string;
+    status: 'match' | 'missing';
+    characterId?: string;
+    formName?: string;
+    summary?: string;
+    image?: string;
+  }[];
 }
 
 export interface ImageGenNodeData extends BaseNodeData {
