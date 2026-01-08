@@ -3,7 +3,7 @@ import { BaseNode } from "./BaseNode";
 import { ViduVideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Settings2, RefreshCw, AlertCircle, Film, Sparkles, ShieldCheck, RefreshCcw } from "lucide-react";
+import { Settings2, RefreshCw, AlertCircle, Film, Sparkles, ShieldCheck, RefreshCcw, CheckCircle, AlertTriangle } from "lucide-react";
 
 type Props = {
   id: string;
@@ -16,6 +16,7 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(true);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [modelFetchMsg, setModelFetchMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
@@ -139,13 +140,18 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                 onClick={async () => {
                   if (isFetchingModels) return;
                   setIsFetchingModels(true);
+                  setModelFetchMsg(null);
                   try {
                     const models = await (await import("../../services/viduService")).fetchViduModels?.();
                     if (models && Array.isArray(models)) {
                       setAvailableVideoModels(models);
+                      setModelFetchMsg({ type: 'ok', text: `拉取成功 (${models.length})` });
+                    } else {
+                      setModelFetchMsg({ type: 'err', text: "返回数据为空" });
                     }
                   } catch (err) {
                     console.warn("Fetch Vidu models failed", err);
+                    setModelFetchMsg({ type: 'err', text: (err as any)?.message || "拉取失败" });
                   } finally {
                     setIsFetchingModels(false);
                   }
@@ -156,6 +162,12 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                 <RefreshCcw size={12} className={isFetchingModels ? "animate-spin" : ""} />
               </button>
             </div>
+            {modelFetchMsg && (
+              <div className={`text-[10px] flex items-center gap-1 ${modelFetchMsg.type === 'ok' ? 'text-emerald-200' : 'text-amber-200'}`}>
+                {modelFetchMsg.type === 'ok' ? <CheckCircle size={10} /> : <AlertTriangle size={10} />}
+                {modelFetchMsg.text}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2 text-[9px] text-[var(--node-text-secondary)]">
               <label className="flex items-center gap-2">
                 <input
