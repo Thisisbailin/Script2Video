@@ -403,7 +403,7 @@ interface WorkflowStore {
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
-  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null };
+  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null; atMentions?: TextNodeData['atMentions'] };
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
   removeGlobalHistoryItem: (id: string) => void;
@@ -722,6 +722,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const { edges, nodes } = get();
     const images: string[] = [];
     const texts: string[] = [];
+    const mentions: TextNodeData['atMentions'] = [];
     edges
       .filter((edge) => edge.target === nodeId)
       .forEach((edge) => {
@@ -744,6 +745,12 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           if (sourceNode.type === "text") {
             const value = (sourceNode.data as TextNodeData).text;
             if (value && value.trim()) texts.push(value.trim());
+            const ats = (sourceNode.data as TextNodeData).atMentions;
+            if (ats && ats.length) {
+              ats.forEach((m) => {
+                if (!mentions.find((x) => x?.name === m.name)) mentions.push(m);
+              });
+            }
           } else if (sourceNode.type === "llmGenerate") {
             const value = (sourceNode.data as LLMGenerateNodeData).outputText;
             if (value && value.trim()) texts.push(value.trim());
@@ -751,7 +758,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         }
       });
     const text = texts.length ? texts.join("\n\n") : null;
-    return { images, text };
+    return { images, text, atMentions: mentions.length ? mentions : undefined };
   },
 
   validateWorkflow: () => {

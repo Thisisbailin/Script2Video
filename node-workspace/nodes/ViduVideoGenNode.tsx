@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { ViduVideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -16,8 +16,21 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(true);
 
-  const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
+  const { text: connectedText, images: connectedImages, atMentions } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
+
+  const derivedSubjects = useMemo(() => {
+    if (data.subjects && data.subjects.length) return data.subjects.map(s => ({ name: s.id || "subject", status: 'manual', images: s.images?.length || 0 }));
+    if (data.useCharacters !== false && atMentions && atMentions.length) {
+      return atMentions.map((m, idx) => ({
+        name: m.formName || m.name,
+        status: m.status,
+        images: connectedImages.length ? Math.ceil(connectedImages.length / atMentions.length) : 0,
+        order: idx + 1,
+      }));
+    }
+    return [];
+  }, [data.subjects, data.useCharacters, atMentions, connectedImages.length]);
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,6 +142,31 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                 主体参考：{data.subjects?.length || 0} 组 · {connectedImages.length} 参考图连接
               </div>
             </div>
+            {data.mode !== "videoOnly" && data.useCharacters !== false && (
+              <div className="space-y-1">
+                <div className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">
+                  解析到的主体（@引用）
+                </div>
+                {derivedSubjects.length === 0 ? (
+                  <div className="text-[10px] text-amber-200">未检测到 @ 形态引用，建议在提示词中插入 @形态名。</div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {derivedSubjects.map((s, idx) => (
+                      <span
+                        key={`${s.name}-${idx}`}
+                        className={`px-2 py-1 rounded-full text-[10px] border ${
+                          s.status === 'match'
+                            ? 'bg-sky-500/15 border-sky-500/40 text-sky-100'
+                            : 'bg-amber-500/15 border-amber-500/40 text-amber-100'
+                        }`}
+                      >
+                        @{s.name}{s.order ? ` (#${s.order})` : ""} · 图 {s.images}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
