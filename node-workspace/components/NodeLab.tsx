@@ -73,9 +73,10 @@ interface NodeLabProps {
   projectData: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   onOpenModule?: (key: ModuleKey) => void;
+  syncIndicator?: { label: string; color: string } | null;
 }
 
-const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onOpenModule }) => {
+const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onOpenModule, syncIndicator }) => {
   const {
     nodes,
     edges,
@@ -628,7 +629,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onO
             floating={false}
           />
         </div>
-        <div className="flex items-center justify-center pointer-events-auto">
+        <div className="flex items-center justify-center gap-3 pointer-events-auto">
           <ModuleBar
             modules={[
               { key: "assets", label: "Assets", icon: FolderOpen },
@@ -637,6 +638,15 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onO
             ]}
             onOpen={(key) => onOpenModule?.(key)}
           />
+          {syncIndicator && (
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0d10]/90 px-3 py-2 text-xs text-white/80 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: syncIndicator.color }}
+              />
+              <span className="font-medium">{syncIndicator.label}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-end gap-3 pointer-events-auto">
           <ViewportControls

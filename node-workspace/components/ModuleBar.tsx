@@ -15,8 +15,14 @@ type Props = {
 };
 
 export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
+  const accent: Record<ModuleKey, string> = {
+    assets: "#38bdf8",
+    script: "#a78bfa",
+    shots: "#34d399",
+  };
+
   return (
-    <div className="flex items-center gap-2 rounded-full border border-white/12 bg-[#0b0d10]/90 px-2 py-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+    <div className="flex h-12 items-center gap-2 rounded-full border border-white/12 bg-[#0b0d10]/90 px-3 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
       {modules.map((mod) => {
         const Icon = mod.icon;
         return (
@@ -24,9 +30,9 @@ export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
             key={mod.key}
             type="button"
             onClick={() => onOpen(mod.key)}
-            className="group h-11 w-11 flex items-center justify-center rounded-full border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/8 transition"
+            className="group h-10 w-10 flex items-center justify-center rounded-full border border-white/10 bg-white/6 text-white/85 shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:border-white/25 hover:bg-white/12 transition"
           >
-            <Icon size={18} />
+            <Icon size={18} style={{ color: accent[mod.key] }} />
           </button>
         );
       })}

@@ -1434,6 +1434,51 @@ const App: React.FC = () => {
     if (activeTab === 'video') return config.videoConfig.model || 'Video';
     return config.textConfig.model;
   };
+  const statusLabel = (status: SyncStatus) => {
+    switch (status) {
+      case "synced":
+        return "已同步";
+      case "syncing":
+        return "同步中";
+      case "loading":
+        return "加载中";
+      case "conflict":
+        return "冲突";
+      case "error":
+        return "错误";
+      case "offline":
+        return "离线";
+      case "disabled":
+        return "仅本地";
+      case "idle":
+      default:
+        return "就绪";
+    }
+  };
+  const aggregateSyncStatus = () => {
+    if (!isOnline) return { state: "offline" as const, label: statusLabel("offline") };
+    const statuses = [syncState.project.status, syncState.secrets.status].filter((s) => s !== "disabled");
+    if (statuses.includes("error")) return { state: "error" as const, label: statusLabel("error") };
+    if (statuses.includes("conflict")) return { state: "conflict" as const, label: statusLabel("conflict") };
+    if (statuses.includes("syncing") || statuses.includes("loading")) return { state: "syncing" as const, label: statusLabel("syncing") };
+    if (statuses.length === 0) return { state: "disabled" as const, label: statusLabel("disabled") };
+    if (statuses.includes("idle")) return { state: "idle" as const, label: statusLabel("idle") };
+    return { state: "synced" as const, label: statusLabel("synced") };
+  };
+  const syncIndicator = (() => {
+    const agg = aggregateSyncStatus();
+    const colorMap: Record<string, string> = {
+      synced: "#34d399",
+      syncing: "#38bdf8",
+      loading: "#38bdf8",
+      conflict: "#fbbf24",
+      error: "#f87171",
+      offline: "#9ca3af",
+      disabled: "#9ca3af",
+      idle: "#a5b4fc",
+    };
+    return { label: agg.label, color: colorMap[agg.state] || "#a5b4fc" };
+  })();
   const activeModelLabel = `${config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];
@@ -1533,7 +1578,12 @@ const App: React.FC = () => {
       case 'lab':
         return (
           <div className="h-full">
-            <NodeLab projectData={projectData} setProjectData={setProjectData} onOpenModule={handleOpenLabModule} />
+            <NodeLab
+              projectData={projectData}
+              setProjectData={setProjectData}
+              onOpenModule={handleOpenLabModule}
+              syncIndicator={syncIndicator}
+            />
           </div>
         );
       default:
