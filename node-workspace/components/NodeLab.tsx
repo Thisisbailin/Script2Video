@@ -39,7 +39,7 @@ import { ViewportControls } from "./ViewportControls";
 import { Toast, useToast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
 import { DesignAssetItem, ProjectData } from "../../types";
-import { ModuleBar, ModuleKey } from "./ModuleBar";
+import type { ModuleKey } from "./ModuleBar";
 import { FolderOpen, FileText, List } from "lucide-react";
 
 const nodeTypes: NodeTypes = {
@@ -627,26 +627,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onO
             onLoadTemplate={handleLoadTemplate}
             onDeleteTemplate={handleDeleteTemplate}
             floating={false}
+            onOpenModule={onOpenModule}
           />
-        </div>
-        <div className="flex items-center justify-center gap-3 pointer-events-auto">
-          <ModuleBar
-            modules={[
-              { key: "assets", label: "Assets", icon: FolderOpen },
-              { key: "script", label: "Script", icon: FileText },
-              { key: "shots", label: "Shots", icon: List },
-            ]}
-            onOpen={(key) => onOpenModule?.(key)}
-          />
-          {syncIndicator && (
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0d10]/90 px-3 py-2 text-xs text-white/80 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: syncIndicator.color }}
-              />
-              <span className="font-medium">{syncIndicator.label}</span>
-            </div>
-          )}
         </div>
         <div className="flex items-end gap-3 pointer-events-auto">
           <ViewportControls
@@ -665,6 +647,13 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onO
             onImportEpisodeShots={handleImportEpisode}
             floating={false}
           />
+          {syncIndicator && (
+            <span
+              className="h-3 w-3 rounded-full block"
+              style={{ backgroundColor: syncIndicator.color }}
+              title={syncIndicator.label}
+            />
+          )}
         </div>
       </div>
       <Toast />

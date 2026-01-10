@@ -14,8 +14,12 @@ import {
   BoxSelect,
   Library,
   ChevronRight,
+  FolderOpen,
+  FileText,
+  List,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
+import type { ModuleKey } from "./ModuleBar";
 
 type Props = {
   onAddText: () => void;
@@ -35,6 +39,7 @@ type Props = {
   onLoadTemplate: (templateId: string) => void;
   onDeleteTemplate: (templateId: string) => void;
   floating?: boolean;
+  onOpenModule?: (key: ModuleKey) => void;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -55,6 +60,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   onLoadTemplate,
   onDeleteTemplate,
   floating = true,
+  onOpenModule,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -97,6 +103,29 @@ export const FloatingActionBar: React.FC<Props> = ({
             style={panelStyle}
           >
             <div className="p-4 space-y-3">
+              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">Project</div>
+              <div className="grid grid-cols-3 gap-2 px-2">
+                {[
+                  { key: "assets" as ModuleKey, label: "Assets", Icon: FolderOpen },
+                  { key: "script" as ModuleKey, label: "Script", Icon: FileText },
+                  { key: "shots" as ModuleKey, label: "Shots", Icon: List },
+                ].map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      onOpenModule?.(key);
+                      closeMenus();
+                    }}
+                    className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/3 px-3 py-3 text-xs font-semibold text-white/85 hover:border-white/25 hover:bg-white/8 transition"
+                  >
+                    <span className="h-10 w-10 flex items-center justify-center rounded-xl bg-black/30 border border-white/10 text-white/85">
+                      <Icon size={18} />
+                    </span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">模板管理</div>
               <button
                 onClick={() => {
