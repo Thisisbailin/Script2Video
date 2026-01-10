@@ -158,6 +158,13 @@ const App: React.FC = () => {
   const { step, analysisStep, currentEpIndex, activeTab, isProcessing, processingStatus, analysisQueue, analysisTotal } = wfState;
   const [analysisError, setAnalysisError] = useState<{ step: AnalysisSubStep; message: string } | null>(null);
 
+  // Force Lab as the sole surface (no top tab selector)
+  useEffect(() => {
+    if (activeTab !== 'lab') {
+      setActiveTab('lab');
+    }
+  }, [activeTab, setActiveTab]);
+
   // Keep persisted uiState in sync with reducer core fields
   useEffect(() => {
     setUiState(prev => ({
@@ -1429,13 +1436,7 @@ const App: React.FC = () => {
   };
   const activeModelLabel = `${config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
-  const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [
-    { key: 'assets', label: 'Assets', icon: FolderOpen },
-    { key: 'script', label: 'Script', icon: FileText },
-    { key: 'table', label: 'Shots', icon: List },
-    { key: 'video', label: 'Video', icon: MonitorPlay, hidden: true },
-    { key: 'lab', label: 'Node Lab', icon: Sparkles },
-  ];
+  const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];
 
   const headerNode = (
     <Header

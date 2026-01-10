@@ -856,9 +856,11 @@ export const Header: React.FC<HeaderProps> = ({
     avatarUrl,
   } = account;
 
+  const visibleTabs = useMemo(() => tabs.filter((t) => !t.hidden), [tabs]);
+  const hasTabs = visibleTabs.length > 0;
   const currentTab = useMemo(
-    () => tabs.find((t) => t.key === activeTab) || tabs[0],
-    [tabs, activeTab]
+    () => visibleTabs.find((t) => t.key === activeTab) || visibleTabs[0],
+    [visibleTabs, activeTab]
   );
   const [showTabs, setShowTabs] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
@@ -957,6 +959,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const toggleTabs = () => {
+    if (!hasTabs) return;
     setShowWorkflow(false);
     setShowTryInfo(false);
     splitView.onClose();
@@ -1015,60 +1018,75 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-start justify-between gap-2.5 w-full">
           <div className="pointer-events-auto">
             <div className="relative">
-              <button
-                onClick={toggleTabs}
-                className={`${pillTriggerClasses(showTabs)} backdrop-blur`}
-                aria-pressed={showTabs}
-                style={{ boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}
-              >
-                <PixelSheepIcon size={20} />
-                <span className="hidden sm:inline">eSheep · {currentTab.label}</span>
-                <span className="sm:hidden">eSheep</span>
-                <ChevronDown size={14} />
-              </button>
-              {showTabs && (
+              {hasTabs ? (
+                <>
+                  <button
+                    onClick={toggleTabs}
+                    className={`${pillTriggerClasses(showTabs)} backdrop-blur`}
+                    aria-pressed={showTabs}
+                    style={{ boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}
+                  >
+                    <PixelSheepIcon size={20} />
+                    <span className="hidden sm:inline">
+                      eSheep{currentTab?.label ? ` · ${currentTab.label}` : ""}
+                    </span>
+                    <span className="sm:hidden">eSheep</span>
+                    <ChevronDown size={14} />
+                  </button>
+                  {showTabs && (
+                    <div
+                      className="absolute left-0 top-full mt-2 w-72 rounded-2xl border backdrop-blur text-[var(--text-primary)] overflow-hidden z-30"
+                      style={{
+                        borderColor: "var(--border-subtle)",
+                        backgroundColor: "var(--bg-elevated)",
+                        boxShadow: "var(--shadow-strong)",
+                      }}
+                    >
+                      <div className="px-4 py-3 border-b text-xs uppercase tracking-wide text-[var(--text-secondary)]" style={{ borderColor: "var(--border-subtle)" }}>
+                        视图切换
+                      </div>
+                      <div className="max-h-80 overflow-auto p-2 space-y-1">
+                        {visibleTabs.map(({ key, label, icon: Icon }) => {
+                          const isActive = key === activeTab;
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => {
+                                onTabChange(key);
+                                setShowTabs(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${isActive
+                                ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
+                                : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
+                                }`}
+                            >
+                              <span
+                                className="h-8 w-8 rounded-lg flex items-center justify-center"
+                                style={{ backgroundColor: "var(--bg-muted)" }}
+                              >
+                                <Icon size={16} />
+                              </span>
+                              <div className="text-left">
+                                <div className="font-semibold">eSheep · {label}</div>
+                                <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+                                  <span>Pill workspace</span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div
-                  className="absolute left-0 top-full mt-2 w-72 rounded-2xl border backdrop-blur text-[var(--text-primary)] overflow-hidden z-30"
-                  style={{
-                    borderColor: "var(--border-subtle)",
-                    backgroundColor: "var(--bg-elevated)",
-                    boxShadow: "var(--shadow-strong)",
-                  }}
+                  className={`${pillTriggerClasses(false)} backdrop-blur`}
+                  style={{ boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}
                 >
-                  <div className="px-4 py-3 border-b text-xs uppercase tracking-wide text-[var(--text-secondary)]" style={{ borderColor: "var(--border-subtle)" }}>
-                    视图切换
-                  </div>
-                  <div className="max-h-80 overflow-auto p-2 space-y-1">
-                    {tabs.filter((t) => !t.hidden).map(({ key, label, icon: Icon }) => {
-                      const isActive = key === activeTab;
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => {
-                            onTabChange(key);
-                            setShowTabs(false);
-                          }}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${isActive
-                            ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
-                            : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
-                            }`}
-                        >
-                          <span
-                            className="h-8 w-8 rounded-lg flex items-center justify-center"
-                            style={{ backgroundColor: "var(--bg-muted)" }}
-                          >
-                            <Icon size={16} />
-                          </span>
-                          <div className="text-left">
-                            <div className="font-semibold">eSheep · {label}</div>
-                            <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
-                              <span>Pill workspace</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <PixelSheepIcon size={20} />
+                  <span className="hidden sm:inline">eSheep</span>
+                  <span className="sm:hidden">eSheep</span>
                 </div>
               )}
             </div>
@@ -1138,8 +1156,8 @@ export const Header: React.FC<HeaderProps> = ({
                           关闭分屏
                         </button>
                       )}
-                      {tabs
-                        .filter((t) => !t.hidden && t.key !== activeTab)
+                      {visibleTabs
+                        .filter((t) => t.key !== activeTab)
                         .map(({ key, label, icon: Icon }) => {
                           const isActiveSplit = splitView.currentSplitTab === key;
                           return (
@@ -1166,7 +1184,7 @@ export const Header: React.FC<HeaderProps> = ({
                             </button>
                           );
                         })}
-                      {!tabs.filter((t) => !t.hidden && t.key !== activeTab).length && (
+                      {!visibleTabs.filter((t) => t.key !== activeTab).length && (
                         <div className="text-xs text-[var(--text-secondary)] px-2 py-3">
                           没有可分屏的标签页
                         </div>
