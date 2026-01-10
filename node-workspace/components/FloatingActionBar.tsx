@@ -17,6 +17,12 @@ import {
   FolderOpen,
   FileText,
   List,
+  BarChart2,
+  Sun,
+  Moon,
+  Settings,
+  Trash2,
+  LogOut,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
 import type { ModuleKey } from "./ModuleBar";
@@ -43,6 +49,12 @@ type Props = {
   onDeleteTemplate: (templateId: string) => void;
   floating?: boolean;
   onOpenModule?: (key: ModuleKey) => void;
+  onOpenStats?: () => void;
+  onToggleTheme?: () => void;
+  isDarkMode?: boolean;
+  onOpenSettings?: () => void;
+  onResetProject?: () => void;
+  onSignOut?: () => void;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -67,6 +79,12 @@ export const FloatingActionBar: React.FC<Props> = ({
   onDeleteTemplate,
   floating = true,
   onOpenModule,
+  onOpenStats,
+  onToggleTheme,
+  isDarkMode,
+  onOpenSettings,
+  onResetProject,
+  onSignOut,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -97,12 +115,42 @@ export const FloatingActionBar: React.FC<Props> = ({
     setShowWip(false);
   };
 
-  const accountPlaceholders = [
-    { label: "Project Tracker", desc: "Dashboards (placeholder)" },
-    { label: "Light / Dark Mode", desc: "Toggle theme (placeholder)" },
-    { label: "System Settings", desc: "Preferences (placeholder)" },
-    { label: "Clear Project Data", desc: "Reset data (placeholder)" },
-    { label: "Sign Out", desc: "Account action (placeholder)" },
+  const ioActions = [
+    {
+      label: "Project Tracker",
+      desc: "View dashboard",
+      Icon: BarChart2,
+      onClick: onOpenStats,
+      color: "bg-sky-400",
+    },
+    {
+      label: isDarkMode ? "Light Mode" : "Dark Mode",
+      desc: "Toggle theme",
+      Icon: isDarkMode ? Sun : Moon,
+      onClick: onToggleTheme,
+      color: "bg-amber-300",
+    },
+    {
+      label: "System Settings",
+      desc: "Open settings",
+      Icon: Settings,
+      onClick: onOpenSettings,
+      color: "bg-purple-300",
+    },
+    {
+      label: "Clear Project Data",
+      desc: "Reset local/remote",
+      Icon: Trash2,
+      onClick: onResetProject,
+      color: "bg-rose-400",
+    },
+    {
+      label: "Sign Out",
+      desc: "Account action",
+      Icon: LogOut,
+      onClick: onSignOut,
+      color: "bg-slate-300",
+    },
   ];
 
   return (
@@ -252,18 +300,38 @@ export const FloatingActionBar: React.FC<Props> = ({
                 Sign in to unlock account actions
               </div>
               <div className="space-y-2">
-                {accountPlaceholders.map((item) => (
-                  <div
-                    key={item.label}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-white/10 bg-white/2 text-sm text-white/75"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{item.label}</span>
-                      <span className="text-[11px] text-white/55">{item.desc}</span>
-                    </div>
-                    <span className="text-[10px] text-white/40">soon</span>
-                  </div>
-                ))}
+                {ioActions.map((item) => {
+                  const disabled = !item.onClick;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => {
+                        if (item.onClick) item.onClick();
+                        closeMenus();
+                      }}
+                      disabled={disabled}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition ${
+                        disabled
+                          ? "border-white/10 bg-white/2 text-white/40 cursor-not-allowed"
+                          : "border-white/10 bg-white/2 text-white/80 hover:border-white/30 hover:bg-white/8"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-8 w-8 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: disabled ? "rgba(255,255,255,0.08)" : item.color }}
+                        >
+                          <item.Icon size={16} className={disabled ? "text-white/50" : "text-black"} />
+                        </span>
+                        <div className="flex flex-col items-start">
+                          <span className="font-semibold">{item.label}</span>
+                          <span className="text-[11px] text-white/55">{item.desc}</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-white/50">{disabled ? "disabled" : ""}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="px-3 pt-4 pb-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>

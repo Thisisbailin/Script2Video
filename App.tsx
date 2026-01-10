@@ -198,6 +198,7 @@ const App: React.FC = () => {
   const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
   const [openLabModal, setOpenLabModal] = useState<ModuleKey | null>(null);
+  const [showStatsModal, setShowStatsModal] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = usePersistedState<string>({
     key: 'script2video_avatar_url',
@@ -239,6 +240,12 @@ const App: React.FC = () => {
   const closeLabModal = useCallback(() => {
     setOpenLabModal(null);
   }, []);
+
+  const handleOpenStats = useCallback(() => {
+    setShowStatsModal(true);
+  }, []);
+
+  const closeStats = useCallback(() => setShowStatsModal(false), []);
 
   // Processing Queues for Phase 1 Batches handled via reducer
 
@@ -1581,6 +1588,12 @@ const App: React.FC = () => {
               onExportCsv={handleExportCsv}
               onExportXls={handleExportXls}
               onExportUnderstandingJson={handleExportUnderstandingJson}
+              onOpenStats={handleOpenStats}
+              onToggleTheme={toggleTheme}
+              isDarkMode={isDarkMode}
+              onOpenSettings={openSettings}
+              onResetProject={handleResetProject}
+              onSignOut={() => signOut()}
             />
           </div>
         );
@@ -1678,6 +1691,11 @@ const App: React.FC = () => {
       {labModalTitle && labModalContent && (
         <FloatingPanelShell title={labModalTitle} isOpen onClose={closeLabModal} width={labModalWidth}>
           {labModalContent}
+        </FloatingPanelShell>
+      )}
+      {showStatsModal && (
+        <FloatingPanelShell title="Dashboard" isOpen onClose={closeStats} width={960}>
+          <div className="text-sm text-[var(--text-secondary)]">Dashboard view will be integrated here.</div>
         </FloatingPanelShell>
       )}
     </AppShell>

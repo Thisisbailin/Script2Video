@@ -77,6 +77,12 @@ interface NodeLabProps {
   onExportCsv?: () => void;
   onExportXls?: () => void;
   onExportUnderstandingJson?: () => void;
+  onOpenStats?: () => void;
+  onToggleTheme?: () => void;
+  isDarkMode?: boolean;
+  onOpenSettings?: () => void;
+  onResetProject?: () => void;
+  onSignOut?: () => void;
 }
 
 const NodeLabInner: React.FC<NodeLabProps> = ({
@@ -87,6 +93,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onExportCsv,
   onExportXls,
   onExportUnderstandingJson,
+  onOpenStats,
+  onToggleTheme,
+  isDarkMode,
+  onOpenSettings,
+  onResetProject,
+  onSignOut,
 }) => {
   const {
     nodes,
@@ -642,6 +654,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onExportCsv={onExportCsv}
             onExportXls={onExportXls}
             onExportUnderstandingJson={onExportUnderstandingJson}
+            onOpenStats={onOpenStats}
+            onToggleTheme={onToggleTheme}
+            isDarkMode={isDarkMode}
+            onOpenSettings={onOpenSettings}
+            onResetProject={onResetProject}
+            onSignOut={onSignOut}
           />
         </div>
         <div className="flex items-center gap-3 pointer-events-auto">

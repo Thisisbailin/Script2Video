@@ -1272,62 +1272,6 @@ export const Header: React.FC<HeaderProps> = ({
                                   </button>
                                 )}
 
-                                <button
-                                  onClick={() => {
-                                    onTabChange("stats");
-                                    setIsUserMenuOpen(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-black/5 transition-colors"
-                                >
-                                  <BarChart2 size={16} />
-                                  <span>项目追踪仪表</span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    onToggleTheme();
-                                    setIsUserMenuOpen(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-black/5 transition-colors"
-                                >
-                                  {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                                  <span>{isDarkMode ? "Light Mode" : "Dark Mode"}</span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    onOpenSettings();
-                                    setIsUserMenuOpen(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-black/5 transition-colors"
-                                >
-                                  <Settings size={16} />
-                                  <span>System Settings</span>
-                                </button>
-
-                                <div className="h-px my-1 mx-2" style={{ backgroundColor: "var(--border-subtle)" }} />
-
-                                <button
-                                  onClick={() => {
-                                    onReset();
-                                    setIsUserMenuOpen(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-red-400 hover:bg-red-900/30 transition-colors"
-                                >
-                                  <Trash2 size={16} />
-                                  <span>Clear Project Data</span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    onSignOut();
-                                    setIsUserMenuOpen(false);
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-[var(--text-secondary)] hover:bg-black/5 transition-colors"
-                                >
-                                  <LogOut size={16} />
-                                  <span>Sign Out</span>
-                                </button>
                               </div>
                             </div>
                           )}
