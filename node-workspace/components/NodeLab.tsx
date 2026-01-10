@@ -586,46 +586,53 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       lively: "#2c1e2c",
     };
     const base = themeMap[bgTheme] || "#0a0a0a";
+    const scale = zoomValue > 0 ? 1 / zoomValue : 1;
     if (bgPattern === "none") {
-      return { background: base, backgroundImage: "none", baseColor: base };
+      return {
+        background: base,
+        backgroundImage: "none",
+        backgroundSize: "auto",
+        backgroundPosition: "0 0",
+        baseColor: base,
+      };
     }
-    const patterns: Record<string, { image: string; size: string; position?: string }> = {
+    const patterns: Record<string, { image: string; size: (s: number) => string; position?: string }> = {
       dots: {
         image:
           "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
-        size: "22px 22px, 22px 22px",
+        size: (k) => `${22 * k}px ${22 * k}px, ${22 * k}px ${22 * k}px`,
         position: "0 0, 11px 11px",
       },
       grid: {
         image:
           "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
-        size: "28px 28px",
+        size: (k) => `${28 * k}px ${28 * k}px`,
       },
       cross: {
         image:
           "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px), radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)",
-        size: "26px 26px, 26px 26px, 26px 26px",
+        size: (k) => `${26 * k}px ${26 * k}px, ${26 * k}px ${26 * k}px, ${26 * k}px ${26 * k}px`,
         position: "0 0, 0 0, 13px 13px",
       },
       lines: {
         image: "linear-gradient(0deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-        size: "26px 26px",
+        size: (k) => `${26 * k}px ${26 * k}px`,
       },
       diagonal: {
         image:
           "linear-gradient(135deg, rgba(255,255,255,0.05) 12.5%, transparent 12.5%, transparent 50%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.05) 62.5%, transparent 62.5%, transparent)",
-        size: "24px 24px",
+        size: (k) => `${24 * k}px ${24 * k}px`,
       },
     };
     const pat = patterns[bgPattern] || patterns.dots;
     return {
       background: base,
       backgroundImage: pat.image,
-      backgroundSize: pat.size,
+      backgroundSize: pat.size(scale),
       ...(pat.position ? { backgroundPosition: pat.position } : {}),
       baseColor: base,
     };
-  }, [bgPattern, bgTheme]);
+  }, [bgPattern, bgTheme, zoomValue]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
