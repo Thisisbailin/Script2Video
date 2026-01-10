@@ -3,7 +3,7 @@ import {
   Plus,
   Play,
   User,
-  Hammer,
+  Projector,
   MessageSquare,
   Image as ImageIcon,
   Bot,
@@ -220,7 +220,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         <div
-          className="inline-flex flex-wrap sm:flex-nowrap items-center gap-1 h-auto sm:h-9 px-2 sm:px-3 py-1 sm:py-0 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur min-w-[220px] sm:min-w-[320px] max-w-full"
+          className="inline-flex items-center gap-1 h-9 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur"
         >
           {/* Account / Share */}
           <button
@@ -267,7 +267,7 @@ export const FloatingActionBar: React.FC<Props> = ({
             className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
             title="施工中"
           >
-            <Hammer size={14} className="text-white/70" />
+            <Projector size={14} className="text-white/70" />
           </button>
 
           {/* Run */}
@@ -282,18 +282,31 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* WIP popover */}
         {showWip && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:left-1/2 sm:-translate-x-1/2 w-56 rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_18px_40px_rgba(0,0,0,0.4)] backdrop-blur p-4 text-sm">
-            <div className="flex items-center gap-2 font-semibold mb-1">
-              <Hammer size={14} className="text-amber-300" />
-              模块施工中…
-            </div>
-            <div className="text-[12px] text-white/70">即将上线的视图功能，敬请期待。</div>
-            <button
-              className="mt-3 text-[11px] px-3 py-1.5 rounded-full border border-white/15 hover:border-white/30 hover:bg-white/5 transition"
-              onClick={() => setShowWip(false)}
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowWip(false)}>
+            <div
+              className="w-[92vw] max-w-5xl min-h-[70vh] rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_32px_80px_rgba(0,0,0,0.55)] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
-              好的
-            </button>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <Projector size={20} className="text-emerald-300" />
+                  <div>
+                    <div className="text-lg font-semibold">放映机 · 施工中</div>
+                    <div className="text-[12px] text-white/60">高级视图 / 回放 / 管理模块将很快上线。</div>
+                  </div>
+                </div>
+                <button
+                  className="h-9 px-3 rounded-full border border-white/15 hover:border-white/30 hover:bg-white/5 text-[12px]"
+                  onClick={() => setShowWip(false)}
+                >
+                  关闭
+                </button>
+              </div>
+              <div className="p-6 text-[13px] text-white/75 leading-relaxed space-y-3">
+                <p>放映机正在升级，将提供生成资产的回放、预览、分发与管理能力。</p>
+                <p>请稍后再试，或在更新日志中关注进展。</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
