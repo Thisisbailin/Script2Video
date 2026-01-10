@@ -1028,7 +1028,19 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                             {/* Hero Section */}
                             <div>
                                 <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-sky-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/25 mb-4 transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                                    <span className="text-3xl">🪄</span>
+                                    <svg width="40" height="40" viewBox="0 0 128 128" className="drop-shadow-md">
+                                        <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#about-bg)" />
+                                        <g transform="translate(50 70) rotate(-14) translate(-50 -70)">
+                                            <path d="M46 40l8.5 17.5 19.3 2.3-14.4 13 3.7 19-17.1-9.3-17.1 9.3 3.7-19-14.4-13 19.3-2.3z" fill="#8aa3da" />
+                                        </g>
+                                        <rect x="62" y="86" width="24" height="7" rx="3.5" fill="#8aa3da" />
+                                        <defs>
+                                            <linearGradient id="about-bg" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stop-color="#1a1d21" />
+                                                <stop offset="100%" stop-color="#0f1114" />
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
                                 </div>
                                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-1">
                                     Qalam

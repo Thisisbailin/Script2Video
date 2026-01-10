@@ -151,7 +151,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
 
   // Safe spacing: use symmetric top/bottom gaps equal to the bottom offset (16px).
   return (
-    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-140px)] max-h-[calc(100vh-140px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
+    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
