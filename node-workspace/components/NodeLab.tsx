@@ -598,30 +598,30 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       </div>
 
       <MultiSelectToolbar />
-      <div className="fixed bottom-4 left-4 z-30 flex flex-col gap-3">
-        <QalamAgent projectData={projectData} />
-        <FloatingActionBar
-          onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
-          onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
-          onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
-          onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
-          onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
-          onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
-          onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
-          onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
-          onImport={() => fileInputRef.current?.click()}
-          onExport={() => saveWorkflow()}
-          onRun={runAll}
-          templates={groupTemplates}
-          canCreateTemplate={!!selectedGroup}
-          onCreateTemplate={handleCreateTemplate}
-          onLoadTemplate={handleLoadTemplate}
-          onDeleteTemplate={handleDeleteTemplate}
-          floating={false}
-        />
-      </div>
-      <div className="fixed bottom-4 right-4 z-30 flex items-end gap-4">
-        <div className="flex items-end gap-3">
+      <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none">
+        <div className="flex items-end gap-3 pointer-events-auto">
+          <QalamAgent projectData={projectData} />
+          <FloatingActionBar
+            onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+            onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
+            onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
+            onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+            onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
+            onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
+            onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
+            onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
+            onImport={() => fileInputRef.current?.click()}
+            onExport={() => saveWorkflow()}
+            onRun={runAll}
+            templates={groupTemplates}
+            canCreateTemplate={!!selectedGroup}
+            onCreateTemplate={handleCreateTemplate}
+            onLoadTemplate={handleLoadTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            floating={false}
+          />
+        </div>
+        <div className="flex items-end gap-3 pointer-events-auto">
           <ViewportControls
             zoom={zoomValue}
             minZoom={minZoom}

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Bot, X, Send, Loader2, ChevronUp } from "lucide-react";
+import { Bot, Send, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
@@ -58,73 +58,83 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--bg-panel)]/90 border border-[var(--border-subtle)] text-[10px] font-semibold text-[var(--text-primary)] shadow-lg hover:shadow-xl transition"
+        className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur"
       >
-        <Bot size={14} className="text-emerald-300" />
-        <span>Qalam · 聊天辅助</span>
+        <span className="flex items-center gap-1.5">
+          <Bot size={14} className="text-emerald-300" />
+        </span>
+        <span className="text-xs font-semibold">Qalam</span>
+        <ChevronUp size={14} className="text-white/60" />
       </button>
     );
   }
 
   return (
-    <div className="pointer-events-auto w-[360px] max-w-[90vw] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 backdrop-blur shadow-2xl flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)]/70">
-        <div className="flex items-center gap-2 text-[var(--text-primary)]">
-          <Bot size={16} className="text-emerald-300" />
+    <div className="pointer-events-auto w-[380px] max-w-[90vw] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
+            <Bot size={16} className="text-emerald-200" />
+          </div>
           <div>
-            <div className="text-sm font-semibold">Qalam · Agent</div>
-            <div className="text-[10px] text-[var(--text-secondary)]">常驻助手 · 复用 LLM 能力</div>
+            <div className="text-sm font-semibold">Qalam</div>
+            <div className="text-[11px] text-white/50">{config.textConfig?.model || "LLM"}</div>
           </div>
         </div>
         <button
           onClick={() => setCollapsed(true)}
-          className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/10"
+          className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+          title="Collapse"
         >
-          <ChevronUp size={14} />
+          <ChevronDown size={14} className="mx-auto text-white/70" />
         </button>
       </div>
 
-      <div className="flex-1 max-h-64 overflow-y-auto px-3 py-2 space-y-2">
+      <div className="flex-1 max-h-64 overflow-y-auto px-4 py-3 space-y-2">
         {messages.length === 0 && (
-          <div className="text-[11px] text-[var(--text-secondary)]">
-            提示：可选择上下文后直接提问，或让 Qalam 帮你生成/修改节点文本。
+          <div className="text-[11px] text-white/60">
+            选择上下文后直接提问，或让 Qalam 帮你生成/修改文案。
           </div>
         )}
         {messages.map((m, idx) => (
           <div
             key={idx}
-            className={`rounded-xl px-3 py-2 text-[12px] leading-relaxed ${m.role === "user"
-              ? "bg-[var(--accent-blue)]/15 text-[var(--text-primary)] border border-[var(--accent-blue)]/40 self-end"
-              : "bg-white/5 text-[var(--text-primary)] border border-white/10"
-              }`}
+            className={`rounded-xl px-3 py-2 text-[12px] leading-relaxed border ${
+              m.role === "user"
+                ? "bg-white/5 border-white/15 text-white"
+                : "bg-[var(--bg-panel)] border-white/10 text-white"
+            }`}
           >
             {m.text}
           </div>
         ))}
       </div>
 
-      <div className="border-t border-[var(--border-subtle)] px-3 py-2 space-y-2">
-        <div className="flex flex-wrap gap-2 text-[10px] text-[var(--text-secondary)]">
-          <label className="flex items-center gap-1">
-            <input type="checkbox" checked={ctxSelection.script} onChange={(e) => setCtxSelection((s) => ({ ...s, script: e.target.checked }))} />
-            剧本
-          </label>
-          <label className="flex items-center gap-1">
-            <input type="checkbox" checked={ctxSelection.style} onChange={(e) => setCtxSelection((s) => ({ ...s, style: e.target.checked }))} />
-            Style Guide
-          </label>
-          <label className="flex items-center gap-1">
-            <input type="checkbox" checked={ctxSelection.guides} onChange={(e) => setCtxSelection((s) => ({ ...s, guides: e.target.checked }))} />
-            Guides
-          </label>
-          <label className="flex items-center gap-1">
-            <input type="checkbox" checked={ctxSelection.summary} onChange={(e) => setCtxSelection((s) => ({ ...s, summary: e.target.checked }))} />
-            Summary
-          </label>
+      <div className="border-t border-white/10 px-4 py-3 space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "script", label: "剧本" },
+            { key: "style", label: "Style Guide" },
+            { key: "guides", label: "Guides" },
+            { key: "summary", label: "Summary" },
+          ].map((item) => {
+            const active = (ctxSelection as any)[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => setCtxSelection((s) => ({ ...s, [item.key]: !active }))}
+                className={`px-3 py-1.5 rounded-full text-[11px] border transition ${
+                  active ? "bg-white/10 border-white/40 text-white" : "border-white/10 text-white/60 hover:border-white/30 hover:text-white"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-end gap-2">
           <textarea
-            className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[12px] text-[var(--text-primary)] resize-none min-h-[60px]"
+            className="flex-1 bg-[#0d0f12] border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white resize-none min-h-[60px]"
             placeholder="向 Qalam 提问或描述需求..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -139,7 +149,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
           <button
             onClick={sendMessage}
             disabled={!canSend}
-            className="h-10 w-10 rounded-full bg-[var(--accent-blue)] text-white flex items-center justify-center disabled:opacity-50"
+            className="h-11 w-11 rounded-full bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50"
           >
             {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
