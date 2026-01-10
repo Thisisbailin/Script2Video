@@ -9,8 +9,15 @@
     </filter>
   </defs>
   <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)" filter="url(#shadow)"/>
-  <g transform="translate(50 70) rotate(-14) translate(-50 -70)">
-    <path d="M46 40l8.5 17.5 19.3 2.3-14.4 13 3.7 19-17.1-9.3-17.1 9.3 3.7-19-14.4-13 19.3-2.3z" fill="#8aa3da"/>
+  <g transform="translate(50 70) rotate(-18) translate(-50 -70)">
+    <path
+      d="M46 40l8.5 17.5 19.3 2.3-14.4 13 3.7 19-17.1-9.3-17.1 9.3 3.7-19-14.4-13 19.3-2.3z"
+      fill="#8aa3da"
+      stroke="#8aa3da"
+      stroke-width="4"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
   </g>
   <rect x="62" y="86" width="24" height="7" rx="3.5" fill="#8aa3da"/>
 </svg>
