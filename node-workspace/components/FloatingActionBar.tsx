@@ -88,10 +88,10 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className="absolute bottom-16 left-0 w-80 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/90 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className="absolute bottom-16 left-0 w-80 rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
           >
             <div className="p-4 space-y-3">
-              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2">Template Builder</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">模板管理</div>
               <button
                 onClick={() => {
                   onCreateTemplate();
@@ -105,16 +105,16 @@ export const FloatingActionBar: React.FC<Props> = ({
                     <Library size={18} />
                   </div>
                   <div className="text-left">
-                    <div className="text-sm font-bold text-[var(--text-primary)]">保存为模板</div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">选中 Group 后保存</div>
+                    <div className="text-sm font-bold text-white">保存为模板</div>
+                    <div className="text-[10px] text-white/60">选中 Group 后保存</div>
                   </div>
                 </div>
-                <ChevronRight size={16} className="text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                <ChevronRight size={16} className="text-white/60 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </button>
 
-              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] px-2 pt-2">My Templates</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2 pt-2">我的模板</div>
               {templates.length === 0 ? (
-                <div className="px-2 py-3 text-[11px] text-[var(--text-secondary)]">暂无自定义模板</div>
+                <div className="px-2 py-3 text-[11px] text-white/60">暂无自定义模板</div>
               ) : (
                 <div className="space-y-2">
                   {templates.map((template) => (
@@ -190,18 +190,18 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className="absolute bottom-16 left-0 w-56 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/95 backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="absolute bottom-16 left-0 w-64 rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.55)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
           >
-            <div className="p-2 space-y-1">
-              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] opacity-50">Project</div>
+            <div className="p-3 space-y-2">
+              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share / IO</div>
               <button
                 onClick={() => {
                   onImport();
                   closeMenus();
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-[var(--text-primary)]"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                <div className="h-2 w-2 rounded-full bg-blue-400" />
                 Import JSON
               </button>
               <button
@@ -209,9 +209,9 @@ export const FloatingActionBar: React.FC<Props> = ({
                   onExport();
                   closeMenus();
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-[var(--text-primary)]"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 Export JSON
               </button>
             </div>
@@ -303,7 +303,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                 </button>
               </div>
               <div className="p-6 text-[13px] text-white/75 leading-relaxed space-y-3">
-                <p>放映机正在升级，将提供生成资产的回放、预览、分发与管理能力。</p>
+                <p>放映机正在升级，将提供生成资产的回放、剪辑，预览、分发与管理能力。</p>
                 <p>请稍后再试，或在更新日志中关注进展。</p>
               </div>
             </div>
