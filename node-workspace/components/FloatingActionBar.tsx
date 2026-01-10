@@ -61,6 +61,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   const [showTemplate, setShowTemplate] = useState(false);
   const [showWip, setShowWip] = useState(false);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
+  const panelClass = "rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl overflow-hidden";
 
   const nodeActions = [
     { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
@@ -88,7 +89,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className="absolute bottom-16 left-0 w-80 rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
           >
             <div className="p-4 space-y-3">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">模板管理</div>
@@ -129,12 +130,12 @@ export const FloatingActionBar: React.FC<Props> = ({
                         }}
                         className="flex-1 flex items-center gap-3 text-left"
                       >
-                        <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/70">
+                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/70">
                           <Library size={18} />
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-[var(--text-primary)]">{template.name}</div>
-                          <div className="text-[10px] text-[var(--text-secondary)]">
+                          <div className="text-sm font-bold text-white">{template.name}</div>
+                          <div className="text-[10px] text-white/60">
                             {new Date(template.createdAt).toLocaleDateString()}
                           </div>
                         </div>
@@ -162,10 +163,10 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
-            className="absolute bottom-16 left-0 w-80 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/90 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
+            className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
           >
             <div className="p-3 grid grid-cols-2 gap-2">
-              <div className="col-span-2 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Add Nodes</div>
+              <div className="col-span-2 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/60">Add Nodes</div>
               {nodeActions.map(({ label, hint, onClick, Icon }) => (
                 <button
                   key={label}
@@ -176,10 +177,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                   className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all group/node"
                 >
                   <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/5 group-hover/node:bg-white/10 group-hover/node:ring-white/10 transition-all">
-                    <Icon size={18} className="text-[var(--node-text-primary)]" />
+                    <Icon size={18} className="text-white" />
                   </div>
                   <div className="text-left overflow-hidden">
-                    <div className="text-[13px] font-bold text-[var(--text-primary)]">{label}</div>
+                    <div className="text-[13px] font-bold text-white">{label}</div>
                   </div>
                 </button>
               ))}
