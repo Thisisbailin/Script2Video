@@ -30,12 +30,12 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="inline-flex items-center gap-3 h-8 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2">
+      <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
         <button
           type="button"
           onClick={onToggleLock}
-          className="h-7 w-7 flex items-center justify-center transition hover:text-white"
+          className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/10 transition"
           title={isLocked ? "解锁画布" : "锁定画布"}
         >
           {isLocked ? (
@@ -47,14 +47,13 @@ export const ViewportControls: React.FC<Props> = ({
         <button
           type="button"
           onClick={onToggleMiniMap}
-          className="h-7 w-7 flex items-center justify-center transition hover:text-white"
+          className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/10 transition"
           title={showMiniMap ? "隐藏地图" : "显示地图"}
         >
           <Map size={14} className={showMiniMap ? "text-sky-300" : "text-sky-300/70"} />
         </button>
       </div>
-      <div className="h-6 w-px bg-white/10" />
-      <div className="flex items-center gap-2">
+      <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
         <button
           type="button"
           onClick={handleMinus}

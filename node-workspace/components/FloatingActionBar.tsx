@@ -218,7 +218,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         <div
-          className="inline-flex items-center gap-3 h-8 px-3 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 backdrop-blur-2xl shadow-2xl"
+          className="inline-flex items-center gap-2 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur"
         >
           {/* Menu */}
           <button
@@ -227,7 +227,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette(false);
               setShowTemplate(false);
             }}
-            className={`h-7 w-7 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/10'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/10'}`}
           >
             <Menu size={14} className="text-[var(--text-primary)]" />
           </button>
@@ -239,7 +239,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette(false);
               setShowFileMenu(false);
             }}
-            className={`h-7 w-7 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showTemplate ? 'bg-white/10' : 'hover:bg-white/10'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showTemplate ? 'bg-white/10' : 'hover:bg-white/10'}`}
           >
             <Library size={14} className="text-[var(--text-primary)]" />
           </button>
@@ -251,22 +251,22 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowFileMenu(false);
               setShowTemplate(false);
             }}
-            className={`h-7 w-7 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showPalette ? 'bg-white/10' : 'hover:bg-white/10'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showPalette ? 'bg-white/10' : 'hover:bg-white/10'}`}
           >
             <Plus size={14} className={`text-[var(--text-primary)] transition-transform ${showPalette ? 'rotate-45' : ''}`} />
           </button>
 
           {/* Projector (Placeholder) */}
-          <div className="h-7 w-7 flex items-center justify-center rounded-full border border-white/10 bg-white/5 opacity-30 cursor-not-allowed">
+          <div className="h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 opacity-30 cursor-not-allowed">
             <Projector size={14} className="text-[var(--text-primary)]" />
           </div>
 
-          <div className="h-6 w-px bg-[var(--border-subtle)] mx-1" />
+          <div className="h-6 w-px bg-white/10 mx-1" />
 
           {/* Run */}
           <button
             onClick={onRun}
-            className="h-7 w-7 flex items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+            className="h-8 w-8 flex items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 transition-all"
             aria-label="Run"
           >
             <Play size={14} fill="currentColor" />

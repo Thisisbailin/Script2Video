@@ -576,10 +576,14 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
         >
           <Background />
           {showMiniMap && (
-            <div className="nodelab-minimap-drawer" data-open={showMiniMap}>
+            <div
+              className="nodelab-minimap-drawer"
+              data-open={showMiniMap}
+              style={{ position: "absolute", right: 24, bottom: 140, pointerEvents: "auto" }}
+            >
               <MiniMap
                 className="nodelab-minimap"
-                style={{ height: 130, width: 180, background: "#0f0f0f", borderRadius: 14, border: "1px solid #1f2937", boxShadow: "0 12px 30px rgba(0,0,0,0.35)" }}
+                style={{ height: 140, width: 190, background: "#0f0f0f", borderRadius: 14, border: "1px solid #1f2937", boxShadow: "0 12px 30px rgba(0,0,0,0.35)" }}
                 maskColor="rgba(255,255,255,0.04)"
                 nodeStrokeColor="#38bdf8"
                 nodeColor="#0ea5e9"
