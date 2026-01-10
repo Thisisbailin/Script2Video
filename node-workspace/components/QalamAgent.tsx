@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowRight, Image as ImageIcon } from "lucide-react";
+import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
@@ -118,7 +118,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
   }
 
   return (
-    <div className="pointer-events-auto w-[420px] max-w-[95vw] h-[72vh] max-h-[80vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
+    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-140px)] max-h-[calc(100vh-140px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
@@ -139,11 +139,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-        {messages.length === 0 && (
-          <div className="text-[11px] text-white/60">
-            选择上下文后直接提问，或让 Qalam 帮你生成/修改文案。
-          </div>
-        )}
         {messages.map((m, idx) => (
           <div
             key={idx}
@@ -158,7 +153,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
         ))}
       </div>
 
-      <div className="border-t border-white/10 px-4 py-4 space-y-3">
+      <div className="px-4 py-4 space-y-3">
         <div className="flex flex-wrap gap-2">
           {[
             { key: "script", label: "剧本" },
@@ -180,9 +175,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
             );
           })}
         </div>
-        <div className="rounded-2xl bg-white/6 border border-white/10 px-3 py-3 space-y-2">
+        <div className="rounded-2xl bg-white/10 border border-white/15 px-3 py-3 space-y-2">
           <textarea
-            className="w-full bg-transparent text-[13px] text-white placeholder:text-white/60 resize-none focus:outline-none"
+            className="w-full bg-transparent text-[13px] text-white placeholder:text-white/70 resize-none focus:outline-none"
             rows={3}
             placeholder="向 Qalam 提问，@ 提及角色形态，/ 选择指令..."
             value={input}
@@ -198,20 +193,23 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
           <div className="flex items-center gap-2 flex-wrap text-[12px] text-white/80">
             <button
               onClick={handleUploadClick}
-              className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/6 flex items-center justify-center"
+              className="h-8 w-8 flex items-center justify-center text-white/80 hover:text-white"
               title="上传图片作为上下文"
             >
               <Plus size={14} />
             </button>
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as any)}
-              className="h-8 rounded-full border border-white/12 bg-white/5 px-3 pr-6 text-[12px] text-white/90 focus:outline-none"
-            >
-              <option value="creative">创意模式</option>
-              <option value="precise">精准实干</option>
-              <option value="fun">风趣幽默</option>
-            </select>
+            <label className="flex items-center gap-1 text-white/70 text-[12px]">
+              <span>Mode</span>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as any)}
+                className="bg-transparent text-white/80 text-[12px] border-none focus:outline-none appearance-none pr-4"
+              >
+                <option value="creative">creative</option>
+                <option value="precise">precise</option>
+                <option value="fun">humor</option>
+              </select>
+            </label>
             <div className="flex items-center gap-2 flex-wrap">
               {attachments.map((item, idx) => (
                 <span
@@ -233,7 +231,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
               className="h-9 w-9 rounded-full bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50 disabled:bg-emerald-500/40"
               title="发送"
             >
-              {isSending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+              {isSending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} />}
             </button>
           </div>
         </div>
