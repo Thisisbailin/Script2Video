@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Plus,
   Play,
-  Share,
+  User,
   MessageSquare,
   Image as ImageIcon,
   Bot,
@@ -13,7 +13,6 @@ import {
   BoxSelect,
   Library,
   ChevronRight,
-  Projector,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
 
@@ -220,7 +219,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         <div
           className="inline-flex flex-wrap sm:flex-nowrap items-center gap-1 h-auto sm:h-9 px-2 sm:px-3 py-1 sm:py-0 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur min-w-[220px] sm:min-w-[320px] max-w-full"
         >
-          {/* Menu */}
+          {/* Account / Share */}
           <button
             onClick={() => {
               setShowFileMenu((v) => !v);
@@ -229,7 +228,7 @@ export const FloatingActionBar: React.FC<Props> = ({
             }}
             className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
-            <Share size={16} className="text-white/80" />
+            <User size={16} className="text-white/80" />
           </button>
 
           {/* Template */}
