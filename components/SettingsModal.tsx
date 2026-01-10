@@ -383,7 +383,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
-            <div className="bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] w-full max-w-lg p-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-colors text-[var(--text-primary)]">
+            <div className="bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] w-full max-w-4xl p-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-colors text-[var(--text-primary)]">
 
                 {/* Header */}
                 <div className="bg-[var(--bg-panel)]/85 px-6 py-4 flex justify-between items-center border-b border-[var(--border-subtle)] shrink-0">
@@ -433,40 +433,44 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 </div>
 
                 <div className="p-6 overflow-y-auto text-[var(--text-primary)]">
-                    <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
-                        <input
-                            id="rememberKeys"
-                            type="checkbox"
-                            className="mt-1 h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded focus:ring-[var(--accent-blue)] bg-[var(--bg-panel)]"
-                            checked={!!config.rememberApiKeys}
-                            onChange={(e) => {
-                                onConfigChange({
-                                    ...config,
-                                    rememberApiKeys: e.target.checked,
-                                });
-                            }}
-                        />
-                        <label htmlFor="rememberKeys" className="text-sm text-[var(--text-secondary)] leading-tight">
-                            记住 API 密钥到本地（默认不落盘，刷新后需重新输入）。勾选后密钥会写入浏览器存储，请仅在可信设备使用。
-                        </label>
-                    </div>
-                    <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
-                        <input
-                            id="syncKeys"
-                            type="checkbox"
-                            className="mt-1 h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded focus:ring-[var(--accent-blue)] bg-[var(--bg-panel)]"
-                            checked={!!config.syncApiKeys}
-                            onChange={(e) => {
-                                onConfigChange({
-                                    ...config,
-                                    syncApiKeys: e.target.checked,
-                                });
-                            }}
-                        />
-                        <label htmlFor="syncKeys" className="text-sm text-[var(--text-secondary)] leading-tight">
-                            云端同步密钥（与账户绑定）。勾选后密钥将存入服务器，请确认账号安全。
-                        </label>
-                    </div>
+                    {activeTab === 'sync' && (
+                        <>
+                            <div className="mb-4 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
+                                <input
+                                    id="rememberKeys"
+                                    type="checkbox"
+                                    className="mt-1 h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded focus:ring-[var(--accent-blue)] bg-[var(--bg-panel)]"
+                                    checked={!!config.rememberApiKeys}
+                                    onChange={(e) => {
+                                        onConfigChange({
+                                            ...config,
+                                            rememberApiKeys: e.target.checked,
+                                        });
+                                    }}
+                                />
+                                <label htmlFor="rememberKeys" className="text-sm text-[var(--text-secondary)] leading-tight">
+                                    记住 API 密钥到本地（默认不落盘，刷新后需重新输入）。勾选后密钥会写入浏览器存储，请仅在可信设备使用。
+                                </label>
+                            </div>
+                            <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
+                                <input
+                                    id="syncKeys"
+                                    type="checkbox"
+                                    className="mt-1 h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded focus:ring-[var(--accent-blue)] bg-[var(--bg-panel)]"
+                                    checked={!!config.syncApiKeys}
+                                    onChange={(e) => {
+                                        onConfigChange({
+                                            ...config,
+                                            syncApiKeys: e.target.checked,
+                                        });
+                                    }}
+                                />
+                                <label htmlFor="syncKeys" className="text-sm text-[var(--text-secondary)] leading-tight">
+                                    云端同步密钥（与账户绑定）。勾选后密钥将存入服务器，请确认账号安全。
+                                </label>
+                            </div>
+                        </>
+                    )}
                     {activeTab === 'text' && (
                         <div className="space-y-6">
                             {/* Provider Switcher */}
@@ -1024,103 +1028,96 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     )}
 
                     {activeTab === 'about' && (
-                        <div className="space-y-8 text-center py-4">
+                        <div className="space-y-10 py-4">
                             {/* Hero Section */}
-                            <div>
-                                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-sky-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/25 mb-4 transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                                    <svg width="40" height="40" viewBox="0 0 128 128" className="drop-shadow-md">
-                                        <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#about-bg)" />
-                                        <g transform="translate(6 4)">
-                                            <path
-                                                d="M46 40l8.5 17.5 19.3 2.3-14.4 13 3.7 19-17.1-9.3-17.1 9.3 3.7-19-14.4-13 19.3-2.3z"
-                                                fill="#8aa3da"
-                                                stroke="#8aa3da"
-                                                strokeWidth="4"
-                                                strokeLinejoin="round"
-                                                strokeLinecap="round"
-                                            />
-                                        </g>
-                                        <rect x="62" y="86" width="24" height="7" rx="3.5" fill="#8aa3da" />
-                                        <defs>
-                                            <linearGradient id="about-bg" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stop-color="#1a1d21" />
-                                                <stop offset="100%" stop-color="#0f1114" />
-                                            </linearGradient>
-                                        </defs>
-                                    </svg>
+                            <div className="text-center space-y-3">
+                                <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20 bg-gradient-to-br from-emerald-500 to-sky-500 overflow-hidden">
+                                    <img src="/icon-256.png" alt="Qalam Icon" className="h-12 w-12 object-contain" />
                                 </div>
-                                <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-1">
-                                    Qalam
-                                </h1>
-                                <span className="inline-block px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[10px] text-gray-500 dark:text-gray-400 font-mono border border-gray-200 dark:border-gray-700 tracking-wider">
-                                    VERSION 0.3
-                                </span>
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Qalam</h1>
+                                    <span className="inline-block px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[10px] text-gray-500 dark:text-gray-400 font-mono border border-gray-200 dark:border-gray-700 tracking-wider">
+                                        VERSION 0.3
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl mx-auto leading-relaxed">
+                                    从脚本到节点，再到 Agent 的创意工作室。
+                                </p>
                             </div>
 
-                            {/* Description */}
-                            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-                                Dreaming Electric Sheep → Qalam · 从脚本到节点自由编排的创意工作室。
-                            </p>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                {/* Roadmap Timeline */}
+                                <div className="bg-gray-50 dark:bg-gray-900/60 p-5 rounded-xl border border-gray-200 dark:border-gray-700/60">
+                                    <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        版本迭代图谱
+                                    </h3>
+                                    <div className="relative pl-5 space-y-4">
+                                        <span className="absolute left-2 top-2 bottom-2 w-[2px] bg-gray-200 dark:bg-gray-700 rounded-full" />
+                                        {[
+                                            { ver: "0.1 · Script2Video", desc: "组件导向：手动点击完成基础逻辑。" },
+                                            { ver: "0.2 · eSheep", desc: "工作流导向：流程化自动批处理。" },
+                                            { ver: "0.3 · NodeLab", desc: "节点导向：自由搭建节点组合。" },
+                                            { ver: "0.4 · Qalam", desc: "Agent 主导：助理制定并执行创意计划。" },
+                                            { ver: "0.5 · Zendo", desc: "多 Agent：研究小组协作，感知化实时交互。" },
+                                        ].map((item, idx) => (
+                                            <div key={item.ver} className="flex items-start gap-3">
+                                                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.15)]" />
+                                                <div>
+                                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.ver}</div>
+                                                    <div className="text-xs text-gray-600 dark:text-gray-400">{item.desc}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
 
-                            <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 text-left max-w-xl mx-auto space-y-3">
-                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    版本迭代图谱
-                                </h3>
-                                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
-                                    <li><span className="font-semibold">0.1 · Script2Video</span> — 组件导向：手动点击操作完成基础逻辑。</li>
-                                    <li><span className="font-semibold">0.2 · eSheep</span> — 工作流导向：支持流程化自动批处理。</li>
-                                    <li><span className="font-semibold">0.3 · NodeLab</span> — 节点导向：自由搭建节点组合应对多样创意需求。</li>
-                                    <li><span className="font-semibold">0.4 · Qalam</span> — Agent 主导：智能助理制定并执行创意计划。</li>
-                                    <li><span className="font-semibold">0.5 · Zendo</span> — 多 Agent：研究小组式协作，感知化实时交互与环境化能力释放。</li>
-                                </ul>
-                            </div>
-
-                            {/* Features List */}
-                            <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 text-left max-w-sm mx-auto">
-                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <Sparkles size={10} /> Core Features
-                                </h3>
-                                <ul className="space-y-3">
-                                    <li className="flex items-start gap-3">
-                                        <BrainCircuit size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Deep Script Understanding</span>
-                                            <span className="text-xs text-gray-500 block">Analyzes plot, characters, and themes.</span>
-                                        </div>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <Film size={16} className="text-blue-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Automated Shot Lists</span>
-                                            <span className="text-xs text-gray-500 block">Converts text to professional shooting scripts.</span>
-                                        </div>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <ImageIcon size={16} className="text-pink-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Visual Concept Studio</span>
-                                            <span className="text-xs text-gray-500 block">Generates character and location concepts.</span>
-                                        </div>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <Zap size={16} className="text-indigo-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Sora Prompt Engineering</span>
-                                            <span className="text-xs text-gray-500 block">Creates production-ready video prompts.</span>
-                                        </div>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <Video size={16} className="text-purple-500 shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Video Generation</span>
-                                            <span className="text-xs text-gray-500 block">Direct integration with Video APIs.</span>
-                                        </div>
-                                    </li>
-                                </ul>
+                                {/* Features List */}
+                                <div className="bg-gray-50 dark:bg-gray-900/60 p-5 rounded-xl border border-gray-200 dark:border-gray-700/60">
+                                    <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <Sparkles size={10} /> Core Features
+                                    </h3>
+                                    <ul className="space-y-3">
+                                        <li className="flex items-start gap-3">
+                                            <BrainCircuit size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Deep Script Understanding</span>
+                                                <span className="text-xs text-gray-500 block">Analyzes plot, characters, and themes.</span>
+                                            </div>
+                                        </li>
+                                        <li className="flex items-start gap-3">
+                                            <Film size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Automated Shot Lists</span>
+                                                <span className="text-xs text-gray-500 block">Converts text to professional shooting scripts.</span>
+                                            </div>
+                                        </li>
+                                        <li className="flex items-start gap-3">
+                                            <ImageIcon size={16} className="text-pink-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Visual Concept Studio</span>
+                                                <span className="text-xs text-gray-500 block">Generates character and location concepts.</span>
+                                            </div>
+                                        </li>
+                                        <li className="flex items-start gap-3">
+                                            <Zap size={16} className="text-indigo-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Sora Prompt Engineering</span>
+                                                <span className="text-xs text-gray-500 block">Creates production-ready video prompts.</span>
+                                            </div>
+                                        </li>
+                                        <li className="flex items-start gap-3">
+                                            <Video size={16} className="text-purple-500 shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="text-sm text-gray-800 dark:text-gray-200 font-medium block">Video Generation</span>
+                                                <span className="text-xs text-gray-500 block">Direct integration with Video APIs.</span>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
 
                             {/* Footer / Credits */}
-                            <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+                            <div className="pt-2 text-center border-t border-gray-200 dark:border-gray-800">
                                 <p className="text-xs text-gray-500">
                                     Designed by <span className="text-gray-700 dark:text-gray-400 font-medium">Bai & Gemini</span>
                                 </p>
