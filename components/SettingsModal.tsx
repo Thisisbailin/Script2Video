@@ -1028,7 +1028,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     )}
 
                     {activeTab === 'about' && (
-                    {activeTab === 'about' && (
                         <div className="space-y-8 py-4">
                             {/* Hero Section */}
                             <div className="text-center space-y-2">
