@@ -579,7 +579,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
             <div
               className="nodelab-minimap-drawer"
               data-open={showMiniMap}
-              style={{ position: "absolute", right: 24, bottom: 90, pointerEvents: "auto" }}
+              style={{ position: "absolute", right: 24, bottom: 76, pointerEvents: "auto" }}
             >
               <MiniMap
                 className="nodelab-minimap"

@@ -121,7 +121,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                   {templates.map((template) => (
                     <div
                       key={template.id}
-                      className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-all group"
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all group"
                     >
                       <button
                         onClick={() => {
@@ -130,7 +130,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         }}
                         className="flex-1 flex items-center gap-3 text-left"
                       >
-                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/70">
+                        <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/70">
                           <Library size={18} />
                         </div>
                         <div>
@@ -165,25 +165,28 @@ export const FloatingActionBar: React.FC<Props> = ({
           <div
             className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
           >
-            <div className="p-3 grid grid-cols-2 gap-2">
-              <div className="col-span-2 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/60">Add Nodes</div>
-              {nodeActions.map(({ label, hint, onClick, Icon }) => (
-                <button
-                  key={label}
-                  onClick={() => {
-                    onClick();
-                    closeMenus();
-                  }}
-                  className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all group/node"
-                >
-                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/5 group-hover/node:bg-white/10 group-hover/node:ring-white/10 transition-all">
-                    <Icon size={18} className="text-white" />
-                  </div>
-                  <div className="text-left overflow-hidden">
-                    <div className="text-[13px] font-bold text-white">{label}</div>
-                  </div>
-                </button>
-              ))}
+            <div className="p-4 space-y-3">
+              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">Add Nodes</div>
+              <div className="grid grid-cols-2 gap-2">
+                {nodeActions.map(({ label, hint, onClick, Icon }) => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      onClick();
+                      closeMenus();
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-2xl border border-white/10 bg-white/2 hover:border-white/25 hover:bg-white/8 transition-all group/node"
+                  >
+                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/6 ring-1 ring-white/8 group-hover/node:bg-white/10 group-hover/node:ring-white/12 transition-all">
+                      <Icon size={18} className="text-white" />
+                    </div>
+                    <div className="text-left overflow-hidden">
+                      <div className="text-[13px] font-bold text-white">{label}</div>
+                      <div className="text-[11px] text-white/60 truncate">{hint}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -283,16 +286,21 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* WIP popover */}
         {showWip && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowWip(false)}>
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 md:px-8"
+            onClick={() => setShowWip(false)}
+          >
             <div
               className="w-[92vw] max-w-5xl min-h-[70vh] rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_32px_80px_rgba(0,0,0,0.55)] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/12 bg-white/2">
                 <div className="flex items-center gap-3">
-                  <Projector size={20} className="text-emerald-300" />
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/12 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                    <Projector size={22} />
+                  </div>
                   <div>
-                    <div className="text-lg font-semibold">放映机 · 施工中</div>
+                    <div className="text-lg font-semibold text-white">放映机 · 施工中</div>
                     <div className="text-[12px] text-white/60">高级视图 / 回放 / 管理模块将很快上线。</div>
                   </div>
                 </div>
@@ -303,9 +311,34 @@ export const FloatingActionBar: React.FC<Props> = ({
                   关闭
                 </button>
               </div>
-              <div className="p-6 text-[13px] text-white/75 leading-relaxed space-y-3">
-                <p>放映机正在升级，将提供生成资产的回放、剪辑，预览、分发与管理能力。</p>
-                <p>请稍后再试，或在更新日志中关注进展。</p>
+
+              <div className="px-6 py-6 space-y-4 text-[13px] text-white/80 leading-relaxed">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { title: "时间线 / 回放", desc: "查看生成历史、关键帧、回放并做版本对比。" },
+                    { title: "资产管理", desc: "集中管理视频、图像与提示词，支持收藏与分发。" },
+                    { title: "协同与审核", desc: "共享到团队、批注审阅、版本冻结与解冻。" },
+                    { title: "发布与导出", desc: "支持多规格导出、CDN 发布与外链访问。" },
+                  ].map((item) => (
+                    <div
+                      key={item.title}
+                      className="rounded-2xl border border-white/10 bg-white/2 px-4 py-3 hover:border-white/25 transition-all"
+                    >
+                      <div className="text-sm font-semibold text-white">{item.title}</div>
+                      <div className="text-[12px] text-white/65 mt-1">{item.desc}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/2 p-4">
+                  <div className="flex items-center gap-2 text-white font-semibold mb-2">
+                    <Sparkles size={16} className="text-emerald-300" />
+                    体验即将解锁
+                  </div>
+                  <div className="text-[12px] text-white/65">
+                    放映机将整合节点生成的全链路资产，支持分镜回放、剪辑草稿、版本分支与一键发布。
+                  </div>
+                </div>
               </div>
             </div>
           </div>
