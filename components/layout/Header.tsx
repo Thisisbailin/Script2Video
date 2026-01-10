@@ -1012,7 +1012,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="fixed inset-0 z-20" onClick={closeAll} />
       )}
       <header className="pointer-events-none fixed top-0 left-0 right-0 z-40 px-4 sm:px-6 pt-3">
-        <div className="flex items-start justify-between gap-2.5 w-full max-w-6xl mx-auto">
+        <div className="flex items-start justify-between gap-2.5 w-full">
           <div className="pointer-events-auto">
             <div className="relative">
               <button
