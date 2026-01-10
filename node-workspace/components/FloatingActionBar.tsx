@@ -61,7 +61,11 @@ export const FloatingActionBar: React.FC<Props> = ({
   const [showTemplate, setShowTemplate] = useState(false);
   const [showWip, setShowWip] = useState(false);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
-  const panelClass = "rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl overflow-hidden";
+  const panelClass = "rounded-3xl border border-white/12 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl overflow-hidden";
+  const panelStyle: React.CSSProperties = {
+    backgroundColor: "rgba(11,13,16,0.95)",
+    borderColor: "rgba(255,255,255,0.12)",
+  };
 
   const nodeActions = [
     { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
@@ -90,6 +94,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {showTemplate && (
           <div
             className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
+            style={panelStyle}
           >
             <div className="p-4 space-y-3">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">模板管理</div>
@@ -164,6 +169,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {showPalette && (
           <div
             className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
+            style={panelStyle}
           >
             <div className="p-4 space-y-3">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">Add Nodes</div>
@@ -194,7 +200,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className="absolute bottom-16 left-0 w-64 rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.55)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+            className={`absolute bottom-16 left-0 w-64 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            style={panelStyle}
           >
             <div className="p-3 space-y-2">
               <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share / IO</div>
@@ -291,7 +298,8 @@ export const FloatingActionBar: React.FC<Props> = ({
             onClick={() => setShowWip(false)}
           >
             <div
-              className="w-[92vw] max-w-5xl min-h-[70vh] rounded-3xl border border-white/12 bg-[#0b0d10]/98 text-white shadow-[0_32px_80px_rgba(0,0,0,0.55)] overflow-hidden"
+              className={`w-[92vw] max-w-5xl min-h-[70vh] ${panelClass}`}
+              style={panelStyle}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/12 bg-white/2">
