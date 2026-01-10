@@ -37,6 +37,8 @@ import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
+import type { ModuleKey } from './node-workspace/components/ModuleBar';
+import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
 import * as GeminiService from './services/geminiService';
 import * as VideoService from './services/videoService';
 
@@ -188,6 +190,7 @@ const App: React.FC = () => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
+  const [openLabModal, setOpenLabModal] = useState<ModuleKey | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = usePersistedState<string>({
     key: 'script2video_avatar_url',
@@ -220,6 +223,14 @@ const App: React.FC = () => {
   const closeSettings = useCallback(() => {
     setIsSettingsOpen(false);
     setSettingsTab(null);
+  }, []);
+
+  const handleOpenLabModule = useCallback((key: ModuleKey) => {
+    setOpenLabModal(key);
+  }, []);
+
+  const closeLabModal = useCallback(() => {
+    setOpenLabModal(null);
   }, []);
 
   // Processing Queues for Phase 1 Batches handled via reducer
@@ -1521,7 +1532,7 @@ const App: React.FC = () => {
       case 'lab':
         return (
           <div className="h-full">
-            <NodeLab projectData={projectData} setProjectData={setProjectData} />
+            <NodeLab projectData={projectData} setProjectData={setProjectData} onOpenModule={handleOpenLabModule} />
           </div>
         );
       default:
@@ -1545,6 +1556,29 @@ const App: React.FC = () => {
 
     return renderTabContent(activeTab);
   };
+
+  let labModalTitle: string | null = null;
+  let labModalWidth: number | string | undefined = undefined;
+  let labModalContent: React.ReactNode = null;
+  if (openLabModal === "assets") {
+    labModalTitle = "Assets";
+    labModalWidth = 1040;
+    labModalContent = (
+      <AssetsModule data={projectData} setProjectData={setProjectData} onAssetLoad={handleAssetLoad} />
+    );
+  } else if (openLabModal === "script") {
+    labModalTitle = "Script";
+    labModalWidth = 960;
+    labModalContent = (
+      <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} characters={projectData.context.characters} />
+    );
+  } else if (openLabModal === "shots") {
+    labModalTitle = "Shots";
+    labModalWidth = 1100;
+    labModalContent = (
+      <ShotsModule shots={projectData.episodes[currentEpIndex]?.shots || []} showSora={step >= WorkflowStep.GENERATE_SORA} />
+    );
+  }
 
   return (
     <AppShell
@@ -1592,6 +1626,11 @@ const App: React.FC = () => {
         onChange={handleAvatarFileChange}
       />
       {renderMainContent()}
+      {labModalTitle && labModalContent && (
+        <FloatingPanelShell title={labModalTitle} isOpen onClose={closeLabModal} width={labModalWidth}>
+          {labModalContent}
+        </FloatingPanelShell>
+      )}
     </AppShell>
   );
 };

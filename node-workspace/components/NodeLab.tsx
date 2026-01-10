@@ -39,6 +39,8 @@ import { ViewportControls } from "./ViewportControls";
 import { Toast, useToast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
 import { DesignAssetItem, ProjectData } from "../../types";
+import { ModuleBar, ModuleKey } from "./ModuleBar";
+import { FolderOpen, FileText, List } from "lucide-react";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -70,9 +72,10 @@ interface ConnectionDropState {
 interface NodeLabProps {
   projectData: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
+  onOpenModule?: (key: ModuleKey) => void;
 }
 
-const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) => {
+const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onOpenModule }) => {
   const {
     nodes,
     edges,
@@ -623,6 +626,16 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
             onLoadTemplate={handleLoadTemplate}
             onDeleteTemplate={handleDeleteTemplate}
             floating={false}
+          />
+        </div>
+        <div className="flex items-center justify-center pointer-events-auto">
+          <ModuleBar
+            modules={[
+              { key: "assets", label: "Assets", icon: FolderOpen },
+              { key: "script", label: "Script", icon: FileText },
+              { key: "shots", label: "Shots", icon: List },
+            ]}
+            onOpen={(key) => onOpenModule?.(key)}
           />
         </div>
         <div className="flex items-end gap-3 pointer-events-auto">
