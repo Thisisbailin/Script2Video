@@ -1027,21 +1027,34 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                         <div className="space-y-8 text-center py-4">
                             {/* Hero Section */}
                             <div>
-                                <div className="w-20 h-20 bg-gradient-to-br from-sky-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                                    <span className="text-3xl">💊</span>
+                                <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-sky-500 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/25 mb-4 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                                    <span className="text-3xl">🪄</span>
                                 </div>
                                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-1">
-                                    eSheep
+                                    Qalam
                                 </h1>
                                 <span className="inline-block px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[10px] text-gray-500 dark:text-gray-400 font-mono border border-gray-200 dark:border-gray-700 tracking-wider">
-                                    VERSION 0.2
+                                    VERSION 0.3
                                 </span>
                             </div>
 
                             {/* Description */}
                             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-                                Dreaming Electric Sheep · 将剧本转化为镜头、提示词与可部署素材的全流程工作室助手。
+                                Dreaming Electric Sheep → Qalam · 从脚本到节点自由编排的创意工作室。
                             </p>
+
+                            <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 text-left max-w-xl mx-auto space-y-3">
+                                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    版本迭代图谱
+                                </h3>
+                                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                                    <li><span className="font-semibold">0.1 · Script2Video</span> — 组件导向：手动点击操作完成基础逻辑。</li>
+                                    <li><span className="font-semibold">0.2 · eSheep</span> — 工作流导向：支持流程化自动批处理。</li>
+                                    <li><span className="font-semibold">0.3 · NodeLab</span> — 节点导向：自由搭建节点组合应对多样创意需求。</li>
+                                    <li><span className="font-semibold">0.4 · Qalam</span> — Agent 主导：智能助理制定并执行创意计划。</li>
+                                    <li><span className="font-semibold">0.5 · Zendo</span> — 多 Agent：研究小组式协作，感知化实时交互与环境化能力释放。</li>
+                                </ul>
+                            </div>
 
                             {/* Features List */}
                             <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 text-left max-w-sm mx-auto">
