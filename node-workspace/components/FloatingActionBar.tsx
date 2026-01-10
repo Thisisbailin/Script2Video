@@ -3,6 +3,7 @@ import {
   Plus,
   Play,
   User,
+  Hammer,
   MessageSquare,
   Image as ImageIcon,
   Bot,
@@ -58,6 +59,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
+  const [showWip, setShowWip] = useState(false);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
 
   const nodeActions = [
@@ -75,6 +77,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     setShowPalette(false);
     setShowFileMenu(false);
     setShowTemplate(false);
+    setShowWip(false);
   };
 
   return (
@@ -225,6 +228,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowFileMenu((v) => !v);
               setShowPalette(false);
               setShowTemplate(false);
+              setShowWip(false);
             }}
             className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
@@ -237,6 +241,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowTemplate((v) => !v);
               setShowPalette(false);
               setShowFileMenu(false);
+              setShowWip(false);
             }}
             className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showTemplate ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
@@ -249,18 +254,21 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette((v) => !v);
               setShowFileMenu(false);
               setShowTemplate(false);
+              setShowWip(false);
             }}
             className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
             <Plus size={14} className={`text-white/80 transition-transform ${showPalette ? 'rotate-45' : ''}`} />
           </button>
 
-          {/* Projector (Placeholder) */}
-          <div className="h-8 w-8 flex items-center justify-center rounded-full opacity-30 cursor-not-allowed">
-            <Projector size={14} className="text-white/50" />
-          </div>
-
-          <div className="flex-1 hidden sm:block" />
+          {/* WIP placeholder */}
+          <button
+            onClick={() => setShowWip((v) => !v)}
+            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
+            title="施工中"
+          >
+            <Hammer size={14} className="text-white/70" />
+          </button>
 
           {/* Run */}
           <button
@@ -271,6 +279,23 @@ export const FloatingActionBar: React.FC<Props> = ({
             <Play size={16} fill="currentColor" />
           </button>
         </div>
+
+        {/* WIP popover */}
+        {showWip && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:left-1/2 sm:-translate-x-1/2 w-56 rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_18px_40px_rgba(0,0,0,0.4)] backdrop-blur p-4 text-sm">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <Hammer size={14} className="text-amber-300" />
+              模块施工中…
+            </div>
+            <div className="text-[12px] text-white/70">即将上线的视图功能，敬请期待。</div>
+            <button
+              className="mt-3 text-[11px] px-3 py-1.5 rounded-full border border-white/15 hover:border-white/30 hover:bg-white/5 transition"
+              onClick={() => setShowWip(false)}
+            >
+              好的
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
