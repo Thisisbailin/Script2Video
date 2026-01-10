@@ -1028,20 +1028,15 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     )}
 
                     {activeTab === 'about' && (
-                        <div className="space-y-10 py-4">
+                    {activeTab === 'about' && (
+                        <div className="space-y-8 py-4">
                             {/* Hero Section */}
-                            <div className="text-center space-y-3">
-                                <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20 bg-gradient-to-br from-emerald-500 to-sky-500 overflow-hidden">
-                                    <img src="/icon-256.png" alt="Qalam Icon" className="h-12 w-12 object-contain" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Qalam</h1>
-                                    <span className="inline-block px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[10px] text-gray-500 dark:text-gray-400 font-mono border border-gray-200 dark:border-gray-700 tracking-wider">
-                                        VERSION 0.3
-                                    </span>
-                                </div>
+                            <div className="text-center space-y-2">
+                                <img src="/icon-256.png" alt="Qalam Icon" className="h-16 w-16 mx-auto rounded-2xl shadow-lg shadow-emerald-500/15" />
+                                <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Qalam</h1>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">v0.3 · NodeLab</div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl mx-auto leading-relaxed">
-                                    从脚本到节点，再到 Agent 的创意工作室。
+                                    当前阶段：节点主导的 AIGC 工作流，可视化编排节点驱动多模态生成。
                                 </p>
                             </div>
 
@@ -1054,17 +1049,19 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     <div className="relative pl-5 space-y-4">
                                         <span className="absolute left-2 top-2 bottom-2 w-[2px] bg-gray-200 dark:bg-gray-700 rounded-full" />
                                         {[
-                                            { ver: "0.1 · Script2Video", desc: "组件导向：手动点击完成基础逻辑。" },
-                                            { ver: "0.2 · eSheep", desc: "工作流导向：流程化自动批处理。" },
-                                            { ver: "0.3 · NodeLab", desc: "节点导向：自由搭建节点组合。" },
-                                            { ver: "0.4 · Qalam", desc: "Agent 主导：助理制定并执行创意计划。" },
-                                            { ver: "0.5 · Zendo", desc: "多 Agent：研究小组协作，感知化实时交互。" },
-                                        ].map((item, idx) => (
+                                            { ver: "0.1 · Script2Video", desc: "组件导向：手动点击完成基础逻辑。", active: false },
+                                            { ver: "0.2 · eSheep", desc: "工作流导向：流程化自动批处理。", active: false },
+                                            { ver: "0.3 · NodeLab", desc: "节点导向：自由搭建 AIGC 节点组合。", active: true },
+                                            { ver: "0.4 · Qalam", desc: "Agent 主导：助理制定并执行创意计划。", active: false },
+                                            { ver: "0.5 · Zendo", desc: "多 Agent：研究小组协作，感知化实时交互。", active: false },
+                                        ].map((item) => (
                                             <div key={item.ver} className="flex items-start gap-3">
-                                                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.15)]" />
+                                                <span
+                                                    className={`mt-1 h-2.5 w-2.5 rounded-full ${item.active ? "bg-sky-400 shadow-[0_0_0_4px_rgba(56,189,248,0.25)]" : "bg-gray-300 dark:bg-gray-600"}`}
+                                                />
                                                 <div>
-                                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.ver}</div>
-                                                    <div className="text-xs text-gray-600 dark:text-gray-400">{item.desc}</div>
+                                                    <div className={`text-sm font-semibold ${item.active ? "text-sky-200" : "text-gray-900 dark:text-gray-100"}`}>{item.ver}</div>
+                                                    <div className={`text-xs ${item.active ? "text-sky-200/80" : "text-gray-600 dark:text-gray-400"}`}>{item.desc}</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -1115,6 +1112,15 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     </ul>
                                 </div>
                             </div>
+
+                            {/* Footer / Credits */}
+                            <div className="pt-2 text-center border-t border-gray-200 dark:border-gray-800">
+                                <p className="text-xs text-gray-500">
+                                    Designed by <span className="text-gray-700 dark:text-gray-400 font-medium">Bai & Gemini</span>
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                             {/* Footer / Credits */}
                             <div className="pt-2 text-center border-t border-gray-200 dark:border-gray-800">
