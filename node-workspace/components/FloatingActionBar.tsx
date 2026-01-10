@@ -218,7 +218,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         <div
-          className="inline-flex flex-wrap sm:flex-nowrap items-center gap-1 h-9 px-2 sm:px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur min-w-[260px] sm:min-w-[320px]"
+          className="inline-flex flex-wrap sm:flex-nowrap items-center gap-1 h-auto sm:h-9 px-2 sm:px-3 py-1 sm:py-0 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur min-w-[220px] sm:min-w-[320px] max-w-full"
         >
           {/* Menu */}
           <button
