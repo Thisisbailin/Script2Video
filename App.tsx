@@ -37,6 +37,7 @@ import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
+import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
 import * as GeminiService from './services/geminiService';
@@ -1695,7 +1696,7 @@ const App: React.FC = () => {
       )}
       {showStatsModal && (
         <FloatingPanelShell title="Dashboard" isOpen onClose={closeStats} width={960}>
-          <div className="text-sm text-[var(--text-secondary)]">Dashboard view will be integrated here.</div>
+          <Dashboard data={projectData} isDarkMode={isDarkMode} />
         </FloatingPanelShell>
       )}
     </AppShell>
