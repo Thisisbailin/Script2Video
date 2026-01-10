@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp } from "lucide-react";
+import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
+import { AVAILABLE_MODELS } from "../../constants";
 
 type Props = {
   projectData: ProjectData;
+  onOpenStats?: () => void;
 };
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -21,8 +23,8 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
   return parts.join("\n\n");
 };
 
-export const QalamAgent: React.FC<Props> = ({ projectData }) => {
-  const { config } = useConfig("script2video_config_v1");
+export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
+  const { config, setConfig } = useConfig("script2video_config_v1");
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
@@ -95,6 +97,26 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
   };
   const moodState = moodVisual();
 
+  const tokenUsage = useMemo(() => {
+    const sumPhase = (obj: any) =>
+      Object.values(obj || {}).reduce((acc: number, item: any) => acc + (item?.totalTokens || 0), 0);
+    return (
+      (projectData.contextUsage?.totalTokens || 0) +
+      sumPhase(projectData.phase1Usage) +
+      (projectData.phase4Usage?.totalTokens || 0) +
+      (projectData.phase5Usage?.totalTokens || 0)
+    );
+  }, [projectData]);
+
+  const formatNumber = (n: number) => n.toLocaleString();
+  const modelOptions = useMemo(
+    () => AVAILABLE_MODELS.slice().sort((a, b) => a.name.localeCompare(b.name)),
+    []
+  );
+
+  const currentModelLabel =
+    modelOptions.find((m) => m.id === config.textConfig?.model)?.name || config.textConfig?.model || "model";
+
   useEffect(() => {
     if (isSending) return;
     const order: Array<typeof mood> = ["default", "thinking", "playful", "question"];
@@ -157,9 +179,16 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
             <Bot size={16} className="text-emerald-200" />
           </div>
-          <div>
+          <div className="space-y-0.5">
             <div className="text-sm font-semibold">Qalam</div>
-            <div className="text-[11px] text-white/50">{config.textConfig?.model || "LLM"}</div>
+            <button
+              type="button"
+              onClick={onOpenStats}
+              className="text-[11px] text-white/60 hover:text-white/90 underline decoration-dashed decoration-white/40 transition"
+              title="查看 Dashboard"
+            >
+              Tokens · {formatNumber(tokenUsage)}
+            </button>
           </div>
         </div>
         <button
@@ -231,6 +260,28 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
             >
               <Plus size={14} />
             </button>
+            <div className="flex items-center gap-1 text-white/70 text-[12px]">
+              <span>Model</span>
+              <div className="relative">
+                <select
+                  value={config.textConfig?.model}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      textConfig: { ...prev.textConfig, model: e.target.value }
+                    }))
+                  }
+                  className="bg-transparent text-white/80 text-[12px] border-none focus:outline-none appearance-none pr-5 cursor-pointer"
+                >
+                  {modelOptions.map((m) => (
+                    <option key={m.id} value={m.id} className="bg-[#0b0d10] text-white">
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+                <CaretDown size={12} className="text-white/50 pointer-events-none absolute right-0 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
             <label className="flex items-center gap-1 text-white/70 text-[12px]">
               <span>Mode</span>
               <select

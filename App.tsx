@@ -1595,6 +1595,7 @@ const App: React.FC = () => {
               onOpenSettings={openSettings}
               onResetProject={handleResetProject}
               onSignOut={() => signOut()}
+              onOpenStats={handleOpenStats}
             />
           </div>
         );

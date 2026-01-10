@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -99,7 +99,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onOpenSettings,
   onResetProject,
   onSignOut,
+  onOpenStats,
 }) => {
+  const [bgTheme, setBgTheme] = useState<"dark" | "ink" | "carbon">("dark");
+  const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "solid">("dots");
+  const [showThemeModal, setShowThemeModal] = useState(false);
   const {
     nodes,
     edges,
@@ -574,8 +578,31 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const displayEdges = edges;
   const selectedGroup = getSelectedGroup();
 
+  const backgroundStyle = useMemo(() => {
+    const baseColor =
+      bgTheme === "ink" ? "#0b0d10" : bgTheme === "carbon" ? "#111214" : "#0a0a0a";
+    if (bgPattern === "grid") {
+      return {
+        backgroundColor: baseColor,
+        backgroundImage:
+          "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
+        backgroundSize: "32px 32px",
+      };
+    }
+    if (bgPattern === "solid") {
+      return { backgroundColor: baseColor };
+    }
+    return {
+      backgroundColor: baseColor,
+      backgroundImage:
+        "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.07) 1px, transparent 0), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0)",
+      backgroundSize: "28px 28px, 28px 28px",
+      backgroundPosition: "0 0, 14px 14px",
+    };
+  }, [bgPattern, bgTheme]);
+
   return (
-    <div className="h-full w-full flex flex-col bg-[#0a0a0a] text-white">
+    <div className="h-full w-full flex flex-col text-white" style={backgroundStyle}>
       <div className="flex-1 relative node-lab-canvas">
         <ReactFlow
           nodes={displayNodes}
@@ -631,7 +658,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       <MultiSelectToolbar />
       <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none">
         <div className="flex items-end gap-3 pointer-events-auto">
-          <QalamAgent projectData={projectData} />
+          <QalamAgent projectData={projectData} onOpenStats={onOpenStats} />
           <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
@@ -672,16 +699,9 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onToggleLock={handleToggleLock}
             showMiniMap={showMiniMap}
             onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
+            syncIndicator={syncIndicator}
+            onOpenTheme={() => setShowThemeModal(true)}
           />
-          {syncIndicator && (
-            <div className="h-12 flex items-center">
-              <span
-                className="h-3 w-3 rounded-full block"
-                style={{ backgroundColor: syncIndicator.color }}
-                title={syncIndicator.label}
-              />
-            </div>
-          )}
           <div className="h-12 flex items-center">
             <AssetsPanel
               projectData={projectData}
@@ -695,6 +715,67 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       </div>
       <Toast />
       <AnnotationModal />
+      {showThemeModal && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={() => setShowThemeModal(false)} />
+          <div className="fixed bottom-20 right-6 z-50 w-72 rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">背景与样式</div>
+              <button
+                type="button"
+                onClick={() => setShowThemeModal(false)}
+                className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+              >
+                ×
+              </button>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">颜色主题</div>
+              <div className="flex gap-2">
+                {[
+                  { key: "dark", label: "Dark", swatch: "#0a0a0a" },
+                  { key: "ink", label: "Ink", swatch: "#0b0d10" },
+                  { key: "carbon", label: "Carbon", swatch: "#111214" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => setBgTheme(item.key as any)}
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${
+                      bgTheme === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
+                    }`}
+                  >
+                    <span
+                      className="block h-6 w-full rounded-md mb-1"
+                      style={{ background: item.swatch }}
+                    />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">图案</div>
+              <div className="flex gap-2">
+                {[
+                  { key: "dots", label: "Dots" },
+                  { key: "grid", label: "Grid" },
+                  { key: "solid", label: "Solid" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => setBgPattern(item.key as any)}
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${
+                      bgPattern === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileImport} />
     </div>
   );
