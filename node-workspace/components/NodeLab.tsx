@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   ReactFlow,
-  Background,
   MiniMap,
   Connection,
   NodeTypes,
@@ -663,7 +662,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           proOptions={{ hideAttribution: true }}
           data-active-mode="default"
         >
-          <Background />
           {showMiniMap && (
             <div
               className="nodelab-minimap-drawer"
@@ -796,6 +794,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
               <div className="grid grid-cols-3 gap-2 pb-1">
                 {[
                   { key: "dots", label: "Dots" },
+                  { key: "grid", label: "Grid" },
+                  { key: "cross", label: "Cross" },
+                  { key: "lines", label: "Lines" },
+                  { key: "diagonal", label: "Diagonal" },
                   { key: "none", label: "None" },
                 ].map((item) => (
                   <button
