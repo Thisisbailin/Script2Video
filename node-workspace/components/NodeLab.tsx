@@ -673,6 +673,15 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             showMiniMap={showMiniMap}
             onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
           />
+          <div className="h-12 flex items-center">
+            <AssetsPanel
+              projectData={projectData}
+              onInsertTextNode={handleInsertTextNode}
+              onImportEpisodeShots={handleImportEpisode}
+              floating={false}
+              inlineAnchor
+            />
+          </div>
           {syncIndicator && (
             <div className="h-12 flex items-center">
               <span
@@ -684,12 +693,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           )}
         </div>
       </div>
-      <AssetsPanel
-        projectData={projectData}
-        onInsertTextNode={handleInsertTextNode}
-        onImportEpisodeShots={handleImportEpisode}
-        floating
-      />
       <Toast />
       <AnnotationModal />
       <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileImport} />

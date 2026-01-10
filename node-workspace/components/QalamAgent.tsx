@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon } from "lucide-react";
+import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
@@ -24,6 +24,7 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
 export const QalamAgent: React.FC<Props> = ({ projectData }) => {
   const { config } = useConfig("script2video_config_v1");
   const [collapsed, setCollapsed] = useState(true);
+  const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -60,6 +61,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
 
   const sendMessage = async () => {
     if (!canSend) return;
+    setMood("loading");
     const userMsg: Message = { role: "user", text: input.trim() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -72,8 +74,32 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
       setMessages((prev) => [...prev, { role: "assistant", text: `请求失败: ${err?.message || err}` }]);
     } finally {
       setIsSending(false);
+      setMood("thinking");
     }
   };
+
+  const cycleMood = () => {
+    const order: Array<typeof mood> = ["default", "thinking", "loading", "playful", "question"];
+    const next = order[(order.indexOf(mood) + 1) % order.length];
+    setMood(next);
+  };
+
+  const moodVisual = () => {
+    if (isSending || mood === "loading") {
+      return { icon: <Loader2 size={16} className="animate-spin text-sky-300" />, bg: "bg-sky-500/20", ring: "ring-sky-300/30" };
+    }
+    switch (mood) {
+      case "thinking":
+        return { icon: <Lightbulb size={16} className="text-amber-300" />, bg: "bg-amber-500/15", ring: "ring-amber-300/30" };
+      case "playful":
+        return { icon: <Sparkles size={16} className="text-pink-300" />, bg: "bg-pink-500/15", ring: "ring-pink-300/30" };
+      case "question":
+        return { icon: <CircleHelp size={16} className="text-purple-300" />, bg: "bg-purple-500/15", ring: "ring-purple-300/30" };
+      default:
+        return { icon: <Bot size={16} className="text-emerald-300" />, bg: "bg-emerald-500/15", ring: "ring-emerald-300/30" };
+    }
+  };
+  const moodState = moodVisual();
 
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleFiles = (files: FileList | null) => {
@@ -106,10 +132,14 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          cycleMood();
+        }}
+        className={`flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur transition-all duration-300 ease-out ring-2 ${moodState.ring}`}
       >
-        <span className="flex items-center gap-1.5">
-          <Bot size={14} className="text-emerald-300" />
+        <span className={`flex items-center justify-center h-7 w-7 rounded-full ${moodState.bg} transition-all duration-300 ease-out`}>
+          {moodState.icon}
         </span>
         <span className="text-xs font-semibold">Qalam</span>
         <ChevronUp size={14} className="text-white/60" />

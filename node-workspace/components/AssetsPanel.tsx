@@ -38,6 +38,7 @@ type Props = {
   onInsertTextNode: (payload: InsertTextPayload) => void;
   onImportEpisodeShots: (episodeId: number) => void;
   floating?: boolean;
+  inlineAnchor?: boolean;
 };
 
 const formatTime = (timestamp: number) =>
@@ -64,6 +65,7 @@ export const AssetsPanel: React.FC<Props> = ({
   onInsertTextNode,
   onImportEpisodeShots,
   floating = true,
+  inlineAnchor = false,
 }) => {
   const { globalAssetHistory, removeGlobalHistoryItem, clearGlobalHistory } = useWorkflowStore();
   const [collapsed, setCollapsed] = useState(true);
@@ -140,7 +142,7 @@ export const AssetsPanel: React.FC<Props> = ({
     });
   };
 
-  const anchorClass = floating ? "fixed bottom-4 right-4 z-30" : "";
+  const anchorClass = inlineAnchor ? "relative h-12" : floating ? "fixed bottom-4 right-4 z-30" : "";
 
   if (collapsed) {
     return (
@@ -163,9 +165,8 @@ export const AssetsPanel: React.FC<Props> = ({
     );
   }
 
-  return (
-    <div className={anchorClass}>
-      <div className="w-[380px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col">
+  const panelCore = (
+    <div className="w-[380px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500/30 via-blue-500/10 to-transparent border border-white/10 flex items-center justify-center">
@@ -524,7 +525,23 @@ export const AssetsPanel: React.FC<Props> = ({
           </>
         )}
       </div>
-      </div>
     </div>
   );
+
+  if (inlineAnchor) {
+    return (
+      <div className={anchorClass}>
+        <div className="absolute bottom-14 right-0 z-40">{panelCore}</div>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          className="sr-only"
+        >
+          Close assets
+        </button>
+      </div>
+    );
+  }
+
+  return <div className={anchorClass}>{panelCore}</div>;
 };

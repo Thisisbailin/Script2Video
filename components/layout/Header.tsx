@@ -1,30 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  Video,
-  Download,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
-  User,
-  Shield,
-  Sun,
-  Moon,
-  Settings,
-  Trash2,
-  LogOut,
-  Upload,
-  FolderOpen,
-  FileText,
-  BrainCircuit,
-  List,
-  Palette,
-  MonitorPlay,
-  BarChart2,
-  Layers,
-  Film,
-  PanelLeft,
-} from "lucide-react";
+import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film } from "lucide-react";
 import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep, SyncState, SyncStatus } from "../../types";
 import { isEpisodeSoraComplete } from "../../utils/episodes";
 
