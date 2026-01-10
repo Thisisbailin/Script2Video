@@ -1120,15 +1120,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                             </div>
                         </div>
                     )}
-
-                            {/* Footer / Credits */}
-                            <div className="pt-2 text-center border-t border-gray-200 dark:border-gray-800">
-                                <p className="text-xs text-gray-500">
-                                    Designed by <span className="text-gray-700 dark:text-gray-400 font-medium">Bai & Gemini</span>
-                                </p>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 flex justify-end border-t border-gray-200 dark:border-gray-700 shrink-0">
