@@ -78,12 +78,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     }
   };
 
-  const cycleMood = () => {
-    const order: Array<typeof mood> = ["default", "thinking", "loading", "playful", "question"];
-    const next = order[(order.indexOf(mood) + 1) % order.length];
-    setMood(next);
-  };
-
   const moodVisual = () => {
     if (isSending || mood === "loading") {
       return { icon: <Loader2 size={16} className="animate-spin text-sky-300" />, bg: "bg-sky-500/20", ring: "ring-sky-300/30" };
@@ -100,6 +94,18 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     }
   };
   const moodState = moodVisual();
+
+  useEffect(() => {
+    if (isSending) return;
+    const order: Array<typeof mood> = ["default", "thinking", "playful", "question"];
+    const timer = setInterval(() => {
+      setMood((prev) => {
+        const next = order[(order.indexOf(prev) + 1) % order.length];
+        return next;
+      });
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isSending]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleFiles = (files: FileList | null) => {
@@ -132,11 +138,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          cycleMood();
-        }}
-        className={`flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur transition-all duration-300 ease-out ring-2 ${moodState.ring}`}
+        className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur transition-all duration-300 ease-out"
       >
         <span className={`flex items-center justify-center h-7 w-7 rounded-full ${moodState.bg} transition-all duration-300 ease-out`}>
           {moodState.icon}
@@ -149,7 +151,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
 
   // Safe spacing: use symmetric top/bottom gaps equal to the bottom offset (16px).
   return (
-    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
+    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-140px)] max-h-[calc(100vh-140px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">

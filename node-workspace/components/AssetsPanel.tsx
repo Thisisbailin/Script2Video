@@ -142,7 +142,7 @@ export const AssetsPanel: React.FC<Props> = ({
     });
   };
 
-  const anchorClass = inlineAnchor ? "relative h-12" : floating ? "fixed bottom-4 right-4 z-30" : "";
+  const anchorClass = inlineAnchor ? "relative h-12 flex items-center" : floating ? "fixed bottom-4 right-4 z-30" : "";
 
   if (collapsed) {
     return (
@@ -150,7 +150,7 @@ export const AssetsPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur"
+          className="flex h-10 items-center gap-2 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur"
         >
           <span className="flex items-center gap-1.5">
             <ImageIcon size={14} className="text-sky-300" />
@@ -531,7 +531,7 @@ export const AssetsPanel: React.FC<Props> = ({
   if (inlineAnchor) {
     return (
       <div className={anchorClass}>
-        <div className="absolute bottom-14 right-0 z-40">{panelCore}</div>
+        <div className="absolute bottom-0 right-0 z-40">{panelCore}</div>
         <button
           type="button"
           onClick={() => setCollapsed(true)}
