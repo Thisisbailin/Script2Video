@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Plus,
   Play,
-  Menu,
+  Share2,
   MessageSquare,
   Image as ImageIcon,
   Bot,
@@ -188,18 +188,18 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className="absolute bottom-16 left-0 w-56 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-panel)]/95 backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="absolute bottom-16 left-0 w-64 rounded-3xl border border-white/10 bg-[#0b0d10]/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.55)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           >
-            <div className="p-2 space-y-1">
-              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] opacity-50">Project</div>
+            <div className="p-3 space-y-2 text-white">
+              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share / IO</div>
               <button
                 onClick={() => {
                   onImport();
                   closeMenus();
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-[var(--text-primary)]"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                <div className="h-2 w-2 rounded-full bg-blue-400" />
                 Import JSON
               </button>
               <button
@@ -207,9 +207,9 @@ export const FloatingActionBar: React.FC<Props> = ({
                   onExport();
                   closeMenus();
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-[var(--text-primary)]"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 Export JSON
               </button>
             </div>
@@ -218,7 +218,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         <div
-          className="inline-flex items-center gap-2 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="inline-flex items-center gap-1 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur min-w-[320px]"
         >
           {/* Menu */}
           <button
@@ -227,9 +227,9 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette(false);
               setShowTemplate(false);
             }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/10'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
-            <Menu size={14} className="text-[var(--text-primary)]" />
+            <Share2 size={14} className="text-white/80" />
           </button>
 
           {/* Template */}
@@ -239,9 +239,9 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette(false);
               setShowFileMenu(false);
             }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showTemplate ? 'bg-white/10' : 'hover:bg-white/10'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showTemplate ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
-            <Library size={14} className="text-[var(--text-primary)]" />
+            <Library size={14} className="text-white/80" />
           </button>
 
           {/* Plus */}
@@ -251,14 +251,14 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowFileMenu(false);
               setShowTemplate(false);
             }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all ${showPalette ? 'bg-white/10' : 'hover:bg-white/10'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
-            <Plus size={14} className={`text-[var(--text-primary)] transition-transform ${showPalette ? 'rotate-45' : ''}`} />
+            <Plus size={14} className={`text-white/80 transition-transform ${showPalette ? 'rotate-45' : ''}`} />
           </button>
 
           {/* Projector (Placeholder) */}
-          <div className="h-8 w-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 opacity-30 cursor-not-allowed">
-            <Projector size={14} className="text-[var(--text-primary)]" />
+          <div className="h-8 w-8 flex items-center justify-center rounded-full opacity-30 cursor-not-allowed">
+            <Projector size={14} className="text-white/50" />
           </div>
 
           <div className="h-6 w-px bg-white/10 mx-1" />
@@ -266,7 +266,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           {/* Run */}
           <button
             onClick={onRun}
-            className="h-8 w-8 flex items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 transition-all"
+            className="h-8 w-8 flex items-center justify-center rounded-full bg-emerald-500 text-white hover:bg-emerald-400 transition-all"
             aria-label="Run"
           >
             <Play size={14} fill="currentColor" />
