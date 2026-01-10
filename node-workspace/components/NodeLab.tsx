@@ -99,7 +99,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onOpenSettings,
   onResetProject,
   onSignOut,
-  onOpenStats,
 }) => {
   const [bgTheme, setBgTheme] = useState<"dark" | "ink" | "carbon">("dark");
   const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "solid">("dots");
