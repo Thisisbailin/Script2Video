@@ -31,7 +31,7 @@ export const ViewportControls: React.FC<Props> = ({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
+      <div className="inline-flex items-center gap-2 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
         <button
           type="button"
           onClick={onToggleLock}
@@ -53,7 +53,7 @@ export const ViewportControls: React.FC<Props> = ({
           <Map size={14} className={showMiniMap ? "text-sky-300" : "text-sky-300/70"} />
         </button>
       </div>
-      <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
+      <div className="inline-flex items-center gap-2 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur">
         <button
           type="button"
           onClick={handleMinus}
