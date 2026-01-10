@@ -138,7 +138,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur transition-all duration-300 ease-out"
+        className="flex items-center gap-2 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur transition-all duration-300 ease-out"
       >
         <span className={`flex items-center justify-center h-7 w-7 rounded-full ${moodState.bg} transition-all duration-300 ease-out`}>
           {moodState.icon}
