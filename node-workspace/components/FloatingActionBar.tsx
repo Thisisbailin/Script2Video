@@ -32,6 +32,9 @@ type Props = {
   onAddNote: () => void;
   onImport: () => void;
   onExport: () => void;
+  onExportCsv?: () => void;
+  onExportXls?: () => void;
+  onExportUnderstandingJson?: () => void;
   onRun: () => void;
   templates: WorkflowTemplate[];
   canCreateTemplate: boolean;
@@ -53,6 +56,9 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddNote,
   onImport,
   onExport,
+  onExportCsv,
+  onExportXls,
+  onExportUnderstandingJson,
   onRun,
   templates,
   canCreateTemplate,
@@ -90,6 +96,14 @@ export const FloatingActionBar: React.FC<Props> = ({
     setShowTemplate(false);
     setShowWip(false);
   };
+
+  const accountPlaceholders = [
+    { label: "Project Tracker", desc: "Dashboards (placeholder)" },
+    { label: "Light / Dark Mode", desc: "Toggle theme (placeholder)" },
+    { label: "System Settings", desc: "Preferences (placeholder)" },
+    { label: "Clear Project Data", desc: "Reset data (placeholder)" },
+    { label: "Sign Out", desc: "Account action (placeholder)" },
+  ];
 
   return (
     <div className={rootClass}>
@@ -229,11 +243,30 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`absolute bottom-16 left-0 w-64 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            className={`absolute bottom-16 left-0 w-72 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
             style={panelStyle}
           >
             <div className="p-3 space-y-2">
-              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share / IO</div>
+              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60">IO</div>
+              <div className="px-3 py-2 rounded-2xl border border-dashed border-white/25 text-[12px] text-white/70">
+                Sign in to unlock account actions
+              </div>
+              <div className="space-y-2">
+                {accountPlaceholders.map((item) => (
+                  <div
+                    key={item.label}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-white/10 bg-white/2 text-sm text-white/75"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{item.label}</span>
+                      <span className="text-[11px] text-white/55">{item.desc}</span>
+                    </div>
+                    <span className="text-[10px] text-white/40">soon</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="px-3 pt-4 pb-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
               <button
                 onClick={() => {
                   onImport();
@@ -254,6 +287,42 @@ export const FloatingActionBar: React.FC<Props> = ({
                 <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 Export JSON
               </button>
+              {onExportCsv && (
+                <button
+                  onClick={() => {
+                    onExportCsv();
+                    closeMenus();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
+                >
+                  <div className="h-2 w-2 rounded-full bg-sky-400" />
+                  Export CSV
+                </button>
+              )}
+              {onExportXls && (
+                <button
+                  onClick={() => {
+                    onExportXls();
+                    closeMenus();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
+                >
+                  <div className="h-2 w-2 rounded-full bg-purple-300" />
+                  Export XLS
+                </button>
+              )}
+              {onExportUnderstandingJson && (
+                <button
+                  onClick={() => {
+                    onExportUnderstandingJson();
+                    closeMenus();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
+                >
+                  <div className="h-2 w-2 rounded-full bg-amber-300" />
+                  Export Understanding
+                </button>
+              )}
             </div>
           </div>
         )}

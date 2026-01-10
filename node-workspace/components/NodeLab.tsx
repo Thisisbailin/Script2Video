@@ -74,9 +74,20 @@ interface NodeLabProps {
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   onOpenModule?: (key: ModuleKey) => void;
   syncIndicator?: { label: string; color: string } | null;
+  onExportCsv?: () => void;
+  onExportXls?: () => void;
+  onExportUnderstandingJson?: () => void;
 }
 
-const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onOpenModule, syncIndicator }) => {
+const NodeLabInner: React.FC<NodeLabProps> = ({
+  projectData,
+  setProjectData,
+  onOpenModule,
+  syncIndicator,
+  onExportCsv,
+  onExportXls,
+  onExportUnderstandingJson,
+}) => {
   const {
     nodes,
     edges,
@@ -628,9 +639,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onO
             onDeleteTemplate={handleDeleteTemplate}
             floating={false}
             onOpenModule={onOpenModule}
+            onExportCsv={onExportCsv}
+            onExportXls={onExportXls}
+            onExportUnderstandingJson={onExportUnderstandingJson}
           />
         </div>
-        <div className="flex items-end gap-3 pointer-events-auto">
+        <div className="flex items-center gap-3 pointer-events-auto">
           <ViewportControls
             zoom={zoomValue}
             minZoom={minZoom}
@@ -648,11 +662,13 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData, onO
             floating={false}
           />
           {syncIndicator && (
-            <span
-              className="h-3 w-3 rounded-full block"
-              style={{ backgroundColor: syncIndicator.color }}
-              title={syncIndicator.label}
-            />
+            <div className="h-12 flex items-center">
+              <span
+                className="h-3 w-3 rounded-full block"
+                style={{ backgroundColor: syncIndicator.color }}
+                title={syncIndicator.label}
+              />
+            </div>
           )}
         </div>
       </div>

@@ -1483,6 +1483,10 @@ const App: React.FC = () => {
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];
 
+  const handleExportCsv = () => exportToCSV(projectData.episodes);
+  const handleExportXls = () => exportToXLS(projectData.episodes);
+  const handleExportUnderstandingJson = () => exportUnderstandingToJSON(projectData);
+
   const headerNode = (
     <Header
       activeTab={activeTab}
@@ -1503,20 +1507,11 @@ const App: React.FC = () => {
       onTryMe={handleTryMe}
       hasGeneratedShots={hasGeneratedShots}
       hasUnderstandingData={hasUnderstandingData}
-      onExportCsv={() => {
-        exportToCSV(projectData.episodes);
-        setIsExportMenuOpen(false);
-      }}
-      onExportXls={() => {
-        exportToXLS(projectData.episodes);
-        setIsExportMenuOpen(false);
-      }}
-      onExportUnderstandingJson={() => {
-        exportUnderstandingToJSON(projectData);
-        setIsExportMenuOpen(false);
-      }}
+      onExportCsv={handleExportCsv}
+      onExportXls={handleExportXls}
+      onExportUnderstandingJson={handleExportUnderstandingJson}
       onToggleExportMenu={() => setIsExportMenuOpen(prev => !prev)}
-      isExportMenuOpen={isExportMenuOpen}
+      isExportMenuOpen={false}
       onToggleTheme={toggleTheme}
       isDarkMode={isDarkMode}
       account={{
@@ -1583,6 +1578,9 @@ const App: React.FC = () => {
               setProjectData={setProjectData}
               onOpenModule={handleOpenLabModule}
               syncIndicator={syncIndicator}
+              onExportCsv={handleExportCsv}
+              onExportXls={handleExportXls}
+              onExportUnderstandingJson={handleExportUnderstandingJson}
             />
           </div>
         );

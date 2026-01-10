@@ -934,7 +934,7 @@ export const Header: React.FC<HeaderProps> = ({
     `relative h-10 w-10 flex items-center justify-center rounded-full text-[var(--text-primary)] transition-transform duration-150 hover:scale-105 ${isActive ? "scale-105" : ""
     }`;
 
-  const canExport = hasGeneratedShots || hasUnderstandingData;
+  const canExport = false;
   const exportItems = [
     hasGeneratedShots
       ? { key: "csv", label: "Export CSV", onClick: onExportCsv }
@@ -1116,83 +1116,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-[var(--text-primary)] font-semibold">云端同步 · {syncDisplay.label}</span>
               </div>
 
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setShowTabs(false);
-                    setShowWorkflow(false);
-                    setShowTryInfo(false);
-                    if (isExportMenuOpen) onToggleExportMenu();
-                    if (isUserMenuOpen) setIsUserMenuOpen(false);
-                    splitView.onToggle();
-                  }}
-                  className={iconButtonClasses(splitView.isOpen)}
-                  aria-pressed={splitView.isOpen}
-                  title="分屏查看"
-                >
-                  <PanelLeft size={18} />
-                </button>
-                {splitView.isOpen && (
-                  <div
-                    className="absolute right-0 top-full mt-2 w-72 rounded-2xl border backdrop-blur text-[var(--text-primary)] overflow-hidden z-30"
-                    style={{
-                      borderColor: "var(--border-subtle)",
-                      backgroundColor: "var(--bg-elevated)",
-                      boxShadow: "var(--shadow-strong)",
-                    }}
-                  >
-                    <div
-                      className="px-4 py-3 border-b text-xs uppercase tracking-wide text-[var(--text-secondary)]"
-                      style={{ borderColor: "var(--border-subtle)" }}
-                    >
-                      选择并列标签页
-                    </div>
-                    <div className="p-2 space-y-1">
-                      {splitView.currentSplitTab && (
-                        <button
-                          onClick={() => splitView.onSelect(null)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-red-300 hover:bg-red-900/30 transition"
-                        >
-                          关闭分屏
-                        </button>
-                      )}
-                      {visibleTabs
-                        .filter((t) => t.key !== activeTab)
-                        .map(({ key, label, icon: Icon }) => {
-                          const isActiveSplit = splitView.currentSplitTab === key;
-                          return (
-                            <button
-                              key={key}
-                              onClick={() => splitView.onSelect(key)}
-                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition border ${isActiveSplit
-                                ? "bg-[var(--accent-blue)]/12 border-[var(--accent-blue)]/40 text-[var(--text-primary)]"
-                                : "border-transparent hover:bg-black/5 text-[var(--text-primary)]"
-                                }`}
-                            >
-                              <span
-                                className="h-8 w-8 rounded-lg flex items-center justify-center"
-                                style={{ backgroundColor: "var(--bg-muted)" }}
-                              >
-                                <Icon size={16} />
-                              </span>
-                              <div className="text-left">
-                                <div className="font-semibold">与当前并列：{label}</div>
-                                <div className="text-[11px] text-[var(--text-secondary)]">
-                                  左右分屏查看
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      {!visibleTabs.filter((t) => t.key !== activeTab).length && (
-                        <div className="text-xs text-[var(--text-secondary)] px-2 py-3">
-                          没有可分屏的标签页
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               <div className="flex items-center gap-1.5">
                 <div className="relative">
