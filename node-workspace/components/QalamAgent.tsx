@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Bot, Send, Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowRight, Image as ImageIcon } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
@@ -33,9 +33,30 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     guides: false,
     summary: false,
   });
+  const [mode, setMode] = useState<"creative" | "precise" | "fun">("creative");
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentUrlsRef = useRef<string[]>([]);
 
   const canSend = input.trim().length > 0 && !isSending;
-  const contextText = useMemo(() => buildContext(projectData, ctxSelection), [projectData, ctxSelection]);
+  const contextText = useMemo(() => {
+    const base = buildContext(projectData, ctxSelection);
+    const attachText =
+      attachments.length > 0
+        ? `\n[Images]\n${attachments
+            .map(
+              (item, i) => `#${i + 1}: ${item.name} (${item.type}, ${(item.size / 1024).toFixed(1)} KB)`
+            )
+            .join("\n")}`
+        : "";
+    const modeHint =
+      mode === "creative"
+        ? "\n[Mode] 更有创意，主动补充灵感。"
+        : mode === "precise"
+        ? "\n[Mode] 更精准实干，直接输出可用方案。"
+        : "\n[Mode] 风趣幽默，轻松交流。";
+    return `${base}${attachText}${modeHint}`;
+  }, [projectData, ctxSelection, attachments, mode]);
 
   const sendMessage = async () => {
     if (!canSend) return;
@@ -54,6 +75,33 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
     }
   };
 
+  const handleUploadClick = () => fileInputRef.current?.click();
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const images = Array.from(files).filter((file) => file.type?.startsWith("image/"));
+    if (images.length === 0) {
+      setMessages((prev) => [...prev, { role: "assistant", text: "仅支持图片文件作为上下文附件。" }]);
+      return;
+    }
+    const mapped = images.map((file) => {
+      const url = URL.createObjectURL(file);
+      attachmentUrlsRef.current.push(url);
+      return {
+        name: file.name,
+        url,
+        size: file.size,
+        type: file.type || "image/*",
+      };
+    });
+    setAttachments((prev) => [...prev, ...mapped].slice(-5)); // 最多保留 5 个
+  };
+
+  useEffect(() => {
+    return () => {
+      attachmentUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   if (collapsed) {
     return (
       <button
@@ -70,8 +118,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
   }
 
   return (
-    <div className="pointer-events-auto w-[380px] max-w-[90vw] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
+    <div className="pointer-events-auto w-[420px] max-w-[95vw] h-[72vh] max-h-[80vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
             <Bot size={16} className="text-emerald-200" />
@@ -90,7 +138,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
         </button>
       </div>
 
-      <div className="flex-1 max-h-64 overflow-y-auto px-4 py-3 space-y-2">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
         {messages.length === 0 && (
           <div className="text-[11px] text-white/60">
             选择上下文后直接提问，或让 Qalam 帮你生成/修改文案。
@@ -110,7 +158,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
         ))}
       </div>
 
-      <div className="border-t border-white/10 px-4 py-3 space-y-3">
+      <div className="border-t border-white/10 px-4 py-4 space-y-3">
         <div className="flex flex-wrap gap-2">
           {[
             { key: "script", label: "剧本" },
@@ -132,10 +180,11 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
             );
           })}
         </div>
-        <div className="flex items-end gap-2">
+        <div className="rounded-2xl bg-white/6 border border-white/10 px-3 py-3 space-y-2">
           <textarea
-            className="flex-1 bg-[#0d0f12] border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white resize-none min-h-[60px]"
-            placeholder="向 Qalam 提问或描述需求..."
+            className="w-full bg-transparent text-[13px] text-white placeholder:text-white/60 resize-none focus:outline-none"
+            rows={3}
+            placeholder="向 Qalam 提问，@ 提及角色形态，/ 选择指令..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -146,15 +195,57 @@ export const QalamAgent: React.FC<Props> = ({ projectData }) => {
               }
             }}
           />
-          <button
-            onClick={sendMessage}
-            disabled={!canSend}
-            className="h-11 w-11 rounded-full bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50"
-          >
-            {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap text-[12px] text-white/80">
+            <button
+              onClick={handleUploadClick}
+              className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/6 flex items-center justify-center"
+              title="上传图片作为上下文"
+            >
+              <Plus size={14} />
+            </button>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as any)}
+              className="h-8 rounded-full border border-white/12 bg-white/5 px-3 pr-6 text-[12px] text-white/90 focus:outline-none"
+            >
+              <option value="creative">创意模式</option>
+              <option value="precise">精准实干</option>
+              <option value="fun">风趣幽默</option>
+            </select>
+            <div className="flex items-center gap-2 flex-wrap">
+              {attachments.map((item, idx) => (
+                <span
+                  key={`${item.name}-${idx}`}
+                  className="inline-flex items-center gap-2 px-2 py-1.5 rounded-full border border-white/10 bg-white/8 text-[11px]"
+                  title={`${item.name} (${(item.size / 1024).toFixed(1)} KB)`}
+                >
+                  <div className="h-7 w-7 rounded-md overflow-hidden border border-white/10 bg-white/5">
+                    <img src={item.url} alt={item.name} className="h-full w-full object-cover" />
+                  </div>
+                  <span className="truncate max-w-[120px]">{item.name}</span>
+                </span>
+              ))}
+            </div>
+            <div className="flex-1" />
+            <button
+              onClick={sendMessage}
+              disabled={!canSend}
+              className="h-9 w-9 rounded-full bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50 disabled:bg-emerald-500/40"
+              title="发送"
+            >
+              {isSending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+            </button>
+          </div>
         </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
     </div>
   );
 };
