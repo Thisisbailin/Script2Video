@@ -588,7 +588,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     };
     const base = themeMap[bgTheme] || "#0a0a0a";
     if (bgPattern === "none") {
-      return { background: base, baseColor: base };
+      return { background: base, backgroundImage: "none", baseColor: base };
     }
     const patterns: Record<string, { image: string; size: string; position?: string }> = {
       dots: {
