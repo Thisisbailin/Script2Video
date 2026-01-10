@@ -578,21 +578,30 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const selectedGroup = getSelectedGroup();
 
   const backgroundStyle = useMemo(() => {
-    const baseColor =
-      bgTheme === "ink" ? "#0b0d10" : bgTheme === "carbon" ? "#111214" : "#0a0a0a";
+    const themeMap: Record<typeof bgTheme, string> = {
+      dark: "#0a0a0a",
+      ink: "#0b0d10",
+      carbon: "#111214",
+      aurora: "linear-gradient(135deg, #0f172a 0%, #0ea5e9 50%, #22c55e 100%)",
+      purple: "linear-gradient(135deg, #0f172a 0%, #7c3aed 50%, #1e1b4b 100%)",
+    };
+    const base = themeMap[bgTheme] || "#0a0a0a";
     if (bgPattern === "grid") {
       return {
-        backgroundColor: baseColor,
+        background: base,
         backgroundImage:
           "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
         backgroundSize: "32px 32px",
       };
     }
     if (bgPattern === "solid") {
-      return { backgroundColor: baseColor };
+      return {
+        background: base,
+      };
     }
+    // dots
     return {
-      backgroundColor: baseColor,
+      background: base,
       backgroundImage:
         "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.07) 1px, transparent 0), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0)",
       backgroundSize: "28px 28px, 28px 28px",
@@ -602,7 +611,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
   return (
     <div className="h-full w-full flex flex-col text-white" style={backgroundStyle}>
-      <div className="flex-1 relative node-lab-canvas">
+        <div className="flex-1 relative node-lab-canvas" style={backgroundStyle}>
         <ReactFlow
           nodes={displayNodes}
           edges={displayEdges}
@@ -735,6 +744,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                   { key: "dark", label: "Dark", swatch: "#0a0a0a" },
                   { key: "ink", label: "Ink", swatch: "#0b0d10" },
                   { key: "carbon", label: "Carbon", swatch: "#111214" },
+                  { key: "aurora", label: "Aurora", swatch: "linear-gradient(135deg,#0f172a,#0ea5e9,#22c55e)" },
+                  { key: "purple", label: "Purple", swatch: "linear-gradient(135deg,#0f172a,#7c3aed,#1e1b4b)" },
                 ].map((item) => (
                   <button
                     key={item.key}
