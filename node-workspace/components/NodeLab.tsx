@@ -101,7 +101,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onSignOut,
 }) => {
   const [bgTheme, setBgTheme] = useState<"dark" | "light" | "sand" | "creative" | "calm" | "lively">("dark");
-  const [bgPattern, setBgPattern] = useState<"dots" | "none">("dots");
+  const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("dots");
   const [showThemeModal, setShowThemeModal] = useState(false);
   const {
     nodes,
@@ -588,16 +588,53 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     };
     const base = themeMap[bgTheme] || "#0a0a0a";
     if (bgPattern === "none") {
-      return { background: base };
+      return { background: base, baseColor: base };
     }
+    const patterns: Record<string, { image: string; size: string; position?: string }> = {
+      dots: {
+        image:
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
+        size: "22px 22px, 22px 22px",
+        position: "0 0, 11px 11px",
+      },
+      grid: {
+        image:
+          "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+        size: "28px 28px",
+      },
+      cross: {
+        image:
+          "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px), radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)",
+        size: "26px 26px, 26px 26px, 26px 26px",
+        position: "0 0, 0 0, 13px 13px",
+      },
+      lines: {
+        image: "linear-gradient(0deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+        size: "26px 26px",
+      },
+      diagonal: {
+        image:
+          "linear-gradient(135deg, rgba(255,255,255,0.05) 12.5%, transparent 12.5%, transparent 50%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.05) 62.5%, transparent 62.5%, transparent)",
+        size: "24px 24px",
+      },
+    };
+    const pat = patterns[bgPattern] || patterns.dots;
     return {
       background: base,
-      backgroundImage:
-        "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
-      backgroundSize: "28px 28px, 28px 28px",
-      backgroundPosition: "0 0, 14px 14px",
+      backgroundImage: pat.image,
+      backgroundSize: pat.size,
+      ...(pat.position ? { backgroundPosition: pat.position } : {}),
+      baseColor: base,
     };
   }, [bgPattern, bgTheme]);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const base = (backgroundStyle as any).baseColor || "#0a0a0a";
+      document.body.style.background = base;
+      document.documentElement.style.background = base;
+    }
+  }, [backgroundStyle]);
 
   return (
     <div className="h-full w-full flex flex-col text-white" style={backgroundStyle}>
@@ -716,7 +753,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       {showThemeModal && (
         <>
           <div className="fixed inset-0 z-50" onClick={() => setShowThemeModal(false)} />
-          <div className="fixed bottom-20 right-6 z-50 w-72 rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] p-4 space-y-3">
+          <div className="fixed bottom-20 right-6 z-50 w-[420px] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold">背景与样式</div>
               <button
@@ -729,7 +766,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">颜色主题</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="grid grid-cols-3 gap-2 pb-1">
                 {[
                   { key: "dark", label: "Dark", swatch: "#0a0a0a" },
                   { key: "light", label: "Light", swatch: "#f5f5f7" },
@@ -741,7 +778,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                   <button
                     key={item.key}
                     onClick={() => setBgTheme(item.key as any)}
-                    className={`flex-1 min-w-[90px] rounded-xl border px-3 py-2 text-sm ${
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${
                       bgTheme === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
                     }`}
                   >
@@ -756,7 +793,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">图案</div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="grid grid-cols-3 gap-2 pb-1">
                 {[
                   { key: "dots", label: "Dots" },
                   { key: "none", label: "None" },
@@ -764,7 +801,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                   <button
                     key={item.key}
                     onClick={() => setBgPattern(item.key as any)}
-                    className={`flex-1 min-w-[90px] rounded-xl border px-3 py-2 text-sm ${
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${
                       bgPattern === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
                     }`}
                   >
