@@ -34,6 +34,7 @@ import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { AssetsPanel } from "./AssetsPanel";
+import { QalamAgent } from "./QalamAgent";
 import { ViewportControls } from "./ViewportControls";
 import { Toast, useToast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
@@ -597,7 +598,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({ projectData, setProjectData }) =
       </div>
 
       <MultiSelectToolbar />
-      <div className="fixed bottom-4 left-4 z-30">
+      <div className="fixed bottom-4 left-4 z-30 flex flex-col gap-3">
+        <QalamAgent projectData={projectData} />
         <FloatingActionBar
           onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
           onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
