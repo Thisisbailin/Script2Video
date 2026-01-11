@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, TextProvider, SyncState } from '../types';
 import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS } from '../constants';
+import * as DeyunAIService from '../services/deyunaiService';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
@@ -39,10 +40,13 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
     const [isLoadingMultiModels, setIsLoadingMultiModels] = useState(false);
     const [multiModelFetchMessage, setMultiModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+    const [isLoadingDeyunModels, setIsLoadingDeyunModels] = useState(false);
+    const [deyunModelFetchMessage, setDeyunModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
     const [availableVideoModels, setAvailableVideoModels] = useState<string[]>([]);
     const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
     const [availableMultiModels, setAvailableMultiModels] = useState<string[]>([]);
+    const [availableDeyunModels, setAvailableDeyunModels] = useState<Array<{ id: string; label: string; meta?: any }>>([]);
 
     const [snapshots, setSnapshots] = useState<{ version: number; createdAt: number }[]>([]);
     const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
@@ -367,6 +371,30 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         }
     };
 
+    const handleFetchDeyunModels = async () => {
+        const { baseUrl, apiKey } = config.textConfig;
+        if (!apiKey) {
+            setDeyunModelFetchMessage({ type: 'error', text: "请先填写或配置 DEYUNAI_API_KEY。" });
+            return;
+        }
+        setIsLoadingDeyunModels(true);
+        setDeyunModelFetchMessage(null);
+        try {
+            const models = await DeyunAIService.fetchModels({ apiKey, baseUrl });
+            const mapped = models.map((m) => ({
+                id: m.id,
+                label: `${m.id}${m.modalities?.length ? ` · ${m.modalities.join('/')}` : ''}${m.capabilities?.tools ? ' · tools' : ''}`,
+                meta: m,
+            }));
+            setAvailableDeyunModels(mapped);
+            setDeyunModelFetchMessage({ type: 'success', text: `获取成功，${mapped.length} 个模型` });
+        } catch (e: any) {
+            setDeyunModelFetchMessage({ type: 'error', text: e.message });
+        } finally {
+            setIsLoadingDeyunModels(false);
+        }
+    };
+
     const setProvider = (p: TextProvider) => {
         const nextConfig = { ...config.textConfig };
         if (p === 'gemini') {
@@ -683,22 +711,45 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
-                                            <select
-                                                value={config.textConfig.model || 'gpt-5.1'}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            >
-                                                {DEYUNAI_MODELS.map((m) => (
-                                                    <option key={m} value={m}>{m}</option>
-                                                ))}
-                                                <option value={config.textConfig.model || 'custom'}>自定义（保留当前值）</option>
-                                            </select>
-                                            <input
-                                                value={config.textConfig.model || 'gpt-5.1'}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                className="mt-2 w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)]"
-                                                placeholder="自定义模型 id"
-                                            />
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <select
+                                                    value={config.textConfig.model || 'gpt-5.1'}
+                                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                                                    className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                                >
+                                                    {(availableDeyunModels.length ? availableDeyunModels : DEYUNAI_MODELS.map((m) => ({ id: m, label: m }))).map((m) => (
+                                                        <option key={m.id} value={m.id}>{m.label}</option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleFetchDeyunModels}
+                                                    disabled={isLoadingDeyunModels}
+                                                    className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] hover:border-[var(--accent-blue)] disabled:opacity-50"
+                                                >
+                                                    {isLoadingDeyunModels ? <Loader2 size={14} className="animate-spin" /> : '拉取模型'}
+                                                </button>
+                                            </div>
+                                            {deyunModelFetchMessage && (
+                                                <p className={`text-xs mb-1 flex items-center gap-1 ${deyunModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
+                                                    {deyunModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                                                    {deyunModelFetchMessage.text}
+                                                </p>
+                                            )}
+                                            {availableDeyunModels.length > 0 && (
+                                                <div className="max-h-32 overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 text-xs text-[var(--text-secondary)] px-3 py-2 space-y-1">
+                                                    {availableDeyunModels.map((m) => (
+                                                        <div key={m.id} className="flex flex-col">
+                                                            <span className="text-[var(--text-primary)]">{m.id}</span>
+                                                            <span className="text-[11px]">{m.meta?.modalities?.length ? `模态: ${m.meta.modalities.join('/')}` : '模态: 未标注'}</span>
+                                                            {m.meta?.capabilities && (
+                                                                <span className="text-[11px]">capabilities: {Object.keys(m.meta.capabilities).join(', ')}</span>
+                                                            )}
+                                                            {m.meta?.description && <span className="text-[11px] line-clamp-1">描述: {m.meta.description}</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>

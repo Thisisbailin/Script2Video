@@ -43,6 +43,14 @@ export interface DeyunAIResponse<T = any> {
   choices?: any;
 }
 
+export interface DeyunAIModelMeta {
+  id: string;
+  root?: string;
+  description?: string;
+  modalities?: string[];
+  capabilities?: Record<string, any>;
+}
+
 const DEFAULT_BASE = "https://api.deyunai.com/v1";
 
 const mapUsage = (usage: any): TokenUsage | undefined => {
@@ -56,6 +64,12 @@ const mapUsage = (usage: any): TokenUsage | undefined => {
 const getEndpoint = (config: DeyunAIConfig) => {
   const base = (config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
   return `${base}/responses`;
+};
+
+const getModelsEndpoint = (config: DeyunAIConfig) => {
+  let base = (config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
+  base = base.replace(/\/responses$/, ""); // 防止直接传入 responses 路径
+  return `${base}/models`;
 };
 
 const assertApiKey = (config: DeyunAIConfig) => {
@@ -349,6 +363,39 @@ export const createStreamingModelResponse = async (
     tools: options?.tools,
   };
   return postResponse(body, config, onDelta);
+};
+
+export const fetchModels = async (
+  config: DeyunAIConfig
+): Promise<DeyunAIModelMeta[]> => {
+  assertApiKey(config);
+  const endpoint = getModelsEndpoint(config);
+  try {
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "script2video://local",
+        "X-Title": "Script2Video",
+      },
+    });
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(`DeyunAI models error ${res.status}: ${msg}`);
+    }
+    const data = await res.json();
+    const models = data.data || data.models || [];
+    return models.map((m: any) => ({
+      id: m.id || m.model || "",
+      root: m.root,
+      description: m.description,
+      modalities: m.modalities || m.capabilities?.modalities || [],
+      capabilities: m.capabilities,
+    })).filter((m: any) => m.id);
+  } catch (e: any) {
+    console.error("DeyunAI models fetch failed:", e);
+    throw e;
+  }
 };
 
 // 7) 创建模型响应（控制思考长度）
