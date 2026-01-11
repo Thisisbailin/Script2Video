@@ -807,7 +807,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                             <Key size={14} /> API Key
                                         </div>
                                         <p className="text-sm text-[var(--text-primary)]">已在后端环境变量 DEYUNAI_API_KEY 配置，无需填写。</p>
-                                        <p className="text-xs text-[var(--text-secondary)]">如需覆盖，可在后端更新环境变量；前端不再收集密钥。</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">如需覆盖，可在后端更新环境变量（推荐 VITE_DEYUNAI_API_KEY，或 DEYUNAI_API_KEY）；前端不再收集密钥。</p>
                                     </div>
                                     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/60 p-3 space-y-2">
                                         <div className="text-sm font-semibold text-[var(--text-primary)]">常用工具</div>
