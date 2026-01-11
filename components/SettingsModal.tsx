@@ -70,6 +70,16 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     }, [activeTabOverride, isOpen]);
 
     useEffect(() => {
+        if (config.textConfig.provider === 'deyunai' && Array.isArray(config.textConfig.deyunModels) && config.textConfig.deyunModels.length) {
+            setAvailableDeyunModels(config.textConfig.deyunModels.map((m) => ({
+                id: m.id,
+                label: m.label || m.id,
+                meta: m,
+            })));
+        }
+    }, [config.textConfig.provider, config.textConfig.deyunModels]);
+
+    useEffect(() => {
         if (isOpen && config.videoProvider === 'vidu') {
             setShowViduOverlay(true);
         }
@@ -383,7 +393,21 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 meta: m,
             }));
             setAvailableDeyunModels(mapped);
-            setDeyunModelFetchMessage({ type: 'success', text: `获取成功，${mapped.length} 个模型` });
+            onConfigChange({
+                ...config,
+                textConfig: {
+                    ...config.textConfig,
+                    deyunModels: mapped.map((m) => ({
+                        id: m.id,
+                        label: m.label,
+                        modalities: m.meta?.modalities,
+                        capabilities: m.meta?.capabilities,
+                        description: m.meta?.description,
+                    }))
+                }
+            });
+            const msg = mapped.length === 0 ? "获取成功，0 个模型（接口返回空列表）" : `获取成功，${mapped.length} 个模型`;
+            setDeyunModelFetchMessage({ type: 'success', text: msg });
         } catch (e: any) {
             setDeyunModelFetchMessage({ type: 'error', text: e.message });
         } finally {

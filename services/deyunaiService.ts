@@ -395,14 +395,22 @@ export const fetchModels = async (
       throw new Error(`DeyunAI models error ${res.status}: ${msg}`);
     }
     const data = await res.json();
-    const models = data.data || data.models || [];
-    return models.map((m: any) => ({
-      id: m.id || m.model || "",
-      root: m.root,
-      description: m.description,
-      modalities: m.modalities || m.capabilities?.modalities || [],
-      capabilities: m.capabilities,
-    })).filter((m: any) => m.id);
+    const models =
+      (Array.isArray(data) && data) ||
+      data.data ||
+      data.models ||
+      data.result ||
+      data.items ||
+      [];
+    return models
+      .map((m: any) => ({
+        id: m.id || m.model || "",
+        root: m.root,
+        description: m.description,
+        modalities: m.modalities || m.capabilities?.modalities || m.supports || [],
+        capabilities: m.capabilities || m.metadata || {},
+      }))
+      .filter((m: any) => m.id);
   } catch (e: any) {
     console.error("DeyunAI models fetch failed:", e);
     throw e;

@@ -301,6 +301,13 @@ export interface TextServiceConfig {
   stream?: boolean;
   store?: boolean;
   tools?: any[];
+  deyunModels?: Array<{
+    id: string;
+    label?: string;
+    modalities?: string[];
+    capabilities?: Record<string, any>;
+    description?: string;
+  }>;
 }
 
 export interface DeyunAIConfig {

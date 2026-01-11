@@ -137,7 +137,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
   const formatNumber = (n: number) => n.toLocaleString();
   const providerModelOptions = useMemo(() => {
     if (config.textConfig?.provider === "deyunai") {
-      return DEYUNAI_MODELS.map((id) => ({ id, name: id }));
+      const remote = (config.textConfig.deyunModels || []).map((m) => ({ id: m.id, name: m.label || m.id }));
+      const fallback = DEYUNAI_MODELS.map((id) => ({ id, name: id }));
+      const merged: { id: string; name: string }[] = [];
+      [...remote, ...fallback].forEach((item) => {
+        if (!merged.find((m) => m.id === item.id)) merged.push(item);
+      });
+      return merged;
     }
     if (config.textConfig?.provider === "gemini") {
       return AVAILABLE_MODELS.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -145,7 +151,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
     // OpenRouter/Partner: no preset list, keep current value as sole option
     const currentId = config.textConfig?.model || "custom";
     return [{ id: currentId, name: currentId }];
-  }, [config.textConfig?.provider, config.textConfig?.model]);
+  }, [config.textConfig?.provider, config.textConfig?.model, config.textConfig?.deyunModels]);
 
   const currentModelLabel =
     providerModelOptions.find((m) => m.id === config.textConfig?.model)?.name ||
