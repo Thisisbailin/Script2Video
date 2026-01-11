@@ -93,6 +93,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
             }
           : undefined
       );
+      try {
+        console.log("[Agent] Raw response", res);
+      } catch {}
       if (useStream && assistantIndex !== -1) {
         setMessages((prev) => prev.map((m, idx) => (idx === assistantIndex ? { ...m, text: res.outputText || m.text } : m)));
       } else {

@@ -403,6 +403,9 @@ export const generateFreeformText = async (
       { model: config.model || "gpt-5.1", temperature: 0.7, tools: config.tools },
       options?.onStream
     );
+    try {
+      console.log("[DeyunAI] Streaming raw", { text, usage });
+    } catch {}
     return {
       outputText: text,
       usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },

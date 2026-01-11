@@ -51,7 +51,18 @@ export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   model: 'gemini-2.5-flash'
 };
 
-export const DEYUNAI_MODELS = ['gpt-5.1', 'gpt-4.1', 'gpt-5-2025-08-07', 'gpt-4.1-2025-04-14'];
+export const DEYUNAI_MODELS = [
+  'gpt-5-codex-low',
+  'gpt-5-codex-medium',
+  'gpt-5-mini',
+  'gpt-5-nano',
+  'gpt-5-pro',
+  'gemini-2.5',
+  'gpt-5.1',
+  'gpt-4.1',
+  'gpt-5-2025-08-07',
+  'gpt-4.1-2025-04-14'
+];
 
 export const INITIAL_VIDEO_CONFIG: VideoServiceConfig = {
   baseUrl: '', // Default empty to force user input

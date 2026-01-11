@@ -438,7 +438,15 @@ export const fetchModels = async (
       continue;
     }
   }
-  throw lastErr || new Error("DeyunAI models fetch failed");
+  console.warn("[DeyunAI] Models endpoint unavailable, fallback to preset list");
+  return [
+    { id: "gpt-5-codex-low", description: "Preset fallback" },
+    { id: "gpt-5-codex-medium", description: "Preset fallback" },
+    { id: "gpt-5-mini", description: "Preset fallback" },
+    { id: "gpt-5-nano", description: "Preset fallback" },
+    { id: "gpt-5-pro", description: "Preset fallback" },
+    { id: "gemini-2.5", description: "Preset fallback" },
+  ];
 };
 
 // 7) 创建模型响应（控制思考长度）
