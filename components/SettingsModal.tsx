@@ -5,7 +5,7 @@ import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL } from '../constants';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield } from 'lucide-react';
+import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2 } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
