@@ -62,17 +62,18 @@ const mapUsage = (usage: any): TokenUsage | undefined => {
 };
 
 const getEndpoint = (config: DeyunAIConfig) => {
-  // 允许 base 直接传入 responses 完整路径，避免重复拼接
+  // base 期望是 https://api.deyunai.com/v1 ，若已带 /responses 则直接使用
   const rawBase = config.baseUrl || DEFAULT_BASE;
   const trimmed = rawBase.replace(/\/+$/, "");
-  if (trimmed.match(/\/responses$/)) return trimmed;
+  if (trimmed.endsWith("/responses")) return trimmed;
   return `${trimmed}/responses`;
 };
 
 const getModelsEndpoint = (config: DeyunAIConfig) => {
   let base = (config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
   base = base.replace(/\/responses$/, ""); // 防止直接传入 responses 路径
-  if (!/\/v1$/i.test(base)) base = `${base}/v1`;
+  if (base.endsWith("/v1/models")) return base;
+  if (!base.endsWith("/v1")) base = `${base}/v1`;
   return `${base}/models`;
 };
 
