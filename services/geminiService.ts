@@ -397,38 +397,24 @@ export const generateFreeformText = async (
       (typeof process !== "undefined" ? process.env?.DEYUNAI_API_BASE : undefined) ||
       "https://api.deyunai.com/v1/responses";
 
-    // 强制使用最简对话：无流式、无工具、无附加参数
-    const useStream = false;
-    const minimalPrompt = prompt;
+    const modelFromList = (config as any).deyunModels?.[0]?.id;
+    const model = config.model || modelFromList || "gpt-5.1";
 
-    if (useStream) {
-      const { text, usage } = await DeyunAIService.createStreamingModelResponse(
-        minimalPrompt,
+    const { text, usage, raw } = await DeyunAIService.createModelResponse(
+        prompt,
         { apiKey, baseUrl },
-        { model: config.model || "gpt-5.1", temperature: 0.7 },
-        options?.onStream
+        { model, temperature: 0.7, store: false, tools: [] }
       );
-      try {
-        console.log("[DeyunAI] Streaming raw", { text, usage });
-      } catch {}
-      return {
-        outputText: text,
-        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
-      };
-    } else {
-      const { text, usage, raw } = await DeyunAIService.createModelResponse(
-        minimalPrompt,
-        { apiKey, baseUrl },
-        { model: config.model || "gpt-5.1", temperature: 0.7, store: false, tools: [] }
-      );
-      try {
-        console.log("[DeyunAI] Response raw", raw);
-      } catch {}
-      return {
-        outputText: text,
-        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
-      };
+    try {
+      console.log("[DeyunAI] Response raw", raw);
+    } catch {}
+    if ((raw as any)?.error?.message) {
+      throw new Error((raw as any).error.message);
     }
+    return {
+      outputText: text,
+      usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
+    };
   }
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
