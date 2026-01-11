@@ -1653,7 +1653,35 @@ const App: React.FC = () => {
       </AppShell>
       {showWorkflow && (
         <div className="fixed bottom-24 right-6 z-40 pointer-events-auto">
-          <WorkflowCard workflow={workflow} />
+          <WorkflowCard
+            workflow={{
+              step,
+              analysisStep,
+              analysisQueueLength: analysisQueue.length,
+              analysisTotal,
+              isProcessing,
+              analysisError,
+              currentEpIndex,
+              episodes: projectData.episodes,
+              setCurrentEpIndex,
+              setStep,
+              setAnalysisStep,
+              onStartAnalysis: startAnalysis,
+              onConfirmSummaryNext: confirmSummaryAndNext,
+              onConfirmEpSummariesNext: confirmEpSummariesAndNext,
+              onConfirmCharListNext: confirmCharListAndNext,
+              onConfirmCharDepthNext: confirmCharDepthAndNext,
+              onConfirmLocListNext: confirmLocListAndNext,
+              onFinishAnalysis: finishAnalysis,
+              onRetryAnalysis: retryAnalysisStep,
+              onStartPhase2: startPhase2,
+              onConfirmEpisodeShots: confirmEpisodeShots,
+              onRetryEpisodeShots: retryCurrentEpisodeShots,
+              onStartPhase3: startPhase3,
+              onRetryEpisodeSora: retryCurrentEpisodeSora,
+              onContinueNextEpisodeSora: continueNextEpisodeSora,
+            }}
+          />
         </div>
       )}
     </>
