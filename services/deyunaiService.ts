@@ -387,45 +387,58 @@ export const fetchModels = async (
   config: DeyunAIConfig
 ): Promise<DeyunAIModelMeta[]> => {
   assertApiKey(config);
-  const endpoint = getModelsEndpoint(config);
-  try {
-    console.log("[DeyunAI] Fetch models", endpoint);
-    const res = await fetch(endpoint, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "script2video://local",
-        "X-Title": "Script2Video",
-      },
-    });
-    if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(`DeyunAI models error ${res.status}: ${msg}`);
-    }
-    const data = await res.json();
+  const endpoints = [getModelsEndpoint(config), `${(config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "")}/v1/models`, `${(config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "")}/models`]
+    .filter((v, idx, arr) => arr.indexOf(v) === idx);
+  let lastErr: any = null;
+  for (const endpoint of endpoints) {
     try {
-      console.log("[DeyunAI] Models raw", data);
-    } catch {}
-    const models =
-      (Array.isArray(data) && data) ||
-      data.data ||
-      data.models ||
-      data.result ||
-      data.items ||
-      [];
-    return models
-      .map((m: any) => ({
-        id: m.id || m.model || "",
-        root: m.root,
-        description: m.description,
-        modalities: m.modalities || m.capabilities?.modalities || m.supports || [],
-        capabilities: m.capabilities || m.metadata || {},
-      }))
-      .filter((m: any) => m.id);
-  } catch (e: any) {
-    console.error("DeyunAI models fetch failed:", e);
-    throw e;
+      console.log("[DeyunAI] Fetch models", endpoint);
+      const res = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "script2video://local",
+          "X-Title": "Script2Video",
+        },
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        lastErr = new Error(`DeyunAI models error ${res.status}: ${msg}`);
+        console.warn("[DeyunAI] Models fetch non-200", endpoint, msg);
+        continue;
+      }
+      const data = await res.json();
+      try {
+        console.log("[DeyunAI] Models raw", data);
+      } catch {}
+      const models =
+        (Array.isArray(data) && data) ||
+        data.data ||
+        data.models ||
+        data.result ||
+        data.items ||
+        [];
+      const mapped = models
+        .map((m: any) => ({
+          id: m.id || m.model || "",
+          root: m.root,
+          description: m.description,
+          modalities: m.modalities || m.capabilities?.modalities || m.supports || [],
+          capabilities: m.capabilities || m.metadata || {},
+        }))
+        .filter((m: any) => m.id);
+      if (mapped.length === 0 && models.length === 0) {
+        lastErr = new Error("Models endpoint returned empty list");
+        continue;
+      }
+      return mapped;
+    } catch (e: any) {
+      lastErr = e;
+      console.warn("[DeyunAI] Models fetch failed at", endpoint, e);
+      continue;
+    }
   }
+  throw lastErr || new Error("DeyunAI models fetch failed");
 };
 
 // 7) 创建模型响应（控制思考长度）
