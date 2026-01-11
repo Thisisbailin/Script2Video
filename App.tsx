@@ -1598,8 +1598,8 @@ const App: React.FC = () => {
               accountInfo={{
                 isLoaded: isUserLoaded,
                 isSignedIn: !!userSignedIn,
-                name: user?.name || user?.fullName || user?.email || "Qalam User",
-                email: user?.email,
+                name: user?.fullName || user?.name || user?.username || user?.email || user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "Qalam User",
+                email: user?.primaryEmailAddress?.emailAddress || user?.email || user?.emailAddresses?.[0]?.emailAddress,
                 avatarUrl: avatarUrl || user?.imageUrl,
                 onSignIn: () => openSignIn(),
                 onSignOut: () => signOut(),
