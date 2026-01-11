@@ -736,7 +736,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                                 <select
                                                     value={config.textConfig.model || 'gpt-5.1'}
                                                     onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                                    className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                                 >
                                                     {(availableDeyunModels.length ? availableDeyunModels : DEYUNAI_MODELS.map((m) => ({ id: m, label: m }))).map((m) => (
                                                         <option key={m.id} value={m.id}>{m.label}</option>
@@ -774,11 +774,9 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
-                                            <input
-                                                value={config.textConfig.baseUrl || DEYUNAI_BASE_URL}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)]"
-                                            />
+                                            <div className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] opacity-70 cursor-not-allowed">
+                                                https://api.deyunai.com/v1
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
