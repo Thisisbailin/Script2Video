@@ -582,20 +582,18 @@ export const FloatingActionBar: React.FC<Props> = ({
             <Library size={14} className="text-white/80" />
           </button>
 
-          {/* Workflow toggle moved here */}
+          {/* Workflow (Layers) */}
           <button
             onClick={() => {
-              setShowWip(false);
               setShowPalette(false);
               setShowTemplate(false);
               setShowFileMenu(false);
-              // trigger workflow popover via dedicated handler
               setShowWip((v) => !v);
             }}
             className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
             title="Workflow Actions"
           >
-            <Projector size={14} className="text-white/70" />
+            <Layers size={14} className="text-white/75" />
           </button>
 
           {/* Plus */}
@@ -609,6 +607,15 @@ export const FloatingActionBar: React.FC<Props> = ({
             className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
             <Plus size={14} className={`text-white/80 transition-transform ${showPalette ? 'rotate-45' : ''}`} />
+          </button>
+
+          {/* Projector / WIP */}
+          <button
+            onClick={() => setShowWip((v) => !v)}
+            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
+            title="施工中"
+          >
+            <Projector size={14} className="text-white/70" />
           </button>
 
           {/* Run */}
