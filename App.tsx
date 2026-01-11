@@ -1605,6 +1605,7 @@ const App: React.FC = () => {
                 onSignOut: () => signOut(),
                 onUploadAvatar: handleAvatarUploadClick,
               }}
+              onTryMe={handleTryMe}
             />
           </div>
         );

@@ -67,6 +67,7 @@ type Props = {
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: AccountInfo;
+  onTryMe?: () => void;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -98,6 +99,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   onResetProject,
   onSignOut,
   accountInfo,
+  onTryMe,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -186,6 +188,24 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-4 space-y-3">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">Project</div>
+              <div className="rounded-2xl border border-white/10 bg-white/4 px-3 py-3 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-white">尝试示例</div>
+                    <div className="text-[12px] text-white/65 leading-relaxed">载入内置示例项目并体验节点流程。</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onTryMe?.();
+                    closeMenus();
+                  }}
+                  className="w-full h-10 rounded-xl bg-[var(--accent-blue)] text-white text-sm font-semibold hover:bg-sky-500 transition"
+                >
+                  载入示例
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-2 px-2">
                 {[
                   { key: "assets" as ModuleKey, label: "Assets", Icon: FolderOpen },
@@ -562,6 +582,22 @@ export const FloatingActionBar: React.FC<Props> = ({
             <Library size={14} className="text-white/80" />
           </button>
 
+          {/* Workflow toggle moved here */}
+          <button
+            onClick={() => {
+              setShowWip(false);
+              setShowPalette(false);
+              setShowTemplate(false);
+              setShowFileMenu(false);
+              // trigger workflow popover via dedicated handler
+              setShowWip((v) => !v);
+            }}
+            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
+            title="Workflow Actions"
+          >
+            <Projector size={14} className="text-white/70" />
+          </button>
+
           {/* Plus */}
           <button
             onClick={() => {
@@ -573,15 +609,6 @@ export const FloatingActionBar: React.FC<Props> = ({
             className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
             <Plus size={14} className={`text-white/80 transition-transform ${showPalette ? 'rotate-45' : ''}`} />
-          </button>
-
-          {/* WIP placeholder */}
-          <button
-            onClick={() => setShowWip((v) => !v)}
-            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
-            title="施工中"
-          >
-            <Projector size={14} className="text-white/70" />
           </button>
 
           {/* Run */}
