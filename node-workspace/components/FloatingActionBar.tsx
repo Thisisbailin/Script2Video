@@ -14,6 +14,7 @@ import {
   BoxSelect,
   Library,
   ChevronRight,
+  Layers,
   FolderOpen,
   FileText,
   List,
