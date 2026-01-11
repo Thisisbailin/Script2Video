@@ -76,6 +76,8 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 label: m.label || m.id,
                 meta: m,
             })));
+        } else {
+            setAvailableDeyunModels([]);
         }
     }, [config.textConfig.provider, config.textConfig.deyunModels]);
 
@@ -422,12 +424,14 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
             nextConfig.baseUrl = '';
             nextConfig.model = 'gemini-2.5-flash';
             nextConfig.apiKey = config.textConfig.apiKey || '';
+            nextConfig.deyunModels = [];
         } else if (p === 'openrouter') {
             const previousBase = config.textConfig.baseUrl || '';
             const isPartnerLike = previousBase.includes('partner-api') || previousBase.includes('partner');
             nextConfig.baseUrl = isPartnerLike || !previousBase ? 'https://openrouter.ai/api/v1' : previousBase;
             nextConfig.model = config.textConfig.model || '';
             nextConfig.apiKey = config.textConfig.apiKey || '';
+            nextConfig.deyunModels = [];
         } else if (p === 'deyunai') {
             nextConfig.baseUrl = config.textConfig.baseUrl || DEYUNAI_BASE_URL;
             nextConfig.model = config.textConfig.model || 'gpt-5.1';
@@ -436,6 +440,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
             nextConfig.verbosity = config.textConfig.verbosity || 'medium';
             nextConfig.stream = false; // 默认关闭流式，确保最小化参数
             nextConfig.store = config.textConfig.store ?? false;
+            nextConfig.deyunModels = [];
         } else {
             // partner: fully managed endpoint
             nextConfig.baseUrl = PARTNER_TEXT_BASE_URL;
