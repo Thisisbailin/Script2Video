@@ -288,13 +288,24 @@ export interface ViduVideoGenNodeData extends BaseNodeData {
   seed?: number;
 }
 
-export type TextProvider = 'gemini' | 'openrouter' | 'partner';
+export type TextProvider = 'gemini' | 'openrouter' | 'partner' | 'deyunai';
 
 export interface TextServiceConfig {
   provider: TextProvider;
   apiKey: string;
   baseUrl: string;
   model: string;
+  // DeyunAI 专属可选项（其他 provider 忽略）
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  verbosity?: 'low' | 'medium' | 'high';
+  stream?: boolean;
+  store?: boolean;
+  tools?: any[];
+}
+
+export interface DeyunAIConfig {
+  apiKey: string;
+  baseUrl?: string;
 }
 
 export interface MultimodalConfig {

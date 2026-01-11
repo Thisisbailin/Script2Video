@@ -1492,7 +1492,9 @@ const App: React.FC = () => {
     ? 'Gemini'
     : config.textConfig.provider === 'openrouter'
       ? 'OpenRouter'
-      : 'Partner';
+      : config.textConfig.provider === 'deyunai'
+        ? 'DeyunAI'
+        : 'Partner';
   const activeModelLabel = `${providerLabel} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];

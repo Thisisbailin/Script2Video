@@ -42,6 +42,7 @@ export const AVAILABLE_MODELS = [
 ];
 
 export const PARTNER_TEXT_BASE_URL = 'https://partner-api.example.com/v1';
+export const DEYUNAI_BASE_URL = 'https://api.deyunai.com/v1';
 
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   provider: 'gemini',
@@ -49,6 +50,8 @@ export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   apiKey: '', // Uses process.env by default if empty
   model: 'gemini-2.5-flash'
 };
+
+export const DEYUNAI_MODELS = ['gpt-5.1', 'gpt-4.1', 'gpt-5-2025-08-07', 'gpt-4.1-2025-04-14'];
 
 export const INITIAL_VIDEO_CONFIG: VideoServiceConfig = {
   baseUrl: '', // Default empty to force user input

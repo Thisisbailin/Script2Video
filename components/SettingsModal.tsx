@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, TextProvider, SyncState } from '../types';
-import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL } from '../constants';
+import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS } from '../constants';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
@@ -379,6 +379,14 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
             nextConfig.baseUrl = isPartnerLike || !previousBase ? 'https://openrouter.ai/api/v1' : previousBase;
             nextConfig.model = config.textConfig.model || '';
             nextConfig.apiKey = config.textConfig.apiKey || '';
+        } else if (p === 'deyunai') {
+            nextConfig.baseUrl = config.textConfig.baseUrl || DEYUNAI_BASE_URL;
+            nextConfig.model = config.textConfig.model || 'gpt-5.1';
+            nextConfig.apiKey = config.textConfig.apiKey || '';
+            nextConfig.reasoningEffort = config.textConfig.reasoningEffort || 'medium';
+            nextConfig.verbosity = config.textConfig.verbosity || 'medium';
+            nextConfig.stream = config.textConfig.stream ?? true;
+            nextConfig.store = config.textConfig.store ?? false;
         } else {
             // partner: fully managed endpoint
             nextConfig.baseUrl = PARTNER_TEXT_BASE_URL;
@@ -525,6 +533,12 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     >
                                         <Shield size={14} /> Partner Route
                                     </button>
+                                    <button
+                                        onClick={() => setProvider('deyunai')}
+                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'deyunai' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
+                                    >
+                                        <Zap size={14} /> DeyunAI
+                                    </button>
                                 </div>
                             </div>
 
@@ -626,7 +640,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         )}
                                     </div>
                                 </div>
-                            ) : (
+                            ) : config.textConfig.provider === 'partner' ? (
                                 <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
                                     <div className="flex items-start justify-between">
                                         <div>
@@ -655,6 +669,122 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     </div>
                                     <div className="p-3 rounded-lg bg-[var(--bg-panel)]/80 border border-dashed border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] leading-relaxed">
                                         专属合作通道，使用平台预置密钥与标识头部 <code className="px-1 py-0.5 rounded bg-black/40 text-[var(--text-primary)]">X-Partner-Integration: Qalam-NodeLab</code>。如需更新密钥/网关请修改环境变量 PARTNER_API_KEY / PARTNER_API_BASE。
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <div className="text-sm font-semibold text-[var(--text-primary)]">DeyunAI 专属通道</div>
+                                            <div className="text-xs text-[var(--text-secondary)]">使用 DEYUNAI_API_KEY（已在后台设置）或手动覆盖。</div>
+                                        </div>
+                                        <span className="px-2 py-1 rounded-full text-[11px] bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">Configurable</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
+                                            <select
+                                                value={config.textConfig.model || 'gpt-5.1'}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                            >
+                                                {DEYUNAI_MODELS.map((m) => (
+                                                    <option key={m} value={m}>{m}</option>
+                                                ))}
+                                                <option value={config.textConfig.model || 'custom'}>自定义（保留当前值）</option>
+                                            </select>
+                                            <input
+                                                value={config.textConfig.model || 'gpt-5.1'}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                                                className="mt-2 w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)]"
+                                                placeholder="自定义模型 id"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
+                                            <input
+                                                value={config.textConfig.baseUrl || DEYUNAI_BASE_URL}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)]"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">思考强度</label>
+                                            <select
+                                                value={config.textConfig.reasoningEffort || 'medium'}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, reasoningEffort: e.target.value as any } })}
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                            >
+                                                <option value="low">low</option>
+                                                <option value="medium">medium</option>
+                                                <option value="high">high</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">输出详尽度</label>
+                                            <select
+                                                value={config.textConfig.verbosity || 'medium'}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, verbosity: e.target.value as any } })}
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                            >
+                                                <option value="low">low</option>
+                                                <option value="medium">medium</option>
+                                                <option value="high">high</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex items-end gap-2">
+                                            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!config.textConfig.stream}
+                                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, stream: e.target.checked } })}
+                                                    className="h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded bg-[var(--bg-panel)] focus:ring-[var(--accent-blue)]"
+                                                />
+                                                流式返回
+                                            </label>
+                                            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!config.textConfig.store}
+                                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, store: e.target.checked } })}
+                                                    className="h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded bg-[var(--bg-panel)] focus:ring-[var(--accent-blue)]"
+                                                />
+                                                结果存储
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
+                                            <Key size={14} /> API Key
+                                        </label>
+                                        <input
+                                            type="password"
+                                            placeholder="从 DEYUNAI_API_KEY 读取，或手动输入"
+                                            value={config.textConfig.apiKey || ''}
+                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
+                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                        />
+                                        <p className="text-xs text-[var(--text-secondary)] mt-1">未填写时将尝试读取环境变量 DEYUNAI_API_KEY / DEYUNAI_API_BASE。</p>
+                                    </div>
+                                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/60 p-3 space-y-2">
+                                        <div className="text-sm font-semibold text-[var(--text-primary)]">常用工具</div>
+                                        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                                            <input
+                                                type="checkbox"
+                                                checked={Array.isArray(config.textConfig.tools) && config.textConfig.tools.some((t: any) => t?.type === 'web_search_preview')}
+                                                onChange={(e) => {
+                                                    const enabled = e.target.checked;
+                                                    const existingTools = Array.isArray(config.textConfig.tools) ? config.textConfig.tools.filter((t: any) => t?.type !== 'web_search_preview') : [];
+                                                    const nextTools = enabled ? [...existingTools, { type: 'web_search_preview' }] : existingTools;
+                                                    onConfigChange({ ...config, textConfig: { ...config.textConfig, tools: nextTools } });
+                                                }}
+                                                className="h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded bg-[var(--bg-panel)] focus:ring-[var(--accent-blue)]"
+                                            />
+                                            启用网络搜索工具（web_search_preview）
+                                        </label>
+                                        <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">如需自定义函数工具，请在代码里传入 tools（JSON Schema 定义），此处仅快速开启官方 Web Search 预览工具。</p>
                                     </div>
                                 </div>
                             )}

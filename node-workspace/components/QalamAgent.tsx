@@ -68,10 +68,36 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsSending(true);
+    const useStream = config.textConfig.provider === "deyunai" && config.textConfig.stream;
+    let assistantIndex = -1;
     try {
       const prompt = `${contextText ? contextText + "\n\n" : ""}${userMsg.text}\n\n请直接回答问题，简洁输出。`;
-      const res = await GeminiService.generateFreeformText(config.textConfig, prompt, "You are Qalam, a creative agent helping build this project. Keep responses concise.");
-      setMessages((prev) => [...prev, { role: "assistant", text: res.outputText || "" }]);
+      if (useStream) {
+        setMessages((prev) => {
+          assistantIndex = prev.length;
+          return [...prev, { role: "assistant", text: "" }];
+        });
+      }
+      const res = await GeminiService.generateFreeformText(
+        config.textConfig,
+        prompt,
+        "You are Qalam, a creative agent helping build this project. Keep responses concise.",
+        useStream
+          ? {
+              onStream: (delta) => {
+                setMessages((prev) => {
+                  if (assistantIndex === -1) assistantIndex = prev.length - 1;
+                  return prev.map((m, idx) => (idx === assistantIndex ? { ...m, text: (m.text || "") + delta } : m));
+                });
+              },
+            }
+          : undefined
+      );
+      if (useStream && assistantIndex !== -1) {
+        setMessages((prev) => prev.map((m, idx) => (idx === assistantIndex ? { ...m, text: res.outputText || m.text } : m)));
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", text: res.outputText || "" }]);
+      }
     } catch (err: any) {
       setMessages((prev) => [...prev, { role: "assistant", text: `请求失败: ${err?.message || err}` }]);
     } finally {
