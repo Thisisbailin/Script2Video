@@ -291,15 +291,56 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`absolute bottom-16 left-0 w-72 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            className={`absolute bottom-16 left-0 w-[420px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
             style={panelStyle}
           >
-            <div className="p-3 space-y-2">
-              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/60">IO</div>
-              <div className="px-3 py-2 rounded-2xl border border-dashed border-white/25 text-[12px] text-white/70">
-                Sign in to unlock account actions
+            <div className="p-5 space-y-4">
+              <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
+              <div className="rounded-2xl border border-white/10 bg-white/3 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-12 w-12 rounded-xl border border-dashed border-white/30 bg-white/5 flex items-center justify-center text-white/70">
+                    <User size={18} />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="text-sm font-semibold text-white">未登录</div>
+                    <div className="text-[12px] text-white/60 leading-relaxed">登录以解锁同步、主题与项目管理。</div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
+                        onClick={() => {
+                          onOpenSettings?.();
+                          closeMenus();
+                        }}
+                      >
+                        登录 / 注册
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg text-[12px] border border-white/15 text-white/80 hover:border-white/35 hover:text-white transition"
+                        onClick={() => {
+                          onOpenStats?.();
+                          closeMenus();
+                        }}
+                      >
+                        先看看
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {["实时同步", "背景主题", "项目仪表盘"].map((chip) => (
+                        <span
+                          key={chip}
+                          className="px-2 py-1 rounded-full text-[11px] bg-white/6 border border-white/10 text-white/70"
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              <div className="rounded-2xl border border-white/10 bg-white/2 divide-y divide-white/8 overflow-hidden">
                 {ioActions.map((item) => {
                   const disabled = !item.onClick;
                   return (
@@ -310,87 +351,89 @@ export const FloatingActionBar: React.FC<Props> = ({
                         closeMenus();
                       }}
                       disabled={disabled}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm transition ${
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
                         disabled
-                          ? "border-white/10 bg-white/2 text-white/40 cursor-not-allowed"
-                          : "border-white/10 bg-white/2 text-white/80 hover:border-white/30 hover:bg-white/8"
+                          ? "bg-transparent text-white/45 cursor-not-allowed"
+                          : "hover:bg-white/6 text-white/85"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="h-8 w-8 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: disabled ? "rgba(255,255,255,0.08)" : item.color }}
-                        >
-                          <item.Icon size={16} className={disabled ? "text-white/50" : "text-black"} />
-                        </span>
-                        <div className="flex flex-col items-start">
-                          <span className="font-semibold">{item.label}</span>
-                          <span className="text-[11px] text-white/55">{item.desc}</span>
-                        </div>
+                      <span
+                        className="h-9 w-9 rounded-xl flex items-center justify-center border border-white/10"
+                        style={{ background: disabled ? "rgba(255,255,255,0.06)" : item.color }}
+                      >
+                        <item.Icon size={16} className={disabled ? "text-white/55" : "text-black"} />
+                      </span>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold">{item.label}</div>
+                        <div className="text-[11px] text-white/60">{item.desc}</div>
                       </div>
-                      <span className="text-[10px] text-white/50">{disabled ? "disabled" : ""}</span>
+                      <ChevronRight size={14} className="text-white/30" />
                     </button>
                   );
                 })}
               </div>
 
-              <div className="px-3 pt-4 pb-2 text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
-              <button
-                onClick={() => {
-                  onImport();
-                  closeMenus();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
-              >
-                <div className="h-2 w-2 rounded-full bg-blue-400" />
-                Import JSON
-              </button>
-              <button
-                onClick={() => {
-                  onExport();
-                  closeMenus();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
-              >
-                <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                Export JSON
-              </button>
-              {onExportCsv && (
-                <button
-                  onClick={() => {
-                    onExportCsv();
-                    closeMenus();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
-                >
-                  <div className="h-2 w-2 rounded-full bg-sky-400" />
-                  Export CSV
-                </button>
-              )}
-              {onExportXls && (
-                <button
-                  onClick={() => {
-                    onExportXls();
-                    closeMenus();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
-                >
-                  <div className="h-2 w-2 rounded-full bg-purple-300" />
-                  Export XLS
-                </button>
-              )}
-              {onExportUnderstandingJson && (
-                <button
-                  onClick={() => {
-                    onExportUnderstandingJson();
-                    closeMenus();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-bold rounded-xl hover:bg-white/5 transition text-white"
-                >
-                  <div className="h-2 w-2 rounded-full bg-amber-300" />
-                  Export Understanding
-                </button>
-              )}
+              <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
+              <div className="rounded-2xl border border-white/10 bg-white/3 p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      onImport();
+                      closeMenus();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                  >
+                    <div className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+                    Import JSON
+                  </button>
+                  <button
+                    onClick={() => {
+                      onExport();
+                      closeMenus();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                  >
+                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                    Export JSON
+                  </button>
+                  {onExportCsv && (
+                    <button
+                      onClick={() => {
+                        onExportCsv();
+                        closeMenus();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                    >
+                      <div className="h-2.5 w-2.5 rounded-full bg-sky-400" />
+                      Export CSV
+                    </button>
+                  )}
+                  {onExportXls && (
+                    <button
+                      onClick={() => {
+                        onExportXls();
+                        closeMenus();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                    >
+                      <div className="h-2.5 w-2.5 rounded-full bg-purple-300" />
+                      Export XLS
+                    </button>
+                  )}
+                  {onExportUnderstandingJson && (
+                    <button
+                      onClick={() => {
+                        onExportUnderstandingJson();
+                        closeMenus();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                    >
+                      <div className="h-2.5 w-2.5 rounded-full bg-amber-300" />
+                      Export Understanding
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

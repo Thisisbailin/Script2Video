@@ -130,34 +130,38 @@ export const SyncStatusBanner: React.FC<Props> = ({
   if (lastError) detailParts.push(`错误: ${lastError}`);
 
   return (
-    <div className="w-full px-4 md:px-6 pt-3 mt-16 relative z-30">
+    <div className="pointer-events-none fixed bottom-24 right-6 z-50">
       <div
-        className={`flex flex-col gap-2 rounded-xl border px-4 py-3 md:flex-row md:items-center md:gap-4 ${toneClasses(meta.tone)}`}
+        className={`pointer-events-auto max-w-lg rounded-2xl border px-4 py-3 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-lg ${toneClasses(meta.tone)}`}
       >
-        <div className="flex items-center gap-2">
-          <Icon className={`h-4 w-4 ${meta.label === "同步中" ? "animate-spin" : ""}`} />
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{meta.label}</div>
-        </div>
-        <div className="text-xs text-[var(--text-secondary)] flex-1">
-          {detailParts.join(" · ")}
-        </div>
-        <div className="flex items-center gap-2">
-          {onForceSync && canForceSync && (
-            <button
-              onClick={onForceSync}
-              className="px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] hover:border-emerald-400 hover:text-emerald-200 transition"
-            >
-              立即同步
-            </button>
-          )}
-          {onOpenDetails && (
-            <button
-              onClick={onOpenDetails}
-              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
-            >
-              查看详情
-            </button>
-          )}
+        <div className="flex items-start gap-3">
+          <div className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
+            <Icon className={`h-4 w-4 ${meta.label === "同步中" ? "animate-spin" : ""}`} />
+          </div>
+          <div className="flex-1 space-y-1">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">{meta.label}</div>
+            <div className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              {detailParts.join(" · ")}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {onForceSync && canForceSync && (
+                <button
+                  onClick={onForceSync}
+                  className="px-3 py-1.5 rounded-lg text-xs border border-[var(--border-subtle)] hover:border-emerald-400 hover:text-emerald-200 transition"
+                >
+                  立即同步
+                </button>
+              )}
+              {onOpenDetails && (
+                <button
+                  onClick={onOpenDetails}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
+                >
+                  查看详情
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
