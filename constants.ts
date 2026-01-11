@@ -41,6 +41,8 @@ export const AVAILABLE_MODELS = [
   { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview (High Intelligence)' },
 ];
 
+export const PARTNER_TEXT_BASE_URL = 'https://partner-api.example.com/v1';
+
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   provider: 'gemini',
   baseUrl: '', // Not used for Gemini SDK

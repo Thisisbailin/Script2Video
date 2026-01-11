@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig } from "../types";
+import { generatePartnerText } from "./partnerService";
 
 // --- HELPERS ---
 
@@ -161,6 +162,23 @@ const generateText = async (
     } catch (e: any) {
       console.error("OpenRouter API Error:", e);
       throw new Error(`OpenRouter Error: ${e.message}`);
+    }
+  }
+
+  // 3. PARTNER PROVIDER
+  else if (config.provider === 'partner') {
+    const jsonSchema = googleSchemaToJsonSchema(schema);
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemInstruction) messages.push({ role: "system", content: systemInstruction });
+    const refinedPrompt = `${prompt}\n\nIMPORTANT: Return JSON matching schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
+    messages.push({ role: "user", content: refinedPrompt });
+
+    try {
+      const { text, usage } = await generatePartnerText(config, messages);
+      return { text, usage };
+    } catch (e: any) {
+      console.error("Partner API Error:", e);
+      throw new Error(`Partner Error: ${e.message}`);
     }
   }
 

@@ -1487,7 +1487,12 @@ const App: React.FC = () => {
     };
     return { label: agg.label, color: colorMap[agg.state] || "#a5b4fc" };
   })();
-  const activeModelLabel = `${config.textConfig.provider === 'gemini' ? 'Gemini' : 'OpenRouter'} | ${getActiveModelName()}`;
+  const providerLabel = config.textConfig.provider === 'gemini'
+    ? 'Gemini'
+    : config.textConfig.provider === 'openrouter'
+      ? 'OpenRouter'
+      : 'Partner';
+  const activeModelLabel = `${providerLabel} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];
 
@@ -1495,75 +1500,7 @@ const App: React.FC = () => {
   const handleExportXls = () => exportToXLS(projectData.episodes);
   const handleExportUnderstandingJson = () => exportUnderstandingToJSON(projectData);
 
-  const headerNode = (
-    <Header
-      activeTab={activeTab}
-      tabs={tabOptions}
-      onTabChange={setActiveTab}
-      activeModelLabel={activeModelLabel}
-      sync={{ state: syncState, isOnline }}
-      splitView={{
-        currentSplitTab: splitTab,
-        isOpen: isSplitMenuOpen,
-        onToggle: () => setIsSplitMenuOpen((v) => !v),
-        onSelect: (tab) => {
-          setSplitTab(tab);
-          setIsSplitMenuOpen(false);
-        },
-        onClose: () => setIsSplitMenuOpen(false),
-      }}
-      onTryMe={handleTryMe}
-      hasGeneratedShots={hasGeneratedShots}
-      hasUnderstandingData={hasUnderstandingData}
-      onExportCsv={handleExportCsv}
-      onExportXls={handleExportXls}
-      onExportUnderstandingJson={handleExportUnderstandingJson}
-      onToggleExportMenu={() => setIsExportMenuOpen(prev => !prev)}
-      isExportMenuOpen={false}
-      onToggleTheme={toggleTheme}
-      isDarkMode={isDarkMode}
-      account={{
-        isLoaded: isUserLoaded,
-        isSignedIn: !!userSignedIn,
-        user,
-        onSignIn: () => openSignIn(),
-        onSignOut: () => signOut(),
-        onOpenSettings: () => openSettings(),
-        onReset: handleResetProject,
-        isUserMenuOpen,
-        setIsUserMenuOpen,
-        onUploadAvatar: handleAvatarUploadClick,
-        avatarUrl: avatarUrl || user?.imageUrl,
-      }}
-      workflow={{
-        step,
-        analysisStep,
-        analysisQueueLength: analysisQueue.length,
-        analysisTotal,
-        isProcessing,
-        analysisError,
-        currentEpIndex,
-        episodes: projectData.episodes,
-        setCurrentEpIndex,
-        setStep,
-        setAnalysisStep,
-        onStartAnalysis: startAnalysis,
-        onConfirmSummaryNext: confirmSummaryAndNext,
-        onConfirmEpSummariesNext: confirmEpSummariesAndNext,
-        onConfirmCharListNext: confirmCharListAndNext,
-        onConfirmCharDepthNext: confirmCharDepthAndNext,
-        onConfirmLocListNext: confirmLocListAndNext,
-        onFinishAnalysis: finishAnalysis,
-        onRetryAnalysis: retryAnalysisStep,
-        onStartPhase2: startPhase2,
-        onConfirmEpisodeShots: confirmEpisodeShots,
-        onRetryEpisodeShots: retryCurrentEpisodeShots,
-        onStartPhase3: startPhase3,
-        onRetryEpisodeSora: retryCurrentEpisodeSora,
-        onContinueNextEpisodeSora: continueNextEpisodeSora,
-      }}
-    />
-  );
+  const headerNode = null;
 
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {

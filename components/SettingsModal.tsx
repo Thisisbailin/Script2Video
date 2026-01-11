@@ -1,11 +1,11 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, TextProvider, SyncState } from '../types';
-import { AVAILABLE_MODELS } from '../constants';
+import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL } from '../constants';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy } from 'lucide-react';
+import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
@@ -367,14 +367,25 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     };
 
     const setProvider = (p: TextProvider) => {
+        const nextConfig = { ...config.textConfig };
+        if (p === 'gemini') {
+            nextConfig.baseUrl = '';
+            nextConfig.model = 'gemini-2.5-flash';
+            nextConfig.apiKey = config.textConfig.apiKey || '';
+        } else if (p === 'openrouter') {
+            nextConfig.baseUrl = config.textConfig.baseUrl || 'https://openrouter.ai/api/v1';
+            nextConfig.model = config.textConfig.model || '';
+        } else {
+            // partner: fully managed endpoint
+            nextConfig.baseUrl = PARTNER_TEXT_BASE_URL;
+            nextConfig.model = 'partner-text-pro';
+            nextConfig.apiKey = '';
+        }
         onConfigChange({
             ...config,
             textConfig: {
-                ...config.textConfig,
+                ...nextConfig,
                 provider: p,
-                // Reset defaults if switching
-                baseUrl: p === 'openrouter' ? (config.textConfig.baseUrl || 'https://openrouter.ai/api/v1') : '',
-                model: p === 'gemini' ? 'gemini-2.5-flash' : ''
             }
         });
     };
@@ -489,6 +500,12 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     >
                                         <Globe size={14} /> OpenRouter / OpenAI
                                     </button>
+                                    <button
+                                        onClick={() => setProvider('partner')}
+                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'partner' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
+                                    >
+                                        <Shield size={14} /> Partner Route
+                                    </button>
                                 </div>
                             </div>
 
@@ -524,7 +541,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         </p>
                                     </div>
                                 </div>
-                            ) : (
+                            ) : config.textConfig.provider === 'openrouter' ? (
                                 <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
                                     <div>
                                         <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
@@ -588,6 +605,37 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                                 className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                             />
                                         )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <div className="text-sm font-semibold text-[var(--text-primary)]">合作专线 · 自动配置</div>
+                                            <div className="text-xs text-[var(--text-secondary)]">使用内置密钥与专属网关，无需填写。</div>
+                                        </div>
+                                        <span className="px-2 py-1 rounded-full text-[11px] bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">Managed</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
+                                            <input
+                                                value={config.textConfig.model || 'partner-text-pro'}
+                                                readOnly
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] opacity-70"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
+                                            <input
+                                                value={config.textConfig.baseUrl || PARTNER_TEXT_BASE_URL}
+                                                readOnly
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] opacity-70"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-lg bg-[var(--bg-panel)]/80 border border-dashed border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        专属合作通道，使用平台预置密钥与标识头部 <code className="px-1 py-0.5 rounded bg-black/40 text-[var(--text-primary)]">X-Partner-Integration: Qalam-NodeLab</code>。如需更新密钥/网关请修改环境变量 PARTNER_API_KEY / PARTNER_API_BASE。
                                     </div>
                                 </div>
                             )}
