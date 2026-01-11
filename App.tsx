@@ -28,7 +28,7 @@ import { useSecretsSync } from './hooks/useSecretsSync';
 import { useShotGeneration } from './hooks/useShotGeneration';
 import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { AppShell } from './components/layout/AppShell';
-import { Header } from './components/layout/Header';
+import { Header, WorkflowCard } from './components/layout/Header';
 import { SettingsModal } from './components/SettingsModal';
 import { ConflictModal } from './components/ConflictModal';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
@@ -184,6 +184,7 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about' | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [showWorkflow, setShowWorkflow] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>({
     project: { status: 'idle' },
@@ -1543,6 +1544,7 @@ const App: React.FC = () => {
                 onUploadAvatar: handleAvatarUploadClick,
               }}
               onTryMe={handleTryMe}
+              onToggleWorkflow={() => setShowWorkflow((v) => !v)}
             />
           </div>
         );
@@ -1592,62 +1594,69 @@ const App: React.FC = () => {
   }
 
   return (
-    <AppShell
-      isDarkMode={isDarkMode}
-      header={headerNode}
-      banner={
-        <SyncStatusBanner
-          syncState={syncState}
-          isOnline={isOnline}
+    <>
+      <AppShell
+        isDarkMode={isDarkMode}
+        header={null}
+        banner={
+          <SyncStatusBanner
+            syncState={syncState}
+            isOnline={isOnline}
+            isSignedIn={!!authSignedIn}
+            syncRollout={syncRollout}
+            onOpenDetails={() => openSettings('sync')}
+            onForceSync={forceCloudPull}
+          />
+        }
+      >
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={closeSettings}
+          config={config}
+          onConfigChange={setConfig}
           isSignedIn={!!authSignedIn}
-          syncRollout={syncRollout}
-          onOpenDetails={() => openSettings('sync')}
+          getAuthToken={getAuthToken}
           onForceSync={forceCloudPull}
+          syncState={syncState}
+          syncRollout={syncRollout}
+          activeTabOverride={settingsTab || undefined}
         />
-      }
-    >
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={closeSettings}
-        config={config}
-        onConfigChange={setConfig}
-        isSignedIn={!!authSignedIn}
-        getAuthToken={getAuthToken}
-        onForceSync={forceCloudPull}
-        syncState={syncState}
-        syncRollout={syncRollout}
-        activeTabOverride={settingsTab || undefined}
-      />
-      {activeConflict && (
-        <ConflictModal
-          isOpen={!!activeConflict}
-          remoteData={activeConflict.remote}
-          localData={activeConflict.local}
-          mode={activeConflict.mode}
-          onUseRemote={activeConflict.mode === 'decision' ? () => handleConflictChoice(true) : undefined}
-          onKeepLocal={activeConflict.mode === 'decision' ? () => handleConflictChoice(false) : undefined}
-          onAcknowledge={activeConflict.mode === 'notice' ? handleConflictAcknowledge : undefined}
+        {activeConflict && (
+          <ConflictModal
+            isOpen={!!activeConflict}
+            remoteData={activeConflict.remote}
+            localData={activeConflict.local}
+            mode={activeConflict.mode}
+            onUseRemote={activeConflict.mode === 'decision' ? () => handleConflictChoice(true) : undefined}
+            onKeepLocal={activeConflict.mode === 'decision' ? () => handleConflictChoice(false) : undefined}
+            onAcknowledge={activeConflict.mode === 'notice' ? handleConflictAcknowledge : undefined}
+          />
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          ref={avatarFileInputRef}
+          className="hidden"
+          onChange={handleAvatarFileChange}
         />
+        {renderMainContent()}
+        {labModalTitle && labModalContent && (
+          <FloatingPanelShell title={labModalTitle} isOpen onClose={closeLabModal} width={labModalWidth}>
+            {labModalContent}
+          </FloatingPanelShell>
+        )}
+        {showStatsModal && (
+          <FloatingPanelShell title="Dashboard" isOpen onClose={closeStats} width={960}>
+            <Dashboard data={projectData} isDarkMode={isDarkMode} />
+          </FloatingPanelShell>
+        )}
+      </AppShell>
+      {showWorkflow && (
+        <div className="fixed bottom-24 right-6 z-40 pointer-events-auto">
+          <WorkflowCard workflow={workflow} />
+        </div>
       )}
-      <input
-        type="file"
-        accept="image/*"
-        ref={avatarFileInputRef}
-        className="hidden"
-        onChange={handleAvatarFileChange}
-      />
-      {renderMainContent()}
-      {labModalTitle && labModalContent && (
-        <FloatingPanelShell title={labModalTitle} isOpen onClose={closeLabModal} width={labModalWidth}>
-          {labModalContent}
-        </FloatingPanelShell>
-      )}
-      {showStatsModal && (
-        <FloatingPanelShell title="Dashboard" isOpen onClose={closeStats} width={960}>
-          <Dashboard data={projectData} isDarkMode={isDarkMode} />
-        </FloatingPanelShell>
-      )}
-    </AppShell>
+    </>
   );
 };
 

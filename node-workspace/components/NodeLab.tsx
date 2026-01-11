@@ -91,6 +91,7 @@ interface NodeLabProps {
     onSignIn?: () => void;
     onSignOut?: () => void;
   };
+  onToggleWorkflow?: () => void;
 }
 
 const NodeLabInner: React.FC<NodeLabProps> = ({
@@ -108,6 +109,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onResetProject,
   onSignOut,
   accountInfo,
+  onToggleWorkflow,
 }) => {
   const [bgTheme, setBgTheme] = useState<"dark" | "light" | "sand" | "creative" | "calm" | "lively">("dark");
   const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("dots");
@@ -738,6 +740,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onResetProject={onResetProject}
             onSignOut={onSignOut}
             accountInfo={accountInfo}
+            onToggleWorkflow={onToggleWorkflow}
           />
         </div>
         <div className="flex items-center gap-3 pointer-events-auto">

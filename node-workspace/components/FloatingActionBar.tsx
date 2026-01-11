@@ -69,6 +69,7 @@ type Props = {
   onSignOut?: () => void;
   accountInfo?: AccountInfo;
   onTryMe?: () => void;
+  onToggleWorkflow?: () => void;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -101,6 +102,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   onSignOut,
   accountInfo,
   onTryMe,
+  onToggleWorkflow,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -139,41 +141,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   };
 
   const ioActions = [
-    {
-      label: "Project Tracker",
-      desc: "View dashboard",
-      Icon: BarChart2,
-      onClick: onOpenStats,
-      color: "bg-sky-400",
-    },
-    {
-      label: isDarkMode ? "Light Mode" : "Dark Mode",
-      desc: "Toggle theme",
-      Icon: isDarkMode ? Sun : Moon,
-      onClick: onToggleTheme,
-      color: "bg-amber-300",
-    },
-    {
-      label: "System Settings",
-      desc: "Open settings",
-      Icon: Settings,
-      onClick: onOpenSettings,
-      color: "bg-purple-300",
-    },
-    {
-      label: "Clear Project Data",
-      desc: "Reset local/remote",
-      Icon: Trash2,
-      onClick: onResetProject,
-      color: "bg-rose-400",
-    },
-    {
-      label: "Sign Out",
-      desc: "Account action",
-      Icon: LogOut,
-      onClick: onSignOut,
-      color: "bg-slate-300",
-    },
   ];
 
   return (
@@ -337,7 +304,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-white/8 bg-[#0f1114]/92 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
+              <div className="rounded-2xl border border-transparent bg-[#0f1114]/92 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-12 w-12 rounded-xl bg-white/10" />
@@ -366,7 +333,19 @@ export const FloatingActionBar: React.FC<Props> = ({
                     <div className="flex-1 space-y-1">
                       <div className="text-sm font-semibold text-white">{accountName}</div>
                       {accountEmail && <div className="text-[12px] text-white/60 leading-relaxed truncate">{accountEmail}</div>}
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex gap-2 pt-2 flex-wrap">
+                        {onOpenStats && (
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
+                            onClick={() => {
+                              onOpenStats();
+                              closeMenus();
+                            }}
+                          >
+                            Dashboard
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
@@ -415,7 +394,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                           type="button"
                           className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition shadow-[0_10px_30px_rgba(56,189,248,0.25)]"
                           onClick={() => {
-                            accountInfo?.onSignIn?.() ?? onOpenSettings?.();
+                            accountInfo?.onSignIn?.();
                             closeMenus();
                           }}
                         >
@@ -447,38 +426,40 @@ export const FloatingActionBar: React.FC<Props> = ({
                 )}
               </div>
 
-              <div className="rounded-2xl border border-white/8 bg-[#0f1114]/92 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.3)] divide-y divide-white/8">
-                {ioActions.map((item) => {
-                  const disabled = !item.onClick;
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        if (item.onClick) item.onClick();
-                        closeMenus();
-                      }}
-                      disabled={disabled}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
-                        disabled
-                          ? "bg-transparent text-white/45 cursor-not-allowed"
-                          : "hover:bg-white/4 text-white/85"
-                      }`}
-                    >
-                      <span
-                        className="h-9 w-9 rounded-xl flex items-center justify-center border border-white/10 ring-1 ring-black/20"
-                        style={{ background: disabled ? "rgba(255,255,255,0.06)" : item.color }}
+              {ioActions.length > 0 && (
+                <div className="rounded-2xl border border-transparent bg-[#0f1114]/92 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.3)] divide-y divide-white/8">
+                  {ioActions.map((item) => {
+                    const disabled = !item.onClick;
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={() => {
+                          if (item.onClick) item.onClick();
+                          closeMenus();
+                        }}
+                        disabled={disabled}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
+                          disabled
+                            ? "bg-transparent text-white/45 cursor-not-allowed"
+                            : "hover:bg-white/4 text-white/85"
+                        }`}
                       >
-                        <item.Icon size={16} className={disabled ? "text-white/60" : "text-black"} />
-                      </span>
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold">{item.label}</div>
-                        <div className="text-[11px] text-white/60">{item.desc}</div>
-                      </div>
-                      <ChevronRight size={14} className="text-white/30" />
-                    </button>
-                  );
-                })}
-              </div>
+                        <span
+                          className="h-9 w-9 rounded-xl flex items-center justify-center border border-white/10 ring-1 ring-black/20"
+                          style={{ background: disabled ? "rgba(255,255,255,0.06)" : item.color }}
+                        >
+                          <item.Icon size={16} className={disabled ? "text-white/60" : "text-black"} />
+                        </span>
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold">{item.label}</div>
+                          <div className="text-[11px] text-white/60">{item.desc}</div>
+                        </div>
+                        <ChevronRight size={14} className="text-white/30" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
               <div className="rounded-2xl border border-white/8 bg-[#0f1114]/92 p-3 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
@@ -589,7 +570,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette(false);
               setShowTemplate(false);
               setShowFileMenu(false);
-              setShowWip((v) => !v);
+              onToggleWorkflow?.();
             }}
             className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
             title="Workflow Actions"

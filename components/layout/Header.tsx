@@ -237,7 +237,7 @@ const EpisodeList: React.FC<{
   );
 };
 
-const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
+export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
   const {
     step,
     analysisStep,
