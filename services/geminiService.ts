@@ -389,27 +389,46 @@ export const generateFreeformText = async (
   };
 
   // DeyunAI 流式：直接文本输出，避免 JSON 解析失败
-  if (config.provider === "deyunai" && (config.stream || options?.onStream)) {
+  if (config.provider === "deyunai") {
     const apiKey = resolveDeyunApiKey(config);
     const baseUrl =
       config.baseUrl?.trim() ||
       (typeof import.meta !== "undefined" ? import.meta.env.DEYUNAI_API_BASE : undefined) ||
       (typeof process !== "undefined" ? process.env?.DEYUNAI_API_BASE : undefined) ||
-      "https://api.deyunai.com/v1";
+      "https://api.deyunai.com/v1/responses";
 
-    const { text, usage } = await DeyunAIService.createStreamingModelResponse(
-      `${prompt}\n\n请直接输出回答内容，不要再包裹 JSON。`,
-      { apiKey, baseUrl },
-      { model: config.model || "gpt-5.1", temperature: 0.7, tools: config.tools },
-      options?.onStream
-    );
-    try {
-      console.log("[DeyunAI] Streaming raw", { text, usage });
-    } catch {}
-    return {
-      outputText: text,
-      usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
-    };
+    // 强制使用最简对话：无流式、无工具、无附加参数
+    const useStream = false;
+    const minimalPrompt = prompt;
+
+    if (useStream) {
+      const { text, usage } = await DeyunAIService.createStreamingModelResponse(
+        minimalPrompt,
+        { apiKey, baseUrl },
+        { model: config.model || "gpt-5.1", temperature: 0.7 },
+        options?.onStream
+      );
+      try {
+        console.log("[DeyunAI] Streaming raw", { text, usage });
+      } catch {}
+      return {
+        outputText: text,
+        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
+      };
+    } else {
+      const { text, usage, raw } = await DeyunAIService.createModelResponse(
+        minimalPrompt,
+        { apiKey, baseUrl },
+        { model: config.model || "gpt-5.1", temperature: 0.7, store: false, tools: [] }
+      );
+      try {
+        console.log("[DeyunAI] Response raw", raw);
+      } catch {}
+      return {
+        outputText: text,
+        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
+      };
+    }
   }
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);

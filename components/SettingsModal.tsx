@@ -434,7 +434,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
             nextConfig.apiKey = config.textConfig.apiKey || '';
             nextConfig.reasoningEffort = config.textConfig.reasoningEffort || 'medium';
             nextConfig.verbosity = config.textConfig.verbosity || 'medium';
-            nextConfig.stream = config.textConfig.stream ?? true;
+            nextConfig.stream = false; // 默认关闭流式，确保最小化参数
             nextConfig.store = config.textConfig.store ?? false;
         } else {
             // partner: fully managed endpoint
