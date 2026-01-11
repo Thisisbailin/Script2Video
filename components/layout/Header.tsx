@@ -1097,89 +1097,91 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
 
-                <div className="relative min-w-[36px] min-h-[36px] flex items-center justify-center">
-                  {!isLoaded ? (
-                    <div className="w-9 h-9 rounded-full bg-gray-700 animate-pulse ring-2 ring-white/10" />
-                  ) : (
-                    <>
-                      {!isSignedIn && (
-                        <button
-                          onClick={onSignIn}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-sm font-medium text-[var(--text-primary)] transition-colors"
-                        >
-                          <User size={16} /> <span className="hidden sm:inline">Sign In</span>
-                        </button>
-                      )}
-
-                      {isSignedIn && user && (
-                        <>
+                {false && (
+                  <div className="relative min-w-[36px] min-h-[36px] flex items-center justify-center">
+                    {!isLoaded ? (
+                      <div className="w-9 h-9 rounded-full bg-gray-700 animate-pulse ring-2 ring-white/10" />
+                    ) : (
+                      <>
+                        {!isSignedIn && (
                           <button
-                            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                            className="flex items-center justify-center rounded-full hover:ring-2 ring-indigo-500 transition-all relative z-30"
+                            onClick={onSignIn}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-sm font-medium text-[var(--text-primary)] transition-colors"
                           >
-                            <img
-                              src={avatarUrl || user.imageUrl}
-                              alt="Profile"
-                              className="w-9 h-9 rounded-full object-cover border border-[var(--border-subtle)] bg-[var(--bg-panel)]"
-                            />
+                            <User size={16} /> <span className="hidden sm:inline">Sign In</span>
                           </button>
+                        )}
 
-                          {isUserMenuOpen && (
-                            <div
-                              className="absolute right-0 top-full mt-2 w-72 rounded-2xl border backdrop-blur overflow-hidden z-30"
-                              style={{
-                                borderColor: "var(--border-subtle)",
-                                backgroundColor: "var(--bg-elevated)",
-                                boxShadow: "var(--shadow-strong)",
-                              }}
+                        {isSignedIn && user && (
+                          <>
+                            <button
+                              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                              className="flex items-center justify-center rounded-full hover:ring-2 ring-indigo-500 transition-all relative z-30"
                             >
+                              <img
+                                src={avatarUrl || user.imageUrl}
+                                alt="Profile"
+                                className="w-9 h-9 rounded-full object-cover border border-[var(--border-subtle)] bg-[var(--bg-panel)]"
+                              />
+                            </button>
+
+                            {isUserMenuOpen && (
                               <div
-                                className="p-4 border-b"
-                                style={{ borderColor: "var(--border-subtle)" }}
+                                className="absolute right-0 top-full mt-2 w-72 rounded-2xl border backdrop-blur overflow-hidden z-30"
+                                style={{
+                                  borderColor: "var(--border-subtle)",
+                                  backgroundColor: "var(--bg-elevated)",
+                                  boxShadow: "var(--shadow-strong)",
+                                }}
                               >
-                                <div className="flex items-center gap-3 mb-3">
-                                  <img
-                                    src={user.imageUrl}
-                                    alt="Profile"
-                                    className="w-10 h-10 rounded-full object-cover border border-[var(--border-subtle)] shadow-sm"
-                                  />
-                                  <div className="overflow-hidden text-[var(--text-primary)]">
-                                    <div className="font-bold truncate">
-                                      {user.fullName || user.username}
-                                    </div>
-                                    <div className="text-xs text-[var(--text-secondary)] truncate">
-                                      {user.primaryEmailAddress?.emailAddress}
+                                <div
+                                  className="p-4 border-b"
+                                  style={{ borderColor: "var(--border-subtle)" }}
+                                >
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <img
+                                      src={user.imageUrl}
+                                      alt="Profile"
+                                      className="w-10 h-10 rounded-full object-cover border border-[var(--border-subtle)] shadow-sm"
+                                    />
+                                    <div className="overflow-hidden text-[var(--text-primary)]">
+                                      <div className="font-bold truncate">
+                                        {user.fullName || user.username}
+                                      </div>
+                                      <div className="text-xs text-[var(--text-secondary)] truncate">
+                                        {user.primaryEmailAddress?.emailAddress}
+                                      </div>
                                     </div>
                                   </div>
+                                  <div className="flex items-center gap-2 text-xs bg-indigo-900/30 text-indigo-200 px-3 py-1.5 rounded-lg border border-indigo-800">
+                                    <Shield size={12} />
+                                    <span>User Verified</span>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs bg-indigo-900/30 text-indigo-200 px-3 py-1.5 rounded-lg border border-indigo-800">
-                                  <Shield size={12} />
-                                  <span>User Verified</span>
+
+                                <div className="p-2 space-y-1 text-[var(--text-primary)]">
+                                  {onUploadAvatar && (
+                                    <button
+                                      onClick={() => {
+                                        onUploadAvatar();
+                                        setIsUserMenuOpen(false);
+                                      }}
+                                      className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-black/5 transition-colors"
+                                    >
+                                      <Upload size={16} />
+                                      <span>Upload Avatar (Supabase)</span>
+                                    </button>
+                                  )}
+
                                 </div>
                               </div>
-
-                              <div className="p-2 space-y-1 text-[var(--text-primary)]">
-                                {onUploadAvatar && (
-                                  <button
-                                    onClick={() => {
-                                      onUploadAvatar();
-                                      setIsUserMenuOpen(false);
-                                    }}
-                                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-black/5 transition-colors"
-                                  >
-                                    <Upload size={16} />
-                                    <span>Upload Avatar (Supabase)</span>
-                                  </button>
-                                )}
-
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

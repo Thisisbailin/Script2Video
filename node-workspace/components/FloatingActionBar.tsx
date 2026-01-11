@@ -27,6 +27,16 @@ import {
 import { WorkflowTemplate } from "../types";
 import type { ModuleKey } from "./ModuleBar";
 
+type AccountInfo = {
+  isLoaded: boolean;
+  isSignedIn: boolean;
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
+  onSignIn?: () => void;
+  onSignOut?: () => void;
+};
+
 type Props = {
   onAddText: () => void;
   onAddImage: () => void;
@@ -55,6 +65,7 @@ type Props = {
   onOpenSettings?: () => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
+  accountInfo?: AccountInfo;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -85,6 +96,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   onOpenSettings,
   onResetProject,
   onSignOut,
+  accountInfo,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -107,6 +119,12 @@ export const FloatingActionBar: React.FC<Props> = ({
     { label: "Video", hint: "Generate clips", onClick: onAddVideoGen, Icon: Video },
     { label: "Output", hint: "Final results", onClick: onAddOutput, Icon: SquareStack },
   ];
+
+  const accountLoaded = accountInfo?.isLoaded ?? true;
+  const accountSignedIn = accountLoaded && !!accountInfo?.isSignedIn;
+  const accountName = accountInfo?.name || "Guest";
+  const accountEmail = accountInfo?.email || "登录以启用同步和项目管理";
+  const handleSignOut = accountInfo?.onSignOut || onSignOut;
 
   const closeMenus = () => {
     setShowPalette(false);
@@ -291,56 +309,110 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`absolute bottom-16 left-0 w-[420px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            className={`absolute bottom-16 left-0 w-[480px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
             style={panelStyle}
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-white/10 bg-white/3 p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="h-12 w-12 rounded-xl border border-dashed border-white/30 bg-white/5 flex items-center justify-center text-white/70">
-                    <User size={18} />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <div className="text-sm font-semibold text-white">未登录</div>
-                    <div className="text-[12px] text-white/60 leading-relaxed">登录以解锁同步、主题与项目管理。</div>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        className="px-3 py-1.5 rounded-lg text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
-                        onClick={() => {
-                          onOpenSettings?.();
-                          closeMenus();
-                        }}
-                      >
-                        登录 / 注册
-                      </button>
-                      <button
-                        type="button"
-                        className="px-3 py-1.5 rounded-lg text-[12px] border border-white/15 text-white/80 hover:border-white/35 hover:text-white transition"
-                        onClick={() => {
-                          onOpenStats?.();
-                          closeMenus();
-                        }}
-                      >
-                        先看看
-                      </button>
+              <div className="rounded-2xl border border-white/8 bg-[#0f1116]/95 p-4 space-y-3 shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
+                {!accountLoaded ? (
+                  <div className="flex items-center gap-3 animate-pulse">
+                    <div className="h-12 w-12 rounded-xl bg-white/10" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-32 rounded bg-white/10" />
+                      <div className="h-3 w-24 rounded bg-white/8" />
+                      <div className="flex gap-2">
+                        <div className="h-8 w-20 rounded bg-white/10" />
+                        <div className="h-8 w-20 rounded bg-white/6" />
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {["实时同步", "背景主题", "项目仪表盘"].map((chip) => (
-                        <span
-                          key={chip}
-                          className="px-2 py-1 rounded-full text-[11px] bg-white/6 border border-white/10 text-white/70"
+                  </div>
+                ) : accountSignedIn ? (
+                  <div className="flex items-start gap-3">
+                    {accountInfo?.avatarUrl ? (
+                      <img
+                        src={accountInfo.avatarUrl}
+                        alt="Avatar"
+                        className="h-12 w-12 rounded-xl object-cover border border-white/15"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-xl bg-white/8 flex items-center justify-center text-white/80 border border-white/15">
+                        <User size={18} />
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <div className="text-sm font-semibold text-white">{accountName}</div>
+                      {accountEmail && <div className="text-[12px] text-white/60 leading-relaxed">{accountEmail}</div>}
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
+                          onClick={() => {
+                            onOpenSettings?.();
+                            closeMenus();
+                          }}
                         >
-                          {chip}
-                        </span>
-                      ))}
+                          Account
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-full text-[12px] bg-white text-black hover:bg-white/90 transition"
+                          onClick={() => {
+                            handleSignOut?.();
+                            closeMenus();
+                          }}
+                        >
+                          Sign Out
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 rounded-xl border border-dashed border-white/30 bg-white/5 flex items-center justify-center text-white/70">
+                      <User size={18} />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="text-sm font-semibold text-white">未登录</div>
+                      <div className="text-[12px] text-white/60 leading-relaxed">登录以解锁同步、主题与项目管理。</div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition shadow-[0_10px_30px_rgba(56,189,248,0.25)]"
+                          onClick={() => {
+                            accountInfo?.onSignIn?.() ?? onOpenSettings?.();
+                            closeMenus();
+                          }}
+                        >
+                          Sign up / Log in
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-full text-[12px] border border-white/15 text-white/80 hover:border-white/35 hover:text-white transition"
+                          onClick={() => {
+                            onOpenStats?.();
+                            closeMenus();
+                          }}
+                        >
+                          先看看
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {["实时同步", "背景主题", "项目仪表盘"].map((chip) => (
+                          <span
+                            key={chip}
+                            className="px-2 py-1 rounded-full text-[11px] bg-white/6 border border-white/10 text-white/70"
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/2 divide-y divide-white/8 overflow-hidden">
+              <div className="rounded-2xl border border-white/8 bg-[#0f1116]/95 divide-y divide-white/8 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
                 {ioActions.map((item) => {
                   const disabled = !item.onClick;
                   return (
@@ -374,14 +446,14 @@ export const FloatingActionBar: React.FC<Props> = ({
               </div>
 
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
-              <div className="rounded-2xl border border-white/10 bg-white/3 p-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-white/8 bg-[#0f1116]/95 p-3 space-y-2 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => {
                       onImport();
                       closeMenus();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
                   >
                     <div className="h-2.5 w-2.5 rounded-full bg-blue-400" />
                     Import JSON
@@ -391,7 +463,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onExport();
                       closeMenus();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
                   >
                     <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                     Export JSON
@@ -402,7 +474,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExportCsv();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
                     >
                       <div className="h-2.5 w-2.5 rounded-full bg-sky-400" />
                       Export CSV
@@ -414,7 +486,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExportXls();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
                     >
                       <div className="h-2.5 w-2.5 rounded-full bg-purple-300" />
                       Export XLS
@@ -426,7 +498,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExportUnderstandingJson();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl border border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/8 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
                     >
                       <div className="h-2.5 w-2.5 rounded-full bg-amber-300" />
                       Export Understanding

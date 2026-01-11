@@ -196,6 +196,21 @@
   color: var(--node-text-primary);
 }
 
+.qalam-panel {
+  animation: qalam-enter 280ms ease forwards;
+}
+
+@keyframes qalam-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .assets-tabs {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.18) transparent;

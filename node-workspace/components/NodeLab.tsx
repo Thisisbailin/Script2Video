@@ -82,6 +82,15 @@ interface NodeLabProps {
   onOpenSettings?: () => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
+  accountInfo?: {
+    isLoaded: boolean;
+    isSignedIn: boolean;
+    name?: string;
+    email?: string;
+    avatarUrl?: string;
+    onSignIn?: () => void;
+    onSignOut?: () => void;
+  };
 }
 
 const NodeLabInner: React.FC<NodeLabProps> = ({
@@ -98,6 +107,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onOpenSettings,
   onResetProject,
   onSignOut,
+  accountInfo,
 }) => {
   const [bgTheme, setBgTheme] = useState<"dark" | "light" | "sand" | "creative" | "calm" | "lively">("dark");
   const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("dots");
@@ -727,6 +737,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onOpenSettings={onOpenSettings}
             onResetProject={onResetProject}
             onSignOut={onSignOut}
+            accountInfo={accountInfo}
           />
         </div>
         <div className="flex items-center gap-3 pointer-events-auto">

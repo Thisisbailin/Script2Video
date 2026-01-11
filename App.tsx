@@ -1589,13 +1589,21 @@ const App: React.FC = () => {
               onExportCsv={handleExportCsv}
               onExportXls={handleExportXls}
               onExportUnderstandingJson={handleExportUnderstandingJson}
-              onOpenStats={handleOpenStats}
               onToggleTheme={toggleTheme}
               isDarkMode={isDarkMode}
               onOpenSettings={openSettings}
               onResetProject={handleResetProject}
               onSignOut={() => signOut()}
               onOpenStats={handleOpenStats}
+              accountInfo={{
+                isLoaded: isUserLoaded,
+                isSignedIn: !!userSignedIn,
+                name: user?.name || user?.fullName || user?.email || "Qalam User",
+                email: user?.email,
+                avatarUrl: avatarUrl || user?.imageUrl,
+                onSignIn: () => openSignIn(),
+                onSignOut: () => signOut(),
+              }}
             />
           </div>
         );

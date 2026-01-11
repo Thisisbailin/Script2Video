@@ -173,7 +173,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
 
   // Safe spacing: use symmetric top/bottom gaps equal to the bottom offset (16px).
   return (
-    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden">
+    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden qalam-panel">
       <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
@@ -237,7 +237,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
             );
           })}
         </div>
-        <div className="rounded-2xl bg-white/10 border border-white/15 px-3 py-3 space-y-2">
+        <div className="rounded-2xl bg-white/10 border border-white/15 px-3 py-3 space-y-3">
           <textarea
             className="w-full bg-transparent text-[13px] text-white placeholder:text-white/70 resize-none focus:outline-none"
             rows={3}
@@ -252,48 +252,60 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
               }
             }}
           />
-          <div className="flex items-center gap-2 flex-wrap text-[12px] text-white/80">
+          <div className="flex items-center gap-2 text-[12px] text-white/80">
             <button
               onClick={handleUploadClick}
-              className="h-8 w-8 flex items-center justify-center text-white/80 hover:text-white"
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 transition"
               title="上传图片作为上下文"
             >
               <Plus size={14} />
             </button>
-            <div className="flex items-center gap-1 text-white/70 text-[12px]">
-              <span>Model</span>
-              <div className="relative">
-                <select
-                  value={config.textConfig?.model}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      textConfig: { ...prev.textConfig, model: e.target.value }
-                    }))
-                  }
-                  className="bg-transparent text-white/80 text-[12px] border-none focus:outline-none appearance-none pr-5 cursor-pointer"
-                >
-                  {modelOptions.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[#0b0d10] text-white">
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-                <CaretDown size={12} className="text-white/50 pointer-events-none absolute right-0 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-            <label className="flex items-center gap-1 text-white/70 text-[12px]">
-              <span>Mode</span>
+            <div className="relative h-8 px-3 rounded-full bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 transition flex items-center gap-2 min-w-[140px]">
+              <span className="truncate text-white/85">{currentModelLabel}</span>
+              <CaretDown size={12} className="text-white/50 pointer-events-none" />
               <select
+                aria-label="选择模型"
+                value={config.textConfig?.model}
+                onChange={(e) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    textConfig: { ...prev.textConfig, model: e.target.value }
+                  }))
+                }
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                {modelOptions.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-[#0b0d10] text-white">
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="relative h-8 px-3 rounded-full bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 transition flex items-center gap-2 min-w-[110px]">
+              <span className="truncate capitalize text-white/85">{mode}</span>
+              <CaretDown size={12} className="text-white/50 pointer-events-none" />
+              <select
+                aria-label="选择模式"
                 value={mode}
                 onChange={(e) => setMode(e.target.value as any)}
-                className="bg-transparent text-white/80 text-[12px] border-none focus:outline-none appearance-none pr-4"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               >
                 <option value="creative">creative</option>
                 <option value="precise">precise</option>
                 <option value="fun">humor</option>
               </select>
-            </label>
+            </div>
+            <div className="flex-1" />
+            <button
+              onClick={sendMessage}
+              disabled={!canSend}
+              className="h-8 w-8 rounded-full bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50 disabled:bg-emerald-500/40 hover:bg-emerald-400 transition"
+              title="发送"
+            >
+              {isSending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} />}
+            </button>
+          </div>
+          {attachments.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               {attachments.map((item, idx) => (
                 <span
@@ -308,16 +320,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
                 </span>
               ))}
             </div>
-            <div className="flex-1" />
-            <button
-              onClick={sendMessage}
-              disabled={!canSend}
-              className="h-9 w-9 rounded-full bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50 disabled:bg-emerald-500/40"
-              title="发送"
-            >
-              {isSending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} />}
-            </button>
-          </div>
+          )}
         </div>
       </div>
       <input
