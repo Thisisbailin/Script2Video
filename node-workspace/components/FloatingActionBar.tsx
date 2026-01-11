@@ -35,6 +35,7 @@ type AccountInfo = {
   avatarUrl?: string;
   onSignIn?: () => void;
   onSignOut?: () => void;
+  onUploadAvatar?: () => void;
 };
 
 type Props = {
@@ -125,6 +126,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   const accountName = accountInfo?.name || "Guest";
   const accountEmail = accountInfo?.email || "登录以启用同步和项目管理";
   const handleSignOut = accountInfo?.onSignOut || onSignOut;
+  const handleUploadAvatar = accountInfo?.onUploadAvatar;
 
   const closeMenus = () => {
     setShowPalette(false);
@@ -314,7 +316,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-white/8 bg-[#0f1116]/95 p-4 space-y-3 shadow-[0_20px_40px_rgba(0,0,0,0.35)]">
+              <div className="rounded-2xl border border-white/8 bg-[#0c0f12]/90 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-12 w-12 rounded-xl bg-white/10" />
@@ -333,16 +335,16 @@ export const FloatingActionBar: React.FC<Props> = ({
                       <img
                         src={accountInfo.avatarUrl}
                         alt="Avatar"
-                        className="h-12 w-12 rounded-xl object-cover border border-white/15"
+                        className="h-12 w-12 rounded-xl object-cover border border-white/12 shadow-sm"
                       />
                     ) : (
-                      <div className="h-12 w-12 rounded-xl bg-white/8 flex items-center justify-center text-white/80 border border-white/15">
+                      <div className="h-12 w-12 rounded-xl bg-white/8 flex items-center justify-center text-white/80 border border-white/12">
                         <User size={18} />
                       </div>
                     )}
                     <div className="flex-1 space-y-1">
                       <div className="text-sm font-semibold text-white">{accountName}</div>
-                      {accountEmail && <div className="text-[12px] text-white/60 leading-relaxed">{accountEmail}</div>}
+                      {accountEmail && <div className="text-[12px] text-white/60 leading-relaxed truncate">{accountEmail}</div>}
                       <div className="flex gap-2 pt-2">
                         <button
                           type="button"
@@ -354,6 +356,18 @@ export const FloatingActionBar: React.FC<Props> = ({
                         >
                           Account
                         </button>
+                        {handleUploadAvatar && (
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
+                            onClick={() => {
+                              handleUploadAvatar();
+                              closeMenus();
+                            }}
+                          >
+                            Upload Avatar
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="px-3 py-1.5 rounded-full text-[12px] bg-white text-black hover:bg-white/90 transition"
@@ -412,7 +426,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                 )}
               </div>
 
-              <div className="rounded-2xl border border-white/8 bg-[#0f1116]/95 divide-y divide-white/8 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
+              <div className="rounded-2xl border border-white/8 bg-[#0c0f12]/90 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.3)] divide-y divide-white/6">
                 {ioActions.map((item) => {
                   const disabled = !item.onClick;
                   return (
@@ -426,7 +440,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                       className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
                         disabled
                           ? "bg-transparent text-white/45 cursor-not-allowed"
-                          : "hover:bg-white/6 text-white/85"
+                          : "hover:bg-white/4 text-white/85"
                       }`}
                     >
                       <span
@@ -446,14 +460,14 @@ export const FloatingActionBar: React.FC<Props> = ({
               </div>
 
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
-              <div className="rounded-2xl border border-white/8 bg-[#0f1116]/95 p-3 space-y-2 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
+              <div className="rounded-2xl border border-white/8 bg-[#0c0f12]/90 p-3 space-y-2 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => {
                       onImport();
                       closeMenus();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                   >
                     <div className="h-2.5 w-2.5 rounded-full bg-blue-400" />
                     Import JSON
@@ -463,7 +477,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onExport();
                       closeMenus();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                   >
                     <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                     Export JSON
@@ -474,7 +488,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExportCsv();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                     >
                       <div className="h-2.5 w-2.5 rounded-full bg-sky-400" />
                       Export CSV
@@ -486,7 +500,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExportXls();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                     >
                       <div className="h-2.5 w-2.5 rounded-full bg-purple-300" />
                       Export XLS
@@ -498,7 +512,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExportUnderstandingJson();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/25 hover:bg-white/10 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                     >
                       <div className="h-2.5 w-2.5 rounded-full bg-amber-300" />
                       Export Understanding

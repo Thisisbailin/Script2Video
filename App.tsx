@@ -1603,6 +1603,7 @@ const App: React.FC = () => {
                 avatarUrl: avatarUrl || user?.imageUrl,
                 onSignIn: () => openSignIn(),
                 onSignOut: () => signOut(),
+                onUploadAvatar: handleAvatarUploadClick,
               }}
             />
           </div>
