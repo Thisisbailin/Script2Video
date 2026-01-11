@@ -305,7 +305,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-transparent bg-white/8 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
+              <div className="rounded-2xl border border-transparent bg-white/10 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-12 w-12 rounded-xl bg-white/10" />
@@ -463,7 +463,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               )}
 
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
-              <div className="rounded-2xl border border-white/8 bg-[#0f1114]/92 p-3 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
+              <div className="rounded-2xl border border-transparent bg-[#0f1114]/92 p-3 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
                 <div className="space-y-2">
                   <div className="text-[11px] uppercase tracking-widest text-white/50 px-1">Import</div>
                   <div className="grid grid-cols-3 gap-2">
@@ -474,8 +474,8 @@ export const FloatingActionBar: React.FC<Props> = ({
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                     >
-                      <div className="h-2.5 w-2.5 rounded-full bg-blue-400" />
-                      Import JSON
+                      <SquareStack size={14} className="text-sky-300" />
+                      Node
                     </button>
                   </div>
                 </div>
@@ -489,8 +489,8 @@ export const FloatingActionBar: React.FC<Props> = ({
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                     >
-                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                      Export JSON
+                      <Share size={14} className="text-emerald-300" />
+                      Node
                     </button>
                     {onExportCsv && (
                       <button
@@ -500,20 +500,8 @@ export const FloatingActionBar: React.FC<Props> = ({
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                       >
-                        <div className="h-2.5 w-2.5 rounded-full bg-sky-400" />
-                        Export CSV
-                      </button>
-                    )}
-                    {onExportXls && (
-                      <button
-                        onClick={() => {
-                          onExportXls();
-                          closeMenus();
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
-                      >
-                        <div className="h-2.5 w-2.5 rounded-full bg-purple-300" />
-                        Export XLS
+                        <List size={14} className="text-sky-300" />
+                        Shots
                       </button>
                     )}
                     {onExportUnderstandingJson && (
@@ -524,8 +512,8 @@ export const FloatingActionBar: React.FC<Props> = ({
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
                       >
-                        <div className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-                        Export Understanding
+                        <FileText size={14} className="text-amber-300" />
+                        Understanding
                       </button>
                     )}
                   </div>
