@@ -72,7 +72,7 @@ const getEndpoint = (config: DeyunAIConfig) => {
 const getModelsEndpoint = (config: DeyunAIConfig) => {
   let base = (config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
   base = base.replace(/\/responses$/, ""); // 防止直接传入 responses 路径
-  base = base.replace(/\/v1\/?$/, ""); // 如 base 已包含 v1，避免重复拼接
+  if (!/\/v1$/i.test(base)) base = `${base}/v1`;
   return `${base}/models`;
 };
 
@@ -89,6 +89,12 @@ const flattenContent = (content: any): string => {
         if (part?.output_text?.annotations) {
           const ann = part.output_text.annotations;
           if (Array.isArray(ann)) return ann.map((a: any) => a.text || "").join("");
+        }
+        if (part?.type === "message" && Array.isArray(part?.content)) {
+          return flattenContent(part.content);
+        }
+        if (part?.type === "reasoning") {
+          return flattenContent(part?.summary) || "";
         }
         if (part?.type === "output_text" && part?.text) return part.text;
         return "";
@@ -419,66 +425,54 @@ export const fetchModels = async (
   config: DeyunAIConfig
 ): Promise<DeyunAIModelMeta[]> => {
   assertApiKey(config);
-  const endpoints = [getModelsEndpoint(config), `${(config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "")}/v1/models`, `${(config.baseUrl || DEFAULT_BASE).replace(/\/+$/, "")}/models`]
-    .filter((v, idx, arr) => arr.indexOf(v) === idx);
-  let lastErr: any = null;
-  for (const endpoint of endpoints) {
-    try {
-      console.log("[DeyunAI] Fetch models", endpoint);
-      const res = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "script2video://local",
-          "X-Title": "Script2Video",
-        },
-      });
-      if (!res.ok) {
-        const msg = await res.text();
-        lastErr = new Error(`DeyunAI models error ${res.status}: ${msg}`);
-        console.warn("[DeyunAI] Models fetch non-200", endpoint, msg);
-        continue;
-      }
-      const data = await res.json();
-      try {
-        console.log("[DeyunAI] Models raw", data);
-      } catch {}
-      const models =
-        (Array.isArray(data) && data) ||
-        data.data ||
-        data.models ||
-        data.result ||
-        data.items ||
-        [];
-      const mapped = models
-        .map((m: any) => ({
-          id: m.id || m.model || "",
-          root: m.root,
-          description: m.description,
-          modalities: m.modalities || m.capabilities?.modalities || m.supports || [],
-          capabilities: m.capabilities || m.metadata || {},
-        }))
-        .filter((m: any) => m.id);
-      if (mapped.length === 0 && models.length === 0) {
-        lastErr = new Error("Models endpoint returned empty list");
-        continue;
-      }
-      return mapped;
-    } catch (e: any) {
-      lastErr = e;
-      console.warn("[DeyunAI] Models fetch failed at", endpoint, e);
-      continue;
+  const endpoint = getModelsEndpoint(config);
+  try {
+    console.log("[DeyunAI] Fetch models", endpoint);
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "script2video://local",
+        "X-Title": "Script2Video",
+      },
+    });
+    if (!res.ok) {
+      const msg = await res.text();
+      console.warn("[DeyunAI] Models fetch non-200", endpoint, msg);
+      throw new Error(`DeyunAI models error ${res.status}: ${msg}`);
     }
+    const data = await res.json();
+    try {
+      console.log("[DeyunAI] Models raw", data);
+    } catch {}
+    const models =
+      (Array.isArray(data) && data) ||
+      data.data ||
+      data.models ||
+      data.result ||
+      data.items ||
+      [];
+    const mapped = models
+      .map((m: any) => ({
+        id: m.id || m.model || "",
+        root: m.root,
+        description: m.description,
+        modalities: m.modalities || m.capabilities?.modalities || m.supports || [],
+        capabilities: m.capabilities || m.metadata || {},
+      }))
+      .filter((m: any) => m.id);
+    return mapped;
+  } catch (e: any) {
+    console.warn("[DeyunAI] Models fetch failed, fallback to preset list", e);
+    return [
+      { id: "gpt-5-codex-low", description: "Preset fallback" },
+      { id: "gpt-5-codex-medium", description: "Preset fallback" },
+      { id: "gpt-5-mini", description: "Preset fallback" },
+      { id: "gpt-5-nano", description: "Preset fallback" },
+      { id: "gpt-5-pro", description: "Preset fallback" },
+      { id: "gemini-2.5", description: "Preset fallback" },
+    ];
   }
-  console.warn("[DeyunAI] Models endpoint unavailable, fallback to preset list");
-  return [
-    { id: "gpt-5-codex-low", description: "Preset fallback" },
-    { id: "gpt-5-codex-medium", description: "Preset fallback" },
-    { id: "gpt-5-mini", description: "Preset fallback" },
-    { id: "gpt-5-nano", description: "Preset fallback" },
-    { id: "gpt-5-pro", description: "Preset fallback" },
-    { id: "gemini-2.5", description: "Preset fallback" },
-  ];
 };
 
 // 7) 创建模型响应（控制思考长度）
