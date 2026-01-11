@@ -116,6 +116,10 @@ export const FloatingActionBar: React.FC<Props> = ({
     backgroundColor: "rgba(11,13,16,0.95)",
     borderColor: "rgba(255,255,255,0.12)",
   };
+  const pillButtonClass =
+    "inline-flex items-center justify-center h-9 px-3 rounded-full border border-white/12 bg-white/5 text-[12px] font-semibold text-white/85 hover:border-white/30 hover:bg-white/12 transition";
+  const primaryPillButtonClass =
+    "inline-flex items-center justify-center h-9 px-3 rounded-full bg-emerald-500 text-white text-[12px] font-semibold hover:bg-emerald-400 transition shadow-[0_10px_30px_rgba(16,185,129,0.2)]";
 
   const nodeActions = [
     { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
@@ -300,12 +304,12 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`absolute bottom-16 left-0 w-[480px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden rounded-3xl`}
-            style={{ ...panelStyle, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(12,15,18,0.96)" }}
+            className={`absolute bottom-16 left-0 w-[520px] max-w-[92vw] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            style={panelStyle}
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-transparent bg-white/10 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
+              <div className="rounded-2xl border border-white/10 bg-white/6 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.45)]">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-12 w-12 rounded-xl bg-white/10" />
@@ -334,11 +338,11 @@ export const FloatingActionBar: React.FC<Props> = ({
                     <div className="flex-1 space-y-1">
                       <div className="text-sm font-semibold text-white">{accountName}</div>
                       {accountEmail && <div className="text-[12px] text-white/60 leading-relaxed truncate">{accountEmail}</div>}
-                      <div className="flex gap-2 pt-2 flex-wrap">
+                      <div className="flex items-center gap-2 pt-3 flex-wrap md:flex-nowrap">
                         {onOpenStats && (
                           <button
                             type="button"
-                            className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
+                            className={pillButtonClass}
                             onClick={() => {
                               onOpenStats();
                               closeMenus();
@@ -349,7 +353,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         )}
                         <button
                           type="button"
-                          className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
+                          className={pillButtonClass}
                           onClick={() => {
                             onOpenSettings?.();
                             closeMenus();
@@ -360,18 +364,18 @@ export const FloatingActionBar: React.FC<Props> = ({
                         {handleUploadAvatar && (
                           <button
                             type="button"
-                            className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 text-white/85 hover:border-white/30 hover:bg-white/6 transition"
+                            className={pillButtonClass}
                             onClick={() => {
                               handleUploadAvatar();
                               closeMenus();
                             }}
                           >
-                            Upload Avatar
+                            Avatar
                           </button>
                         )}
                         <button
                           type="button"
-                          className="px-3 py-1.5 rounded-full text-[12px] bg-white text-black hover:bg-white/90 transition"
+                          className={primaryPillButtonClass}
                           onClick={() => {
                             handleSignOut?.();
                             closeMenus();
@@ -428,7 +432,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </div>
 
               {ioActions.length > 0 && (
-                <div className="rounded-2xl border border-transparent bg-[#0f1114]/92 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.3)] divide-y divide-white/8">
+                <div className="rounded-2xl border border-white/10 bg-white/4 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.35)] divide-y divide-white/8">
                   {ioActions.map((item) => {
                     const disabled = !item.onClick;
                     return (
@@ -463,7 +467,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               )}
 
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
-              <div className="rounded-2xl border border-transparent bg-[#0f1114]/92 p-3 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
+              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
                 <div className="space-y-2">
                   <div className="text-[11px] uppercase tracking-widest text-white/50 px-1">Import</div>
                   <div className="grid grid-cols-3 gap-2">
@@ -472,7 +476,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onImport();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
                     >
                       <SquareStack size={14} className="text-sky-300" />
                       Node
@@ -487,7 +491,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         onExport();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
                     >
                       <Share size={14} className="text-emerald-300" />
                       Node
@@ -498,7 +502,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                           onExportCsv();
                           closeMenus();
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
                       >
                         <List size={14} className="text-sky-300" />
                         Shots
@@ -510,7 +514,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                           onExportUnderstandingJson();
                           closeMenus();
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/4 hover:border-white/25 hover:bg-white/8 transition text-white"
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
                       >
                         <FileText size={14} className="text-amber-300" />
                         Understanding

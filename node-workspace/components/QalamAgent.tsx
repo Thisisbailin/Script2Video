@@ -200,19 +200,23 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-        {messages.map((m, idx) => (
-          <div
-            key={idx}
-            className={`rounded-xl px-3 py-2 text-[12px] leading-relaxed border ${
-              m.role === "user"
-                ? "bg-white/5 border-white/15 text-white"
-                : "bg-[var(--bg-panel)] border-white/10 text-white"
-            }`}
-          >
-            {m.text}
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {messages.map((m, idx) => {
+          const isUser = m.role === "user";
+          return (
+            <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border shadow-sm ${
+                  isUser
+                    ? "bg-white text-black border-white/80"
+                    : "bg-white/6 border-white/15 text-white"
+                }`}
+              >
+                {m.text}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="px-4 py-4 space-y-3">
