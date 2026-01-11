@@ -480,6 +480,21 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     云端同步密钥（与账户绑定）。勾选后密钥将存入服务器，请确认账号安全。
                                 </label>
                             </div>
+                            <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
+                                <div className="h-8 w-8 rounded-full bg-rose-500/15 border border-rose-400/40 flex items-center justify-center text-rose-200 shrink-0">
+                                    <Trash2 size={16} />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-sm font-semibold text-[var(--text-primary)]">清除项目数据</div>
+                                    <div className="text-xs text-[var(--text-secondary)] mb-2">重置本地/云端数据，请谨慎操作。</div>
+                                    <button
+                                        onClick={onResetProject}
+                                        className="px-3 py-2 rounded-lg text-[12px] bg-rose-500/15 border border-rose-400/30 text-rose-100 hover:bg-rose-500/25 hover:border-rose-300 transition"
+                                    >
+                                        立即清除
+                                    </button>
+                                </div>
+                            </div>
                         </>
                     )}
                     {activeTab === 'text' && (
@@ -781,65 +796,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                 )}
                             </div>
 
-                            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/80 p-3">
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                    <div className="flex items-center gap-2 text-[var(--text-primary)] text-sm font-semibold">
-                                        <Sparkles size={16} className="text-amber-300" />
-                                        Vidu 参考生视频快速演示
-                                    </div>
-                                    <button
-                                        onClick={() => setShowViduOverlay(!showViduOverlay)}
-                                        className="text-xs px-3 py-1 rounded-lg border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-[var(--text-secondary)]"
-                                    >
-                                        {showViduOverlay ? "收起" : "展开"}
-                                    </button>
-                                </div>
-                                {(showViduOverlay || isViduEndpoint()) && (
-                                    <div className="space-y-3 text-xs text-[var(--text-secondary)]">
-                                        <div className="p-3 rounded-lg bg-[var(--bg-muted)]/60 border border-[var(--border-subtle)]">
-                                            <div className="flex items-start gap-2">
-                                                <Info size={14} className="mt-0.5 text-[var(--accent-blue)]" />
-                                                <div className="space-y-1">
-                                                    <div className="text-[var(--text-primary)] font-medium">官方参考：音视频直出/纯视频共用 `reference2video`</div>
-                                                    <div>默认启用音视频直出，模型 `viduq2-pro`，时长上限预填 10s，可编辑；分辨率 1080p，动效 `auto`，错峰模式已开启。</div>
-                                                    <div>主体参考：示例 3 个主体，每个 3 张参考图，prompt 中用 <code>@1</code>/<code>@2</code>/<code>@3</code> 绑定。</div>
-                                                    <div>切换到 Vidu 服务商时，可直接复制演示 payload 调用后端 `viduService.createReferenceVideo`。</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="grid md:grid-cols-2 gap-3">
-                                            <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="text-[var(--text-primary)] font-semibold">音视频直出示例</div>
-                                                    <button
-                                                        onClick={() => copyViduPayload(viduDemoAudioPayload)}
-                                                        className="flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300"
-                                                    >
-                                                        <Copy size={14} /> 复制
-                                                    </button>
-                                                </div>
-                                                <pre className="text-[10px] whitespace-pre-wrap break-all bg-[var(--bg-panel)]/60 p-2 rounded border border-[var(--border-subtle)]">
-{JSON.stringify(viduDemoAudioPayload, null, 2)}
-                                                </pre>
-                                            </div>
-                                            <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="text-[var(--text-primary)] font-semibold">纯视频直出示例</div>
-                                                    <button
-                                                        onClick={() => copyViduPayload(viduDemoVisualPayload)}
-                                                        className="flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300"
-                                                    >
-                                                        <Copy size={14} /> 复制
-                                                    </button>
-                                                </div>
-                                                <pre className="text-[10px] whitespace-pre-wrap break-all bg-[var(--bg-panel)]/60 p-2 rounded border border-[var(--border-subtle)]">
-{JSON.stringify(viduDemoVisualPayload, null, 2)}
-                                                </pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">

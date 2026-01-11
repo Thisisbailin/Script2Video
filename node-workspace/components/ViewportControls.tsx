@@ -40,7 +40,7 @@ export const ViewportControls: React.FC<Props> = ({
           <button
             type="button"
             onClick={onOpenTheme}
-            className="h-7 w-7 flex items-center justify-center rounded-full border border-white/10 hover:border-white/30 hover:bg-white/10 transition"
+            className="h-7 w-7 flex items-center justify-center"
             title={syncIndicator.label}
           >
             <span
