@@ -76,6 +76,33 @@ const getModelsEndpoint = (config: DeyunAIConfig) => {
   return `${base}/models`;
 };
 
+const flattenContent = (content: any): string => {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (typeof part?.text === "string") return part.text;
+        if (typeof part?.content === "string") return part.content;
+        if (typeof part?.output_text === "string") return part.output_text;
+        if (part?.output_text?.annotations) {
+          const ann = part.output_text.annotations;
+          if (Array.isArray(ann)) return ann.map((a: any) => a.text || "").join("");
+        }
+        if (part?.type === "output_text" && part?.text) return part.text;
+        return "";
+      })
+      .filter(Boolean)
+      .join("");
+  }
+  if (typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    if (Array.isArray(content.text)) return flattenContent(content.text);
+  }
+  return "";
+};
+
 const assertApiKey = (config: DeyunAIConfig) => {
   const envKey =
     (typeof import.meta !== "undefined"
@@ -224,7 +251,8 @@ const postResponse = async <T = any>(
   } catch {}
   const choice = data.choices?.[0];
   const messageText =
-    choice?.message?.content ||
+    flattenContent(choice?.message?.content) ||
+    flattenContent(data.output) ||
     (Array.isArray(data.output) ? JSON.stringify(data.output) : data.output) ||
     "";
 
