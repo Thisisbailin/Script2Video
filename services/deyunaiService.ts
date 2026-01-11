@@ -189,6 +189,10 @@ const postResponse = async <T = any>(
   const endpoint = getEndpoint(config);
   const isStream = Boolean(body.stream);
 
+  try {
+    console.log("[DeyunAI] Request", { endpoint, model: body.model, stream: !!body.stream, hasTools: Array.isArray(body.tools), baseUrl: config.baseUrl });
+  } catch {}
+
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -211,6 +215,9 @@ const postResponse = async <T = any>(
   }
 
   const data = await response.json();
+  try {
+    console.log("[DeyunAI] Response", { endpoint, model: body.model, status: response.status, keys: Object.keys(data || {}) });
+  } catch {}
   const choice = data.choices?.[0];
   const messageText =
     choice?.message?.content ||
@@ -382,6 +389,7 @@ export const fetchModels = async (
   assertApiKey(config);
   const endpoint = getModelsEndpoint(config);
   try {
+    console.log("[DeyunAI] Fetch models", endpoint);
     const res = await fetch(endpoint, {
       method: "GET",
       headers: {
@@ -395,6 +403,9 @@ export const fetchModels = async (
       throw new Error(`DeyunAI models error ${res.status}: ${msg}`);
     }
     const data = await res.json();
+    try {
+      console.log("[DeyunAI] Models raw", data);
+    } catch {}
     const models =
       (Array.isArray(data) && data) ||
       data.data ||

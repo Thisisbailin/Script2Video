@@ -392,6 +392,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                 label: `${m.id}${m.modalities?.length ? ` · ${m.modalities.join('/')}` : ''}${m.capabilities?.tools ? ' · tools' : ''}`,
                 meta: m,
             }));
+            console.log("[Settings] DeyunAI models mapped", mapped);
             setAvailableDeyunModels(mapped);
             onConfigChange({
                 ...config,
