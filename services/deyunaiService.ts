@@ -457,22 +457,28 @@ export const fetchModels = async (
       .map((m: any) => ({
         id: m.id || m.model || "",
         root: m.root,
+        name: m.name,
         description: m.description,
-        modalities: m.modalities || m.capabilities?.modalities || m.supports || [],
+        modalities:
+          m.modalities ||
+          m.capabilities?.modalities ||
+          m.supports ||
+          m.architecture?.input_modalities ||
+          m.architecture?.output_modalities,
         capabilities: m.capabilities || m.metadata || {},
+        pricing: m.pricing,
+        contextLength: m.context_length || m.top_provider?.context_length,
+        maxTokens: m.top_provider?.max_completion_tokens,
+        canonicalSlug: m.canonical_slug,
+        huggingFaceId: m.hugging_face_id,
+        supportedParameters: m.supported_parameters,
+        defaultParameters: m.default_parameters,
       }))
       .filter((m: any) => m.id);
     return mapped;
   } catch (e: any) {
-    console.warn("[DeyunAI] Models fetch failed, fallback to preset list", e);
-    return [
-      { id: "gpt-5-codex-low", description: "Preset fallback" },
-      { id: "gpt-5-codex-medium", description: "Preset fallback" },
-      { id: "gpt-5-mini", description: "Preset fallback" },
-      { id: "gpt-5-nano", description: "Preset fallback" },
-      { id: "gpt-5-pro", description: "Preset fallback" },
-      { id: "gemini-2.5", description: "Preset fallback" },
-    ];
+    console.warn("[DeyunAI] Models fetch failed", e);
+    throw e;
   }
 };
 
