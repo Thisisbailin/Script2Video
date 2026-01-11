@@ -3,7 +3,7 @@ import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
-import { AVAILABLE_MODELS } from "../../constants";
+import { AVAILABLE_MODELS, DEYUNAI_MODELS } from "../../constants";
 
 type Props = {
   projectData: ProjectData;
@@ -135,13 +135,22 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
   }, [projectData]);
 
   const formatNumber = (n: number) => n.toLocaleString();
-  const modelOptions = useMemo(
-    () => AVAILABLE_MODELS.slice().sort((a, b) => a.name.localeCompare(b.name)),
-    []
-  );
+  const providerModelOptions = useMemo(() => {
+    if (config.textConfig?.provider === "deyunai") {
+      return DEYUNAI_MODELS.map((id) => ({ id, name: id }));
+    }
+    if (config.textConfig?.provider === "gemini") {
+      return AVAILABLE_MODELS.slice().sort((a, b) => a.name.localeCompare(b.name));
+    }
+    // OpenRouter/Partner: no preset list, keep current value as sole option
+    const currentId = config.textConfig?.model || "custom";
+    return [{ id: currentId, name: currentId }];
+  }, [config.textConfig?.provider, config.textConfig?.model]);
 
   const currentModelLabel =
-    modelOptions.find((m) => m.id === config.textConfig?.model)?.name || config.textConfig?.model || "model";
+    providerModelOptions.find((m) => m.id === config.textConfig?.model)?.name ||
+    config.textConfig?.model ||
+    "model";
 
   useEffect(() => {
     if (isSending) return;
@@ -304,7 +313,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
                 }
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               >
-                {modelOptions.map((m) => (
+                {[...providerModelOptions, { id: config.textConfig?.model || "custom", name: config.textConfig?.model || "custom" }].reduce((acc: any[], item) => {
+                  if (!acc.find((x) => x.id === item.id)) acc.push(item);
+                  return acc;
+                }, []).map((m) => (
                   <option key={m.id} value={m.id} className="bg-[#0b0d10] text-white">
                     {m.name}
                   </option>
