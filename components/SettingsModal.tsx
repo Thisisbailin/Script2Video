@@ -20,11 +20,12 @@ interface Props {
     syncState?: SyncState;
     syncRollout?: { enabled: boolean; percent: number; bucket?: number | null; allowlisted?: boolean };
     activeTabOverride?: 'text' | 'multimodal' | 'video' | 'sync' | 'about';
+    onResetProject?: () => void;
 }
 
 import { useWorkflowStore } from '../node-workspace/store/workflowStore';
 
-export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConfigChange, isSignedIn, getAuthToken, onForceSync, syncState, syncRollout, activeTabOverride }) => {
+export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConfigChange, isSignedIn, getAuthToken, onForceSync, syncState, syncRollout, activeTabOverride, onResetProject }) => {
     const [activeTab, setActiveTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about'>('text');
     const deviceIdRef = useRef<string>(getDeviceId());
     const { setAvailableImageModels: setAvailableImageModelsStore, setAvailableVideoModels: setAvailableVideoModelsStore, applyViduReferenceDemo } = useWorkflowStore();

@@ -1615,12 +1615,13 @@ const App: React.FC = () => {
           config={config}
           onConfigChange={setConfig}
           isSignedIn={!!authSignedIn}
-          getAuthToken={getAuthToken}
-          onForceSync={forceCloudPull}
-          syncState={syncState}
-          syncRollout={syncRollout}
-          activeTabOverride={settingsTab || undefined}
-        />
+        getAuthToken={getAuthToken}
+        onForceSync={forceCloudPull}
+        syncState={syncState}
+        syncRollout={syncRollout}
+        activeTabOverride={settingsTab || undefined}
+        onResetProject={handleResetProject}
+      />
         {activeConflict && (
           <ConflictModal
             isOpen={!!activeConflict}
