@@ -24,6 +24,8 @@ import {
   Settings,
   Trash2,
   LogOut,
+  Upload,
+  Share,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
 import type { ModuleKey } from "./ModuleBar";
@@ -140,8 +142,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     setShowWip(false);
   };
 
-  const ioActions = [
-  ];
+  const ioActions: { label: string; desc: string; Icon: any; onClick?: () => void; color: string }[] = [];
 
   return (
     <div className={rootClass}>
@@ -304,7 +305,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-transparent bg-[#0f1114]/92 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
+              <div className="rounded-2xl border border-transparent bg-white/8 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.38)]">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-12 w-12 rounded-xl bg-white/10" />
@@ -354,7 +355,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                             closeMenus();
                           }}
                         >
-                          Account
+                          Setting
                         </button>
                         {handleUploadAvatar && (
                           <button
