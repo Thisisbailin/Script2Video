@@ -73,8 +73,18 @@ const getModelsEndpoint = (config: DeyunAIConfig) => {
 };
 
 const assertApiKey = (config: DeyunAIConfig) => {
-  if (!config.apiKey) {
+  const envKey =
+    (typeof import.meta !== "undefined"
+      ? (import.meta.env.DEYUNAI_API_KEY || import.meta.env.VITE_DEYUNAI_API_KEY)
+      : undefined) ||
+    (typeof process !== "undefined"
+      ? (process.env?.DEYUNAI_API_KEY || process.env?.VITE_DEYUNAI_API_KEY)
+      : undefined);
+  if (!config.apiKey && !envKey) {
     throw new Error("Missing DeyunAI API key. Please supply config.apiKey.");
+  }
+  if (!config.apiKey) {
+    config.apiKey = envKey!;
   }
 };
 

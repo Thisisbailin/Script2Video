@@ -373,10 +373,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
     const handleFetchDeyunModels = async () => {
         const { baseUrl, apiKey } = config.textConfig;
-        if (!apiKey) {
-            setDeyunModelFetchMessage({ type: 'error', text: "请先填写或配置 DEYUNAI_API_KEY。" });
-            return;
-        }
         setIsLoadingDeyunModels(true);
         setDeyunModelFetchMessage(null);
         try {
@@ -715,7 +711,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                                 <select
                                                     value={config.textConfig.model || 'gpt-5.1'}
                                                     onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                    className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                                className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                                 >
                                                     {(availableDeyunModels.length ? availableDeyunModels : DEYUNAI_MODELS.map((m) => ({ id: m, label: m }))).map((m) => (
                                                         <option key={m.id} value={m.id}>{m.label}</option>
@@ -806,18 +802,12 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                             </label>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
+                                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/60 p-3 space-y-1">
+                                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
                                             <Key size={14} /> API Key
-                                        </label>
-                                        <input
-                                            type="password"
-                                            placeholder="从 DEYUNAI_API_KEY 读取，或手动输入"
-                                            value={config.textConfig.apiKey || ''}
-                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                        <p className="text-xs text-[var(--text-secondary)] mt-1">未填写时将尝试读取环境变量 DEYUNAI_API_KEY / DEYUNAI_API_BASE。</p>
+                                        </div>
+                                        <p className="text-sm text-[var(--text-primary)]">已在后端环境变量 DEYUNAI_API_KEY 配置，无需填写。</p>
+                                        <p className="text-xs text-[var(--text-secondary)]">如需覆盖，可在后端更新环境变量；前端不再收集密钥。</p>
                                     </div>
                                     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/60 p-3 space-y-2">
                                         <div className="text-sm font-semibold text-[var(--text-primary)]">常用工具</div>
