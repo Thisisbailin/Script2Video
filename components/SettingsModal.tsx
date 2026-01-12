@@ -466,34 +466,34 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
-            <div className="bg-[var(--bg-panel)] rounded-xl border border-[var(--border-subtle)] w-full max-w-4xl p-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-colors text-[var(--text-primary)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity">
+            <div className="w-full max-w-5xl max-h-[90vh] p-0 overflow-hidden flex flex-col rounded-3xl border border-white/12 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
 
                 {/* Header */}
-                <div className="bg-[var(--bg-panel)]/85 px-6 py-4 flex justify-between items-center border-b border-[var(--border-subtle)] shrink-0">
-                    <h2 className="text-xl font-bold text-[var(--text-primary)]">System Settings</h2>
-                    <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                <div className="bg-white/5 px-6 py-4 flex justify-between items-center border-b border-white/10 shrink-0">
+                    <h2 className="text-xl font-bold text-white">System Settings</h2>
+                    <button onClick={onClose} className="text-white/60 hover:text-white">
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] shrink-0">
+                <div className="flex border-b border-white/10 bg-white/5 shrink-0">
                     <button
                         onClick={() => setActiveTab('text')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'text' ? 'bg-white/5 text-[var(--accent-blue)] border-b-2 border-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'text' ? 'bg-white/10 text-sky-300 border-b-2 border-sky-400/80' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
                     >
                         <Cpu size={16} /> Text
                     </button>
                     <button
                         onClick={() => setActiveTab('multimodal')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'multimodal' ? 'bg-white/5 text-pink-300 border-b-2 border-pink-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'multimodal' ? 'bg-white/10 text-pink-300 border-b-2 border-pink-400/80' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
                     >
                         <ImageIcon size={16} /> Visuals
                     </button>
                     <button
                         onClick={() => setActiveTab('video')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'video' ? 'bg-white/5 text-indigo-300 border-b-2 border-indigo-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'video' ? 'bg-white/10 text-indigo-300 border-b-2 border-indigo-400/80' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
                     >
                         <Video size={16} /> Video
                     </button>
@@ -503,20 +503,20 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                             fetchSnapshots();
                             fetchAuditLogs();
                         }}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'sync' ? 'bg-white/5 text-emerald-300 border-b-2 border-emerald-500/70' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'sync' ? 'bg-white/10 text-emerald-300 border-b-2 border-emerald-400/80' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
                     >
                         <RefreshCw size={16} /> Sync
                     </button>
                     <button
                         onClick={() => setActiveTab('about')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'about' ? 'bg-white/5 text-[var(--text-primary)] border-b-2 border-[var(--border-subtle)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'about' ? 'bg-white/10 text-white border-b-2 border-white/30' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
                         title="About Project"
                     >
                         <Info size={16} /> Info
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto text-[var(--text-primary)]">
+                <div className="p-6 overflow-y-auto text-white">
                     {activeTab === 'sync' && (
                         <>
                             <div className="mb-4 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 flex items-start gap-3">
