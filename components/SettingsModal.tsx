@@ -81,6 +81,13 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         }
     }, [config.textConfig.provider, config.textConfig.deyunModels]);
 
+    // 默认激活官网（Gemini），避免无 provider 导致状态错乱
+    useEffect(() => {
+        if (!config.textConfig.provider) {
+            onConfigChange({ ...config, textConfig: { ...config.textConfig, provider: 'gemini' as TextProvider } });
+        }
+    }, [config.textConfig.provider, config, onConfigChange]);
+
     useEffect(() => {
         if (isOpen && config.videoProvider === 'vidu') {
             setShowViduOverlay(true);
@@ -573,25 +580,25 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         onClick={() => setProvider('gemini')}
                                         className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'gemini' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
                                     >
-                                        <Zap size={14} /> Google Gemini
+                                        <Zap size={14} /> Google Gemini {config.textConfig.provider === 'gemini' ? '(已激活)' : '(未激活)'}
                                     </button>
                                     <button
                                         onClick={() => setProvider('openrouter')}
                                         className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'openrouter' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
                                     >
-                                        <Globe size={14} /> OpenRouter / OpenAI
+                                        <Globe size={14} /> OpenRouter / OpenAI {config.textConfig.provider === 'openrouter' ? '(已激活)' : '(未激活)'}
                                     </button>
                                     <button
                                         onClick={() => setProvider('partner')}
                                         className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'partner' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
                                     >
-                                        <Shield size={14} /> Partner Route
+                                        <Shield size={14} /> Partner Route {config.textConfig.provider === 'partner' ? '(已激活)' : '(未激活)'}
                                     </button>
                                     <button
                                         onClick={() => setProvider('deyunai')}
                                         className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'deyunai' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
                                     >
-                                        <Zap size={14} /> DeyunAI
+                                        <Zap size={14} /> DeyunAI {config.textConfig.provider === 'deyunai' ? '(已激活)' : '(未激活)'}
                                     </button>
                                 </div>
                             </div>

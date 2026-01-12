@@ -156,9 +156,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
     return [{ id: currentId, name: currentId }];
   }, [config.textConfig?.provider, config.textConfig?.model, config.textConfig?.deyunModels]);
 
+  const modelValue = useMemo(() => {
+    const ids = providerModelOptions.map((m) => m.id);
+    if (config.textConfig?.model && ids.includes(config.textConfig.model)) return config.textConfig.model;
+    return providerModelOptions[0]?.id || config.textConfig?.model || "";
+  }, [providerModelOptions, config.textConfig?.model]);
+
   const currentModelLabel =
-    providerModelOptions.find((m) => m.id === config.textConfig?.model)?.name ||
-    config.textConfig?.model ||
+    providerModelOptions.find((m) => m.id === modelValue)?.name ||
+    modelValue ||
     "model";
 
   useEffect(() => {
@@ -313,7 +319,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
               <CaretDown size={12} className="text-white/50 pointer-events-none" />
               <select
                 aria-label="选择模型"
-                value={config.textConfig?.model}
+                value={modelValue}
                 onChange={(e) =>
                   setConfig((prev) => ({
                     ...prev,
