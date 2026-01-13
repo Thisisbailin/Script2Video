@@ -890,6 +890,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         value={config.multimodalConfig.provider || 'standard'}
                                         onChange={(e) => {
                                             const val = e.target.value as any;
+                                            // 创建新的 config 对象，确保 provider 更新
                                             const newConfig = { ...config.multimodalConfig, provider: val };
 
                                             // Auto-fill defaults for specific providers
@@ -907,6 +908,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                                 newConfig.model = 'wan-v1';
                                             }
 
+                                            // 显式调用 onConfigChange 更新状态
                                             onConfigChange({
                                                 ...config,
                                                 multimodalConfig: newConfig
