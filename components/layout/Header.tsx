@@ -266,7 +266,30 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
     onContinueNextEpisodeSora,
   } = workflow;
 
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [expandedPhases, setExpandedPhases] = useState<Record<number, boolean>>({
+    1: false,
+    2: false,
+    3: false,
+  });
+
+  const isExpanded = Object.values(expandedPhases).some(v => v);
+
+  const toggleAll = () => {
+    const nextValue = !isExpanded;
+    setExpandedPhases({
+      1: nextValue,
+      2: nextValue,
+      3: nextValue,
+    });
+  };
+
+  const togglePhase = (phase: number) => {
+    setExpandedPhases(prev => ({
+      ...prev,
+      [phase]: !prev[phase]
+    }));
+  };
+
   const hasAnalysisError = analysisError?.step === analysisStep;
   const currentEpisode = episodes[currentEpIndex];
   const currentEpisodeError = currentEpisode?.status === "error";
@@ -594,25 +617,31 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
           <Layers size={14} /> Workflow
         </div>
         <button
-          onClick={() => setIsExpanded((v) => !v)}
+          onClick={toggleAll}
           className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
         >
-          {isExpanded ? "收起详情" : "展开详情"}
+          {isExpanded ? "全部收起" : "全部展开"}
           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
       </div>
       <div className="p-4 space-y-4">
         <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
-          <div className="flex items-center justify-between">
+          <div
+            className="flex items-center justify-between cursor-pointer group"
+            onClick={() => togglePhase(1)}
+          >
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase1Status).dot}`} />
-              <div className="text-sm font-semibold">Phase 1 · 剧本理解</div>
+              <div className="text-sm font-semibold group-hover:text-sky-400 transition-colors">Phase 1 · 剧本理解</div>
               <span className="text-[11px] text-[var(--text-secondary)]">{phase1Progress}</span>
             </div>
-            <span className={`text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
+              {expandedPhases[1] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </div>
           </div>
-          {isExpanded && (
-            <div className="space-y-2 pl-3 border-l border-[var(--border-subtle)]/60">
+          {expandedPhases[1] && (
+            <div className="space-y-2 pl-3 border-l border-[var(--border-subtle)]/60 animate-in fade-in slide-in-from-top-1 duration-200">
               {analysisItems.map((item, index) => {
                 const status = getAnalysisItemStatus(item.step, index);
                 const meta = getAnalysisItemMeta(item.step);
@@ -647,19 +676,25 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
         </div>
 
         <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
-          <div className="flex items-center justify-between">
+          <div
+            className="flex items-center justify-between cursor-pointer group"
+            onClick={() => togglePhase(2)}
+          >
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase2Status).dot}`} />
-              <div className="text-sm font-semibold">Phase 2 · Shot Lists</div>
+              <div className="text-sm font-semibold group-hover:text-sky-400 transition-colors">Phase 2 · Shot Lists</div>
               <span className="text-[11px] text-[var(--text-secondary)]">{phase2Progress}</span>
               {reviewShots > 0 && (
                 <span className="text-[10px] text-amber-200">待确认 {reviewShots}</span>
               )}
             </div>
-            <span className={`text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
+              {expandedPhases[2] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </div>
           </div>
-          {isExpanded && (
-            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60">
+          {expandedPhases[2] && (
+            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60 animate-in fade-in slide-in-from-top-1 duration-200">
               {episodes.length === 0 && (
                 <div className="text-xs text-[var(--text-secondary)] px-2 py-2">
                   暂无剧集，导入脚本后可生成。
@@ -708,16 +743,22 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
         </div>
 
         <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
-          <div className="flex items-center justify-between">
+          <div
+            className="flex items-center justify-between cursor-pointer group"
+            onClick={() => togglePhase(3)}
+          >
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase3Status).dot}`} />
-              <div className="text-sm font-semibold">Phase 3 · Sora Prompts</div>
+              <div className="text-sm font-semibold group-hover:text-sky-400 transition-colors">Phase 3 · Sora Prompts</div>
               <span className="text-[11px] text-[var(--text-secondary)]">{phase3Progress}</span>
             </div>
-            <span className={`text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
+              {expandedPhases[3] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </div>
           </div>
-          {isExpanded && (
-            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60">
+          {expandedPhases[3] && (
+            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60 animate-in fade-in slide-in-from-top-1 duration-200">
               {episodes.length === 0 && (
                 <div className="text-xs text-[var(--text-secondary)] px-2 py-2">
                   暂无剧集，先完成 Phase 2。

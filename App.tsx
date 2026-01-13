@@ -201,6 +201,7 @@ const App: React.FC = () => {
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
   const [openLabModal, setOpenLabModal] = useState<ModuleKey | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
+  const [isSyncBannerDismissed, setIsSyncBannerDismissed] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = usePersistedState<string>({
     key: 'script2video_avatar_url',
@@ -1030,13 +1031,13 @@ const App: React.FC = () => {
         const updatedChars = prev.context.characters.map(c =>
           c.name === charName
             ? {
-                ...c,
-                forms: normalizedForms,
-                bio: result.bio || c.bio,
-                archetype: result.archetype || c.archetype,
-                episodeUsage: result.episodeUsage || c.episodeUsage,
-                tags: result.tags || c.tags
-              }
+              ...c,
+              forms: normalizedForms,
+              bio: result.bio || c.bio,
+              archetype: result.archetype || c.archetype,
+              episodeUsage: result.episodeUsage || c.episodeUsage,
+              tags: result.tags || c.tags
+            }
             : c
         );
         return {
@@ -1601,14 +1602,17 @@ const App: React.FC = () => {
         isDarkMode={isDarkMode}
         header={null}
         banner={
-          <SyncStatusBanner
-            syncState={syncState}
-            isOnline={isOnline}
-            isSignedIn={!!authSignedIn}
-            syncRollout={syncRollout}
-            onOpenDetails={() => openSettings('sync')}
-            onForceSync={forceCloudPull}
-          />
+          !isSyncBannerDismissed && (
+            <SyncStatusBanner
+              syncState={syncState}
+              isOnline={isOnline}
+              isSignedIn={!!authSignedIn}
+              syncRollout={syncRollout}
+              onOpenDetails={() => openSettings('sync')}
+              onForceSync={forceCloudPull}
+              onClose={() => setIsSyncBannerDismissed(true)}
+            />
+          )
         }
       >
         <SettingsModal
@@ -1617,13 +1621,13 @@ const App: React.FC = () => {
           config={config}
           onConfigChange={setConfig}
           isSignedIn={!!authSignedIn}
-        getAuthToken={getAuthToken}
-        onForceSync={forceCloudPull}
-        syncState={syncState}
-        syncRollout={syncRollout}
-        activeTabOverride={settingsTab || undefined}
-        onResetProject={handleResetProject}
-      />
+          getAuthToken={getAuthToken}
+          onForceSync={forceCloudPull}
+          syncState={syncState}
+          syncRollout={syncRollout}
+          activeTabOverride={settingsTab || undefined}
+          onResetProject={handleResetProject}
+        />
         {activeConflict && (
           <ConflictModal
             isOpen={!!activeConflict}
@@ -1655,7 +1659,7 @@ const App: React.FC = () => {
         )}
       </AppShell>
       {showWorkflow && (
-        <div className="fixed bottom-24 right-6 z-40 pointer-events-auto">
+        <div className="fixed bottom-16 left-6 z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
           <WorkflowCard
             workflow={{
               step,

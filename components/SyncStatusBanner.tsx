@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { AlertCircle, CloudOff, Loader2, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CloudOff, Loader2, ShieldAlert, CheckCircle2, X } from "lucide-react";
 import { SyncState, SyncStatus } from "../types";
 
 type Props = {
@@ -9,6 +9,7 @@ type Props = {
   syncRollout?: { enabled: boolean; percent: number; allowlisted?: boolean };
   onOpenDetails?: () => void;
   onForceSync?: () => void;
+  onClose?: () => void;
 };
 
 const formatTime = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
@@ -78,7 +79,8 @@ export const SyncStatusBanner: React.FC<Props> = ({
   isSignedIn,
   syncRollout,
   onOpenDetails,
-  onForceSync
+  onForceSync,
+  onClose
 }) => {
   const project = syncState.project;
   const secrets = syncState.secrets;
@@ -133,16 +135,24 @@ export const SyncStatusBanner: React.FC<Props> = ({
     meta.tone === "emerald"
       ? "text-emerald-300"
       : meta.tone === "sky"
-      ? "text-sky-300"
-      : meta.tone === "amber"
-      ? "text-amber-300"
-      : meta.tone === "rose"
-      ? "text-rose-300"
-      : "text-white/70";
+        ? "text-sky-300"
+        : meta.tone === "amber"
+          ? "text-amber-300"
+          : meta.tone === "rose"
+            ? "text-rose-300"
+            : "text-white/70";
 
   return (
     <div className="pointer-events-none fixed bottom-24 right-6 z-50">
-      <div className="pointer-events-auto max-w-lg rounded-3xl border border-white/12 bg-[#0d0f12]/92 px-4 py-3 shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+      <div className="pointer-events-auto relative max-w-lg rounded-3xl bg-[#0d0f12]/92 px-4 py-3 shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 p-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-full border border-white/10 bg-white/6 flex items-center justify-center">
             <Icon className={`h-4 w-4 ${["同步中", "加载中"].includes(meta.label) ? "animate-spin" : ""} ${accent}`} />
