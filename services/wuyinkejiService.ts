@@ -1,5 +1,5 @@
-
 import { MultimodalConfig, TokenUsage } from "../types";
+import { wrapWithProxy } from "../utils/api";
 
 export interface ImageTaskSubmissionResult {
     id: string;
@@ -49,7 +49,7 @@ export const submitImageTask = async (
 
     try {
         console.log("--- [Phase 4] Submit Image Task (Wuyinkeji) ---");
-        const response = await fetch(urlObj.toString(), {
+        const response = await fetch(wrapWithProxy(urlObj.toString()), {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;",
@@ -108,7 +108,7 @@ export const checkImageTaskStatus = async (
 
     try {
         console.log(`[Wuyinkeji] Polling: ${detailUrl.toString()}`);
-        let response = await fetch(detailUrl.toString(), {
+        let response = await fetch(wrapWithProxy(detailUrl.toString()), {
             method: "GET",
             headers: {
                 "Authorization": apiKey,
@@ -123,7 +123,7 @@ export const checkImageTaskStatus = async (
             fallbackUrl.searchParams.set('id', taskId);
             fallbackUrl.searchParams.set('key', apiKey);
             console.log(`[Wuyinkeji] 404 fallback: ${fallbackUrl.toString()}`);
-            response = await fetch(fallbackUrl.toString(), {
+            response = await fetch(wrapWithProxy(fallbackUrl.toString()), {
                 method: "GET",
                 headers: {
                     "Authorization": apiKey,

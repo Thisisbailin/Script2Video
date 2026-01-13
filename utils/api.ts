@@ -7,3 +7,10 @@ export const buildApiUrl = (path: string) => {
   }
   return `${base}${path}`;
 };
+
+export const wrapWithProxy = (url: string) => {
+  if (!url) return url;
+  // If we are on localhost, we might not need proxy, but it's safer to always use in production
+  const proxyEndpoint = buildApiUrl("/api/proxy");
+  return `${proxyEndpoint}?url=${encodeURIComponent(url)}`;
+};

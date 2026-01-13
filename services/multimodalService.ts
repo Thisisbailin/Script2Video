@@ -1,5 +1,5 @@
-
 import { MultimodalConfig, TokenUsage } from "../types";
+import { wrapWithProxy } from "../utils/api";
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -105,7 +105,7 @@ export const sendMessage = async (
     // console.log("Payload:", JSON.stringify(payload, null, 2)); // Too large to log with base64
 
     try {
-        const response = await fetch(apiBase, {
+        const response = await fetch(wrapWithProxy(apiBase), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -185,7 +185,7 @@ export const fetchMultimodalModels = async (baseUrl: string, apiKey: string): Pr
     if (!apiBase.endsWith('/v1')) apiBase = `${apiBase}/v1`;
 
     try {
-        const response = await fetch(`${apiBase}/models`, {
+        const response = await fetch(wrapWithProxy(`${apiBase}/models`), {
             method: 'GET',
             headers: { "Authorization": `Bearer ${apiKey}` }
         });
