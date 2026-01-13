@@ -21,6 +21,7 @@ export const submitImageTask = async (
     config: MultimodalConfig,
     options?: {
         aspectRatio?: string;
+        inputImageUrl?: string;
     }
 ): Promise<ImageTaskSubmissionResult> => {
     const { baseUrl, apiKey } = config;
@@ -42,6 +43,9 @@ export const submitImageTask = async (
     const formBody = new URLSearchParams();
     formBody.append('prompt', prompt);
     formBody.append('aspectRatio', options?.aspectRatio || '1:1');
+    if (options?.inputImageUrl) {
+        formBody.append('url', options.inputImageUrl);
+    }
 
     try {
         console.log("--- [Phase 4] Submit Image Task (Wuyinkeji) ---");

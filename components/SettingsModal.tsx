@@ -892,7 +892,8 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                             multimodalConfig: {
                                                 ...config.multimodalConfig,
                                                 provider: 'wuyinkeji',
-                                                baseUrl: 'https://api.wuyinkeji.com/api/img/nanoBanana-pro'
+                                                baseUrl: 'https://api.wuyinkeji.com/api/img/nanoBanana-pro',
+                                                model: 'nanoBanana-pro'
                                             }
                                         })}
                                         className={`flex-1 py-1.5 text-xs rounded-md transition-all flex items-center justify-center gap-2 ${config.multimodalConfig.provider === 'wuyinkeji' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}

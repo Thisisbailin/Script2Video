@@ -132,7 +132,11 @@ export const useLabExecutor = () => {
 
       if (configToUse.provider === 'wuyinkeji') {
         // --- Asynchronous Flow (NanoBanana-pro) ---
-        const { id } = await WuyinkejiService.submitImageTask(text || "Generate an image", configToUse, { aspectRatio });
+        const refImage = images.find((src) => src.startsWith("http")) || undefined;
+        const { id } = await WuyinkejiService.submitImageTask(text || "Generate an image", configToUse, {
+          aspectRatio,
+          inputImageUrl: refImage
+        });
 
         store.updateNodeData(nodeId, { status: "loading", taskId: id, error: null });
 
@@ -140,7 +144,12 @@ export const useLabExecutor = () => {
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
           const result = await WuyinkejiService.checkImageTaskStatus(id, configToUse);
           if (result.status === "succeeded") {
-            store.updateNodeData(nodeId, { status: "complete", outputImage: result.url, error: null });
+            store.updateNodeData(nodeId, {
+              status: "complete",
+              outputImage: result.url,
+              error: null,
+              model: configToUse.model // store used model for reference
+            });
 
             // Add to global history for reuse
             store.addToGlobalHistory({
