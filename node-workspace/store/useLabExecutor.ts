@@ -5,6 +5,7 @@ import * as MultimodalService from "../../services/multimodalService";
 import * as VideoService from "../../services/videoService";
 import * as ViduService from "../../services/viduService";
 import * as WuyinkejiService from "../../services/wuyinkejiService";
+import * as SeedreamService from "../../services/seedreamService";
 import { useCallback } from "react";
 import { Character, CharacterForm } from "../../types";
 
@@ -178,7 +179,50 @@ export const useLabExecutor = () => {
         return;
       }
 
-      if (configToUse.provider === 'seedream' || configToUse.provider === 'wan') {
+      if (configToUse.provider === 'seedream') {
+        // --- Seedream Asynchronous Flow ---
+        const refImage = images.find((src) => src.startsWith("http")) || undefined;
+        const { id } = await SeedreamService.submitSeedreamTask(text || "Generate an image", configToUse, {
+          aspectRatio,
+          inputImageUrl: refImage
+        });
+
+        store.updateNodeData(nodeId, { status: "loading", taskId: id, error: null });
+
+        const maxAttempts = 60;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await SeedreamService.checkSeedreamTaskStatus(id, configToUse);
+          if (result.status === "succeeded") {
+            store.updateNodeData(nodeId, {
+              status: "complete",
+              outputImage: result.url,
+              error: null,
+              model: configToUse.model // store used model for reference
+            });
+
+            // Add to global history for reuse
+            store.addToGlobalHistory({
+              type: "image",
+              src: result.url!,
+              prompt: text || "Image Input",
+              model: configToUse.model,
+              aspectRatio
+            });
+            return;
+          }
+          if (result.status === "failed") {
+            store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Seedream generation failed." });
+            return;
+          }
+          // Wait 5 seconds between polls
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        store.updateNodeData(nodeId, { status: "error", error: "Seedream generation timed out." });
+        return;
+      }
+
+      if (configToUse.provider === 'wan') {
         store.updateNodeData(nodeId, {
           status: "error",
           error: `${configToUse.provider.charAt(0).toUpperCase() + configToUse.provider.slice(1)} integration is coming soon!`
