@@ -21,7 +21,7 @@ export const generateSeedreamImage = async (
     }
 
     // Default endpoint based on document
-    const targetUrl = baseUrl || "https://api.deyunai.com/v1/images/generations";
+    const targetUrl = baseUrl || "https://ai.deyunai.com/api/v3/images/generations";
 
     // Map aspectRatio to 'size' or similar if needed, 
     // Document shows 'size' as string. Standard is '1024x1024'.

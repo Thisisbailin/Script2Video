@@ -77,7 +77,7 @@ export const INITIAL_VIDU_CONFIG: ViduServiceConfig = {
 };
 
 export const INITIAL_MULTIMODAL_CONFIG: MultimodalConfig = {
-  baseUrl: 'https://api.deyunai.com/v1/images/generations',
+  baseUrl: 'https://ai.deyunai.com/api/v3/images/generations',
   apiKey: '',
   model: 'doubao-seedream-250828',
   provider: 'seedream'
