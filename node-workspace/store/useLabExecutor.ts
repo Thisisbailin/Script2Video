@@ -399,11 +399,11 @@ export const useLabExecutor = () => {
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Vidu 提交失败" });
     }
-  }, [config.videoConfig, config.viduConfig, store]);
+  }, [config?.videoConfig, config?.viduConfig, store]);
 
   const runVideoGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
-    if (!node) return;
+    if (!node || !config) return;
     if (node.type === "viduVideoGen") {
       return runViduVideoGen(nodeId);
     }
@@ -460,7 +460,7 @@ export const useLabExecutor = () => {
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Video submit failed" });
     }
-  }, [config.videoConfig, runViduVideoGen, store]);
+  }, [config?.videoConfig, runViduVideoGen, store]);
 
   return {
     runLLM,

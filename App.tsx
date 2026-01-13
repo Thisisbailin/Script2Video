@@ -655,7 +655,7 @@ const App: React.FC = () => {
             appearanceCount,
             episodeUsage,
             isMain: appearanceCount > 1 || c.isMain,
-            assetPriority: c.assetPriority || (appearanceCount > 1 ? "medium" : "low"),
+            assetPriority: (c.assetPriority || (appearanceCount > 1 ? "medium" : "low")) as "low" | "medium" | "high",
           };
         });
 
@@ -672,7 +672,7 @@ const App: React.FC = () => {
             forms: [],
             appearanceCount: stat.count,
             episodeUsage: formatEpisodeUsage(stat.episodeIds),
-            assetPriority: stat.count > 1 ? "medium" : "low",
+            assetPriority: (stat.count > 1 ? "medium" : "low") as "low" | "medium" | "high",
           }));
 
         return {
