@@ -77,10 +77,10 @@ export const INITIAL_VIDU_CONFIG: ViduServiceConfig = {
 };
 
 export const INITIAL_MULTIMODAL_CONFIG: MultimodalConfig = {
-  baseUrl: 'https://openrouter.ai/api/v1',
+  baseUrl: 'https://ai.deyunai.com/api/v3/images/generations',
   apiKey: '',
-  model: 'gpt-4o', // Default to a strong multimodal model
-  provider: 'standard'
+  model: 'doubao-seedream-250828',
+  provider: 'seedream'
 };
 
 export const INITIAL_REMEMBER_KEYS = false;
