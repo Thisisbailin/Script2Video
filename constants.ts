@@ -16,7 +16,7 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
   soraGuide: '',
   dramaGuide: '',
   globalStyleGuide: '', // Initialize as empty
-  
+
   contextUsage: { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
   phase1Usage: {
     projectSummary: { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
@@ -79,7 +79,8 @@ export const INITIAL_VIDU_CONFIG: ViduServiceConfig = {
 export const INITIAL_MULTIMODAL_CONFIG: MultimodalConfig = {
   baseUrl: 'https://openrouter.ai/api/v1',
   apiKey: '',
-  model: 'gpt-4o' // Default to a strong multimodal model
+  model: 'gpt-4o', // Default to a strong multimodal model
+  provider: 'standard'
 };
 
 export const INITIAL_REMEMBER_KEYS = false;

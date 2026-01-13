@@ -319,6 +319,7 @@ export interface MultimodalConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  provider?: 'standard' | 'wuyinkeji'; // New: support dedicated image gen providers
 }
 
 export interface AppConfig {

@@ -4,6 +4,7 @@ import * as GeminiService from "../../services/geminiService";
 import * as MultimodalService from "../../services/multimodalService";
 import * as VideoService from "../../services/videoService";
 import * as ViduService from "../../services/viduService";
+import * as WuyinkejiService from "../../services/wuyinkejiService";
 import { useCallback } from "react";
 import { Character, CharacterForm } from "../../types";
 
@@ -108,7 +109,7 @@ export const useLabExecutor = () => {
   const runImageGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
-    const { images, text: connectedText, atMentions, imageRefs } = store.getConnectedInputs(nodeId);
+    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
     const data = node.data as any; // Cast for easier access to new fields
     const manualPrompt = data.inputPrompt;
     const text = connectedText || manualPrompt;
@@ -123,27 +124,56 @@ export const useLabExecutor = () => {
       const aspectRatio = data.aspectRatio || "1:1";
       const modelOverride = data.model;
 
-      let promptContent = text || "Generate an image based on the input";
-
-      // --- Prompt Engineering ---
-      // Removed Style Preset injection as per user request for clean multimodal prompts
-
-      promptContent = `${promptContent}\n\n[Aspect Ratio]: ${aspectRatio}`;
-
-      // Removed Negative Prompt injection
-
-      // Removed Global Style Guide injection to prevent unwanted context leakage
-
-      if (images.length > 0) {
-        const refs = images.map((img: string, i: number) => `![ref ${i}](${img})`).join('\n');
-        promptContent = `${promptContent}\n\n${refs}`;
-      }
-
       // Use node-specific model or fallback to config
       const configToUse = {
         ...config.multimodalConfig,
         model: modelOverride || config.multimodalConfig.model
       };
+
+      if (configToUse.provider === 'wuyinkeji') {
+        // --- Asynchronous Flow (NanoBanana-pro) ---
+        const { id } = await WuyinkejiService.submitImageTask(text || "Generate an image", configToUse, { aspectRatio });
+
+        store.updateNodeData(nodeId, { status: "loading", taskId: id, error: null });
+
+        const maxAttempts = 60;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await WuyinkejiService.checkImageTaskStatus(id, configToUse);
+          if (result.status === "succeeded") {
+            store.updateNodeData(nodeId, { status: "complete", outputImage: result.url, error: null });
+
+            // Add to global history for reuse
+            store.addToGlobalHistory({
+              type: "image",
+              src: result.url!,
+              prompt: text || "Image Input",
+              model: configToUse.model,
+              aspectRatio
+            });
+            return;
+          }
+          if (result.status === "failed") {
+            store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Image generation failed." });
+            return;
+          }
+          // Wait 5 seconds between polls
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        store.updateNodeData(nodeId, { status: "error", error: "Image generation timed out." });
+        return;
+      }
+
+      // --- Standard Flow (OpenAI compatible) ---
+      let promptContent = text || "Generate an image based on the input";
+
+      // Removed Style Preset injection as per user request for clean multimodal prompts
+      promptContent = `${promptContent}\n\n[Aspect Ratio]: ${aspectRatio}`;
+
+      if (images.length > 0) {
+        const refs = images.map((img: string, i: number) => `![ref ${i}](${img})`).join('\n');
+        promptContent = `${promptContent}\n\n${refs}`;
+      }
 
       const res = await MultimodalService.sendMessage(
         [{ role: "user", content: promptContent }],
@@ -228,51 +258,51 @@ export const useLabExecutor = () => {
     const resolvedSubjects =
       useCharacters && mentions.length > 0
         ? (() => {
-            const buckets = chunkImagesForSubjects(mentions.length);
-            return mentions.map((m, idx) => {
-              const mapped = formImageMap.get(m.toLowerCase()) || [];
-              const hit = allForms.find((entry) => entry.form.formName.toLowerCase() === m.toLowerCase());
-              return {
-                id: hit?.form.formName || m,
-                images: (mapped.length ? mapped : buckets[idx]) || [],
-                voiceId: data.voiceId || "professional_host",
-              };
-            });
-          })()
+          const buckets = chunkImagesForSubjects(mentions.length);
+          return mentions.map((m, idx) => {
+            const mapped = formImageMap.get(m.toLowerCase()) || [];
+            const hit = allForms.find((entry) => entry.form.formName.toLowerCase() === m.toLowerCase());
+            return {
+              id: hit?.form.formName || m,
+              images: (mapped.length ? mapped : buckets[idx]) || [],
+              voiceId: data.voiceId || "professional_host",
+            };
+          });
+        })()
         : (data.subjects && data.subjects.length > 0)
-            ? data.subjects
-            : (() => {
-                const fallbackBuckets = chunkImagesForSubjects(3);
-                const result: { id?: string; images: string[]; voiceId?: string }[] = [];
-                for (let i = 0; i < fallbackBuckets.length; i++) {
-                  result.push({
-                    id: `subject${i + 1}`,
-                    images: fallbackBuckets[i],
-                    voiceId: data.voiceId || "professional_host",
-                  });
-                }
-                return result.length
-                  ? result
-                  : [
-                      {
-                        id: "subject1",
-                        images: [
-                          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
-                          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
-                          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
-                        ],
-                        voiceId: data.voiceId || "professional_host",
-                      },
-                    ];
-              })();
+          ? data.subjects
+          : (() => {
+            const fallbackBuckets = chunkImagesForSubjects(3);
+            const result: { id?: string; images: string[]; voiceId?: string }[] = [];
+            for (let i = 0; i < fallbackBuckets.length; i++) {
+              result.push({
+                id: `subject${i + 1}`,
+                images: fallbackBuckets[i],
+                voiceId: data.voiceId || "professional_host",
+              });
+            }
+            return result.length
+              ? result
+              : [
+                {
+                  id: "subject1",
+                  images: [
+                    "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
+                    "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+                    "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+                  ],
+                  voiceId: data.voiceId || "professional_host",
+                },
+              ];
+          })();
 
     const visualImages = images.length
       ? images
       : [
-          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
-          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
-          "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
-        ];
+        "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+        "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+        "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png",
+      ];
 
     if (mode === "videoOnly" && visualImages.length === 0) {
       store.updateNodeData(nodeId, { status: "error", error: "需要至少一张参考图" });
@@ -282,9 +312,9 @@ export const useLabExecutor = () => {
     const promptForVidu =
       useCharacters && mentions.length > 0
         ? mentions.reduce((acc, name, idx) => {
-            const reg = new RegExp(`@${escapeRegex(name)}`, "g");
-            return acc.replace(reg, `@${idx + 1}`);
-          }, prompt)
+          const reg = new RegExp(`@${escapeRegex(name)}`, "g");
+          return acc.replace(reg, `@${idx + 1}`);
+        }, prompt)
         : prompt;
 
     store.updateNodeData(nodeId, { status: "loading", error: null });
@@ -292,31 +322,31 @@ export const useLabExecutor = () => {
     try {
       const request = mode === "audioVideo"
         ? {
-            mode: "audioVideo" as const,
-            audioParams: {
-              model: data.model || viduConfig.defaultModel,
-              subjects: resolvedSubjects,
-              prompt: promptForVidu,
-              duration: data.duration ?? 10,
-              audio: true,
-              offPeak: data.offPeak !== false,
-            },
-          }
+          mode: "audioVideo" as const,
+          audioParams: {
+            model: data.model || viduConfig.defaultModel,
+            subjects: resolvedSubjects,
+            prompt: promptForVidu,
+            duration: data.duration ?? 10,
+            audio: true,
+            offPeak: data.offPeak !== false,
+          },
+        }
         : {
-            mode: "videoOnly" as const,
-            visualParams: {
-              model: data.model || viduConfig.defaultModel,
-              images: visualImages,
-              prompt: promptForVidu,
-              duration: data.duration ?? 10,
-              aspectRatio: data.aspectRatio || "16:9",
-              resolution: data.resolution || "1080p",
-              movementAmplitude: data.movementAmplitude || "auto",
-              seed: data.seed ?? 0,
-              offPeak: data.offPeak !== false,
-              audio: false,
-            },
-          };
+          mode: "videoOnly" as const,
+          visualParams: {
+            model: data.model || viduConfig.defaultModel,
+            images: visualImages,
+            prompt: promptForVidu,
+            duration: data.duration ?? 10,
+            aspectRatio: data.aspectRatio || "16:9",
+            resolution: data.resolution || "1080p",
+            movementAmplitude: data.movementAmplitude || "auto",
+            seed: data.seed ?? 0,
+            offPeak: data.offPeak !== false,
+            audio: false,
+          },
+        };
 
       const { taskId } = await ViduService.createReferenceVideo(request as any, {
         ...viduConfig,

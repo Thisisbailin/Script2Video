@@ -870,7 +870,36 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                     {activeTab === 'multimodal' && (
                         <div className="space-y-4">
                             <div className="p-3 bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded text-xs text-pink-200 mb-4">
-                                Phase 4 uses Multimodal Intelligence to generate visual concepts. Use an OpenRouter or OpenAI compatible API that supports image generation or rich markdown responses (e.g., GPT-4o, Claude 3.5 Sonnet, etc).
+                                Phase 4 uses Multimodal Intelligence to generate visual concepts. Use an OpenRouter or OpenAI compatible API, or a dedicated image generation service like NanoBanana.
+                            </div>
+
+                            {/* Provider Switcher */}
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Provider</label>
+                                <div className="flex rounded-lg bg-[var(--bg-panel)]/80 p-1 border border-[var(--border-subtle)]">
+                                    <button
+                                        onClick={() => onConfigChange({
+                                            ...config,
+                                            multimodalConfig: { ...config.multimodalConfig, provider: 'standard' }
+                                        })}
+                                        className={`flex-1 py-1.5 text-xs rounded-md transition-all flex items-center justify-center gap-2 ${config.multimodalConfig.provider !== 'wuyinkeji' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                                    >
+                                        Standard (Chat API)
+                                    </button>
+                                    <button
+                                        onClick={() => onConfigChange({
+                                            ...config,
+                                            multimodalConfig: {
+                                                ...config.multimodalConfig,
+                                                provider: 'wuyinkeji',
+                                                baseUrl: 'https://api.wuyinkeji.com/api/img/nanoBanana-pro'
+                                            }
+                                        })}
+                                        className={`flex-1 py-1.5 text-xs rounded-md transition-all flex items-center justify-center gap-2 ${config.multimodalConfig.provider === 'wuyinkeji' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+                                    >
+                                        NanoBanana-pro
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
