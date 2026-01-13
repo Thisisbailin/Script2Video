@@ -90,8 +90,10 @@ interface NodeLabProps {
     avatarUrl?: string;
     onSignIn?: () => void;
     onSignOut?: () => void;
+    onUploadAvatar?: () => void;
   };
   onToggleWorkflow?: () => void;
+  onTryMe?: () => void;
 }
 
 const NodeLabInner: React.FC<NodeLabProps> = ({
@@ -656,7 +658,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
   return (
     <div className="h-full w-full flex flex-col text-white" style={backgroundStyle}>
-        <div className="flex-1 relative node-lab-canvas" style={backgroundStyle}>
+      <div className="flex-1 relative node-lab-canvas" style={backgroundStyle}>
         <ReactFlow
           nodes={displayNodes}
           edges={displayEdges}
@@ -797,9 +799,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                   <button
                     key={item.key}
                     onClick={() => setBgTheme(item.key as any)}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${
-                      bgTheme === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
-                    }`}
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${bgTheme === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
+                      }`}
                   >
                     <span
                       className="block h-6 w-full rounded-md mb-1"
@@ -824,9 +825,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                   <button
                     key={item.key}
                     onClick={() => setBgPattern(item.key as any)}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${
-                      bgPattern === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
-                    }`}
+                    className={`flex-1 rounded-xl border px-3 py-2 text-sm ${bgPattern === item.key ? "border-white/40 bg-white/10" : "border-white/10 hover:border-white/25"
+                      }`}
                   >
                     {item.label}
                   </button>

@@ -110,7 +110,7 @@ export const useLabExecutor = () => {
   const runImageGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node) return;
-    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const { images, text: connectedText, atMentions, imageRefs } = store.getConnectedInputs(nodeId);
     const data = node.data as any; // Cast for easier access to new fields
     const manualPrompt = data.inputPrompt;
     const text = connectedText || manualPrompt;
@@ -268,7 +268,7 @@ export const useLabExecutor = () => {
   const runViduVideoGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
     if (!node || !config) return;
-    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const { images, text: connectedText, atMentions, imageRefs } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
     const prompt = (connectedText || data.inputPrompt || "").trim() || "The astronaut waved and the camera moved up.";
 

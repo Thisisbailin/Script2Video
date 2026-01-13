@@ -1,4 +1,9 @@
 
+export interface BaseNodeData extends Record<string, unknown> {
+  label?: string;
+  title?: string;
+}
+
 export interface TokenUsage {
   promptTokens: number;
   responseTokens: number;

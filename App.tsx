@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { FolderOpen, FileText, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
-import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab, SyncState, SyncStatus } from './types';
+import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab, SyncState, SyncStatus, Character } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
 import {
   parseScriptToEpisodes,
@@ -379,7 +379,7 @@ const App: React.FC = () => {
     saveDebounceMs: 1200
   });
 
-  useVideoPolling({
+  useVideoPolling<ProjectData>({
     episodes: projectData.episodes,
     videoConfig: config.videoConfig,
     onUpdate: (updater) => setProjectData(prev => updater(prev)),
@@ -944,7 +944,7 @@ const App: React.FC = () => {
             assetPriority: stat.count > 1 ? "medium" : "low",
           }));
         return [...updatedExisting, ...newOnes];
-      })();
+      })() as Character[];
 
       const minorNames = mergedCharacters
         .filter((c) => (c.appearanceCount ?? 0) <= 1)
@@ -1545,8 +1545,8 @@ const App: React.FC = () => {
               accountInfo={{
                 isLoaded: isUserLoaded,
                 isSignedIn: !!userSignedIn,
-                name: user?.fullName || user?.name || user?.username || user?.email || user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "Qalam User",
-                email: user?.primaryEmailAddress?.emailAddress || user?.email || user?.emailAddresses?.[0]?.emailAddress,
+                name: user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || "Qalam User",
+                email: user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress,
                 avatarUrl: avatarUrl || user?.imageUrl,
                 onSignIn: () => openSignIn(),
                 onSignOut: () => signOut(),
