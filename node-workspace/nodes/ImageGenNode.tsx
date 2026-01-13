@@ -3,6 +3,7 @@ import { BaseNode } from "./BaseNode";
 import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
+import { useConfig } from "../../hooks/useConfig";
 import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronUp, X } from "lucide-react";
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, getConnectedInputs, availableImageModels, labContext } = useWorkflowStore();
   const { runImageGen } = useLabExecutor();
+  const { config } = useConfig("script2video_config_v1");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -30,7 +32,10 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
   }, [labContext]);
 
   // Derive display model name
-  const currentModel = data.model ? data.model.split('/').pop() : "Default";
+  const globalModel = config.multimodalConfig.model;
+  const currentModel = data.model
+    ? data.model.split('/').pop()
+    : (globalModel ? globalModel.split('/').pop() : "Default");
 
   return (
     <BaseNode

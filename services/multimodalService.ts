@@ -2,15 +2,15 @@
 import { MultimodalConfig, TokenUsage } from "../types";
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+    role: 'system' | 'user' | 'assistant';
+    content: string;
 }
 
 // Helper to convert mixed text/markdown-image content into OpenAI Structured Content
 const formatContentForApi = (content: string): any => {
     // Regex for markdown image: ![alt](url)
     const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-    
+
     // If no images, return string directly
     if (!content.match(imgRegex)) return content;
 
@@ -26,7 +26,7 @@ const formatContentForApi = (content: string): any => {
         }
 
         const imageUrl = match[2];
-        
+
         // Add image part
         // Check if it's base64 or url
         if (imageUrl.startsWith('data:image')) {
@@ -38,7 +38,7 @@ const formatContentForApi = (content: string): any => {
                 }
             });
         } else if (!imageUrl.includes("[Image Omitted]")) {
-             parts.push({
+            parts.push({
                 type: "image_url",
                 image_url: {
                     url: imageUrl
@@ -59,132 +59,137 @@ const formatContentForApi = (content: string): any => {
 };
 
 export const sendMessage = async (
-  messages: ChatMessage[],
-  config: MultimodalConfig
+    messages: ChatMessage[],
+    config: MultimodalConfig
 ): Promise<{ content: string; usage: TokenUsage }> => {
-  const { baseUrl, apiKey, model } = config;
-  
-  if (!baseUrl || !apiKey) {
-    throw new Error("Multimodal Intelligence configuration missing. Please check Settings.");
-  }
+    const { baseUrl, apiKey, model } = config;
 
-  let apiBase = baseUrl.trim().replace(/\/+$/, '');
-  // Ensure standard OpenAI /v1/chat/completions structure
-  if (!apiBase.endsWith('/chat/completions')) {
-      if (apiBase.endsWith('/v1')) {
-          apiBase = `${apiBase}/chat/completions`;
-      } else {
-          apiBase = `${apiBase}/v1/chat/completions`;
-      }
-  }
-
-  // PRE-PROCESS MESSAGES
-  // Convert markdown images in history to structured content objects
-  const apiMessages = messages.map(msg => {
-      // Only process assistant messages that might contain generated images
-      // Or user messages if we eventually support image upload
-      if (typeof msg.content === 'string' && msg.content.includes('![')) {
-          return {
-              role: msg.role,
-              content: formatContentForApi(msg.content)
-          };
-      }
-      return msg;
-  });
-
-  const payload = {
-    model: model || "gpt-4o",
-    messages: apiMessages,
-    temperature: 0.7,
-    stream: false // Explicitly disable streaming
-  };
-
-  console.log("--- [Phase 4] Multimodal Request ---");
-  console.log("URL:", apiBase);
-  console.log("Model:", model);
-  // console.log("Payload:", JSON.stringify(payload, null, 2)); // Too large to log with base64
-
-  try {
-    const response = await fetch(apiBase, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": window.location.origin, 
-        "X-Title": "eSheep"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("--- [Phase 4] API Error ---", response.status, errText);
-      throw new Error(`API Error ${response.status}: ${errText}`);
+    if (!baseUrl || !apiKey) {
+        throw new Error("Multimodal Intelligence configuration missing. Please check Settings.");
     }
 
-    const data = await response.json();
-    
-    console.log("--- [Phase 4] Multimodal Response (Raw) ---");
-    // console.log(data); 
-    console.log("Usage:", data.usage);
-    
-    const choice = data.choices?.[0];
-    const message = choice?.message;
-    let content = message?.content || "";
-
-    // CHECK 1: Handle non-standard 'images' array in message object
-    if (message?.images && Array.isArray(message.images)) {
-        const extractedUrls = message.images.map((img: any) => {
-            if (typeof img === 'string') return img; // Direct URL
-            if (img.image_url?.url) return img.image_url.url; // OpenAI-like object
-            if (img.url) return img.url; // Simplistic object
-            return null;
-        }).filter(Boolean);
-
-        if (extractedUrls.length > 0) {
-            // Append to content as Markdown so the frontend renderer picks it up
-            const imageMarkdown = extractedUrls.map((url: string) => `![Generated Image](${url})`).join("\n\n");
-            // If content is just a backtick or empty, replace it. Otherwise append.
-            if (!content || content.trim() === '`') {
-                content = imageMarkdown;
-            } else {
-                content = `${content}\n\n${imageMarkdown}`;
-            }
+    let apiBase = baseUrl.trim().replace(/\/+$/, '');
+    // Ensure standard OpenAI /v1/chat/completions structure
+    if (!apiBase.endsWith('/chat/completions')) {
+        if (apiBase.endsWith('/v1')) {
+            apiBase = `${apiBase}/chat/completions`;
+        } else {
+            apiBase = `${apiBase}/v1/chat/completions`;
         }
     }
 
-    // CHECK 2: Clean up artifacts
-    if (content.trim() === '`') {
-        content = "";
-    }
-    
-    const usage: TokenUsage = {
-        promptTokens: data.usage?.prompt_tokens || 0,
-        responseTokens: data.usage?.completion_tokens || 0,
-        totalTokens: data.usage?.total_tokens || 0
+    // PRE-PROCESS MESSAGES
+    // Convert markdown images in history to structured content objects
+    const apiMessages = messages.map(msg => {
+        // Only process assistant messages that might contain generated images
+        // Or user messages if we eventually support image upload
+        if (typeof msg.content === 'string' && msg.content.includes('![')) {
+            return {
+                role: msg.role,
+                content: formatContentForApi(msg.content)
+            };
+        }
+        return msg;
+    });
+
+    const payload = {
+        model: model || "gpt-4o",
+        messages: apiMessages,
+        temperature: 0.7,
+        stream: false // Explicitly disable streaming
     };
 
-    return { content, usage };
-  } catch (error: any) {
-    console.error("Multimodal Service Error:", error);
-    throw error;
-  }
+    console.log("--- [Phase 4] Multimodal Request ---");
+    console.log("URL:", apiBase);
+    console.log("Model:", model);
+    // console.log("Payload:", JSON.stringify(payload, null, 2)); // Too large to log with base64
+
+    try {
+        const response = await fetch(apiBase, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`,
+                "HTTP-Referer": window.location.origin,
+                "X-Title": "eSheep"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error("--- [Phase 4] API Error ---", response.status, errText);
+            throw new Error(`API Error ${response.status}: ${errText}`);
+        }
+
+        const data = await response.json();
+
+        console.log("--- [Phase 4] Multimodal Response (Raw) ---");
+        // console.log(data); 
+        console.log("Usage:", data.usage);
+
+        const choice = data.choices?.[0];
+        const message = choice?.message;
+        let content = message?.content || "";
+
+        // CHECK 1: Handle non-standard 'images' array in message object
+        if (message?.images && Array.isArray(message.images)) {
+            const extractedUrls = message.images.map((img: any) => {
+                if (typeof img === 'string') return img; // Direct URL
+                if (img.image_url?.url) return img.image_url.url; // OpenAI-like object
+                if (img.url) return img.url; // Simplistic object
+                return null;
+            }).filter(Boolean);
+
+            if (extractedUrls.length > 0) {
+                // Append to content as Markdown so the frontend renderer picks it up
+                const imageMarkdown = extractedUrls.map((url: string) => `![Generated Image](${url})`).join("\n\n");
+                // If content is just a backtick or empty, replace it. Otherwise append.
+                if (!content || content.trim() === '`') {
+                    content = imageMarkdown;
+                } else {
+                    content = `${content}\n\n${imageMarkdown}`;
+                }
+            }
+        }
+
+        // CHECK 2: Clean up artifacts
+        if (content.trim() === '`') {
+            content = "";
+        }
+
+        const usage: TokenUsage = {
+            promptTokens: data.usage?.prompt_tokens || 0,
+            responseTokens: data.usage?.completion_tokens || 0,
+            totalTokens: data.usage?.total_tokens || 0
+        };
+
+        return { content, usage };
+    } catch (error: any) {
+        console.error("Multimodal Service Error:", error);
+        throw error;
+    }
 };
 
 export const fetchMultimodalModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
+    // Avoid CORS error for Wuyinkeji
+    if (baseUrl.includes('api.wuyinkeji.com')) {
+        return ['nanoBanana-pro'];
+    }
+
     let apiBase = baseUrl.trim().replace(/\/+$/, '');
     if (apiBase.endsWith('/chat/completions')) apiBase = apiBase.replace('/chat/completions', '');
     if (!apiBase.endsWith('/v1')) apiBase = `${apiBase}/v1`;
-    
+
     try {
         const response = await fetch(`${apiBase}/models`, {
             method: 'GET',
             headers: { "Authorization": `Bearer ${apiKey}` }
         });
-        if(!response.ok) return [];
+        if (!response.ok) return [];
         const data = await response.json();
         return data.data?.map((m: any) => m.id) || [];
-    } catch(e) {
+    } catch (e) {
         return [];
     }
 };

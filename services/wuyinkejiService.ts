@@ -52,8 +52,7 @@ export const submitImageTask = async (
         const response = await fetch(urlObj.toString(), {
             method: "POST",
             headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;",
-                "Authorization": apiKey // Some endpoints use only the key as auth
+                "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;"
             },
             body: formBody
         });
@@ -101,10 +100,7 @@ export const checkImageTaskStatus = async (
 
     try {
         const response = await fetch(detailUrl.toString(), {
-            method: "GET",
-            headers: {
-                "Authorization": apiKey
-            }
+            method: "GET"
         });
 
         if (!response.ok) {

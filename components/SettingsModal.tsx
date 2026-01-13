@@ -375,6 +375,15 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setIsLoadingMultiModels(true);
         setMultiModelFetchMessage(null);
         try {
+            if (config.multimodalConfig.provider === 'wuyinkeji') {
+                // Fixed models for Wuyinkeji to avoid CORS blocked /v1/models call
+                const models = ['nanoBanana-pro'];
+                setAvailableMultiModels(models);
+                setAvailableImageModelsStore(models);
+                setMultiModelFetchMessage({ type: 'success', text: "Models optimized for Wuyinkeji." });
+                setIsLoadingMultiModels(false);
+                return;
+            }
             const models = await MultimodalService.fetchMultimodalModels(baseUrl, apiKey);
             if (models.length > 0) {
                 setAvailableMultiModels(models);
