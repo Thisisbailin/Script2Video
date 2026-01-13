@@ -3,7 +3,6 @@ import { BaseNode } from "./BaseNode";
 import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { useConfig } from "../../hooks/useConfig";
 import { Sparkles, RefreshCw, AlertCircle, Settings2, ChevronUp, X } from "lucide-react";
 
 type Props = {

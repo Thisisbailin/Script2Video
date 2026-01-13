@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useLayoutEffect } from "react";
 import { BaseNode } from "./BaseNode";
 import { LLMGenerateNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
-import { useConfig } from "../../hooks/useConfig";
 import { AVAILABLE_MODELS } from "../../constants";
 import { Loader2, Play } from "lucide-react";
 import { useLabExecutor } from "../store/useLabExecutor";
@@ -13,8 +12,7 @@ type Props = {
 };
 
 export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, labContext } = useWorkflowStore();
-  const { config } = useConfig("script2video_config_v1");
+  const { updateNodeData, labContext, appConfig: config } = useWorkflowStore();
   const { runLLM } = useLabExecutor();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isLoading = data.status === "loading";
@@ -113,9 +111,8 @@ export const LLMGenerateNode: React.FC<Props & { selected?: boolean }> = ({ id, 
                       },
                     })
                   }
-                  className={`node-pill inline-flex items-center px-3 py-1 text-[9px] font-bold uppercase tracking-widest transition-all ${
-                    isActive ? "node-pill--accent" : ""
-                  } ${chip.available ? "" : "opacity-40 cursor-not-allowed"}`}
+                  className={`node-pill inline-flex items-center px-3 py-1 text-[9px] font-bold uppercase tracking-widest transition-all ${isActive ? "node-pill--accent" : ""
+                    } ${chip.available ? "" : "opacity-40 cursor-not-allowed"}`}
                 >
                   {chip.label}
                 </button>

@@ -1,5 +1,4 @@
 import { useWorkflowStore } from "./workflowStore";
-import { useConfig } from "../../hooks/useConfig";
 import * as GeminiService from "../../services/geminiService";
 import * as MultimodalService from "../../services/multimodalService";
 import * as VideoService from "../../services/videoService";
