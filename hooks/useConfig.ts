@@ -9,8 +9,8 @@ export const useConfig = (key: string) => {
       textConfig: INITIAL_TEXT_CONFIG,
       videoConfig: INITIAL_VIDEO_CONFIG,
       multimodalConfig: INITIAL_MULTIMODAL_CONFIG,
-       viduConfig: INITIAL_VIDU_CONFIG,
-       videoProvider: "default",
+      viduConfig: INITIAL_VIDU_CONFIG,
+      videoProvider: "default",
       rememberApiKeys: INITIAL_REMEMBER_KEYS,
       syncApiKeys: INITIAL_SYNC_KEYS
     },
@@ -27,7 +27,9 @@ export const useConfig = (key: string) => {
         rememberApiKeys,
         textConfig: { ...INITIAL_TEXT_CONFIG, ...safeText },
         videoConfig: { ...INITIAL_VIDEO_CONFIG, ...safeVideo },
-        multimodalConfig: { ...INITIAL_MULTIMODAL_CONFIG, ...safeMulti },
+        multimodalConfig: (safeMulti?.provider === 'wuyinkeji' || !safeMulti?.provider)
+          ? { ...INITIAL_MULTIMODAL_CONFIG, provider: 'seedream', baseUrl: 'https://ai.deyunai.com/api/v3/images/generations', model: 'doubao-seedream-250828' }
+          : { ...INITIAL_MULTIMODAL_CONFIG, ...safeMulti },
         viduConfig: { ...INITIAL_VIDU_CONFIG, ...safeVidu },
         videoProvider: parsed.videoProvider || "default",
       } as AppConfig;
