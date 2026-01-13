@@ -52,7 +52,8 @@ export const submitImageTask = async (
         const response = await fetch(urlObj.toString(), {
             method: "POST",
             headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;"
+                "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;",
+                "Authorization": apiKey
             },
             body: formBody
         });
@@ -90,20 +91,50 @@ export const checkImageTaskStatus = async (
     const { baseUrl, apiKey } = config;
 
     // Construct Poll URL
-    // Wuyinkeji usually uses /detail for polling, similar to video
-    const rootBase = (baseUrl || "https://api.wuyinkeji.com/api/img/nanoBanana-pro").replace(/\/(nanoBanana-pro|submit)\/?$/, '');
-    const detailUrl = new URL(`${rootBase}/detail`);
+    // Wuyinkeji often has model-specific detail endpoints.
+    // Instead of stripping the model, we only strip '/submit' if present.
+    let rootBase = baseUrl || "https://api.wuyinkeji.com/api/img/nanoBanana-pro";
+    rootBase = rootBase.replace(/\/submit\/?$/, '').replace(/\/+$/, '');
+
+    // Fallback: If it's the generic img base, it might need /detail. 
+    // If it's a specific model base, it might already be the detail root.
+    const pollPath = rootBase.endsWith('/detail') ? rootBase : `${rootBase}/detail`;
+    const detailUrl = new URL(pollPath);
+
     detailUrl.searchParams.set('id', taskId);
     if (!detailUrl.searchParams.get('key')) {
         detailUrl.searchParams.set('key', apiKey);
     }
 
     try {
-        const response = await fetch(detailUrl.toString(), {
-            method: "GET"
+        console.log(`[Wuyinkeji] Polling: ${detailUrl.toString()}`);
+        let response = await fetch(detailUrl.toString(), {
+            method: "GET",
+            headers: {
+                "Authorization": apiKey,
+                "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;"
+            }
         });
 
+        // 404 Fallback: try removing model specifics if special track fails
+        if (response.status === 404 && pollPath.includes('nanoBanana-pro')) {
+            const fallbackBase = rootBase.replace('/nanoBanana-pro', '');
+            const fallbackUrl = new URL(`${fallbackBase}/detail`);
+            fallbackUrl.searchParams.set('id', taskId);
+            fallbackUrl.searchParams.set('key', apiKey);
+            console.log(`[Wuyinkeji] 404 fallback: ${fallbackUrl.toString()}`);
+            response = await fetch(fallbackUrl.toString(), {
+                method: "GET",
+                headers: {
+                    "Authorization": apiKey,
+                    "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;"
+                }
+            });
+        }
+
         if (!response.ok) {
+            // If still failed, check status code for better error reporting
+            if (response.status === 404) return { id: taskId, status: 'processing' }; // Treat as not ready
             throw new Error(`Poll Error ${response.status}`);
         }
 
