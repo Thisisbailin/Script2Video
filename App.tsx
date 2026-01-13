@@ -42,6 +42,7 @@ import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
 import * as GeminiService from './services/geminiService';
 import * as VideoService from './services/videoService';
+import { useWorkflowStore } from './node-workspace/store/workflowStore';
 
 // --- Helpers: Character stats derived from parsed episodes ---
 const buildCharacterStats = (episodes: Episode[]) => {
@@ -107,6 +108,11 @@ const App: React.FC = () => {
   const { config, setConfig } = useConfig(CONFIG_STORAGE_KEY);
 
   const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
+  const setAppConfigStore = useWorkflowStore(state => state.setAppConfig);
+
+  useEffect(() => {
+    setAppConfigStore(config);
+  }, [config, setAppConfigStore]);
 
   // Sync global theme classes for both Tailwind dark styles and CSS variable themes
   useEffect(() => {

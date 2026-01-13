@@ -12,9 +12,8 @@ type Props = {
 };
 
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs, availableImageModels, labContext } = useWorkflowStore();
+  const { updateNodeData, getConnectedInputs, availableImageModels, labContext, appConfig } = useWorkflowStore();
   const { runImageGen } = useLabExecutor();
-  const { config } = useConfig("script2video_config_v1");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -32,7 +31,7 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
   }, [labContext]);
 
   // Derive display model name
-  const globalModel = config.multimodalConfig.model;
+  const globalModel = appConfig?.multimodalConfig?.model;
   const currentModel = data.model
     ? data.model.split('/').pop()
     : (globalModel ? globalModel.split('/').pop() : "Default");

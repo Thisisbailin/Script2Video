@@ -22,11 +22,11 @@ const escapeRegex = (str: string) => str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"
 
 export const useLabExecutor = () => {
   const store = useWorkflowStore();
-  const { config } = useConfig("script2video_config_v1"); // reuse existing config hook
+  const config = store.appConfig;
 
   const runLLM = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
-    if (!node) return;
+    if (!node || !config) return;
     const data: any = node.data;
     const { text } = store.getConnectedInputs(nodeId);
     if (!text) {
@@ -99,7 +99,7 @@ export const useLabExecutor = () => {
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "LLM failed" });
     }
-  }, [config.textConfig, store]);
+  }, [config?.textConfig, store]);
 
   const extractImageUrl = (content: string): string | null => {
     const match = content.match(/!\[[^\]]*\]\(([^)]+)\)/);
@@ -116,6 +116,11 @@ export const useLabExecutor = () => {
 
     if (!text && images.length === 0) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)" });
+      return;
+    }
+
+    if (!config) {
+      store.updateNodeData(nodeId, { status: "error", error: "Configuration not loaded." });
       return;
     }
 
@@ -173,6 +178,14 @@ export const useLabExecutor = () => {
         return;
       }
 
+      if (configToUse.provider === 'seedream' || configToUse.provider === 'wan') {
+        store.updateNodeData(nodeId, {
+          status: "error",
+          error: `${configToUse.provider.charAt(0).toUpperCase() + configToUse.provider.slice(1)} integration is coming soon!`
+        });
+        return;
+      }
+
       // --- Standard Flow (OpenAI compatible) ---
       let promptContent = text || "Generate an image based on the input";
 
@@ -219,11 +232,11 @@ export const useLabExecutor = () => {
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Image gen failed" });
     }
-  }, [config.multimodalConfig, store]);
+  }, [config?.multimodalConfig, store]);
 
   const runViduVideoGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);
-    if (!node) return;
+    if (!node || !config) return;
     const { images, text: connectedText } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
     const prompt = (connectedText || data.inputPrompt || "").trim() || "The astronaut waved and the camera moved up.";

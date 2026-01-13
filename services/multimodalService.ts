@@ -172,9 +172,12 @@ export const sendMessage = async (
 };
 
 export const fetchMultimodalModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
-    // Avoid CORS error for Wuyinkeji
+    // Avoid CORS error for Wuyinkeji or empty URLs for placeholders
     if (baseUrl.includes('api.wuyinkeji.com')) {
         return ['nanoBanana-pro'];
+    }
+    if (!baseUrl || baseUrl.includes('placeholder')) {
+        return ['default-model'];
     }
 
     let apiBase = baseUrl.trim().replace(/\/+$/, '');

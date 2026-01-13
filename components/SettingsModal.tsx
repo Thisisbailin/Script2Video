@@ -6,7 +6,7 @@ import * as DeyunAIService from '../services/deyunaiService';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2 } from 'lucide-react';
+import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2, ChevronDown } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
@@ -884,31 +884,44 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
                             {/* Provider Switcher */}
                             <div>
-                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Provider</label>
-                                <div className="flex rounded-lg bg-[var(--bg-panel)]/80 p-1 border border-[var(--border-subtle)]">
-                                    <button
-                                        onClick={() => onConfigChange({
-                                            ...config,
-                                            multimodalConfig: { ...config.multimodalConfig, provider: 'standard' }
-                                        })}
-                                        className={`flex-1 py-1.5 text-xs rounded-md transition-all flex items-center justify-center gap-2 ${config.multimodalConfig.provider !== 'wuyinkeji' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
-                                    >
-                                        Standard (Chat API)
-                                    </button>
-                                    <button
-                                        onClick={() => onConfigChange({
-                                            ...config,
-                                            multimodalConfig: {
-                                                ...config.multimodalConfig,
-                                                provider: 'wuyinkeji',
-                                                baseUrl: 'https://api.wuyinkeji.com/api/img/nanoBanana-pro',
-                                                model: 'nanoBanana-pro'
+                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">服务商 (Provider)</label>
+                                <div className="relative">
+                                    <select
+                                        value={config.multimodalConfig.provider || 'standard'}
+                                        onChange={(e) => {
+                                            const val = e.target.value as any;
+                                            const newConfig = { ...config.multimodalConfig, provider: val };
+
+                                            // Auto-fill defaults for specific providers
+                                            if (val === 'wuyinkeji') {
+                                                newConfig.baseUrl = 'https://api.wuyinkeji.com/api/img/nanoBanana-pro';
+                                                newConfig.model = 'nanoBanana-pro';
+                                            } else if (val === 'standard') {
+                                                newConfig.baseUrl = 'https://api.openai.com/v1';
+                                                newConfig.model = 'gpt-4o';
+                                            } else if (val === 'seedream') {
+                                                newConfig.baseUrl = ''; // placeholder
+                                                newConfig.model = 'seedream-v1';
+                                            } else if (val === 'wan') {
+                                                newConfig.baseUrl = ''; // placeholder
+                                                newConfig.model = 'wan-v1';
                                             }
-                                        })}
-                                        className={`flex-1 py-1.5 text-xs rounded-md transition-all flex items-center justify-center gap-2 ${config.multimodalConfig.provider === 'wuyinkeji' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'}`}
+
+                                            onConfigChange({
+                                                ...config,
+                                                multimodalConfig: newConfig
+                                            });
+                                        }}
+                                        className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none appearance-none cursor-pointer pr-10"
                                     >
-                                        NanoBanana-pro
-                                    </button>
+                                        <option value="standard">Standard (Chat API / OpenAI)</option>
+                                        <option value="wuyinkeji">Wuyinkeji (NanoBanana-pro)</option>
+                                        <option value="seedream">Seedream (Coming Soon)</option>
+                                        <option value="wan">Wan (Coming Soon)</option>
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[var(--text-secondary)]">
+                                        <ChevronDown size={14} />
+                                    </div>
                                 </div>
                             </div>
                             <div>

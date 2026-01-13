@@ -415,6 +415,10 @@ interface WorkflowStore {
   // View management
   activeView: string | null;
   setActiveView: (view: string | null) => void;
+
+  // Global Config
+  appConfig: any; // Using any to avoid circular dependencies if types are complex, but AppConfig is best
+  setAppConfig: (config: any) => void;
 }
 
 const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
@@ -546,6 +550,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       locations: [],
     },
   },
+  appConfig: null,
 
   setAvailableImageModels: (models) => set({ availableImageModels: models }),
   setAvailableVideoModels: (models) => set({ availableVideoModels: models }),
@@ -553,6 +558,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   setViewportState: (viewport) => set({ viewport }),
 
   setActiveView: (view) => set({ activeView: view }),
+  setAppConfig: (config) => set({ appConfig: config }),
 
   setEdgeStyle: (style: EdgeStyle) => set({ edgeStyle: style }),
   setGlobalStyleGuide: (guide: string) => set({ globalStyleGuide: guide }),
