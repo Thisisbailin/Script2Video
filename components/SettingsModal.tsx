@@ -900,7 +900,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                                 newConfig.baseUrl = 'https://api.openai.com/v1';
                                                 newConfig.model = 'gpt-4o';
                                             } else if (val === 'seedream') {
-                                                newConfig.baseUrl = ''; // placeholder
+                                                newConfig.baseUrl = 'https://api.wuyinkeji.com/api/img/seedream';
                                                 newConfig.model = 'seedream-v1';
                                             } else if (val === 'wan') {
                                                 newConfig.baseUrl = ''; // placeholder
@@ -916,7 +916,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     >
                                         <option value="standard">Standard (Chat API / OpenAI)</option>
                                         <option value="wuyinkeji">Wuyinkeji (NanoBanana-pro)</option>
-                                        <option value="seedream">Seedream (Coming Soon)</option>
+                                        <option value="seedream">Seedream (Doubao)</option>
                                         <option value="wan">Wan (Coming Soon)</option>
                                     </select>
                                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[var(--text-secondary)]">
