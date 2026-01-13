@@ -180,45 +180,32 @@ export const useLabExecutor = () => {
       }
 
       if (configToUse.provider === 'seedream') {
-        // --- Seedream Asynchronous Flow ---
         const refImage = images.find((src) => src.startsWith("http")) || undefined;
-        const { id } = await SeedreamService.submitSeedreamTask(text || "Generate an image", configToUse, {
-          aspectRatio,
-          inputImageUrl: refImage
-        });
+        store.updateNodeData(nodeId, { status: "loading", error: null });
 
-        store.updateNodeData(nodeId, { status: "loading", taskId: id, error: null });
+        try {
+          const url = await SeedreamService.generateSeedreamImage(text || "Generate an image", configToUse, {
+            aspectRatio,
+            inputImageUrl: refImage
+          });
 
-        const maxAttempts = 60;
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          const result = await SeedreamService.checkSeedreamTaskStatus(id, configToUse);
-          if (result.status === "succeeded") {
-            store.updateNodeData(nodeId, {
-              status: "complete",
-              outputImage: result.url,
-              error: null,
-              model: configToUse.model // store used model for reference
-            });
+          store.updateNodeData(nodeId, {
+            status: "complete",
+            outputImage: url,
+            error: null,
+            model: configToUse.model
+          });
 
-            // Add to global history for reuse
-            store.addToGlobalHistory({
-              type: "image",
-              src: result.url!,
-              prompt: text || "Image Input",
-              model: configToUse.model,
-              aspectRatio
-            });
-            return;
-          }
-          if (result.status === "failed") {
-            store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Seedream generation failed." });
-            return;
-          }
-          // Wait 5 seconds between polls
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          store.addToGlobalHistory({
+            type: "image",
+            src: url,
+            prompt: text || "Image Input",
+            model: configToUse.model,
+            aspectRatio
+          });
+        } catch (e: any) {
+          store.updateNodeData(nodeId, { status: "error", error: e.message || "Seedream generation failed." });
         }
-
-        store.updateNodeData(nodeId, { status: "error", error: "Seedream generation timed out." });
         return;
       }
 
