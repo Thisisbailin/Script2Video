@@ -26,18 +26,23 @@ export function usePersistedState<T>(options: Options<T>): [T, Dispatch<SetState
 
   const timeoutRef = useRef<number | null>(null);
   const isLocalWriteRef = useRef(false); // Skip handling self-dispatched storage events
+  const skipNextSaveRef = useRef(false); // Prevent re-saving after storage-driven state sync
+  const lastSerializedRef = useRef<string | null>(null); // Track last serialized value to short-circuit repeats
 
   // Sync state between multiple hook instances using same key
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (isLocalWriteRef.current) return;
-      if (e.key === key && e.newValue !== null) {
-        try {
-          const newValue = deserialize(e.newValue);
-          setState(newValue);
-        } catch (err) {
-          console.warn(`usePersistedState sync error for ${key}`, err);
-        }
+      if (e.key !== key || e.newValue === null) return;
+      if (e.newValue === lastSerializedRef.current) return;
+      try {
+        const newValue = deserialize(e.newValue);
+        // Mark to skip the immediate save triggered by this state update
+        skipNextSaveRef.current = true;
+        lastSerializedRef.current = e.newValue;
+        setState(newValue);
+      } catch (err) {
+        console.warn(`usePersistedState sync error for ${key}`, err);
       }
     };
     window.addEventListener("storage", handleStorage);
@@ -50,9 +55,15 @@ export function usePersistedState<T>(options: Options<T>): [T, Dispatch<SetState
       timeoutRef.current = null;
     }
 
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+
     const save = () => {
       try {
         const serialized = serialize(state);
+        lastSerializedRef.current = serialized;
         const current = localStorage.getItem(key);
         if (current !== serialized) {
           localStorage.setItem(key, serialized);
