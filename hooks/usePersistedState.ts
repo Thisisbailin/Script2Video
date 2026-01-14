@@ -25,10 +25,12 @@ export function usePersistedState<T>(options: Options<T>): [T, Dispatch<SetState
   });
 
   const timeoutRef = useRef<number | null>(null);
+  const isLocalWriteRef = useRef(false); // Skip handling self-dispatched storage events
 
   // Sync state between multiple hook instances using same key
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
+      if (isLocalWriteRef.current) return;
       if (e.key === key && e.newValue !== null) {
         try {
           const newValue = deserialize(e.newValue);
@@ -55,7 +57,13 @@ export function usePersistedState<T>(options: Options<T>): [T, Dispatch<SetState
         if (current !== serialized) {
           localStorage.setItem(key, serialized);
           // Manually dispatch storage event within same window
-          window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
+          // Mark as local to avoid self-handling while still notifying other hook instances
+          isLocalWriteRef.current = true;
+          try {
+            window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
+          } finally {
+            isLocalWriteRef.current = false;
+          }
         }
       } catch (e) {
         console.warn(`usePersistedState: failed to write ${key}`, e);
