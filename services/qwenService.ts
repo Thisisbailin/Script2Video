@@ -67,9 +67,6 @@ const flattenContent = (content: any): string => {
 
 const resolveModelsEndpoint = (baseUrl?: string) => {
   let base = (baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, "");
-  if (base.includes("/api/v1/services/aigc/")) {
-    return `${DEFAULT_BASE.replace(/\/+$/, "")}/models`;
-  }
   if (base.endsWith("/chat/completions")) {
     return base.replace(/\/chat\/completions$/, "/models");
   }
@@ -96,14 +93,19 @@ export type QwenModel = {
 } & Record<string, any>;
 
 export const fetchModels = async (
-  baseUrl?: string
+  baseUrl?: string,
+  method: "GET" | "POST" = "GET"
 ): Promise<{ models: QwenModel[]; raw: any }> => {
   const apiKey = resolveApiKey();
   const endpoint = resolveModelsEndpoint(baseUrl);
 
   const res = await fetch(wrapWithProxy(endpoint), {
-    method: "GET",
-    headers: { Authorization: `Bearer ${apiKey}` },
+    method,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(method === "POST" ? { body: JSON.stringify({}) } : {}),
   });
   if (!res.ok) {
     const err = await res.text();
