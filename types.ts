@@ -293,7 +293,7 @@ export interface ViduVideoGenNodeData extends BaseNodeData {
   seed?: number;
 }
 
-export type TextProvider = 'gemini' | 'openrouter' | 'partner' | 'deyunai';
+export type TextProvider = 'gemini' | 'openrouter' | 'partner' | 'deyunai' | 'qwen';
 
 export interface TextServiceConfig {
   provider: TextProvider;

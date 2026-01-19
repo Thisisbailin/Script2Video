@@ -1501,7 +1501,9 @@ const App: React.FC = () => {
       ? 'OpenRouter'
       : config.textConfig.provider === 'deyunai'
         ? 'DeyunAI'
-        : 'Partner';
+        : config.textConfig.provider === 'qwen'
+          ? 'Qwen'
+          : 'Partner';
   const activeModelLabel = `${providerLabel} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];

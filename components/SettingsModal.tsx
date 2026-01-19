@@ -1,12 +1,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, TextProvider, SyncState } from '../types';
-import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS } from '../constants';
+import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS, QWEN_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_TEST_API_KEY } from '../constants';
 import * as DeyunAIService from '../services/deyunaiService';
+import * as QwenService from '../services/qwenService';
 import * as VideoService from '../services/videoService';
 import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2, ChevronDown } from 'lucide-react';
+import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2, ChevronDown, ArrowUp } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
@@ -42,6 +43,10 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     const [multiModelFetchMessage, setMultiModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
     const [isLoadingDeyunModels, setIsLoadingDeyunModels] = useState(false);
     const [deyunModelFetchMessage, setDeyunModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+    const [isTestingQwen, setIsTestingQwen] = useState(false);
+    const [qwenTestMessage, setQwenTestMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+    const [qwenTestInput, setQwenTestInput] = useState("你好，来一句欢迎语。");
+    const [qwenTestResponse, setQwenTestResponse] = useState("");
 
     const [availableVideoModels, setAvailableVideoModels] = useState<string[]>([]);
     const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
@@ -434,6 +439,29 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         }
     };
 
+    const handleTestQwenChat = async () => {
+        setQwenTestMessage(null);
+        setIsTestingQwen(true);
+        try {
+            const messages = [
+                { role: "system", content: "你是 Qwen 测试助手，请用一两句话回复。" },
+                { role: "user", content: qwenTestInput.trim() || "你好" },
+            ] as const;
+            const { text } = await QwenService.chatCompletion(messages as any, {
+                apiKey: config.textConfig.apiKey || QWEN_TEST_API_KEY,
+                baseUrl: config.textConfig.baseUrl || QWEN_BASE_URL,
+                model: config.textConfig.model || QWEN_DEFAULT_MODEL,
+            });
+            setQwenTestResponse(text);
+            setQwenTestMessage({ type: "success", text: "请求成功，已返回响应。" });
+        } catch (e: any) {
+            setQwenTestMessage({ type: "error", text: e.message || "调用失败，请检查配置" });
+            setQwenTestResponse("");
+        } finally {
+            setIsTestingQwen(false);
+        }
+    };
+
     const setProvider = (p: TextProvider) => {
         const nextConfig = { ...config.textConfig };
         if (p === 'gemini') {
@@ -456,6 +484,11 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
             nextConfig.verbosity = config.textConfig.verbosity || 'medium';
             nextConfig.stream = false; // 默认关闭流式，确保最小化参数
             nextConfig.store = config.textConfig.store ?? false;
+            nextConfig.deyunModels = [];
+        } else if (p === 'qwen') {
+            nextConfig.baseUrl = config.textConfig.baseUrl || QWEN_BASE_URL;
+            nextConfig.model = config.textConfig.model || QWEN_DEFAULT_MODEL;
+            nextConfig.apiKey = config.textConfig.apiKey || QWEN_TEST_API_KEY;
             nextConfig.deyunModels = [];
         } else {
             // partner: fully managed endpoint
@@ -609,6 +642,12 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                     >
                                         <Zap size={14} /> DeyunAI {config.textConfig.provider === 'deyunai' ? '(已激活)' : '(未激活)'}
                                     </button>
+                                    <button
+                                        onClick={() => setProvider('qwen')}
+                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'qwen' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
+                                    >
+                                        <BrainCircuit size={14} /> Aliyun Qwen {config.textConfig.provider === 'qwen' ? '(已激活)' : '(未激活)'}
+                                    </button>
                                 </div>
                             </div>
 
@@ -710,6 +749,98 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         )}
                                     </div>
                                 </div>
+                            ) : config.textConfig.provider === 'qwen' ? (
+                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <div className="text-sm font-semibold text-[var(--text-primary)]">Aliyun Qwen · 简易通道</div>
+                                            <div className="text-xs text-[var(--text-secondary)]">兼容 OpenAI 接口，预置测试密钥，验证后请移除。</div>
+                                        </div>
+                                        <span className="px-2 py-1 rounded-full text-[11px] bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">Beta</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
+                                            <input
+                                                type="text"
+                                                placeholder={QWEN_BASE_URL}
+                                                value={config.textConfig.baseUrl || QWEN_BASE_URL}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
+                                            <input
+                                                type="text"
+                                                placeholder="qwen-plus / qwen-max"
+                                                value={config.textConfig.model || QWEN_DEFAULT_MODEL}
+                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
+                                            <Key size={14} /> API Key
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="sk-..."
+                                            value={config.textConfig.apiKey || QWEN_TEST_API_KEY}
+                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
+                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                        />
+                                        <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
+                                            <AlertCircle size={12} className="text-amber-400" />
+                                            当前默认写入测试密钥，联调通过后请改为环境变量或手动输入。
+                                        </p>
+                                    </div>
+                                    <div className="rounded-lg border border-[var(--border-subtle)] bg-black/20 p-3 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-sm font-semibold text-white flex items-center gap-2">
+                                                <Sparkles size={14} className="text-amber-300" />
+                                                文本对话快速测试
+                                            </div>
+                                            {qwenTestMessage && (
+                                                <span className={`text-xs flex items-center gap-1 ${qwenTestMessage.type === 'error' ? 'text-red-400' : 'text-emerald-300'}`}>
+                                                    {qwenTestMessage.type === 'error' ? <AlertCircle size={12} /> : <CheckCircle size={12} />}
+                                                    {qwenTestMessage.text}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <textarea
+                                            value={qwenTestInput}
+                                            onChange={(e) => setQwenTestInput(e.target.value)}
+                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                            rows={3}
+                                            placeholder="输入一段话，点击测试"
+                                        />
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={handleTestQwenChat}
+                                                disabled={isTestingQwen}
+                                                className="px-4 py-2 rounded-lg bg-[var(--accent-blue)] text-white text-sm font-semibold hover:bg-sky-500 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                                            >
+                                                {isTestingQwen ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
+                                                {isTestingQwen ? '测试中...' : '发送测试'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setQwenTestInput("你好，简单介绍一下你自己。"); setQwenTestMessage(null); setQwenTestResponse(""); }}
+                                                className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                                            >
+                                                填充示例
+                                            </button>
+                                        </div>
+                                        {qwenTestResponse && (
+                                            <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-sm text-white/80 whitespace-pre-wrap leading-relaxed">
+                                                <div className="text-[11px] text-white/60 mb-1">Response</div>
+                                                {qwenTestResponse}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             ) : config.textConfig.provider === 'partner' ? (
                                 <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
                                     <div className="flex items-start justify-between">
@@ -741,7 +872,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         专属合作通道，使用平台预置密钥与标识头部 <code className="px-1 py-0.5 rounded bg-black/40 text-[var(--text-primary)]">X-Partner-Integration: Qalam-NodeLab</code>。如需更新密钥/网关请修改环境变量 PARTNER_API_KEY / PARTNER_API_BASE。
                                     </div>
                                 </div>
-                            ) : (
+                            ) : config.textConfig.provider === 'deyunai' ? (
                                 <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
                                     <div className="flex items-start justify-between">
                                         <div>
@@ -872,7 +1003,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">如需自定义函数工具，请在代码里传入 tools（JSON Schema 定义），此处仅快速开启官方 Web Search 预览工具。</p>
                                     </div>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
                     )}
 

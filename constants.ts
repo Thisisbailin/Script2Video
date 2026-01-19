@@ -43,6 +43,9 @@ export const AVAILABLE_MODELS = [
 
 export const PARTNER_TEXT_BASE_URL = 'https://partner-api.example.com/v1';
 export const DEYUNAI_BASE_URL = 'https://api.deyunai.com/v1';
+export const QWEN_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+export const QWEN_DEFAULT_MODEL = 'qwen-plus';
+export const QWEN_TEST_API_KEY = 'sk-8bdee652335743cb92ac532ecce13baf'; // TODO: remove hardcoded key after verification
 
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   provider: 'gemini',

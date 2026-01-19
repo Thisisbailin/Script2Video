@@ -2,6 +2,8 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig } from "../types";
 import { generatePartnerText } from "./partnerService";
 import * as DeyunAIService from "./deyunaiService";
+import * as QwenService from "./qwenService";
+import { QWEN_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_TEST_API_KEY } from "../constants";
 
 // --- HELPERS ---
 
@@ -35,6 +37,19 @@ const resolveDeyunApiKey = (config: TextServiceConfig): string => {
   const apiKey = configKey || envKey;
   if (!apiKey) throw new Error("DeyunAI API key missing. 请配置 DEYUNAI_API_KEY 或在设置中填写。");
   return apiKey;
+};
+
+const resolveQwenApiKey = (config: TextServiceConfig): string => {
+  const configKey = config.apiKey?.trim();
+  const envKey =
+    (typeof import.meta !== "undefined"
+      ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
+      : undefined) ||
+    (typeof process !== "undefined"
+      ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
+      : undefined);
+
+  return configKey || envKey || QWEN_TEST_API_KEY;
 };
 
 // Helper to map Google Schema to JSON Schema (Simplified for OpenRouter)
@@ -177,6 +192,35 @@ const generateText = async (
     } catch (e: any) {
       console.error("OpenRouter API Error:", e);
       throw new Error(`OpenRouter Error: ${e.message}`);
+    }
+  }
+
+  // 3. QWEN (Aliyun DashScope)
+  else if (config.provider === 'qwen') {
+    const apiKey = resolveQwenApiKey(config);
+    const jsonSchema = googleSchemaToJsonSchema(schema);
+    const refinedPrompt = `${prompt}\n\nIMPORTANT: 返回满足此 JSON Schema 的对象：\n${JSON.stringify(jsonSchema, null, 2)}\n请仅输出 JSON。`;
+    const messages: Array<{ role: "system" | "user"; content: string }> = [];
+    if (systemInstruction) messages.push({ role: "system", content: systemInstruction });
+    messages.push({ role: "user", content: refinedPrompt });
+
+    const baseUrl = config.baseUrl?.trim() || QWEN_BASE_URL;
+    const model = config.model || QWEN_DEFAULT_MODEL;
+
+    try {
+      const { text, usage } = await QwenService.chatCompletion(messages, {
+        apiKey,
+        baseUrl,
+        model,
+        responseFormat: "json_object",
+      });
+      return {
+        text: text || "{}",
+        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
+      };
+    } catch (e: any) {
+      console.error("Qwen API Error:", e);
+      throw new Error(`Qwen Error: ${e.message}`);
     }
   }
 

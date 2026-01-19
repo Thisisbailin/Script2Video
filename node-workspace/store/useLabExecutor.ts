@@ -307,6 +307,12 @@ export const useLabExecutor = () => {
       return buckets;
     };
 
+    const defaultSubjectImages = [
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
+      "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
+    ];
+
     const resolvedSubjects =
       useCharacters && mentions.length > 0
         ? (() => {
@@ -348,6 +354,15 @@ export const useLabExecutor = () => {
               ];
           })();
 
+    // Guarantee each subject has at least one image (Vidu API rejects empty arrays)
+    const hydratedSubjects = resolvedSubjects.map((s, idx) => {
+      const imgs = (s.images || []).filter(Boolean);
+      if (imgs.length) return s;
+      const pool = images.length ? images : defaultSubjectImages;
+      const fallbackImg = pool[idx % pool.length];
+      return { ...s, images: fallbackImg ? [fallbackImg] : defaultSubjectImages };
+    });
+
     const visualImages = images.length
       ? images
       : [
@@ -377,7 +392,7 @@ export const useLabExecutor = () => {
           mode: "audioVideo" as const,
           audioParams: {
             model: data.model || viduConfig.defaultModel,
-            subjects: resolvedSubjects,
+            subjects: hydratedSubjects,
             prompt: promptForVidu,
             duration: data.duration ?? 10,
             audio: true,
