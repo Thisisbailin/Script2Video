@@ -66,7 +66,7 @@ type Props = {
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
   isDarkMode?: boolean;
-  onOpenSettings?: (tab?: "text" | "multimodal" | "video" | "sync" | "about") => void;
+  onOpenSettings?: (tab?: "multimodal" | "video" | "sync" | "about") => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: AccountInfo;

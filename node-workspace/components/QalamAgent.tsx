@@ -8,7 +8,7 @@ import { AVAILABLE_MODELS, DEYUNAI_MODELS } from "../../constants";
 type Props = {
   projectData: ProjectData;
   onOpenStats?: () => void;
-  onOpenSettings?: (tab?: "text" | "multimodal" | "video" | "sync" | "about") => void;
+  onToggleAgentSettings?: () => void;
 };
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -24,7 +24,7 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
   return parts.join("\n\n");
 };
 
-export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onOpenSettings }) => {
+export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggleAgentSettings }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
@@ -235,9 +235,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onOpenSe
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => onOpenSettings?.("text")}
+                onClick={onToggleAgentSettings}
                 className="h-6 w-6 flex items-center justify-center rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
-                title="切换服务商 / 模型路线"
+                title="服务商设置"
               >
                 <Globe size={12} className="text-white/70" />
               </button>

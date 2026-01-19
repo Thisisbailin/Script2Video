@@ -132,7 +132,15 @@ const generateText = async (
 
   // 2. OPENROUTER / OPENAI PROVIDER
   else if (config.provider === 'openrouter') {
-    if (!config.baseUrl || !config.apiKey) throw new Error("OpenRouter configuration missing (URL or Key).");
+    const envKey =
+      (typeof import.meta !== "undefined"
+        ? (import.meta.env.OPENROUTER_API_KEY || import.meta.env.VITE_OPENROUTER_API_KEY)
+        : undefined) ||
+      (typeof process !== "undefined"
+        ? (process.env?.OPENROUTER_API_KEY || process.env?.VITE_OPENROUTER_API_KEY)
+        : undefined);
+    const apiKey = config.apiKey?.trim() || envKey;
+    if (!apiKey) throw new Error("OpenRouter API key missing. 请配置 OPENROUTER_API_KEY/VITE_OPENROUTER_API_KEY。");
 
     const jsonSchema = googleSchemaToJsonSchema(schema);
 
@@ -145,7 +153,7 @@ const generateText = async (
     const refinedPrompt = `${prompt}\n\nIMPORTANT: Return the output as a valid JSON object matching this schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
     messages.push({ role: "user", content: refinedPrompt });
 
-    let apiBase = config.baseUrl.trim().replace(/\/+$/, '');
+    let apiBase = (config.baseUrl || "https://openrouter.ai/api/v1").trim().replace(/\/+$/, '');
     // Ensure /v1/chat/completions structure if not present but base implies it
     // If user provided "https://openrouter.ai/api/v1", we append "/chat/completions"
     if (!apiBase.endsWith('/chat/completions')) {
@@ -163,7 +171,7 @@ const generateText = async (
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${config.apiKey}`,
+          "Authorization": `Bearer ${apiKey}`,
           // OpenRouter specific headers
           "HTTP-Referer": window.location.origin,
           "X-Title": "eSheep"

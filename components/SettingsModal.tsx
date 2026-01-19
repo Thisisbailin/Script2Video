@@ -1,11 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { AppConfig, TextProvider, SyncState } from '../types';
-import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS, QWEN_BASE_URL, QWEN_DEFAULT_MODEL } from '../constants';
-import * as DeyunAIService from '../services/deyunaiService';
-import * as QwenService from '../services/qwenService';
+import { AppConfig, SyncState } from '../types';
 import * as VideoService from '../services/videoService';
-import * as GeminiService from '../services/geminiService';
 import * as MultimodalService from '../services/multimodalService';
 import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2, ChevronDown, ArrowUp } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
@@ -21,14 +17,14 @@ interface Props {
     onForceSync?: () => void;
     syncState?: SyncState;
     syncRollout?: { enabled: boolean; percent: number; bucket?: number | null; allowlisted?: boolean };
-    activeTabOverride?: 'text' | 'multimodal' | 'video' | 'sync' | 'about';
+    activeTabOverride?: 'multimodal' | 'video' | 'sync' | 'about';
     onResetProject?: () => void;
 }
 
 import { useWorkflowStore } from '../node-workspace/store/workflowStore';
 
 export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConfigChange, isSignedIn, getAuthToken, onForceSync, syncState, syncRollout, activeTabOverride, onResetProject }) => {
-    const [activeTab, setActiveTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about'>('text');
+    const [activeTab, setActiveTab] = useState<'multimodal' | 'video' | 'sync' | 'about'>('multimodal');
     const deviceIdRef = useRef<string>(getDeviceId());
     const { setAvailableImageModels: setAvailableImageModelsStore, setAvailableVideoModels: setAvailableVideoModelsStore, applyViduReferenceDemo } = useWorkflowStore();
 
@@ -36,24 +32,11 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     const [isLoadingModels, setIsLoadingModels] = useState(false);
     const [modelFetchMessage, setModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
-    const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
-    const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
-
     const [isLoadingMultiModels, setIsLoadingMultiModels] = useState(false);
     const [multiModelFetchMessage, setMultiModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
-    const [isLoadingDeyunModels, setIsLoadingDeyunModels] = useState(false);
-    const [deyunModelFetchMessage, setDeyunModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
-    const [availableQwenModels, setAvailableQwenModels] = useState<string[]>([]);
-    const [qwenModelFetchMessage, setQwenModelFetchMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-    const [isTestingQwen, setIsTestingQwen] = useState(false);
-    const [qwenTestMessage, setQwenTestMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-    const [qwenTestInput, setQwenTestInput] = useState("你好，来一句欢迎语。");
-    const [qwenTestResponse, setQwenTestResponse] = useState("");
 
     const [availableVideoModels, setAvailableVideoModels] = useState<string[]>([]);
-    const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
     const [availableMultiModels, setAvailableMultiModels] = useState<string[]>([]);
-    const [availableDeyunModels, setAvailableDeyunModels] = useState<Array<{ id: string; label: string; meta?: any }>>([]);
 
     const [snapshots, setSnapshots] = useState<{ version: number; createdAt: number }[]>([]);
     const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
@@ -75,25 +58,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
             setActiveTab(activeTabOverride);
         }
     }, [activeTabOverride, isOpen]);
-
-    useEffect(() => {
-        if (config.textConfig.provider === 'deyunai' && Array.isArray(config.textConfig.deyunModels) && config.textConfig.deyunModels.length) {
-            setAvailableDeyunModels(config.textConfig.deyunModels.map((m) => ({
-                id: m.id,
-                label: m.label || m.id,
-                meta: m,
-            })));
-        } else {
-            setAvailableDeyunModels([]);
-        }
-    }, [config.textConfig.provider, config.textConfig.deyunModels]);
-
-    // 默认激活官网（Gemini），避免无 provider 导致状态错乱
-    useEffect(() => {
-        if (!config.textConfig.provider) {
-            onConfigChange({ ...config, textConfig: { ...config.textConfig, provider: 'gemini' as TextProvider } });
-        }
-    }, [config.textConfig.provider, config, onConfigChange]);
 
     useEffect(() => {
         if (isOpen && config.videoProvider === 'vidu') {
@@ -348,30 +312,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         }
     };
 
-    // Text Models Fetcher (OpenRouter)
-    const handleFetchTextModels = async () => {
-        const { baseUrl, apiKey } = config.textConfig;
-        if (!baseUrl || !apiKey) {
-            setTextModelFetchMessage({ type: 'error', text: "Please enter URL and API Key first." });
-            return;
-        }
-        setIsLoadingTextModels(true);
-        setTextModelFetchMessage(null);
-        try {
-            const models = await GeminiService.fetchTextModels(baseUrl, apiKey);
-            if (models.length > 0) {
-                setAvailableTextModels(models);
-                setTextModelFetchMessage({ type: 'success', text: `Found ${models.length} models.` });
-            } else {
-                setTextModelFetchMessage({ type: 'success', text: "Connection OK. No models listed." });
-            }
-        } catch (e: any) {
-            setTextModelFetchMessage({ type: 'error', text: e.message });
-        } finally {
-            setIsLoadingTextModels(false);
-        }
-    };
-
     // Multimodal Models Fetcher
     const handleFetchMultiModels = async () => {
         const { baseUrl, apiKey } = config.multimodalConfig;
@@ -406,139 +346,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         }
     };
 
-    const handleFetchDeyunModels = async () => {
-        const { baseUrl, apiKey } = config.textConfig;
-        setIsLoadingDeyunModels(true);
-        setDeyunModelFetchMessage(null);
-        try {
-            const models = await DeyunAIService.fetchModels({ apiKey, baseUrl });
-            const mapped = models.map((m) => ({
-                id: m.id,
-                label: `${m.id}${m.modalities?.length ? ` · ${m.modalities.join('/')}` : ''}${m.capabilities?.tools ? ' · tools' : ''}`,
-                meta: m,
-            }));
-            console.log("[Settings] DeyunAI models mapped", mapped);
-            setAvailableDeyunModels(mapped);
-            onConfigChange({
-                ...config,
-                textConfig: {
-                    ...config.textConfig,
-                    deyunModels: mapped.map((m) => ({
-                        id: m.id,
-                        label: m.label,
-                        modalities: m.meta?.modalities,
-                        capabilities: m.meta?.capabilities,
-                        description: m.meta?.description,
-                    }))
-                }
-            });
-            const msg = mapped.length === 0 ? "获取成功，0 个模型（接口返回空列表）" : `获取成功，${mapped.length} 个模型`;
-            setDeyunModelFetchMessage({ type: 'success', text: msg });
-        } catch (e: any) {
-            setDeyunModelFetchMessage({ type: 'error', text: e.message });
-        } finally {
-            setIsLoadingDeyunModels(false);
-        }
-    };
-
-    const handleFetchQwenModels = async () => {
-        setQwenModelFetchMessage(null);
-        setIsLoadingTextModels(true);
-        try {
-            if (!config.textConfig.apiKey && !((typeof import.meta !== "undefined" && (import.meta as any)?.env?.QWEN_API_KEY))) {
-                setQwenModelFetchMessage({ type: "error", text: "请先填写 Qwen API Key 或配置环境变量。" });
-                setIsLoadingTextModels(false);
-                return;
-            }
-            const models = await QwenService.fetchModels({
-                apiKey: config.textConfig.apiKey,
-                baseUrl: config.textConfig.baseUrl || QWEN_BASE_URL,
-            });
-            const ids = models.map((m) => m.id);
-            setAvailableQwenModels(ids);
-            const msg = ids.length ? `获取成功，${ids.length} 个模型` : "获取成功，但返回为空";
-            setQwenModelFetchMessage({ type: "success", text: msg });
-            if (ids.length && !ids.includes(config.textConfig.model)) {
-                onConfigChange({ ...config, textConfig: { ...config.textConfig, model: ids[0] } });
-            }
-        } catch (e: any) {
-            setQwenModelFetchMessage({ type: "error", text: e.message || "拉取失败" });
-        } finally {
-            setIsLoadingTextModels(false);
-        }
-    };
-
-    const handleTestQwenChat = async () => {
-        setQwenTestMessage(null);
-        setIsTestingQwen(true);
-        try {
-            if (!config.textConfig.apiKey && !((typeof import.meta !== "undefined" && (import.meta as any)?.env?.QWEN_API_KEY))) {
-                setQwenTestMessage({ type: "error", text: "请先填写 Qwen API Key 或配置环境变量。" });
-                setIsTestingQwen(false);
-                return;
-            }
-            const messages = [
-                { role: "system", content: "你是 Qwen 测试助手，请用一两句话回复。" },
-                { role: "user", content: qwenTestInput.trim() || "你好" },
-            ] as const;
-            const { text } = await QwenService.chatCompletion(messages as any, {
-                apiKey: config.textConfig.apiKey,
-                baseUrl: config.textConfig.baseUrl || QWEN_BASE_URL,
-                model: config.textConfig.model || QWEN_DEFAULT_MODEL,
-            });
-            setQwenTestResponse(text);
-            setQwenTestMessage({ type: "success", text: "请求成功，已返回响应。" });
-        } catch (e: any) {
-            setQwenTestMessage({ type: "error", text: e.message || "调用失败，请检查配置" });
-            setQwenTestResponse("");
-        } finally {
-            setIsTestingQwen(false);
-        }
-    };
-
-    const setProvider = (p: TextProvider) => {
-        const nextConfig = { ...config.textConfig };
-        if (p === 'gemini') {
-            nextConfig.baseUrl = '';
-            nextConfig.model = 'gemini-2.5-flash';
-            nextConfig.apiKey = config.textConfig.apiKey || '';
-            nextConfig.deyunModels = [];
-        } else if (p === 'openrouter') {
-            const previousBase = config.textConfig.baseUrl || '';
-            const isPartnerLike = previousBase.includes('partner-api') || previousBase.includes('partner');
-            nextConfig.baseUrl = isPartnerLike || !previousBase ? 'https://openrouter.ai/api/v1' : previousBase;
-            nextConfig.model = config.textConfig.model || '';
-            nextConfig.apiKey = config.textConfig.apiKey || '';
-            nextConfig.deyunModels = [];
-        } else if (p === 'deyunai') {
-            nextConfig.baseUrl = config.textConfig.baseUrl || DEYUNAI_BASE_URL;
-            nextConfig.model = config.textConfig.model || 'gpt-5.1';
-            nextConfig.apiKey = config.textConfig.apiKey || '';
-            nextConfig.reasoningEffort = config.textConfig.reasoningEffort || 'medium';
-            nextConfig.verbosity = config.textConfig.verbosity || 'medium';
-            nextConfig.stream = false; // 默认关闭流式，确保最小化参数
-            nextConfig.store = config.textConfig.store ?? false;
-            nextConfig.deyunModels = [];
-        } else if (p === 'qwen') {
-            nextConfig.baseUrl = config.textConfig.baseUrl || QWEN_BASE_URL;
-            nextConfig.model = config.textConfig.model || QWEN_DEFAULT_MODEL;
-            nextConfig.apiKey = config.textConfig.apiKey || '';
-            nextConfig.deyunModels = [];
-        } else {
-            // partner: fully managed endpoint
-            nextConfig.baseUrl = PARTNER_TEXT_BASE_URL;
-            nextConfig.model = 'partner-text-pro';
-            nextConfig.apiKey = '';
-        }
-        onConfigChange({
-            ...config,
-            textConfig: {
-                ...nextConfig,
-                provider: p,
-            }
-        });
-    };
-
     if (!isOpen) return null;
 
     return (
@@ -555,12 +362,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
                 {/* Tabs */}
                 <div className="flex border-b border-white/10 bg-white/5 shrink-0">
-                    <button
-                        onClick={() => setActiveTab('text')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'text' ? 'bg-white/10 text-sky-300 border-b-2 border-sky-400/80' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <Cpu size={16} /> Text
-                    </button>
                     <button
                         onClick={() => setActiveTab('multimodal')}
                         className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'multimodal' ? 'bg-white/10 text-pink-300 border-b-2 border-pink-400/80' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
@@ -646,429 +447,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                             </div>
                         </>
                     )}
-                    {activeTab === 'text' && (
-                        <div className="space-y-6">
-                            {/* Provider Switcher */}
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Provider</label>
-                                <div className="flex rounded-lg bg-[var(--bg-panel)]/80 p-1 border border-[var(--border-subtle)]">
-                                    <button
-                                        onClick={() => setProvider('gemini')}
-                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'gemini' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
-                                    >
-                                        <Zap size={14} /> Google Gemini {config.textConfig.provider === 'gemini' ? '(已激活)' : '(未激活)'}
-                                    </button>
-                                    <button
-                                        onClick={() => setProvider('openrouter')}
-                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'openrouter' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
-                                    >
-                                        <Globe size={14} /> OpenRouter / OpenAI {config.textConfig.provider === 'openrouter' ? '(已激活)' : '(未激活)'}
-                                    </button>
-                                    <button
-                                        onClick={() => setProvider('partner')}
-                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'partner' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
-                                    >
-                                        <Shield size={14} /> Partner Route {config.textConfig.provider === 'partner' ? '(已激活)' : '(未激活)'}
-                                    </button>
-                                    <button
-                                        onClick={() => setProvider('deyunai')}
-                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'deyunai' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
-                                    >
-                                        <Zap size={14} /> DeyunAI {config.textConfig.provider === 'deyunai' ? '(已激活)' : '(未激活)'}
-                                    </button>
-                                    <button
-                                        onClick={() => setProvider('qwen')}
-                                        className={`flex-1 py-2 text-sm rounded-md transition-all flex items-center justify-center gap-2 ${config.textConfig.provider === 'qwen' ? 'bg-[var(--accent-blue)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-transparent hover:border-[var(--accent-blue)]'}`}
-                                    >
-                                        <BrainCircuit size={14} /> Aliyun Qwen {config.textConfig.provider === 'qwen' ? '(已激活)' : '(未激活)'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Configuration Content */}
-                            {config.textConfig.provider === 'gemini' ? (
-                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
-                                    <div>
-                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Gemini Model</label>
-                                        <select
-                                            value={config.textConfig.model}
-                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        >
-                                            {AVAILABLE_MODELS.map(m => (
-                                                <option key={m.id} value={m.id}>{m.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
-                                            <Key size={14} /> API Key
-                                        </label>
-                                        <input
-                                            type="password"
-                                            placeholder="AIza..."
-                                            value={config.textConfig.apiKey || ''}
-                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                        <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
-                                            <CheckCircle size={12} className="text-green-500" />
-                                            支持手动填写，留空时会使用环境变量 VITE_GEMINI_API_KEY。
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : config.textConfig.provider === 'openrouter' ? (
-                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
-                                    <div>
-                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
-                                            <Globe size={14} /> API Endpoint URL
-                                        </label>
-                                        <input
-                                            type="text"
-                                            placeholder="https://openrouter.ai/api/v1"
-                                            value={config.textConfig.baseUrl || ''}
-                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
-                                            <Key size={14} /> API Key
-                                        </label>
-                                        <input
-                                            type="password"
-                                            placeholder="sk-or-..."
-                                            value={config.textConfig.apiKey || ''}
-                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                    </div>
-
-                                    {/* Fetch & Select Text Model */}
-                                    <div className="pt-2 border-t border-[var(--border-subtle)]/60">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)]">Target Model</label>
-                                            <button
-                                                onClick={handleFetchTextModels}
-                                                disabled={isLoadingTextModels}
-                                                className="text-xs flex items-center gap-1 text-[var(--accent-blue)] hover:text-sky-300 disabled:opacity-50"
-                                            >
-                                                {isLoadingTextModels ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                                                Fetch Models
-                                            </button>
-                                        </div>
-                                        {textModelFetchMessage && (
-                                            <p className={`text-xs mb-2 flex items-center gap-1 ${textModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
-                                                {textModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                                                {textModelFetchMessage.text}
-                                            </p>
-                                        )}
-                                        {availableTextModels.length > 0 ? (
-                                            <select
-                                                value={config.textConfig.model}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            >
-                                                <option value="">Select a model...</option>
-                                                {availableTextModels.map(m => <option key={m} value={m}>{m}</option>)}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. google/gemini-pro-1.5"
-                                                value={config.textConfig.model}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            ) : config.textConfig.provider === 'qwen' ? (
-                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <div className="text-sm font-semibold text-[var(--text-primary)]">Aliyun Qwen · 简易通道</div>
-                                            <div className="text-xs text-[var(--text-secondary)]">兼容 OpenAI 接口，预置测试密钥，验证后请移除。</div>
-                                        </div>
-                                        <span className="px-2 py-1 rounded-full text-[11px] bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">Beta</span>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
-                                            <input
-                                                type="text"
-                                                placeholder={QWEN_BASE_URL}
-                                                value={config.textConfig.baseUrl || QWEN_BASE_URL}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, baseUrl: e.target.value } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
-                                            <div className="flex items-center gap-2">
-                                                {availableQwenModels.length > 0 ? (
-                                                    <select
-                                                        value={config.textConfig.model || QWEN_DEFAULT_MODEL}
-                                                        onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                        className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                                    >
-                                                        {availableQwenModels.map((m) => (
-                                                            <option key={m} value={m}>{m}</option>
-                                                        ))}
-                                                    </select>
-                                                ) : (
-                                                    <input
-                                                        type="text"
-                                                        placeholder="qwen-plus / qwen-max"
-                                                        value={config.textConfig.model || QWEN_DEFAULT_MODEL}
-                                                        onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                        className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                                    />
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={handleFetchQwenModels}
-                                                    disabled={isLoadingTextModels}
-                                                    className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] hover:border-[var(--accent-blue)] disabled:opacity-50"
-                                                >
-                                                    {isLoadingTextModels ? <Loader2 size={14} className="animate-spin" /> : '拉取模型'}
-                                                </button>
-                                            </div>
-                                            {qwenModelFetchMessage && (
-                                                <p className={`text-xs mt-1 flex items-center gap-1 ${qwenModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
-                                                    {qwenModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                                                    {qwenModelFetchMessage.text}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-2">
-                                            <Key size={14} /> API Key
-                                        </label>
-                                        <input
-                                            type="text"
-                                            placeholder="sk-..."
-                                            value={config.textConfig.apiKey || ''}
-                                            onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                        <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
-                                            <AlertCircle size={12} className="text-amber-400" />
-                                            推荐在 Cloudflare Pages 配置 QWEN_API_KEY / VITE_QWEN_API_KEY，或在此填写后保存。
-                                        </p>
-                                    </div>
-                                    <div className="rounded-lg border border-[var(--border-subtle)] bg-black/20 p-3 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-sm font-semibold text-white flex items-center gap-2">
-                                                <Sparkles size={14} className="text-amber-300" />
-                                                文本对话快速测试
-                                            </div>
-                                            {qwenTestMessage && (
-                                                <span className={`text-xs flex items-center gap-1 ${qwenTestMessage.type === 'error' ? 'text-red-400' : 'text-emerald-300'}`}>
-                                                    {qwenTestMessage.type === 'error' ? <AlertCircle size={12} /> : <CheckCircle size={12} />}
-                                                    {qwenTestMessage.text}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <textarea
-                                            value={qwenTestInput}
-                                            onChange={(e) => setQwenTestInput(e.target.value)}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            rows={3}
-                                            placeholder="输入一段话，点击测试"
-                                        />
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={handleTestQwenChat}
-                                                disabled={isTestingQwen}
-                                                className="px-4 py-2 rounded-lg bg-[var(--accent-blue)] text-white text-sm font-semibold hover:bg-sky-500 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                                            >
-                                                {isTestingQwen ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
-                                                {isTestingQwen ? '测试中...' : '发送测试'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => { setQwenTestInput("你好，简单介绍一下你自己。"); setQwenTestMessage(null); setQwenTestResponse(""); }}
-                                                className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                                            >
-                                                填充示例
-                                            </button>
-                                        </div>
-                                        {qwenTestResponse && (
-                                            <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-sm text-white/80 whitespace-pre-wrap leading-relaxed">
-                                                <div className="text-[11px] text-white/60 mb-1">Response</div>
-                                                {qwenTestResponse}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : config.textConfig.provider === 'partner' ? (
-                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <div className="text-sm font-semibold text-[var(--text-primary)]">合作专线 · 自动配置</div>
-                                            <div className="text-xs text-[var(--text-secondary)]">使用内置密钥与专属网关，无需填写。</div>
-                                        </div>
-                                        <span className="px-2 py-1 rounded-full text-[11px] bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">Managed</span>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
-                                            <input
-                                                value={config.textConfig.model || 'partner-text-pro'}
-                                                readOnly
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] opacity-70"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
-                                            <input
-                                                value={config.textConfig.baseUrl || PARTNER_TEXT_BASE_URL}
-                                                readOnly
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] opacity-70"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-[var(--bg-panel)]/80 border border-dashed border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] leading-relaxed">
-                                        专属合作通道，使用平台预置密钥与标识头部 <code className="px-1 py-0.5 rounded bg-black/40 text-[var(--text-primary)]">X-Partner-Integration: Qalam-NodeLab</code>。如需更新密钥/网关请修改环境变量 PARTNER_API_KEY / PARTNER_API_BASE。
-                                    </div>
-                                </div>
-                            ) : config.textConfig.provider === 'deyunai' ? (
-                                <div className="space-y-4 bg-[var(--bg-panel)]/70 p-4 rounded-lg border border-[var(--border-subtle)]">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <div className="text-sm font-semibold text-[var(--text-primary)]">DeyunAI 专属通道</div>
-                                            <div className="text-xs text-[var(--text-secondary)]">使用 DEYUNAI_API_KEY（已在后台设置）或手动覆盖。</div>
-                                        </div>
-                                        <span className="px-2 py-1 rounded-full text-[11px] bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">Configurable</span>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <select
-                                                    value={config.textConfig.model || 'gpt-5.1'}
-                                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                    className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                                >
-                                                    {(availableDeyunModels.length ? availableDeyunModels : DEYUNAI_MODELS.map((m) => ({ id: m, label: m }))).map((m) => (
-                                                        <option key={m.id} value={m.id}>{m.label}</option>
-                                                    ))}
-                                                </select>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleFetchDeyunModels}
-                                                    disabled={isLoadingDeyunModels}
-                                                    className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] hover:border-[var(--accent-blue)] disabled:opacity-50"
-                                                >
-                                                    {isLoadingDeyunModels ? <Loader2 size={14} className="animate-spin" /> : '拉取模型'}
-                                                </button>
-                                            </div>
-                                            {deyunModelFetchMessage && (
-                                                <p className={`text-xs mb-1 flex items-center gap-1 ${deyunModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
-                                                    {deyunModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                                                    {deyunModelFetchMessage.text}
-                                                </p>
-                                            )}
-                                            {availableDeyunModels.length > 0 && (
-                                                <div className="max-h-32 overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 text-xs text-[var(--text-secondary)] px-3 py-2 space-y-1">
-                                                    {availableDeyunModels.map((m) => (
-                                                        <div key={m.id} className="flex flex-col">
-                                                            <span className="text-[var(--text-primary)]">{m.id}</span>
-                                                            <span className="text-[11px]">{m.meta?.modalities?.length ? `模态: ${m.meta.modalities.join('/')}` : '模态: 未标注'}</span>
-                                                            {m.meta?.capabilities && (
-                                                                <span className="text-[11px]">capabilities: {Object.keys(m.meta.capabilities).join(', ')}</span>
-                                                            )}
-                                                            {m.meta?.description && <span className="text-[11px] line-clamp-1">描述: {m.meta.description}</span>}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Base URL</label>
-                                            <div className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] opacity-70 cursor-not-allowed">
-                                                https://api.deyunai.com/v1
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">思考强度</label>
-                                            <select
-                                                value={config.textConfig.reasoningEffort || 'medium'}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, reasoningEffort: e.target.value as any } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            >
-                                                <option value="low">low</option>
-                                                <option value="medium">medium</option>
-                                                <option value="high">high</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">输出详尽度</label>
-                                            <select
-                                                value={config.textConfig.verbosity || 'medium'}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, verbosity: e.target.value as any } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            >
-                                                <option value="low">low</option>
-                                                <option value="medium">medium</option>
-                                                <option value="high">high</option>
-                                            </select>
-                                        </div>
-                                        <div className="flex items-end gap-2">
-                                            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!config.textConfig.stream}
-                                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, stream: e.target.checked } })}
-                                                    className="h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded bg-[var(--bg-panel)] focus:ring-[var(--accent-blue)]"
-                                                />
-                                                流式返回
-                                            </label>
-                                            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!config.textConfig.store}
-                                                    onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, store: e.target.checked } })}
-                                                    className="h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded bg-[var(--bg-panel)] focus:ring-[var(--accent-blue)]"
-                                                />
-                                                结果存储
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/60 p-3 space-y-1">
-                                        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-                                            <Key size={14} /> API Key
-                                        </div>
-                                        <p className="text-sm text-[var(--text-primary)]">已在后端环境变量 DEYUNAI_API_KEY 配置，无需填写。</p>
-                                        <p className="text-xs text-[var(--text-secondary)]">如需覆盖，可在后端更新环境变量（推荐 VITE_DEYUNAI_API_KEY，或 DEYUNAI_API_KEY）；前端不再收集密钥。</p>
-                                    </div>
-                                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-panel)]/60 p-3 space-y-2">
-                                        <div className="text-sm font-semibold text-[var(--text-primary)]">常用工具</div>
-                                        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                                            <input
-                                                type="checkbox"
-                                                checked={Array.isArray(config.textConfig.tools) && config.textConfig.tools.some((t: any) => t?.type === 'web_search_preview')}
-                                                onChange={(e) => {
-                                                    const enabled = e.target.checked;
-                                                    const existingTools = Array.isArray(config.textConfig.tools) ? config.textConfig.tools.filter((t: any) => t?.type !== 'web_search_preview') : [];
-                                                    const nextTools = enabled ? [...existingTools, { type: 'web_search_preview' }] : existingTools;
-                                                    onConfigChange({ ...config, textConfig: { ...config.textConfig, tools: nextTools } });
-                                                }}
-                                                className="h-4 w-4 text-[var(--accent-blue)] border-[var(--border-subtle)] rounded bg-[var(--bg-panel)] focus:ring-[var(--accent-blue)]"
-                                            />
-                                            启用网络搜索工具（web_search_preview）
-                                        </label>
-                                        <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">如需自定义函数工具，请在代码里传入 tools（JSON Schema 定义），此处仅快速开启官方 Web Search 预览工具。</p>
-                                    </div>
-                                </div>
-                            ) : null}
-                        </div>
-                    )}
-
                     {activeTab === 'multimodal' && (
                         <div className="space-y-4">
                             <div className="p-3 bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded text-xs text-pink-200 mb-4">

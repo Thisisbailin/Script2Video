@@ -16,7 +16,7 @@ export type QwenChatOptions = {
 const DEFAULT_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
 const resolveApiKey = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {
-  const envKey =
+  const envKey = 
     (typeof import.meta !== "undefined"
       ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
       : undefined) ||
@@ -24,12 +24,12 @@ const resolveApiKey = (config?: QwenChatOptions | Partial<TextServiceConfig>) =>
       ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
       : undefined);
   const key = (config?.apiKey || (config as any)?.textApiKey || envKey || "").trim();
-  if (!key) throw new Error("Missing Qwen API key. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 或设置中填写。");
+  if (!key) throw new Error("Missing Qwen API key. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 配置。");
   return key;
 };
 
-const resolveEndpoint = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {
-  const base = (config?.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
+const resolveEndpoint = () => {
+  const base = DEFAULT_BASE.replace(/\/+$/, "");
   if (base.endsWith("/chat/completions")) return base;
   if (base.endsWith("/v1")) return `${base}/chat/completions`;
   return `${base}/v1/chat/completions`;
@@ -65,8 +65,8 @@ const flattenContent = (content: any): string => {
   return "";
 };
 
-const resolveModelsEndpoint = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {
-  let base = (config?.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
+const resolveModelsEndpoint = () => {
+  let base = DEFAULT_BASE.replace(/\/+$/, "");
   base = base.replace(/\/chat\/completions$/, "");
   if (base.endsWith("/models")) return base;
   if (base.endsWith("/v1")) return `${base}/models`;
@@ -79,7 +79,7 @@ export const fetchModels = async (
   options?: QwenChatOptions
 ): Promise<QwenModel[]> => {
   const apiKey = resolveApiKey(options);
-  const endpoint = resolveModelsEndpoint(options);
+  const endpoint = resolveModelsEndpoint();
 
   const res = await fetch(endpoint, {
     method: "GET",
@@ -100,7 +100,7 @@ export const chatCompletion = async (
   options?: QwenChatOptions
 ): Promise<{ text: string; usage?: TokenUsage; raw: any }> => {
   const apiKey = resolveApiKey(options);
-  const endpoint = resolveEndpoint(options);
+  const endpoint = resolveEndpoint();
   const model = options?.model || "qwen-plus";
   const responseFormat =
     options?.responseFormat === "json_object" ? { type: "json_object" } : undefined;

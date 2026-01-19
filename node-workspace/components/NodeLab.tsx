@@ -33,6 +33,7 @@ import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { AssetsPanel } from "./AssetsPanel";
+import { AgentSettingsPanel } from "./AgentSettingsPanel";
 import { QalamAgent } from "./QalamAgent";
 import { ViewportControls } from "./ViewportControls";
 import { Toast, useToast } from "./Toast";
@@ -79,7 +80,7 @@ interface NodeLabProps {
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
   isDarkMode?: boolean;
-  onOpenSettings?: (tab?: "text" | "multimodal" | "video" | "sync" | "about") => void;
+  onOpenSettings?: (tab?: "multimodal" | "video" | "sync" | "about") => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: {
@@ -116,6 +117,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [bgTheme, setBgTheme] = useState<"dark" | "light" | "sand" | "creative" | "calm" | "lively">("dark");
   const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("dots");
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showAgentSettings, setShowAgentSettings] = useState(false);
   const {
     nodes,
     edges,
@@ -710,9 +712,14 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       </div>
 
       <MultiSelectToolbar />
+      <AgentSettingsPanel isOpen={showAgentSettings} onClose={() => setShowAgentSettings(false)} />
       <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none">
         <div className="flex items-end gap-3 pointer-events-auto">
-          <QalamAgent projectData={projectData} onOpenStats={onOpenStats} onOpenSettings={onOpenSettings} />
+          <QalamAgent
+            projectData={projectData}
+            onOpenStats={onOpenStats}
+            onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
+          />
           <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}

@@ -188,7 +188,7 @@ const App: React.FC = () => {
   }, [analysisStep]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'text' | 'multimodal' | 'video' | 'sync' | 'about' | null>(null);
+  const [settingsTab, setSettingsTab] = useState<'multimodal' | 'video' | 'sync' | 'about' | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
@@ -232,7 +232,7 @@ const App: React.FC = () => {
   }, [user?.id, userSignedIn]);
   const isSyncFeatureEnabled = !!authSignedIn && syncRollout.enabled;
 
-  const openSettings = useCallback((tab?: 'text' | 'multimodal' | 'video' | 'sync' | 'about') => {
+  const openSettings = useCallback((tab?: 'multimodal' | 'video' | 'sync' | 'about') => {
     setSettingsTab(tab || null);
     setIsSettingsOpen(true);
   }, []);
