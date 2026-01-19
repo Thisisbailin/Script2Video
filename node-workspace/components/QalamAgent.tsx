@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown } from "lucide-react";
+import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import { useConfig } from "../../hooks/useConfig";
 import { ProjectData } from "../../types";
@@ -8,6 +8,7 @@ import { AVAILABLE_MODELS, DEYUNAI_MODELS } from "../../constants";
 type Props = {
   projectData: ProjectData;
   onOpenStats?: () => void;
+  onOpenSettings?: (tab?: "text" | "multimodal" | "video" | "sync" | "about") => void;
 };
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -23,7 +24,7 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
   return parts.join("\n\n");
 };
 
-export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
+export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onOpenSettings }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
@@ -231,14 +232,24 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats }) => {
           </div>
           <div className="space-y-0.5">
             <div className="text-sm font-semibold">Qalam</div>
-            <button
-              type="button"
-              onClick={onOpenStats}
-              className="text-[11px] text-white/60 hover:text-white/90 underline decoration-dashed decoration-white/40 transition"
-              title="查看 Dashboard"
-            >
-              Tokens · {formatNumber(tokenUsage)}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenSettings?.("text")}
+                className="h-6 w-6 flex items-center justify-center rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+                title="切换服务商 / 模型路线"
+              >
+                <Globe size={12} className="text-white/70" />
+              </button>
+              <button
+                type="button"
+                onClick={onOpenStats}
+                className="text-[11px] text-white/60 hover:text-white/90 underline decoration-dashed decoration-white/40 transition"
+                title="查看 Dashboard"
+              >
+                Tokens · {formatNumber(tokenUsage)}
+              </button>
+            </div>
           </div>
         </div>
         <button

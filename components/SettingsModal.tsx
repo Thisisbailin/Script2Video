@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, TextProvider, SyncState } from '../types';
-import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS, QWEN_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_TEST_API_KEY } from '../constants';
+import { AVAILABLE_MODELS, PARTNER_TEXT_BASE_URL, DEYUNAI_BASE_URL, DEYUNAI_MODELS, QWEN_BASE_URL, QWEN_DEFAULT_MODEL } from '../constants';
 import * as DeyunAIService from '../services/deyunaiService';
 import * as QwenService from '../services/qwenService';
 import * as VideoService from '../services/videoService';
@@ -445,8 +445,13 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setQwenModelFetchMessage(null);
         setIsLoadingTextModels(true);
         try {
+            if (!config.textConfig.apiKey && !((typeof import.meta !== "undefined" && (import.meta as any)?.env?.QWEN_API_KEY))) {
+                setQwenModelFetchMessage({ type: "error", text: "请先填写 Qwen API Key 或配置环境变量。" });
+                setIsLoadingTextModels(false);
+                return;
+            }
             const models = await QwenService.fetchModels({
-                apiKey: config.textConfig.apiKey || QWEN_TEST_API_KEY,
+                apiKey: config.textConfig.apiKey,
                 baseUrl: config.textConfig.baseUrl || QWEN_BASE_URL,
             });
             const ids = models.map((m) => m.id);
@@ -467,12 +472,17 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setQwenTestMessage(null);
         setIsTestingQwen(true);
         try {
+            if (!config.textConfig.apiKey && !((typeof import.meta !== "undefined" && (import.meta as any)?.env?.QWEN_API_KEY))) {
+                setQwenTestMessage({ type: "error", text: "请先填写 Qwen API Key 或配置环境变量。" });
+                setIsTestingQwen(false);
+                return;
+            }
             const messages = [
                 { role: "system", content: "你是 Qwen 测试助手，请用一两句话回复。" },
                 { role: "user", content: qwenTestInput.trim() || "你好" },
             ] as const;
             const { text } = await QwenService.chatCompletion(messages as any, {
-                apiKey: config.textConfig.apiKey || QWEN_TEST_API_KEY,
+                apiKey: config.textConfig.apiKey,
                 baseUrl: config.textConfig.baseUrl || QWEN_BASE_URL,
                 model: config.textConfig.model || QWEN_DEFAULT_MODEL,
             });
@@ -512,7 +522,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         } else if (p === 'qwen') {
             nextConfig.baseUrl = config.textConfig.baseUrl || QWEN_BASE_URL;
             nextConfig.model = config.textConfig.model || QWEN_DEFAULT_MODEL;
-            nextConfig.apiKey = config.textConfig.apiKey || QWEN_TEST_API_KEY;
+            nextConfig.apiKey = config.textConfig.apiKey || '';
             nextConfig.deyunModels = [];
         } else {
             // partner: fully managed endpoint
@@ -839,13 +849,13 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         <input
                                             type="text"
                                             placeholder="sk-..."
-                                            value={config.textConfig.apiKey || QWEN_TEST_API_KEY}
+                                            value={config.textConfig.apiKey || ''}
                                             onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, apiKey: e.target.value } })}
                                             className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
                                         />
                                         <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1">
                                             <AlertCircle size={12} className="text-amber-400" />
-                                            当前默认写入测试密钥，联调通过后请改为环境变量或手动输入。
+                                            推荐在 Cloudflare Pages 配置 QWEN_API_KEY / VITE_QWEN_API_KEY，或在此填写后保存。
                                         </p>
                                     </div>
                                     <div className="rounded-lg border border-[var(--border-subtle)] bg-black/20 p-3 space-y-2">

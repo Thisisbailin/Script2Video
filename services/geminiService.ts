@@ -3,7 +3,7 @@ import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, L
 import { generatePartnerText } from "./partnerService";
 import * as DeyunAIService from "./deyunaiService";
 import * as QwenService from "./qwenService";
-import { QWEN_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_TEST_API_KEY } from "../constants";
+import { QWEN_BASE_URL, QWEN_DEFAULT_MODEL } from "../constants";
 
 // --- HELPERS ---
 
@@ -49,7 +49,11 @@ const resolveQwenApiKey = (config: TextServiceConfig): string => {
       ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
       : undefined);
 
-  return configKey || envKey || QWEN_TEST_API_KEY;
+  const apiKey = configKey || envKey;
+  if (!apiKey) {
+    throw new Error("Qwen API key missing. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 或设置中填写。");
+  }
+  return apiKey;
 };
 
 // Helper to map Google Schema to JSON Schema (Simplified for OpenRouter)

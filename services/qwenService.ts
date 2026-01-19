@@ -14,11 +14,18 @@ export type QwenChatOptions = {
 };
 
 const DEFAULT_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-// TODO: 移除硬编码密钥，改为配置或环境变量
-const TEST_API_KEY = "sk-8bdee652335743cb92ac532ecce13baf";
 
 const resolveApiKey = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {
-  return (config?.apiKey || (config as any)?.textApiKey || "").trim() || TEST_API_KEY;
+  const envKey =
+    (typeof import.meta !== "undefined"
+      ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
+      : undefined) ||
+    (typeof process !== "undefined"
+      ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
+      : undefined);
+  const key = (config?.apiKey || (config as any)?.textApiKey || envKey || "").trim();
+  if (!key) throw new Error("Missing Qwen API key. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 或设置中填写。");
+  return key;
 };
 
 const resolveEndpoint = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {

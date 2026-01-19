@@ -79,7 +79,7 @@ interface NodeLabProps {
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
   isDarkMode?: boolean;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (tab?: "text" | "multimodal" | "video" | "sync" | "about") => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: {
@@ -712,7 +712,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       <MultiSelectToolbar />
       <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none">
         <div className="flex items-end gap-3 pointer-events-auto">
-          <QalamAgent projectData={projectData} onOpenStats={onOpenStats} />
+          <QalamAgent projectData={projectData} onOpenStats={onOpenStats} onOpenSettings={onOpenSettings} />
           <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
