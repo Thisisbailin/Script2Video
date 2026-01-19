@@ -86,7 +86,7 @@ export type QwenModel = {
 
 export const fetchModels = async (
   options?: QwenChatOptions
-): Promise<QwenModel[]> => {
+): Promise<{ models: QwenModel[]; raw: any }> => {
   const apiKey = resolveApiKey(options);
   const endpoint = resolveModelsEndpoint();
 
@@ -104,12 +104,13 @@ export const fetchModels = async (
     (Array.isArray(data?.models) && data.models) ||
     (Array.isArray(data?.result) && data.result) ||
     [];
-  return models
+  const mapped = models
     .map((model: any) => ({
       ...model,
       id: model.id || model.model || model.name || model?.data?.id || "",
     }))
     .filter((model: QwenModel) => model.id);
+  return { models: mapped, raw: data };
 };
 
 export const chatCompletion = async (
