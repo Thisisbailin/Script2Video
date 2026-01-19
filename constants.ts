@@ -44,6 +44,7 @@ export const AVAILABLE_MODELS = [
 export const PARTNER_TEXT_BASE_URL = 'https://partner-api.example.com/v1';
 export const DEYUNAI_BASE_URL = 'https://api.deyunai.com/v1';
 export const QWEN_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+export const QWEN_CHAT_COMPLETIONS_ENDPOINT = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 export const QWEN_DEFAULT_MODEL = 'qwen-plus';
 export const QWEN_WAN_IMAGE_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 export const QWEN_WAN_VIDEO_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis';

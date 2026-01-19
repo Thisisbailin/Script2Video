@@ -22,6 +22,7 @@ import {
   DEYUNAI_BASE_URL,
   DEYUNAI_MODELS,
   PARTNER_TEXT_BASE_URL,
+  QWEN_CHAT_COMPLETIONS_ENDPOINT,
   QWEN_DEFAULT_MODEL,
   QWEN_WAN_IMAGE_ENDPOINT,
   QWEN_WAN_VIDEO_ENDPOINT,
@@ -35,6 +36,8 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
 };
+
+type QwenGroupKey = "chat" | "multimodal" | "video";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -77,6 +80,9 @@ const getModalities = (model: QwenModel) => {
 
 const getQwenCategory = (model: QwenModel) => {
   const id = model.id.toLowerCase();
+  if (id.includes("video") || id.includes("t2v") || id.includes("i2v") || id.includes("v2v")) {
+    return { key: "video", label: "Video", Icon: Video, tone: "text-cyan-300 bg-cyan-500/10 border-cyan-400/30" };
+  }
   if (id.includes("image") || id.includes("z-image")) {
     return { key: "image", label: "Image", Icon: Eye, tone: "text-sky-300 bg-sky-500/10 border-sky-400/30" };
   }
@@ -114,10 +120,6 @@ const getQwenTags = (model: QwenModel) => {
   return tags.slice(0, 4);
 };
 
-const isWanModel = (id: string) => id.toLowerCase().includes("wan");
-const isWanVideoModel = (id: string) => /video|t2v|i2v|v2v|vid/.test(id.toLowerCase());
-const isWanImageModel = (id: string) => /image|img|t2i|i2i|edit|paint/.test(id.toLowerCase());
-
 const formatEpochDate = (value?: number) => {
   if (!value) return null;
   const date = new Date(value * 1000);
@@ -134,23 +136,37 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [deyunModelFetchMessage, setDeyunModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [availableDeyunModels, setAvailableDeyunModels] = useState<Array<{ id: string; label: string; meta?: any }>>([]);
 
-  const [isLoadingQwenModels, setIsLoadingQwenModels] = useState(false);
-  const [qwenModelFetchMessage, setQwenModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [availableQwenModels, setAvailableQwenModels] = useState<QwenModel[]>([]);
-  const [qwenModelsRaw, setQwenModelsRaw] = useState<string>("");
-  const [showQwenRaw, setShowQwenRaw] = useState(false);
+  const [isLoadingQwenChatModels, setIsLoadingQwenChatModels] = useState(false);
+  const [isLoadingQwenImageModels, setIsLoadingQwenImageModels] = useState(false);
+  const [isLoadingQwenVideoModels, setIsLoadingQwenVideoModels] = useState(false);
+  const [qwenChatFetchMessage, setQwenChatFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [qwenImageFetchMessage, setQwenImageFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [qwenVideoFetchMessage, setQwenVideoFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [qwenChatModels, setQwenChatModels] = useState<QwenModel[]>([]);
+  const [qwenImageModels, setQwenImageModels] = useState<QwenModel[]>([]);
+  const [qwenVideoModels, setQwenVideoModels] = useState<QwenModel[]>([]);
+  const [qwenModelsRaw, setQwenModelsRaw] = useState<Record<QwenGroupKey, string>>({
+    chat: "",
+    multimodal: "",
+    video: "",
+  });
+  const [showQwenRaw, setShowQwenRaw] = useState<Record<QwenGroupKey, boolean>>({
+    chat: false,
+    multimodal: false,
+    video: false,
+  });
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const qwenGroups = useMemo(() => {
     const groups = new Map<string, { key: string; label: string; Icon: React.ComponentType<{ size?: number }>; tone: string; items: QwenModel[] }>();
-    availableQwenModels.forEach((model) => {
+    qwenChatModels.forEach((model) => {
       const category = getQwenCategory(model);
       if (!groups.has(category.key)) {
         groups.set(category.key, { ...category, items: [] });
       }
       groups.get(category.key)!.items.push(model);
     });
-    const order = ["chat", "code", "image", "vision", "audio", "embedding", "rerank"];
+    const order = ["chat", "code", "image", "video", "vision", "audio", "embedding", "rerank"];
     return Array.from(groups.values()).sort((a, b) => {
       const ai = order.indexOf(a.key);
       const bi = order.indexOf(b.key);
@@ -159,25 +175,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       if (bi === -1) return -1;
       return ai - bi;
     });
-  }, [availableQwenModels]);
-
-  const wanImageModels = useMemo(
-    () =>
-      availableQwenModels.filter((model) => {
-        if (!isWanModel(model.id)) return false;
-        return isWanImageModel(model.id) || !isWanVideoModel(model.id);
-      }),
-    [availableQwenModels]
-  );
-
-  const wanVideoModels = useMemo(
-    () =>
-      availableQwenModels.filter((model) => {
-        if (!isWanModel(model.id)) return false;
-        return isWanVideoModel(model.id);
-      }),
-    [availableQwenModels]
-  );
+  }, [qwenChatModels]);
 
   useEffect(() => {
     if (config.textConfig.provider === "deyunai" && Array.isArray(config.textConfig.deyunModels)) {
@@ -305,38 +303,129 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleFetchQwenModels = async () => {
-    setIsLoadingQwenModels(true);
-    setQwenModelFetchMessage(null);
+  const handleFetchQwenModels = async (group: QwenGroupKey) => {
+    const endpointMap: Record<QwenGroupKey, string> = {
+      chat: QWEN_CHAT_COMPLETIONS_ENDPOINT,
+      multimodal: QWEN_WAN_IMAGE_ENDPOINT,
+      video: QWEN_WAN_VIDEO_ENDPOINT,
+    };
+    const endpoint = endpointMap[group];
+    const setLoading = {
+      chat: setIsLoadingQwenChatModels,
+      multimodal: setIsLoadingQwenImageModels,
+      video: setIsLoadingQwenVideoModels,
+    }[group];
+    const setMessage = {
+      chat: setQwenChatFetchMessage,
+      multimodal: setQwenImageFetchMessage,
+      video: setQwenVideoFetchMessage,
+    }[group];
+
+    setLoading(true);
+    setMessage(null);
     try {
-      const { models, raw } = await QwenService.fetchModels();
-      setAvailableQwenModels(models);
-      setQwenModelsRaw(JSON.stringify(raw, null, 2));
-      setQwenModelFetchMessage({
+      const { models, raw } = await QwenService.fetchModels(endpoint);
+      if (group === "chat") {
+        setQwenChatModels(models);
+      } else if (group === "multimodal") {
+        setQwenImageModels(models);
+      } else {
+        setQwenVideoModels(models);
+      }
+      setQwenModelsRaw((prev) => ({ ...prev, [group]: JSON.stringify(raw, null, 2) }));
+      setMessage({
         type: "success",
         text: models.length ? `获取成功，${models.length} 个模型` : "获取成功，但返回为空",
       });
-      if (models.length && !models.find((m) => m.id === config.textConfig.model)) {
-        setConfig({
-          ...config,
-          textConfig: { ...config.textConfig, model: models[0].id },
-        });
-      }
-      if (models.length && config.multimodalConfig.provider === "wan") {
-        const nextWan = models.find((m) => isWanModel(m.id));
-        if (nextWan && nextWan.id !== config.multimodalConfig.model) {
+      if (models.length) {
+        if (group === "chat" && !models.find((m) => m.id === config.textConfig.model)) {
           setConfig((prev) => ({
             ...prev,
-            multimodalConfig: { ...prev.multimodalConfig, model: nextWan.id, baseUrl: QWEN_WAN_IMAGE_ENDPOINT },
+            textConfig: { ...prev.textConfig, model: models[0].id },
           }));
+        }
+        if (group === "multimodal") {
+          setConfig((prev) => {
+            const nextModel = models.find((m) => m.id === prev.multimodalConfig.model)?.id || models[0].id;
+            return {
+              ...prev,
+              multimodalConfig: {
+                ...prev.multimodalConfig,
+                provider: "wan",
+                baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
+                model: nextModel,
+              },
+            };
+          });
+        }
+        if (group === "video") {
+          setConfig((prev) => {
+            const nextModel = models.find((m) => m.id === prev.videoConfig.model)?.id || models[0].id;
+            return {
+              ...prev,
+              videoProvider: "default",
+              videoConfig: {
+                ...prev.videoConfig,
+                baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
+                model: nextModel,
+              },
+            };
+          });
         }
       }
     } catch (e: any) {
-      setQwenModelFetchMessage({ type: "error", text: e.message || "拉取失败" });
-      setQwenModelsRaw("");
+      setMessage({ type: "error", text: e.message || "拉取失败" });
+      setQwenModelsRaw((prev) => ({ ...prev, [group]: "" }));
     } finally {
-      setIsLoadingQwenModels(false);
+      setLoading(false);
     }
+  };
+
+  const renderQwenModelCard = (model: QwenModel, isActive: boolean, onSelect: () => void) => {
+    const category = getQwenCategory(model);
+    const tags = getQwenTags(model);
+    const description = model.description || (model as any).summary || (model as any).display_name || "";
+    const owner = model.owned_by || (model as any).provider || (model as any).vendor;
+    const createdAt = formatEpochDate((model as any).created);
+    return (
+      <button
+        key={model.id}
+        type="button"
+        onClick={onSelect}
+        className={`text-left rounded-2xl border bg-[var(--app-panel-muted)] p-3 space-y-2 transition ${
+          isActive ? "border-amber-300/60 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]" : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-[var(--app-text-primary)]">{model.id}</div>
+          <span className={`text-[10px] px-2 py-1 rounded-full border ${category.tone} flex items-center gap-1`}>
+            <category.Icon size={10} />
+            {category.label}
+          </span>
+        </div>
+        {description && (
+          <div className="text-[11px] text-[var(--app-text-secondary)] line-clamp-2">{description}</div>
+        )}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <span
+                key={`${model.id}-${tag}`}
+                className="px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[10px] text-[var(--app-text-secondary)]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+        {(owner || createdAt) && (
+          <div className="text-[10px] text-[var(--app-text-muted)] flex flex-wrap gap-2">
+            {owner && <span>owner: {owner}</span>}
+            {createdAt && <span>created: {createdAt}</span>}
+          </div>
+        )}
+      </button>
+    );
   };
 
   if (!isOpen) return null;
@@ -517,55 +606,153 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleFetchQwenModels}
-                    disabled={isLoadingQwenModels}
-                    className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
-                  >
-                    {isLoadingQwenModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
-                  </button>
-                  {qwenModelsRaw && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(qwenModelsRaw);
-                        } catch {
-                          // Ignore clipboard failures.
-                        }
-                      }}
-                      className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
-                    >
-                      复制原始返回
-                    </button>
-                  )}
-                </div>
               </div>
-              {qwenModelFetchMessage && (
-                <div className={`text-[11px] flex items-center gap-1 ${qwenModelFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
-                  {qwenModelFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                  {qwenModelFetchMessage.text}
-                </div>
-              )}
-              <select
-                value={config.textConfig.model || QWEN_DEFAULT_MODEL}
-                onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
-              >
-                {(availableQwenModels.length ? availableQwenModels : [{ id: QWEN_DEFAULT_MODEL }]).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.id}
-                  </option>
-                ))}
-              </select>
               <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
               </div>
-              <div className="pt-2 border-t border-[var(--app-border)] space-y-3">
-                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">Wan · Image</div>
-                {wanImageModels.length > 0 ? (
+
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                      chat · {qwenChatModels.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleFetchQwenModels("chat")}
+                        disabled={isLoadingQwenChatModels}
+                        className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
+                      >
+                        {isLoadingQwenChatModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
+                      </button>
+                      {qwenModelsRaw.chat && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(qwenModelsRaw.chat);
+                            } catch {
+                              // Ignore clipboard failures.
+                            }
+                          }}
+                          className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                        >
+                          复制原始返回
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {qwenChatFetchMessage && (
+                    <div className={`text-[11px] flex items-center gap-1 ${qwenChatFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
+                      {qwenChatFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                      {qwenChatFetchMessage.text}
+                    </div>
+                  )}
+                  <select
+                    value={config.textConfig.model || QWEN_DEFAULT_MODEL}
+                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
+                  >
+                    {(qwenChatModels.length ? qwenChatModels : [{ id: QWEN_DEFAULT_MODEL }]).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pt-2 border-t border-[var(--app-border)]">
+                    <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] mb-2">Models</div>
+                    {qwenChatModels.length === 0 ? (
+                      <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {qwenGroups.map((group) => {
+                          const isCollapsed = collapsedGroups[group.key] ?? false;
+                          return (
+                            <div key={group.key} className="space-y-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCollapsedGroups((prev) => ({ ...prev, [group.key]: !isCollapsed }))
+                                }
+                                className="w-full flex items-center justify-between text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <group.Icon size={12} />
+                                  {group.label} · {group.items.length}
+                                </span>
+                                <ChevronDown size={12} className={`transition ${isCollapsed ? "-rotate-90" : "rotate-0"}`} />
+                              </button>
+                              {!isCollapsed && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                  {group.items.map((model) =>
+                                    renderQwenModelCard(model, config.textConfig.model === model.id, () =>
+                                      setConfig({ ...config, textConfig: { ...config.textConfig, model: model.id } })
+                                    )
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {qwenModelsRaw.chat && (
+                      <div className="pt-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowQwenRaw((prev) => ({ ...prev, chat: !prev.chat }))}
+                          className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                        >
+                          {showQwenRaw.chat ? "隐藏原始返回" : "查看原始返回"}
+                        </button>
+                        {showQwenRaw.chat && (
+                          <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                            {qwenModelsRaw.chat}
+                          </pre>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                      multimodal-generation · {qwenImageModels.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleFetchQwenModels("multimodal")}
+                        disabled={isLoadingQwenImageModels}
+                        className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
+                      >
+                        {isLoadingQwenImageModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
+                      </button>
+                      {qwenModelsRaw.multimodal && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(qwenModelsRaw.multimodal);
+                            } catch {
+                              // Ignore clipboard failures.
+                            }
+                          }}
+                          className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                        >
+                          复制原始返回
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {qwenImageFetchMessage && (
+                    <div className={`text-[11px] flex items-center gap-1 ${qwenImageFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
+                      {qwenImageFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                      {qwenImageFetchMessage.text}
+                    </div>
+                  )}
                   <select
                     value={config.multimodalConfig.provider === "wan" ? config.multimodalConfig.model : ""}
                     onChange={(e) =>
@@ -582,41 +769,90 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
                   >
                     <option value="">选择图像模型</option>
-                    {wanImageModels.map((m) => (
+                    {qwenImageModels.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.id}
                       </option>
                     ))}
                   </select>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="wan image model id"
-                    value={config.multimodalConfig.provider === "wan" ? config.multimodalConfig.model : ""}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        multimodalConfig: {
-                          ...config.multimodalConfig,
-                          provider: "wan",
-                          model: e.target.value,
-                          baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
-                        },
-                      })
-                    }
-                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
-                  />
-                )}
-                <div className="text-[11px] text-[var(--app-text-muted)]">
-                  使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+                  {qwenImageModels.length === 0 ? (
+                    <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {qwenImageModels.map((model) =>
+                        renderQwenModelCard(
+                          model,
+                          config.multimodalConfig.provider === "wan" && config.multimodalConfig.model === model.id,
+                          () =>
+                            setConfig({
+                              ...config,
+                              multimodalConfig: {
+                                ...config.multimodalConfig,
+                                provider: "wan",
+                                model: model.id,
+                                baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
+                              },
+                            })
+                        )
+                      )}
+                    </div>
+                  )}
+                  {qwenModelsRaw.multimodal && (
+                    <div className="pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowQwenRaw((prev) => ({ ...prev, multimodal: !prev.multimodal }))}
+                        className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                      >
+                        {showQwenRaw.multimodal ? "隐藏原始返回" : "查看原始返回"}
+                      </button>
+                      {showQwenRaw.multimodal && (
+                        <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                          {qwenModelsRaw.multimodal}
+                        </pre>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="pt-2 border-t border-[var(--app-border)] space-y-3">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                  <Video size={12} />
-                  Wan · Video
-                </div>
-                {wanVideoModels.length > 0 ? (
+
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                      <Video size={12} />
+                      video-generation · {qwenVideoModels.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleFetchQwenModels("video")}
+                        disabled={isLoadingQwenVideoModels}
+                        className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
+                      >
+                        {isLoadingQwenVideoModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
+                      </button>
+                      {qwenModelsRaw.video && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(qwenModelsRaw.video);
+                            } catch {
+                              // Ignore clipboard failures.
+                            }
+                          }}
+                          className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                        >
+                          复制原始返回
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {qwenVideoFetchMessage && (
+                    <div className={`text-[11px] flex items-center gap-1 ${qwenVideoFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
+                      {qwenVideoFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                      {qwenVideoFetchMessage.text}
+                    </div>
+                  )}
                   <select
                     value={config.videoProvider !== "vidu" ? config.videoConfig.model || "" : ""}
                     onChange={(e) =>
@@ -633,130 +869,51 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
                   >
                     <option value="">选择视频模型</option>
-                    {wanVideoModels.map((m) => (
+                    {qwenVideoModels.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.id}
                       </option>
                     ))}
                   </select>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="wan video model id"
-                    value={config.videoProvider !== "vidu" ? config.videoConfig.model || "" : ""}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        videoProvider: "default",
-                        videoConfig: {
-                          ...config.videoConfig,
-                          model: e.target.value,
-                          baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
-                        },
-                      })
-                    }
-                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
-                  />
-                )}
-                <div className="text-[11px] text-[var(--app-text-muted)]">
-                  使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+                  {qwenVideoModels.length === 0 ? (
+                    <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {qwenVideoModels.map((model) =>
+                        renderQwenModelCard(
+                          model,
+                          config.videoProvider !== "vidu" && config.videoConfig.model === model.id,
+                          () =>
+                            setConfig({
+                              ...config,
+                              videoProvider: "default",
+                              videoConfig: {
+                                ...config.videoConfig,
+                                model: model.id,
+                                baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
+                              },
+                            })
+                        )
+                      )}
+                    </div>
+                  )}
+                  {qwenModelsRaw.video && (
+                    <div className="pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowQwenRaw((prev) => ({ ...prev, video: !prev.video }))}
+                        className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                      >
+                        {showQwenRaw.video ? "隐藏原始返回" : "查看原始返回"}
+                      </button>
+                      {showQwenRaw.video && (
+                        <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                          {qwenModelsRaw.video}
+                        </pre>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="pt-2 border-t border-[var(--app-border)]">
-                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] mb-2">Models</div>
-                {availableQwenModels.length === 0 ? (
-                  <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
-                ) : (
-                  <div className="space-y-4">
-                    {qwenGroups.map((group) => {
-                      const isCollapsed = collapsedGroups[group.key] ?? false;
-                      return (
-                        <div key={group.key} className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCollapsedGroups((prev) => ({ ...prev, [group.key]: !isCollapsed }))
-                            }
-                            className="w-full flex items-center justify-between text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"
-                          >
-                            <span className="flex items-center gap-2">
-                              <group.Icon size={12} />
-                              {group.label} · {group.items.length}
-                            </span>
-                            <ChevronDown size={12} className={`transition ${isCollapsed ? "-rotate-90" : "rotate-0"}`} />
-                          </button>
-                          {!isCollapsed && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                              {group.items.map((model) => {
-                                const category = getQwenCategory(model);
-                                const tags = getQwenTags(model);
-                                const description = model.description || (model as any).summary || (model as any).display_name || "";
-                                const owner = model.owned_by || (model as any).provider || (model as any).vendor;
-                                const createdAt = formatEpochDate((model as any).created);
-                                const isActive = config.textConfig.model === model.id;
-                                return (
-                                  <button
-                                    key={model.id}
-                                    type="button"
-                                    onClick={() => setConfig({ ...config, textConfig: { ...config.textConfig, model: model.id } })}
-                                    className={`text-left rounded-2xl border bg-[var(--app-panel-muted)] p-3 space-y-2 transition ${
-                                      isActive ? "border-amber-300/60 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]" : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="text-sm font-semibold text-[var(--app-text-primary)]">{model.id}</div>
-                                      <span className={`text-[10px] px-2 py-1 rounded-full border ${category.tone} flex items-center gap-1`}>
-                                        <category.Icon size={10} />
-                                        {category.label}
-                                      </span>
-                                    </div>
-                                    {description && (
-                                      <div className="text-[11px] text-[var(--app-text-secondary)] line-clamp-2">{description}</div>
-                                    )}
-                                    {tags.length > 0 && (
-                                      <div className="flex flex-wrap gap-2">
-                                        {tags.map((tag) => (
-                                          <span
-                                            key={`${model.id}-${tag}`}
-                                            className="px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[10px] text-[var(--app-text-secondary)]"
-                                          >
-                                            {tag}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {(owner || createdAt) && (
-                                      <div className="text-[10px] text-[var(--app-text-muted)] flex flex-wrap gap-2">
-                                        {owner && <span>owner: {owner}</span>}
-                                        {createdAt && <span>created: {createdAt}</span>}
-                                      </div>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {qwenModelsRaw && (
-                  <div className="pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowQwenRaw((prev) => !prev)}
-                      className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
-                    >
-                      {showQwenRaw ? "隐藏原始返回" : "查看原始返回"}
-                    </button>
-                    {showQwenRaw && (
-                      <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                        {qwenModelsRaw}
-                      </pre>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           )}

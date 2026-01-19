@@ -64,12 +64,20 @@ const flattenContent = (content: any): string => {
   return "";
 };
 
-const resolveModelsEndpoint = () => {
-  let base = DEFAULT_BASE.replace(/\/+$/, "");
-  base = base.replace(/\/chat\/completions$/, "");
+const resolveModelsEndpoint = (baseUrl?: string) => {
+  let base = (baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, "");
+  if (base.endsWith("/chat/completions")) {
+    return base.replace(/\/chat\/completions$/, "/models");
+  }
+  if (base.endsWith("/generation")) {
+    return base.replace(/\/generation$/, "/models");
+  }
+  if (base.endsWith("/video-synthesis")) {
+    return base.replace(/\/video-synthesis$/, "/models");
+  }
   if (base.endsWith("/models")) return base;
   if (base.endsWith("/v1")) return `${base}/models`;
-  return `${base}/v1/models`;
+  return `${base}/models`;
 };
 
 export type QwenModel = {
@@ -84,9 +92,10 @@ export type QwenModel = {
 } & Record<string, any>;
 
 export const fetchModels = async (
+  baseUrl?: string
 ): Promise<{ models: QwenModel[]; raw: any }> => {
   const apiKey = resolveApiKey();
-  const endpoint = resolveModelsEndpoint();
+  const endpoint = resolveModelsEndpoint(baseUrl);
 
   const res = await fetch(endpoint, {
     method: "GET",
