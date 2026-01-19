@@ -374,6 +374,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [zoomValue, setZoomValue] = useState(() => getViewport().zoom ?? 1);
+  const [liveViewport, setLiveViewport] = useState(() => getViewport());
   const createDesignAssetId = useCallback(() => {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
       return crypto.randomUUID();
@@ -428,8 +429,13 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
   useEffect(() => {
     if (!viewport) return;
-    setZoomValue(viewport.zoom);
+    setLiveViewport(viewport);
   }, [viewport]);
+
+  useEffect(() => {
+    if (!liveViewport) return;
+    setZoomValue(liveViewport.zoom);
+  }, [liveViewport]);
 
   useEffect(() => {
     if (didInitFitRef.current) return;
@@ -890,7 +896,29 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
   const backgroundStyle = useMemo(() => {
     const base = activeTheme.bg;
-    const scale = zoomValue > 0 ? 1 / zoomValue : 1;
+    const currentViewport = liveViewport ?? { x: 0, y: 0, zoom: 1 };
+    const scale = currentViewport.zoom > 0 ? currentViewport.zoom : 1;
+    const offsetX = currentViewport.x ?? 0;
+    const offsetY = currentViewport.y ?? 0;
+    const applyOffset = (token: string, offset: number) => {
+      const trimmed = token.trim();
+      const value = Number.parseFloat(trimmed);
+      if (Number.isNaN(value)) return trimmed;
+      const unit = trimmed.replace(String(value), "") || "px";
+      return `${value + offset}${unit}`;
+    };
+    const buildPosition = (position: string | undefined) => {
+      const basePosition = position ?? "0 0";
+      return basePosition
+        .split(",")
+        .map((chunk) => {
+          const parts = chunk.trim().split(/\s+/);
+          const x = parts[0] ?? "0";
+          const y = parts[1] ?? "0";
+          return `${applyOffset(x, offsetX)} ${applyOffset(y, offsetY)}`;
+        })
+        .join(", ");
+    };
     if (bgPattern === "none") {
       return {
         background: base,
@@ -932,10 +960,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       background: base,
       backgroundImage: pat.image,
       backgroundSize: pat.size(scale),
-      ...(pat.position ? { backgroundPosition: pat.position } : {}),
+      backgroundPosition: buildPosition(pat.position),
       baseColor: base,
     };
-  }, [activeTheme, bgPattern, zoomValue]);
+  }, [activeTheme, bgPattern, liveViewport]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -955,7 +983,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
           onConnectEnd={handleConnectEnd}
-          onMoveEnd={(_, vp) => setViewportState(vp)}
+          onMove={(_, vp) => setLiveViewport(vp)}
+          onMoveEnd={(_, vp) => {
+            setLiveViewport(vp);
+            setViewportState(vp);
+          }}
           minZoom={minZoom}
           maxZoom={maxZoom}
           nodesDraggable={!isLocked}

@@ -11,6 +11,7 @@ import {
   Loader2,
   Shield,
   Sparkles,
+  Video,
   X,
   Zap,
 } from "lucide-react";
@@ -22,6 +23,8 @@ import {
   DEYUNAI_MODELS,
   PARTNER_TEXT_BASE_URL,
   QWEN_DEFAULT_MODEL,
+  QWEN_WAN_IMAGE_ENDPOINT,
+  QWEN_WAN_VIDEO_ENDPOINT,
 } from "../../constants";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
@@ -111,6 +114,10 @@ const getQwenTags = (model: QwenModel) => {
   return tags.slice(0, 4);
 };
 
+const isWanModel = (id: string) => id.toLowerCase().includes("wan");
+const isWanVideoModel = (id: string) => /video|t2v|i2v|v2v|vid/.test(id.toLowerCase());
+const isWanImageModel = (id: string) => /image|img|t2i|i2i|edit|paint/.test(id.toLowerCase());
+
 const formatEpochDate = (value?: number) => {
   if (!value) return null;
   const date = new Date(value * 1000);
@@ -153,6 +160,24 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       return ai - bi;
     });
   }, [availableQwenModels]);
+
+  const wanImageModels = useMemo(
+    () =>
+      availableQwenModels.filter((model) => {
+        if (!isWanModel(model.id)) return false;
+        return isWanImageModel(model.id) || !isWanVideoModel(model.id);
+      }),
+    [availableQwenModels]
+  );
+
+  const wanVideoModels = useMemo(
+    () =>
+      availableQwenModels.filter((model) => {
+        if (!isWanModel(model.id)) return false;
+        return isWanVideoModel(model.id);
+      }),
+    [availableQwenModels]
+  );
 
   useEffect(() => {
     if (config.textConfig.provider === "deyunai" && Array.isArray(config.textConfig.deyunModels)) {
@@ -296,6 +321,15 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           ...config,
           textConfig: { ...config.textConfig, model: models[0].id },
         });
+      }
+      if (models.length && config.multimodalConfig.provider === "wan") {
+        const nextWan = models.find((m) => isWanModel(m.id));
+        if (nextWan && nextWan.id !== config.multimodalConfig.model) {
+          setConfig((prev) => ({
+            ...prev,
+            multimodalConfig: { ...prev.multimodalConfig, model: nextWan.id, baseUrl: QWEN_WAN_IMAGE_ENDPOINT },
+          }));
+        }
       }
     } catch (e: any) {
       setQwenModelFetchMessage({ type: "error", text: e.message || "拉取失败" });
@@ -480,7 +514,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           )}
 
           {config.textConfig.provider === "qwen" && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
                 <div className="flex items-center gap-2">
@@ -528,6 +562,105 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </select>
               <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+              </div>
+              <div className="pt-2 border-t border-[var(--app-border)] space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">Wan · Image</div>
+                {wanImageModels.length > 0 ? (
+                  <select
+                    value={config.multimodalConfig.provider === "wan" ? config.multimodalConfig.model : ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        multimodalConfig: {
+                          ...config.multimodalConfig,
+                          provider: "wan",
+                          model: e.target.value,
+                          baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
+                        },
+                      })
+                    }
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
+                  >
+                    <option value="">选择图像模型</option>
+                    {wanImageModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="wan image model id"
+                    value={config.multimodalConfig.provider === "wan" ? config.multimodalConfig.model : ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        multimodalConfig: {
+                          ...config.multimodalConfig,
+                          provider: "wan",
+                          model: e.target.value,
+                          baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
+                        },
+                      })
+                    }
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
+                  />
+                )}
+                <div className="text-[11px] text-[var(--app-text-muted)]">
+                  使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+                </div>
+              </div>
+              <div className="pt-2 border-t border-[var(--app-border)] space-y-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                  <Video size={12} />
+                  Wan · Video
+                </div>
+                {wanVideoModels.length > 0 ? (
+                  <select
+                    value={config.videoProvider !== "vidu" ? config.videoConfig.model || "" : ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        videoProvider: "default",
+                        videoConfig: {
+                          ...config.videoConfig,
+                          model: e.target.value,
+                          baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
+                        },
+                      })
+                    }
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
+                  >
+                    <option value="">选择视频模型</option>
+                    {wanVideoModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="wan video model id"
+                    value={config.videoProvider !== "vidu" ? config.videoConfig.model || "" : ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        videoProvider: "default",
+                        videoConfig: {
+                          ...config.videoConfig,
+                          model: e.target.value,
+                          baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
+                        },
+                      })
+                    }
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
+                  />
+                )}
+                <div className="text-[11px] text-[var(--app-text-muted)]">
+                  使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+                </div>
               </div>
               <div className="pt-2 border-t border-[var(--app-border)]">
                 <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] mb-2">Models</div>

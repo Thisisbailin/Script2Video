@@ -22,8 +22,30 @@ export interface TaskStatusResult {
     errorMsg?: string;
 }
 
+const resolveQwenApiKey = () => {
+    const envKey =
+        (typeof import.meta !== "undefined"
+            ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
+            : undefined) ||
+        (typeof process !== "undefined"
+            ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
+            : undefined);
+    return (envKey || "").trim();
+};
+
+const resolveVideoApiKey = (baseUrl: string, apiKey: string) => {
+    if (apiKey) return apiKey;
+    if (baseUrl.includes("dashscope.aliyuncs.com")) {
+        return resolveQwenApiKey();
+    }
+    return "";
+};
+
 export const fetchModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
-    if (!baseUrl || !apiKey) return [];
+    if (!baseUrl) return [];
+
+    const resolvedApiKey = resolveVideoApiKey(baseUrl, apiKey);
+    if (!resolvedApiKey) return [];
 
     let apiBase = baseUrl.trim().replace(/\/+$/, '');
 
@@ -40,7 +62,7 @@ export const fetchModels = async (baseUrl: string, apiKey: string): Promise<stri
         const response = await fetch(wrapWithProxy(`${apiBase}/models`), {
             method: 'GET',
             headers: {
-                "Authorization": `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${resolvedApiKey}`,
                 "Content-Type": "application/json"
             }
         });
@@ -71,8 +93,9 @@ export const submitVideoTask = async (
     params?: VideoParams
 ): Promise<TaskSubmissionResult> => {
     const { baseUrl, apiKey } = config;
+    const resolvedApiKey = resolveVideoApiKey(baseUrl, apiKey);
 
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || !resolvedApiKey) {
         throw new Error("Missing Video API Configuration.");
     }
 
@@ -87,7 +110,7 @@ export const submitVideoTask = async (
     // Construct Endpoint
     const urlObj = new URL(baseUrl.trim());
     if (isWuyinSora2 && !urlObj.searchParams.get('key')) {
-        urlObj.searchParams.set('key', apiKey);
+        urlObj.searchParams.set('key', resolvedApiKey);
     }
 
     // Map Body Params
@@ -120,7 +143,7 @@ export const submitVideoTask = async (
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded;charset:utf-8;",
-                "Authorization": isWuyinSora2 ? apiKey : `Bearer ${apiKey}`
+                "Authorization": isWuyinSora2 ? resolvedApiKey : `Bearer ${resolvedApiKey}`
             },
             body: formBody
         });
@@ -156,6 +179,10 @@ export const checkTaskStatus = async (
     config: VideoServiceConfig
 ): Promise<TaskStatusResult> => {
     const { baseUrl, apiKey } = config;
+    const resolvedApiKey = resolveVideoApiKey(baseUrl, apiKey);
+    if (!baseUrl || !resolvedApiKey) {
+        return { id: taskId, status: 'failed', errorMsg: 'Missing Video API Configuration.' };
+    }
 
     // Construct Poll URL
     let pollUrl = '';
@@ -166,7 +193,7 @@ export const checkTaskStatus = async (
         const detailUrl = new URL(`${rootBase}/detail`);
         detailUrl.searchParams.set('id', taskId);
         if (isWuyinSora2 && !detailUrl.searchParams.get('key')) {
-            detailUrl.searchParams.set('key', apiKey);
+            detailUrl.searchParams.set('key', resolvedApiKey);
         }
         pollUrl = detailUrl.toString();
     } else {
@@ -178,7 +205,7 @@ export const checkTaskStatus = async (
     try {
         const headers: any = {
             "Content-Type": isWuyinSora2 ? "application/x-www-form-urlencoded;charset:utf-8;" : "application/json",
-            "Authorization": isWuyinSora2 ? apiKey : `Bearer ${apiKey}`
+            "Authorization": isWuyinSora2 ? resolvedApiKey : `Bearer ${resolvedApiKey}`
         };
 
         const response = await fetch(wrapWithProxy(pollUrl), { method: "GET", headers });

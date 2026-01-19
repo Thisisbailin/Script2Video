@@ -6,6 +6,17 @@ export interface ChatMessage {
     content: string;
 }
 
+const resolveQwenApiKey = () => {
+    const envKey =
+        (typeof import.meta !== "undefined"
+            ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
+            : undefined) ||
+        (typeof process !== "undefined"
+            ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
+            : undefined);
+    return (envKey || "").trim();
+};
+
 // Helper to convert mixed text/markdown-image content into OpenAI Structured Content
 const formatContentForApi = (content: string): any => {
     // Regex for markdown image: ![alt](url)
@@ -63,8 +74,11 @@ export const sendMessage = async (
     config: MultimodalConfig
 ): Promise<{ content: string; usage: TokenUsage }> => {
     const { baseUrl, apiKey, model } = config;
+    const resolvedApiKey =
+        apiKey ||
+        (baseUrl.includes("dashscope.aliyuncs.com") ? resolveQwenApiKey() : "");
 
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || !resolvedApiKey) {
         throw new Error("Multimodal Intelligence configuration missing. Please check Settings.");
     }
 
@@ -109,7 +123,7 @@ export const sendMessage = async (
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiKey}`,
+                "Authorization": `Bearer ${resolvedApiKey}`,
                 "HTTP-Referer": window.location.origin,
                 "X-Title": "eSheep"
             },
@@ -184,10 +198,14 @@ export const fetchMultimodalModels = async (baseUrl: string, apiKey: string): Pr
     if (apiBase.endsWith('/chat/completions')) apiBase = apiBase.replace('/chat/completions', '');
     if (!apiBase.endsWith('/v1')) apiBase = `${apiBase}/v1`;
 
+    const resolvedApiKey =
+        apiKey ||
+        (baseUrl.includes("dashscope.aliyuncs.com") ? resolveQwenApiKey() : "");
+    if (!resolvedApiKey) return [];
     try {
         const response = await fetch(wrapWithProxy(`${apiBase}/models`), {
             method: 'GET',
-            headers: { "Authorization": `Bearer ${apiKey}` }
+            headers: { "Authorization": `Bearer ${resolvedApiKey}` }
         });
         if (!response.ok) return [];
         const data = await response.json();

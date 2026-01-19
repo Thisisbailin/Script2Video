@@ -5,6 +5,7 @@ import * as VideoService from "../../services/videoService";
 import * as ViduService from "../../services/viduService";
 import * as WuyinkejiService from "../../services/wuyinkejiService";
 import * as SeedreamService from "../../services/seedreamService";
+import * as WanService from "../../services/wanService";
 import { useCallback } from "react";
 import { Character, CharacterForm } from "../../types";
 
@@ -209,10 +210,65 @@ export const useLabExecutor = () => {
       }
 
       if (configToUse.provider === 'wan') {
-        store.updateNodeData(nodeId, {
-          status: "error",
-          error: `${configToUse.provider.charAt(0).toUpperCase() + configToUse.provider.slice(1)} integration is coming soon!`
+        const refImage = images.find((src) => src.startsWith("http")) || undefined;
+        const { id, url } = await WanService.submitWanImageTask(text || "Generate an image", configToUse, {
+          aspectRatio,
+          inputImageUrl: refImage,
         });
+
+        if (url) {
+          store.updateNodeData(nodeId, {
+            status: "complete",
+            outputImage: url,
+            error: null,
+            model: configToUse.model,
+          });
+          store.addToGlobalHistory({
+            type: "image",
+            src: url,
+            prompt: text || "Image Input",
+            model: configToUse.model,
+            aspectRatio,
+          });
+          return;
+        }
+
+        if (!id) {
+          store.updateNodeData(nodeId, { status: "error", error: "Wan 任务创建失败。" });
+          return;
+        }
+
+        store.updateNodeData(nodeId, { status: "loading", taskId: id, error: null });
+
+        const maxAttempts = 60;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await WanService.checkWanTaskStatus(id);
+          if (result.status === "succeeded") {
+            store.updateNodeData(nodeId, {
+              status: "complete",
+              outputImage: result.url,
+              error: null,
+              model: configToUse.model,
+            });
+            if (result.url) {
+              store.addToGlobalHistory({
+                type: "image",
+                src: result.url,
+                prompt: text || "Image Input",
+                model: configToUse.model,
+                aspectRatio,
+              });
+            }
+            return;
+          }
+          if (result.status === "failed") {
+            store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Wan 图像生成失败。" });
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        store.updateNodeData(nodeId, { status: "error", error: "Wan 图像生成超时。" });
         return;
       }
 
@@ -461,7 +517,8 @@ export const useLabExecutor = () => {
       return;
     }
 
-    if (!config.videoConfig.baseUrl || !config.videoConfig.apiKey) {
+    const isWanVideo = (config.videoConfig.baseUrl || "").includes("/api/v1/services/aigc/video-generation/");
+    if (!config.videoConfig.baseUrl || (!config.videoConfig.apiKey && !isWanVideo)) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing video API configuration." });
       return;
     }
@@ -482,6 +539,37 @@ export const useLabExecutor = () => {
         ...config.videoConfig,
         model: data.model || config.videoConfig.model
       };
+
+      if (isWanVideo) {
+        const { id, url } = await WanService.submitWanVideoTask(prompt || "Animate this", configToUse, params);
+        if (url) {
+          store.updateNodeData(nodeId, { status: "complete", videoUrl: url, error: null });
+          return;
+        }
+        if (!id) {
+          store.updateNodeData(nodeId, { status: "error", error: "Wan 视频任务创建失败。" });
+          return;
+        }
+
+        store.updateNodeData(nodeId, { status: "loading", videoId: id, videoUrl: undefined, error: null });
+
+        const maxAttempts = 60;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await WanService.checkWanTaskStatus(id);
+          if (result.status === "succeeded") {
+            store.updateNodeData(nodeId, { status: "complete", videoUrl: result.url, error: null });
+            return;
+          }
+          if (result.status === "failed") {
+            store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Wan 视频生成失败。" });
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        store.updateNodeData(nodeId, { status: "error", error: "Wan 视频生成超时。" });
+        return;
+      }
 
       const { id } = await VideoService.submitVideoTask(prompt || "Animate this", configToUse, params);
 

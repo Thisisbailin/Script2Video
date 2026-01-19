@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { MessageSquare, Image as ImageIcon, Bot, Sparkles, Video, SquareStack, PenTool } from "lucide-react";
 import { NodeType } from "../types";
 
@@ -9,6 +9,7 @@ type Props = {
 };
 
 export const ConnectionDropMenu: React.FC<Props> = ({ position, onCreate, onClose }) => {
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const options: { label: string; hint: string; type: NodeType; Icon: React.ComponentType<{ size?: number }> }[] = [
     { label: "Text", hint: "Text or notes", type: "text", Icon: MessageSquare },
     { label: "Image Input", hint: "Upload an image", type: "imageInput", Icon: ImageIcon },
@@ -19,8 +20,19 @@ export const ConnectionDropMenu: React.FC<Props> = ({ position, onCreate, onClos
     { label: "Annotation", hint: "Markup image", type: "annotation", Icon: PenTool },
   ];
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current) return;
+      if (menuRef.current.contains(event.target as Node)) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [onClose]);
+
   return (
     <div
+      ref={menuRef}
       className="connection-menu absolute z-20 w-64"
       style={{ left: position.x, top: position.y }}
     >
