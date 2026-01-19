@@ -6,7 +6,6 @@ export type QwenMessage = {
 };
 
 export type QwenChatOptions = {
-  apiKey?: string;
   baseUrl?: string;
   model?: string;
   stream?: boolean;
@@ -85,9 +84,8 @@ export type QwenModel = {
 } & Record<string, any>;
 
 export const fetchModels = async (
-  options?: QwenChatOptions
 ): Promise<{ models: QwenModel[]; raw: any }> => {
-  const apiKey = resolveApiKey(options);
+  const apiKey = resolveApiKey();
   const endpoint = resolveModelsEndpoint();
 
   const res = await fetch(endpoint, {
@@ -117,7 +115,7 @@ export const chatCompletion = async (
   messages: QwenMessage[],
   options?: QwenChatOptions
 ): Promise<{ text: string; usage?: TokenUsage; raw: any }> => {
-  const apiKey = resolveApiKey(options);
+  const apiKey = resolveApiKey();
   const endpoint = resolveEndpoint();
   const model = options?.model || "qwen-plus";
   const responseFormat =

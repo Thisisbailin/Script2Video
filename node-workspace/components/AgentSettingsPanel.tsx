@@ -11,6 +11,7 @@ import {
   Loader2,
   Shield,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import { useConfig } from "../../hooks/useConfig";
@@ -73,12 +74,13 @@ const getModalities = (model: QwenModel) => {
 
 const getQwenCategory = (model: QwenModel) => {
   const id = model.id.toLowerCase();
-  const { input, output } = getModalities(model);
-  const modalities = [...input, ...output];
-  if (modalities.some((m) => m.includes("image") || m.includes("vision") || m.includes("video")) || id.includes("vl")) {
+  if (id.includes("image") || id.includes("z-image")) {
+    return { key: "image", label: "Image", Icon: Eye, tone: "text-sky-300 bg-sky-500/10 border-sky-400/30" };
+  }
+  if (id.includes("vl")) {
     return { key: "vision", label: "Vision", Icon: Eye, tone: "text-sky-300 bg-sky-500/10 border-sky-400/30" };
   }
-  if (modalities.some((m) => m.includes("audio") || m.includes("speech")) || id.includes("audio")) {
+  if (id.includes("tts") || id.includes("audio") || id.includes("speech")) {
     return { key: "audio", label: "Audio", Icon: AudioLines, tone: "text-pink-300 bg-pink-500/10 border-pink-400/30" };
   }
   if (id.includes("coder") || id.includes("code")) {
@@ -106,24 +108,13 @@ const getQwenTags = (model: QwenModel) => {
   if (tools) tags.push("tools");
   const reasoning = model.capabilities?.reasoning || (model as any).supports_reasoning || (model as any).reasoning;
   if (reasoning) tags.push("reasoning");
-  if (model.object) tags.push(model.object);
   return tags.slice(0, 4);
 };
 
-const getQwenMetrics = (model: QwenModel) => {
-  const contextLength = model.context_length || model.contextLength || model.max_context_length || model.maxTokens;
-  const tools = model.capabilities?.tools || (model as any).supports_tools || (model as any).tool_calls;
-  const reasoning = model.capabilities?.reasoning || (model as any).supports_reasoning || (model as any).reasoning;
-  const { input, output } = getModalities(model);
-  const inputText = input.length ? input.join("/") : "unknown";
-  const outputText = output.length ? output.join("/") : "unknown";
-  return {
-    contextLength: typeof contextLength === "number" ? contextLength : undefined,
-    tools: !!tools,
-    reasoning: !!reasoning,
-    inputText,
-    outputText,
-  };
+const formatEpochDate = (value?: number) => {
+  if (!value) return null;
+  const date = new Date(value * 1000);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString();
 };
 
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -141,6 +132,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [availableQwenModels, setAvailableQwenModels] = useState<QwenModel[]>([]);
   const [qwenModelsRaw, setQwenModelsRaw] = useState<string>("");
   const [showQwenRaw, setShowQwenRaw] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const qwenGroups = useMemo(() => {
     const groups = new Map<string, { key: string; label: string; Icon: React.ComponentType<{ size?: number }>; tone: string; items: QwenModel[] }>();
@@ -151,7 +143,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       }
       groups.get(category.key)!.items.push(model);
     });
-    const order = ["chat", "code", "vision", "audio", "embedding", "rerank"];
+    const order = ["chat", "code", "image", "vision", "audio", "embedding", "rerank"];
     return Array.from(groups.values()).sort((a, b) => {
       const ai = order.indexOf(a.key);
       const bi = order.indexOf(b.key);
@@ -321,7 +313,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="w-[520px] max-w-[92vw] max-h-[80vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col pointer-events-auto"
+        className="w-[960px] max-w-[96vw] max-h-[85vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
@@ -340,40 +332,78 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
             title="Close"
           >
-            <ChevronDown size={14} className="mx-auto text-white/70" />
+            <X size={14} className="mx-auto text-white/70" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
-          <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Provider</div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
-                { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
-                { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
-                { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
-                { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
-              ].map(({ key, label, Icon }) => {
-                const active = config.textConfig.provider === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setProvider(key)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] uppercase tracking-wide border transition ${
-                      active
-                        ? "bg-white/10 border-white/40 text-white"
-                        : "border-white/10 text-white/60 hover:border-white/30 hover:text-white"
-                    }`}
-                  >
-                    <Icon size={12} className={active ? "text-white" : "text-white/60"} />
-                    {label}
-                  </button>
-                );
-              })}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-white/50">Provider</div>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
+                    { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
+                    { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
+                    { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
+                    { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
+                  ].map(({ key, label, Icon }) => {
+                    const active = config.textConfig.provider === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setProvider(key)}
+                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
+                          active
+                            ? "bg-white/10 border-white/40 text-white"
+                            : "border-white/10 text-white/60 hover:border-white/30 hover:text-white"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Icon size={14} className={active ? "text-white" : "text-white/60"} />
+                          {label}
+                        </span>
+                        {active && <span className="text-[10px] text-emerald-300">Active</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-white/50">Agents</div>
+                <div className="flex flex-wrap gap-2">
+                  {["主Agent · 制片人", "导演", "分镜导演", "美术设计", "指令师"].map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-3 py-1 rounded-full border border-white/10 text-[11px] text-white/70"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <div className="text-[11px] text-white/40">规划中，敬请期待。</div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-white/50">Tools</div>
+                <div className="flex flex-wrap gap-2">
+                  {["tool1", "tool2", "tool3"].map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-3 py-1 rounded-full border border-white/10 text-[11px] text-white/70"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <div className="text-[11px] text-white/40">规划中。</div>
+              </div>
             </div>
-          </div>
+
+            <div className="space-y-4">
 
           {config.textConfig.provider === "gemini" && (
             <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
@@ -505,67 +535,77 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   <div className="text-[12px] text-white/50">暂无模型信息，请先拉取。</div>
                 ) : (
                   <div className="space-y-4">
-                    {qwenGroups.map((group) => (
-                      <div key={group.key} className="space-y-2">
-                        <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/50">
-                          <group.Icon size={12} />
-                          {group.label} · {group.items.length}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {group.items.map((model) => {
-                            const category = getQwenCategory(model);
-                            const tags = getQwenTags(model);
-                            const metrics = getQwenMetrics(model);
-                            const description = model.description || (model as any).summary || (model as any).display_name || "";
-                            const owner = model.owned_by || (model as any).provider || (model as any).vendor;
-                            const isActive = config.textConfig.model === model.id;
-                            return (
-                              <button
-                                key={model.id}
-                                type="button"
-                                onClick={() => setConfig({ ...config, textConfig: { ...config.textConfig, model: model.id } })}
-                                className={`text-left rounded-2xl border bg-white/3 p-3 space-y-2 transition ${
-                                  isActive ? "border-amber-300/60 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]" : "border-white/10 hover:border-white/30"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="text-sm font-semibold text-white/90">{model.id}</div>
-                                  <span className={`text-[10px] px-2 py-1 rounded-full border ${category.tone} flex items-center gap-1`}>
-                                    <category.Icon size={10} />
-                                    {category.label}
-                                  </span>
-                                </div>
-                                {description && (
-                                  <div className="text-[11px] text-white/60 line-clamp-2">{description}</div>
-                                )}
-                                {tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-2">
-                                    {tags.map((tag) => (
-                                      <span
-                                        key={`${model.id}-${tag}`}
-                                        className="px-2 py-0.5 rounded-full border border-white/10 text-[10px] text-white/60"
-                                      >
-                                        {tag}
+                    {qwenGroups.map((group) => {
+                      const isCollapsed = collapsedGroups[group.key] ?? false;
+                      return (
+                        <div key={group.key} className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedGroups((prev) => ({ ...prev, [group.key]: !isCollapsed }))
+                            }
+                            className="w-full flex items-center justify-between text-[11px] uppercase tracking-widest text-white/50 hover:text-white/80"
+                          >
+                            <span className="flex items-center gap-2">
+                              <group.Icon size={12} />
+                              {group.label} · {group.items.length}
+                            </span>
+                            <ChevronDown size={12} className={`transition ${isCollapsed ? "-rotate-90" : "rotate-0"}`} />
+                          </button>
+                          {!isCollapsed && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                              {group.items.map((model) => {
+                                const category = getQwenCategory(model);
+                                const tags = getQwenTags(model);
+                                const description = model.description || (model as any).summary || (model as any).display_name || "";
+                                const owner = model.owned_by || (model as any).provider || (model as any).vendor;
+                                const createdAt = formatEpochDate((model as any).created);
+                                const isActive = config.textConfig.model === model.id;
+                                return (
+                                  <button
+                                    key={model.id}
+                                    type="button"
+                                    onClick={() => setConfig({ ...config, textConfig: { ...config.textConfig, model: model.id } })}
+                                    className={`text-left rounded-2xl border bg-white/3 p-3 space-y-2 transition ${
+                                      isActive ? "border-amber-300/60 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]" : "border-white/10 hover:border-white/30"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="text-sm font-semibold text-white/90">{model.id}</div>
+                                      <span className={`text-[10px] px-2 py-1 rounded-full border ${category.tone} flex items-center gap-1`}>
+                                        <category.Icon size={10} />
+                                        {category.label}
                                       </span>
-                                    ))}
-                                  </div>
-                                )}
-                                <div className="text-[10px] text-white/50 flex flex-wrap gap-2">
-                                  <span className="px-2 py-0.5 rounded-full border border-white/10">in:{metrics.inputText}</span>
-                                  <span className="px-2 py-0.5 rounded-full border border-white/10">out:{metrics.outputText}</span>
-                                  {typeof metrics.contextLength === "number" && (
-                                    <span className="px-2 py-0.5 rounded-full border border-white/10">ctx:{metrics.contextLength}</span>
-                                  )}
-                                  <span className="px-2 py-0.5 rounded-full border border-white/10">{metrics.tools ? "tools:yes" : "tools:no"}</span>
-                                  <span className="px-2 py-0.5 rounded-full border border-white/10">{metrics.reasoning ? "reasoning:yes" : "reasoning:no"}</span>
-                                </div>
-                                {owner && <div className="text-[10px] text-white/40">owner: {owner}</div>}
-                              </button>
-                            );
-                          })}
+                                    </div>
+                                    {description && (
+                                      <div className="text-[11px] text-white/60 line-clamp-2">{description}</div>
+                                    )}
+                                    {tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-2">
+                                        {tags.map((tag) => (
+                                          <span
+                                            key={`${model.id}-${tag}`}
+                                            className="px-2 py-0.5 rounded-full border border-white/10 text-[10px] text-white/60"
+                                          >
+                                            {tag}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {(owner || createdAt) && (
+                                      <div className="text-[10px] text-white/40 flex flex-wrap gap-2">
+                                        {owner && <span>owner: {owner}</span>}
+                                        {createdAt && <span>created: {createdAt}</span>}
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {qwenModelsRaw && (
