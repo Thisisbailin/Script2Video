@@ -739,5 +739,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
       </div>
     </div>
+  </div>
+</div>
   );
 };
