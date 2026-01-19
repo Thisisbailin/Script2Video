@@ -120,6 +120,25 @@ const getQwenTags = (model: QwenModel) => {
   return tags.slice(0, 4);
 };
 
+const filterQwenModelsByGroup = (models: QwenModel[], group: QwenGroupKey) => {
+  if (group === "chat") return models;
+  const lowerModels = models.filter((m) => m.id);
+  const wanModels = lowerModels.filter((m) => m.id.toLowerCase().includes("wan"));
+  const imageMatches = wanModels.filter((m) => /image|img|t2i|i2i|edit|paint/.test(m.id.toLowerCase()));
+  const videoMatches = wanModels.filter((m) => /video|t2v|i2v|v2v|vid/.test(m.id.toLowerCase()));
+  if (group === "multimodal") {
+    if (imageMatches.length) return imageMatches;
+    if (wanModels.length) return wanModels;
+    return lowerModels;
+  }
+  if (group === "video") {
+    if (videoMatches.length) return videoMatches;
+    if (wanModels.length) return wanModels;
+    return lowerModels;
+  }
+  return lowerModels;
+};
+
 const formatEpochDate = (value?: number) => {
   if (!value) return null;
   const date = new Date(value * 1000);
@@ -325,28 +344,29 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     setMessage(null);
     try {
       const { models, raw } = await QwenService.fetchModels(endpoint);
+      const filteredModels = filterQwenModelsByGroup(models, group);
       if (group === "chat") {
-        setQwenChatModels(models);
+        setQwenChatModels(filteredModels);
       } else if (group === "multimodal") {
-        setQwenImageModels(models);
+        setQwenImageModels(filteredModels);
       } else {
-        setQwenVideoModels(models);
+        setQwenVideoModels(filteredModels);
       }
       setQwenModelsRaw((prev) => ({ ...prev, [group]: JSON.stringify(raw, null, 2) }));
       setMessage({
         type: "success",
-        text: models.length ? `获取成功，${models.length} 个模型` : "获取成功，但返回为空",
+        text: filteredModels.length ? `获取成功，${filteredModels.length} 个模型` : "获取成功，但返回为空",
       });
-      if (models.length) {
-        if (group === "chat" && !models.find((m) => m.id === config.textConfig.model)) {
+      if (filteredModels.length) {
+        if (group === "chat" && !filteredModels.find((m) => m.id === config.textConfig.model)) {
           setConfig((prev) => ({
             ...prev,
-            textConfig: { ...prev.textConfig, model: models[0].id },
+            textConfig: { ...prev.textConfig, model: filteredModels[0].id },
           }));
         }
         if (group === "multimodal") {
           setConfig((prev) => {
-            const nextModel = models.find((m) => m.id === prev.multimodalConfig.model)?.id || models[0].id;
+            const nextModel = filteredModels.find((m) => m.id === prev.multimodalConfig.model)?.id || filteredModels[0].id;
             return {
               ...prev,
               multimodalConfig: {
@@ -360,7 +380,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         }
         if (group === "video") {
           setConfig((prev) => {
-            const nextModel = models.find((m) => m.id === prev.videoConfig.model)?.id || models[0].id;
+            const nextModel = filteredModels.find((m) => m.id === prev.videoConfig.model)?.id || filteredModels[0].id;
             return {
               ...prev,
               videoProvider: "default",

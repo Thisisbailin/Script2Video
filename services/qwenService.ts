@@ -67,6 +67,9 @@ const flattenContent = (content: any): string => {
 
 const resolveModelsEndpoint = (baseUrl?: string) => {
   let base = (baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, "");
+  if (base.includes("/api/v1/services/aigc/")) {
+    return `${DEFAULT_BASE.replace(/\/+$/, "")}/models`;
+  }
   if (base.endsWith("/chat/completions")) {
     return base.replace(/\/chat\/completions$/, "/models");
   }
