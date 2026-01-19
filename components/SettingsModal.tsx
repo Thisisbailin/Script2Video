@@ -350,7 +350,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity">
-            <div className="w-full max-w-5xl max-h-[90vh] p-0 overflow-hidden flex flex-col rounded-3xl border border-white/12 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+          <div className="w-full max-w-5xl max-h-[90vh] p-0 overflow-hidden flex flex-col rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-panel)] text-[var(--text-primary)] shadow-[var(--shadow-strong)] backdrop-blur-2xl">
 
                 {/* Header */}
                 <div className="bg-white/5 px-6 py-4 flex justify-between items-center border-b border-white/10 shrink-0">

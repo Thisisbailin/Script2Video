@@ -120,7 +120,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   const pillButtonClass =
     "inline-flex items-center justify-center h-9 px-3 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[12px] font-semibold text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition";
   const primaryPillButtonClass =
-    "inline-flex items-center justify-center h-9 px-3 rounded-full bg-emerald-500 text-white text-[12px] font-semibold hover:bg-emerald-400 transition shadow-[0_10px_30px_rgba(16,185,129,0.2)]";
+    "inline-flex items-center justify-center h-9 px-3 rounded-full bg-emerald-500 text-white text-[12px] font-semibold hover:bg-emerald-400 transition";
 
   const nodeActions = [
     { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
@@ -310,7 +310,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-5 space-y-4">
               <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Account · IO</div>
-              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.45)]">
+              <div className="rounded-2xl app-card p-4 space-y-3">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-12 w-12 rounded-xl bg-[var(--app-panel-soft)]" />
@@ -329,7 +329,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                       <img
                         src={accountInfo.avatarUrl}
                         alt="Avatar"
-                        className="h-12 w-12 rounded-xl object-cover border border-[var(--app-border)] shadow-sm"
+                        className="h-12 w-12 rounded-xl object-cover border border-[var(--app-border)]"
                       />
                     ) : (
                       <div className="h-12 w-12 rounded-xl bg-[var(--app-panel-muted)] flex items-center justify-center text-[var(--app-text-secondary)] border border-[var(--app-border)]">
@@ -398,7 +398,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                       <div className="flex gap-2 pt-1">
                         <button
                           type="button"
-                          className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition shadow-[0_10px_30px_rgba(56,189,248,0.25)]"
+                          className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
                           onClick={() => {
                             accountInfo?.onSignIn?.();
                             closeMenus();
@@ -433,7 +433,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </div>
 
               {ioActions.length > 0 && (
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.35)] divide-y divide-white/8">
+                <div className="rounded-2xl app-card overflow-hidden divide-y divide-white/8">
                   {ioActions.map((item) => {
                     const disabled = !item.onClick;
                     return (
@@ -468,7 +468,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               )}
 
               <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Share</div>
-              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+              <div className="rounded-2xl app-card p-4 space-y-3">
                 <div className="space-y-2">
                   <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] px-1">Import</div>
                   <div className="grid grid-cols-3 gap-2">
@@ -529,9 +529,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         )}
 
         {/* Main Bar */}
-        <div
-          className="inline-flex items-center gap-1 h-10 px-3 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-text-primary)] shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur"
-        >
+        <div className="inline-flex items-center gap-1 h-10 px-3 rounded-full app-panel">
           {/* Account / Share */}
           <button
             onClick={() => {
@@ -617,7 +615,7 @@ export const FloatingActionBar: React.FC<Props> = ({
             >
               <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--app-border)] bg-[var(--app-panel-muted)]">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/12 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/12 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
                     <Projector size={22} />
                   </div>
                   <div>

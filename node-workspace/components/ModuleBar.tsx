@@ -30,7 +30,7 @@ export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
             key={mod.key}
             type="button"
             onClick={() => onOpen(mod.key)}
-            className="group h-10 w-10 flex items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
+            className="group h-10 w-10 flex items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
           >
             <Icon size={18} style={{ color: accent[mod.key] }} />
           </button>

@@ -416,6 +416,20 @@
   color: var(--app-text-primary);
 }
 
+.app-card {
+  background: var(--app-panel-muted);
+  border: 1px solid var(--app-border);
+  color: var(--app-text-primary);
+  box-shadow: none;
+}
+
+.app-card-strong {
+  background: var(--app-panel-strong);
+  border: 1px solid var(--app-border-strong);
+  color: var(--app-text-primary);
+  box-shadow: none;
+}
+
 .app-chip {
   background: var(--app-panel-muted);
   border: 1px solid var(--app-border);

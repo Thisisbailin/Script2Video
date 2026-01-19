@@ -1696,6 +1696,7 @@ const App: React.FC = () => {
               onRetryEpisodeSora: retryCurrentEpisodeSora,
               onContinueNextEpisodeSora: continueNextEpisodeSora,
             }}
+            onClose={() => setShowWorkflow(false)}
           />
         </div>
       )}

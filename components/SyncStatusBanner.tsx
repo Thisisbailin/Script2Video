@@ -140,33 +140,33 @@ export const SyncStatusBanner: React.FC<Props> = ({
           ? "text-amber-300"
           : meta.tone === "rose"
             ? "text-rose-300"
-            : "text-white/70";
+            : "text-[var(--text-secondary)]";
 
   return (
     <div className="pointer-events-none fixed bottom-24 right-6 z-50">
-      <div className="pointer-events-auto relative max-w-lg rounded-3xl bg-[#0d0f12]/92 px-4 py-3 shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+      <div className="pointer-events-auto relative max-w-lg rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-panel)] text-[var(--text-primary)] shadow-[var(--shadow-soft)] backdrop-blur px-4 py-3">
         {onClose && (
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition"
+            className="absolute top-3 right-3 p-1 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-muted)] transition"
           >
             <X className="h-4 w-4" />
           </button>
         )}
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-full border border-white/10 bg-white/6 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-muted)] flex items-center justify-center">
             <Icon className={`h-4 w-4 ${["同步中", "加载中"].includes(meta.label) ? "animate-spin" : ""} ${accent}`} />
           </div>
           <div className="flex-1 space-y-2">
-            <div className="text-sm font-semibold text-white">{meta.label}</div>
-            <div className="text-xs text-white/65 leading-relaxed">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">{meta.label}</div>
+            <div className="text-xs text-[var(--text-secondary)] leading-relaxed">
               {detailParts.join(" · ")}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {onForceSync && canForceSync && (
                 <button
                   onClick={onForceSync}
-                  className="px-3 py-1.5 rounded-full text-[12px] border border-white/12 bg-white/6 text-white/85 hover:border-emerald-300 hover:bg-emerald-500/10 hover:text-white transition"
+                  className="px-3 py-1.5 rounded-full text-[12px] border border-[var(--border-subtle)] bg-[var(--bg-panel)] text-[var(--text-primary)] hover:border-emerald-300 hover:bg-emerald-500/10 transition"
                 >
                   立即同步
                 </button>
@@ -174,7 +174,7 @@ export const SyncStatusBanner: React.FC<Props> = ({
               {onOpenDetails && (
                 <button
                   onClick={onOpenDetails}
-                  className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition shadow-[0_10px_30px_rgba(56,189,248,0.25)]"
+                  className="px-3 py-1.5 rounded-full text-[12px] bg-[var(--accent-blue)] text-white hover:bg-sky-500 transition"
                 >
                   查看详情
                 </button>

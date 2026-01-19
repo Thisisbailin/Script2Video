@@ -267,7 +267,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
           return (
             <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border shadow-sm ${
+                className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border ${
                   isUser
                     ? "bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]"
                     : "bg-[var(--app-panel-muted)] border-[var(--app-border)] text-[var(--app-text-primary)]"

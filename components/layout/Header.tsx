@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film } from "lucide-react";
+import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film, X } from "lucide-react";
 import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep, SyncState, SyncStatus } from "../../types";
 import { isEpisodeSoraComplete } from "../../utils/episodes";
 
@@ -219,7 +219,7 @@ const EpisodeList: React.FC<{
           onClick={() => onSelect(idx)}
           className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${currentEpIndex === idx
             ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200"
-            : "bg-white/5 hover:bg-white/10 text-[var(--text-primary)]"
+            : "bg-[var(--bg-overlay)] hover:bg-[var(--bg-muted)] text-[var(--text-primary)]"
             }`}
         >
           <div className="font-semibold truncate">
@@ -237,7 +237,10 @@ const EpisodeList: React.FC<{
   );
 };
 
-export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }) => {
+export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => void }> = ({
+  workflow,
+  onClose,
+}) => {
   const {
     step,
     analysisStep,
@@ -366,7 +369,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
       case "done":
         return "border-emerald-400/20 bg-emerald-900/10";
       default:
-        return "border-[var(--border-subtle)] bg-black/5";
+        return "border-[var(--border-subtle)] bg-[var(--bg-overlay)]";
     }
   };
 
@@ -598,17 +601,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
   };
 
   return (
-    <div
-      className="w-[420px] max-w-[calc(100vw-24px)] rounded-2xl border text-[var(--text-primary)] overflow-hidden"
-      style={{
-        borderColor: "var(--border-subtle)",
-        background: "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
-        backgroundColor: "var(--bg-elevated)",
-        boxShadow: "var(--shadow-strong)",
-        backdropFilter: "blur(18px) saturate(135%)",
-        WebkitBackdropFilter: "blur(18px) saturate(135%)",
-      }}
-    >
+    <div className="w-[420px] max-w-[calc(100vw-24px)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-panel)] text-[var(--text-primary)] shadow-[var(--shadow-soft)] backdrop-blur overflow-hidden">
       <div
         className="px-4 py-3 border-b flex items-center justify-between text-xs uppercase tracking-wide text-[var(--text-secondary)]"
         style={{ borderColor: "var(--border-subtle)" }}
@@ -616,16 +609,27 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
         <div className="flex items-center gap-2">
           <Layers size={14} /> Workflow
         </div>
-        <button
-          onClick={toggleAll}
-          className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
-        >
-          {isExpanded ? "全部收起" : "全部展开"}
-          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleAll}
+            className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+          >
+            {isExpanded ? "全部收起" : "全部展开"}
+            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="h-6 w-6 flex items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition"
+              title="关闭"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
       </div>
       <div className="p-4 space-y-4">
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-3">
           <div
             className="flex items-center justify-between cursor-pointer group"
             onClick={() => togglePhase(1)}
@@ -675,7 +679,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
           )}
         </div>
 
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-3">
           <div
             className="flex items-center justify-between cursor-pointer group"
             onClick={() => togglePhase(2)}
@@ -742,7 +746,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
           )}
         </div>
 
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-3">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-3">
           <div
             className="flex items-center justify-between cursor-pointer group"
             onClick={() => togglePhase(3)}
@@ -806,7 +810,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps }> = ({ workflow }
           )}
         </div>
 
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-black/5 p-3 space-y-2">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-2">
           <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
             <span>当前：{focusLabel}</span>
             <span className={isProcessing ? "text-sky-200" : ""}>{isProcessing ? "处理中..." : "就绪"}</span>
@@ -944,7 +948,7 @@ export const Header: React.FC<HeaderProps> = ({
   const syncDisplay = statusMeta(aggregateStatus);
 
   const pillTriggerClasses = (isActive = false) =>
-    `flex h-12 items-center gap-2 px-4 rounded-full bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.08)] transition-transform duration-150 hover:scale-105 hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)] ${isActive ? "scale-105 shadow-[0_8px_20px_rgba(0,0,0,0.12)]" : ""
+    `flex h-12 items-center gap-2 px-4 rounded-full bg-[var(--bg-panel)]/95 text-[var(--text-primary)] text-sm font-semibold shadow-[var(--shadow-soft)] transition-transform duration-150 hover:scale-105 ${isActive ? "scale-105" : ""
     }`;
 
   const iconButtonClasses = (isActive = false) =>
@@ -996,17 +1000,9 @@ export const Header: React.FC<HeaderProps> = ({
 
   const cardShell = (title: string, content: React.ReactNode, align: "left" | "center" = "left") => (
     <div
-      className={`absolute ${align === "center" ? "left-1/2 -translate-x-1/2" : "left-0"} top-full mt-2 w-[320px] rounded-2xl border backdrop-blur text-[var(--text-primary)] overflow-hidden z-30`}
-      style={{
-        borderColor: "var(--border-subtle)",
-        backgroundColor: "var(--bg-elevated)",
-        boxShadow: "var(--shadow-strong)",
-      }}
+      className={`absolute ${align === "center" ? "left-1/2 -translate-x-1/2" : "left-0"} top-full mt-2 w-[320px] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-panel)] text-[var(--text-primary)] shadow-[var(--shadow-soft)] backdrop-blur overflow-hidden z-30`}
     >
-      <div
-        className="px-4 py-3 border-b text-xs uppercase tracking-wide text-[var(--text-secondary)]"
-        style={{ borderColor: "var(--border-subtle)" }}
-      >
+      <div className="px-4 py-3 border-b text-xs uppercase tracking-wide text-[var(--text-secondary)]" style={{ borderColor: "var(--border-subtle)" }}>
         {title}
       </div>
       {content}
@@ -1036,7 +1032,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="pointer-events-auto">
             <div
               className="flex h-12 items-center gap-1.5 px-4 rounded-full bg-[var(--bg-panel)]/95 backdrop-blur max-w-6xl"
-              style={{ boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}
+              style={{ boxShadow: "var(--shadow-soft)" }}
             >
               <div className="flex items-center gap-1.5">
                 {canExport && (
@@ -1062,7 +1058,7 @@ export const Header: React.FC<HeaderProps> = ({
                           <button
                             key={item.key}
                             onClick={item.onClick}
-                            className={`w-full text-left px-4 py-3 hover:bg-black/5 text-sm ${index < exportItems.length - 1 ? "border-b" : ""
+                            className={`w-full text-left px-4 py-3 hover:bg-[var(--bg-muted)] text-sm ${index < exportItems.length - 1 ? "border-b" : ""
                               }`}
                             style={{ borderColor: "var(--border-subtle)" }}
                           >
@@ -1119,7 +1115,7 @@ export const Header: React.FC<HeaderProps> = ({
                                     <img
                                       src={user.imageUrl}
                                       alt="Profile"
-                                      className="w-10 h-10 rounded-full object-cover border border-[var(--border-subtle)] shadow-sm"
+                                      className="w-10 h-10 rounded-full object-cover border border-[var(--border-subtle)]"
                                     />
                                     <div className="overflow-hidden text-[var(--text-primary)]">
                                       <div className="font-bold truncate">
@@ -1143,7 +1139,7 @@ export const Header: React.FC<HeaderProps> = ({
                                         onUploadAvatar();
                                         setIsUserMenuOpen(false);
                                       }}
-                                      className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-black/5 transition-colors"
+                                      className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 hover:bg-[var(--bg-muted)] transition-colors"
                                     >
                                       <Upload size={16} />
                                       <span>Upload Avatar (Supabase)</span>
@@ -1166,7 +1162,7 @@ export const Header: React.FC<HeaderProps> = ({
       </header>
       {showWorkflow && (
         <div className="fixed top-[84px] left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-40 pointer-events-auto">
-          <WorkflowCard workflow={workflow} />
+          <WorkflowCard workflow={workflow} onClose={() => setShowWorkflow(false)} />
         </div>
       )}
     </>
