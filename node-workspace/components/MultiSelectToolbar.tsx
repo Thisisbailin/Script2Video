@@ -38,15 +38,15 @@ export const MultiSelectToolbar: React.FC = () => {
 
   return (
     <div
-      className="fixed z-[100] -translate-x-1/2 -translate-y-[120%] flex items-center gap-1 bg-[#121212]/90 backdrop-blur-2xl text-white px-1.5 py-1.5 rounded-full border border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+      className="fixed z-[100] -translate-x-1/2 -translate-y-[120%] flex items-center gap-1 app-panel px-1.5 py-1.5 rounded-full animate-in fade-in zoom-in-95 duration-200"
       style={{
         left: topCenterScreen.x,
         top: topCenterScreen.y,
       }}
     >
-      <div className="px-3 py-1 flex items-center gap-2 border-r border-white/5 mr-1">
+      <div className="px-3 py-1 flex items-center gap-2 border-r border-[var(--app-border)] mr-1">
         <div className="h-1.5 w-1.5 rounded-full bg-[var(--node-accent)] animate-pulse" />
-        <span className="text-[10px] font-black uppercase tracking-widest text-white/50">
+        <span className="text-[10px] font-black uppercase tracking-widest app-text-muted">
           {selectedNodes.length} Selected
         </span>
       </div>
@@ -64,28 +64,28 @@ export const MultiSelectToolbar: React.FC = () => {
             showToast("已创建 Group", "success");
           }
         }}
-        className="h-8 px-3 flex items-center gap-2 hover:bg-white/10 rounded-full transition-all group"
+        className="h-8 px-3 flex items-center gap-2 hover:bg-[var(--app-panel-muted)] rounded-full transition-all group"
         title="Group"
       >
-        <BoxSelect size={14} className="text-white/40 group-hover:text-white" />
+        <BoxSelect size={14} className="text-[var(--app-text-muted)] group-hover:text-[var(--app-text-primary)]" />
         <span className="text-[10px] font-bold uppercase tracking-tight">Group</span>
       </button>
 
       <button
         onClick={() => copySelectedNodes()}
-        className="h-8 px-3 flex items-center gap-2 hover:bg-white/10 rounded-full transition-all group"
+        className="h-8 px-3 flex items-center gap-2 hover:bg-[var(--app-panel-muted)] rounded-full transition-all group"
         title="Copy"
       >
-        <Copy size={14} className="text-white/40 group-hover:text-white" />
+        <Copy size={14} className="text-[var(--app-text-muted)] group-hover:text-[var(--app-text-primary)]" />
         <span className="text-[10px] font-bold uppercase tracking-tight">Copy</span>
       </button>
 
       <button
         onClick={() => pasteNodes()}
-        className="h-8 px-3 flex items-center gap-2 hover:bg-white/10 rounded-full transition-all group"
+        className="h-8 px-3 flex items-center gap-2 hover:bg-[var(--app-panel-muted)] rounded-full transition-all group"
         title="Paste"
       >
-        <ClipboardType size={14} className="text-white/40 group-hover:text-white" />
+        <ClipboardType size={14} className="text-[var(--app-text-muted)] group-hover:text-[var(--app-text-primary)]" />
         <span className="text-[10px] font-bold uppercase tracking-tight">Paste</span>
       </button>
 

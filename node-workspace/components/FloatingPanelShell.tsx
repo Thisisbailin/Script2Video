@@ -27,18 +27,18 @@ export const FloatingPanelShell: React.FC<Props> = ({
         aria-hidden="true"
       />
       <div
-        className="relative max-h-[86vh] overflow-hidden rounded-3xl border border-white/12 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+        className="relative max-h-[86vh] overflow-hidden rounded-3xl app-panel"
         style={{ width }}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--app-border)]">
           <div className="text-sm font-semibold">{title}</div>
           <button
             type="button"
             onClick={onClose}
-            className="h-9 w-9 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+            className="h-9 w-9 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
             aria-label="Close"
           >
-            <X size={16} className="mx-auto text-white/70" />
+            <X size={16} className="mx-auto text-[var(--app-text-secondary)]" />
           </button>
         </div>
         <div className="max-h-[calc(86vh-64px)] overflow-auto p-5">{children}</div>

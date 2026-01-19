@@ -211,23 +211,23 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="flex items-center gap-2 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur transition-all duration-300 ease-out"
+        className="flex items-center gap-2 h-10 px-3 rounded-full app-panel transition-all duration-300 ease-out"
       >
         <span className={`flex items-center justify-center h-7 w-7 rounded-full ${moodState.bg} transition-all duration-300 ease-out`}>
           {moodState.icon}
         </span>
         <span className="text-xs font-semibold">Qalam</span>
-        <ChevronUp size={14} className="text-white/60" />
+        <ChevronUp size={14} className="text-[var(--app-text-secondary)]" />
       </button>
     );
   }
 
   // Safe spacing: use symmetric top/bottom gaps equal to the bottom offset (16px).
   return (
-    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col overflow-hidden qalam-panel">
-      <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-white/10">
+    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel">
+      <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-[var(--app-border)]">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-white/10 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
             <Bot size={16} className="text-emerald-200" />
           </div>
           <div className="space-y-0.5">
@@ -236,15 +236,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
               <button
                 type="button"
                 onClick={onToggleAgentSettings}
-                className="h-6 w-6 flex items-center justify-center rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+                className="h-6 w-6 flex items-center justify-center rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
                 title="服务商设置"
               >
-                <Globe size={12} className="text-white/70" />
+                <Globe size={12} className="text-[var(--app-text-secondary)]" />
               </button>
               <button
                 type="button"
                 onClick={onOpenStats}
-                className="text-[11px] text-white/60 hover:text-white/90 underline decoration-dashed decoration-white/40 transition"
+                className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] underline decoration-dashed decoration-[var(--app-border-strong)] transition"
                 title="查看 Dashboard"
               >
                 Tokens · {formatNumber(tokenUsage)}
@@ -254,10 +254,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
         </div>
         <button
           onClick={() => setCollapsed(true)}
-          className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+          className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
           title="Collapse"
         >
-          <ChevronDown size={14} className="mx-auto text-white/70" />
+          <ChevronDown size={14} className="mx-auto text-[var(--app-text-secondary)]" />
         </button>
       </div>
 
@@ -269,8 +269,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
               <div
                 className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border shadow-sm ${
                   isUser
-                    ? "bg-white text-black border-white/80"
-                    : "bg-white/6 border-white/15 text-white"
+                    ? "bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]"
+                    : "bg-[var(--app-panel-muted)] border-[var(--app-border)] text-[var(--app-text-primary)]"
                 }`}
               >
                 {m.text}
@@ -294,7 +294,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
                 key={item.key}
                 onClick={() => setCtxSelection((s) => ({ ...s, [item.key]: !active }))}
                 className={`px-3 py-1.5 rounded-full text-[11px] border transition ${
-                  active ? "bg-white/10 border-white/40 text-white" : "border-white/10 text-white/60 hover:border-white/30 hover:text-white"
+                  active ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]" : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
                 }`}
               >
                 {item.label}
@@ -302,9 +302,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
             );
           })}
         </div>
-        <div className="rounded-2xl bg-white/10 border border-white/15 px-3 py-3 space-y-3">
+        <div className="rounded-2xl bg-[var(--app-panel-soft)] border border-[var(--app-border)] px-3 py-3 space-y-3">
           <textarea
-            className="w-full bg-transparent text-[13px] text-white placeholder:text-white/70 resize-none focus:outline-none"
+            className="w-full bg-transparent text-[13px] text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
             rows={3}
             placeholder="向 Qalam 提问，@ 提及角色形态，/ 选择指令..."
             value={input}
@@ -317,17 +317,17 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
               }
             }}
           />
-          <div className="flex items-center gap-2 text-[12px] text-white/80">
+          <div className="flex items-center gap-2 text-[12px] text-[var(--app-text-secondary)]">
             <button
               onClick={handleUploadClick}
-              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 transition"
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
               title="上传图片作为上下文"
             >
               <Plus size={14} />
             </button>
-            <div className="relative h-8 px-3 rounded-full bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 transition flex items-center gap-2 min-w-[140px]">
-              <span className="truncate text-white/85">{currentModelLabel}</span>
-              <CaretDown size={12} className="text-white/50 pointer-events-none" />
+            <div className="relative h-8 px-3 rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition flex items-center gap-2 min-w-[140px]">
+              <span className="truncate text-[var(--app-text-primary)]">{currentModelLabel}</span>
+              <CaretDown size={12} className="text-[var(--app-text-muted)] pointer-events-none" />
               <select
                 aria-label="选择模型"
                 value={modelValue}
@@ -343,15 +343,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
                   if (!acc.find((x) => x.id === item.id)) acc.push(item);
                   return acc;
                 }, []).map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#0b0d10] text-white">
+                  <option key={m.id} value={m.id} className="bg-[var(--app-panel)] text-[var(--app-text-primary)]">
                     {m.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="relative h-8 px-3 rounded-full bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 transition flex items-center gap-2 min-w-[110px]">
-              <span className="truncate capitalize text-white/85">{mode}</span>
-              <CaretDown size={12} className="text-white/50 pointer-events-none" />
+            <div className="relative h-8 px-3 rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition flex items-center gap-2 min-w-[110px]">
+              <span className="truncate capitalize text-[var(--app-text-primary)]">{mode}</span>
+              <CaretDown size={12} className="text-[var(--app-text-muted)] pointer-events-none" />
               <select
                 aria-label="选择模式"
                 value={mode}
@@ -378,10 +378,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, onOpenStats, onToggle
               {attachments.map((item, idx) => (
                 <span
                   key={`${item.name}-${idx}`}
-                  className="inline-flex items-center gap-2 px-2 py-1.5 rounded-full border border-white/10 bg-white/8 text-[11px]"
+                  className="inline-flex items-center gap-2 px-2 py-1.5 rounded-full border border-[var(--app-border)] bg-white/8 text-[11px]"
                   title={`${item.name} (${(item.size / 1024).toFixed(1)} KB)`}
                 >
-                  <div className="h-7 w-7 rounded-md overflow-hidden border border-white/10 bg-white/5">
+                  <div className="h-7 w-7 rounded-md overflow-hidden border border-[var(--app-border)] bg-[var(--app-panel-muted)]">
                     <img src={item.url} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                   <span className="truncate max-w-[120px]">{item.name}</span>

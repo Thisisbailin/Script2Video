@@ -313,34 +313,34 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="w-[960px] max-w-[96vw] max-h-[85vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col pointer-events-auto"
+        className="w-[960px] max-w-[96vw] max-h-[85vh] rounded-2xl app-panel flex flex-col pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--app-border)]">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-violet-500/30 via-fuchsia-500/10 to-transparent border border-white/10 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-violet-500/30 via-fuchsia-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
               <Sparkles size={16} className="text-violet-200" />
             </div>
             <div>
               <div className="text-sm font-semibold">Agent Settings</div>
-              <div className="text-[11px] text-white/50">AI 路线与模型</div>
+              <div className="text-[11px] app-text-muted">AI 路线与模型</div>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="h-8 w-8 rounded-full border border-white/10 hover:border-white/30 hover:bg-white/5 transition"
+            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
             title="Close"
           >
-            <X size={14} className="mx-auto text-white/70" />
+            <X size={14} className="mx-auto text-[var(--app-text-secondary)]" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-widest text-white/50">Provider</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest app-text-muted">Provider</div>
                 <div className="flex flex-col gap-2">
                   {[
                     { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
@@ -357,62 +357,62 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                         onClick={() => setProvider(key)}
                         className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
                           active
-                            ? "bg-white/10 border-white/40 text-white"
-                            : "border-white/10 text-white/60 hover:border-white/30 hover:text-white"
+                            ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
                         }`}
                       >
                         <span className="flex items-center gap-2">
-                          <Icon size={14} className={active ? "text-white" : "text-white/60"} />
+                          <Icon size={14} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
                           {label}
                         </span>
-                        {active && <span className="text-[10px] text-emerald-300">Active</span>}
+                        {active && <span className="text-[10px] text-emerald-400">Active</span>}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-widest text-white/50">Agents</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest app-text-muted">Agents</div>
                 <div className="flex flex-wrap gap-2">
                   {["主Agent · 制片人", "导演", "分镜导演", "美术设计", "指令师"].map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 rounded-full border border-white/10 text-[11px] text-white/70"
+                      className="px-3 py-1 rounded-full border border-[var(--app-border)] text-[11px] text-[var(--app-text-secondary)]"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
-                <div className="text-[11px] text-white/40">规划中，敬请期待。</div>
+                <div className="text-[11px] app-text-muted">规划中，敬请期待。</div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-widest text-white/50">Tools</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
                 <div className="flex flex-wrap gap-2">
                   {["tool1", "tool2", "tool3"].map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 rounded-full border border-white/10 text-[11px] text-white/70"
+                      className="px-3 py-1 rounded-full border border-[var(--app-border)] text-[11px] text-[var(--app-text-secondary)]"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
-                <div className="text-[11px] text-white/40">规划中。</div>
+                <div className="text-[11px] app-text-muted">规划中。</div>
               </div>
             </div>
 
             <div className="space-y-4">
 
           {config.textConfig.provider === "gemini" && (
-            <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div>
-                <label className="block text-xs text-white/60 mb-2">Gemini Model</label>
+                <label className="block text-xs text-[var(--app-text-secondary)] mb-2">Gemini Model</label>
                 <select
                   value={config.textConfig.model}
                   onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                  className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-sky-400 focus:outline-none"
+                  className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
                 >
                   {AVAILABLE_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -421,21 +421,21 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   ))}
                 </select>
               </div>
-              <div className="text-[11px] text-white/50">
+              <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 GEMINI_API_KEY / VITE_GEMINI_API_KEY。
               </div>
             </div>
           )}
 
           {config.textConfig.provider === "openrouter" && (
-            <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div>
-                <div className="text-xs text-white/60 mb-1">API Endpoint</div>
-                <div className="text-sm text-white/80">{config.textConfig.baseUrl || OPENROUTER_BASE_URL}</div>
+                <div className="text-xs text-[var(--app-text-secondary)] mb-1">API Endpoint</div>
+                <div className="text-sm text-[var(--app-text-secondary)]">{config.textConfig.baseUrl || OPENROUTER_BASE_URL}</div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-white/60">Target Model</label>
+                  <label className="text-xs text-[var(--app-text-secondary)]">Target Model</label>
                   <button
                     type="button"
                     onClick={handleFetchTextModels}
@@ -455,7 +455,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   <select
                     value={config.textConfig.model}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                    className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-sky-400 focus:outline-none"
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
                   >
                     {availableTextModels.map((m) => (
                       <option key={m} value={m}>
@@ -469,20 +469,20 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     placeholder="e.g. google/gemini-pro-1.5"
                     value={config.textConfig.model}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                    className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-sky-400 focus:outline-none"
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
                   />
                 )}
               </div>
-              <div className="text-[11px] text-white/50">
+              <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 OPENROUTER_API_KEY / VITE_OPENROUTER_API_KEY。
               </div>
             </div>
           )}
 
           {config.textConfig.provider === "qwen" && (
-            <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-xs text-white/60">Aliyun Qwen</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -502,7 +502,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           // Ignore clipboard failures.
                         }
                       }}
-                      className="text-[11px] flex items-center gap-1 text-white/60 hover:text-white"
+                      className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
                     >
                       复制原始返回
                     </button>
@@ -518,7 +518,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               <select
                 value={config.textConfig.model || QWEN_DEFAULT_MODEL}
                 onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-amber-300 focus:outline-none"
+                className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
               >
                 {(availableQwenModels.length ? availableQwenModels : [{ id: QWEN_DEFAULT_MODEL }]).map((m) => (
                   <option key={m.id} value={m.id}>
@@ -526,13 +526,13 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   </option>
                 ))}
               </select>
-              <div className="text-[11px] text-white/50">
+              <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
               </div>
-              <div className="pt-2 border-t border-white/10">
-                <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Models</div>
+              <div className="pt-2 border-t border-[var(--app-border)]">
+                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] mb-2">Models</div>
                 {availableQwenModels.length === 0 ? (
-                  <div className="text-[12px] text-white/50">暂无模型信息，请先拉取。</div>
+                  <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
                 ) : (
                   <div className="space-y-4">
                     {qwenGroups.map((group) => {
@@ -544,7 +544,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                             onClick={() =>
                               setCollapsedGroups((prev) => ({ ...prev, [group.key]: !isCollapsed }))
                             }
-                            className="w-full flex items-center justify-between text-[11px] uppercase tracking-widest text-white/50 hover:text-white/80"
+                            className="w-full flex items-center justify-between text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] hover:text-[var(--app-text-secondary)]"
                           >
                             <span className="flex items-center gap-2">
                               <group.Icon size={12} />
@@ -566,26 +566,26 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                                     key={model.id}
                                     type="button"
                                     onClick={() => setConfig({ ...config, textConfig: { ...config.textConfig, model: model.id } })}
-                                    className={`text-left rounded-2xl border bg-white/3 p-3 space-y-2 transition ${
-                                      isActive ? "border-amber-300/60 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]" : "border-white/10 hover:border-white/30"
+                                    className={`text-left rounded-2xl border bg-[var(--app-panel-muted)] p-3 space-y-2 transition ${
+                                      isActive ? "border-amber-300/60 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]" : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
                                     }`}
                                   >
                                     <div className="flex items-center justify-between gap-2">
-                                      <div className="text-sm font-semibold text-white/90">{model.id}</div>
+                                      <div className="text-sm font-semibold text-[var(--app-text-primary)]">{model.id}</div>
                                       <span className={`text-[10px] px-2 py-1 rounded-full border ${category.tone} flex items-center gap-1`}>
                                         <category.Icon size={10} />
                                         {category.label}
                                       </span>
                                     </div>
                                     {description && (
-                                      <div className="text-[11px] text-white/60 line-clamp-2">{description}</div>
+                                      <div className="text-[11px] text-[var(--app-text-secondary)] line-clamp-2">{description}</div>
                                     )}
                                     {tags.length > 0 && (
                                       <div className="flex flex-wrap gap-2">
                                         {tags.map((tag) => (
                                           <span
                                             key={`${model.id}-${tag}`}
-                                            className="px-2 py-0.5 rounded-full border border-white/10 text-[10px] text-white/60"
+                                            className="px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[10px] text-[var(--app-text-secondary)]"
                                           >
                                             {tag}
                                           </span>
@@ -593,7 +593,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                                       </div>
                                     )}
                                     {(owner || createdAt) && (
-                                      <div className="text-[10px] text-white/40 flex flex-wrap gap-2">
+                                      <div className="text-[10px] text-[var(--app-text-muted)] flex flex-wrap gap-2">
                                         {owner && <span>owner: {owner}</span>}
                                         {createdAt && <span>created: {createdAt}</span>}
                                       </div>
@@ -613,12 +613,12 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     <button
                       type="button"
                       onClick={() => setShowQwenRaw((prev) => !prev)}
-                      className="text-[11px] text-white/60 hover:text-white"
+                      className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
                     >
                       {showQwenRaw ? "隐藏原始返回" : "查看原始返回"}
                     </button>
                     {showQwenRaw && (
-                      <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 text-[10px] text-white/70 whitespace-pre-wrap">
+                      <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
                         {qwenModelsRaw}
                       </pre>
                     )}
@@ -629,17 +629,17 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           )}
 
           {config.textConfig.provider === "partner" && (
-            <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-2">
-              <div className="text-sm font-semibold text-white">合作专线</div>
-              <div className="text-[11px] text-white/60">使用平台预置密钥与专属网关，无需配置。</div>
-              <div className="text-[11px] text-white/50">Base URL: {PARTNER_TEXT_BASE_URL}</div>
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
+              <div className="text-sm font-semibold text-[var(--app-text-primary)]">合作专线</div>
+              <div className="text-[11px] text-[var(--app-text-secondary)]">使用平台预置密钥与专属网关，无需配置。</div>
+              <div className="text-[11px] text-[var(--app-text-muted)]">Base URL: {PARTNER_TEXT_BASE_URL}</div>
             </div>
           )}
 
           {config.textConfig.provider === "deyunai" && (
-            <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3">
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-white/60">模型</label>
+                <label className="text-xs text-[var(--app-text-secondary)]">模型</label>
                 <button
                   type="button"
                   onClick={handleFetchDeyunModels}
@@ -658,7 +658,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               <select
                 value={config.textConfig.model || "gpt-5.1"}
                 onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
               >
                 {(availableDeyunModels.length ? availableDeyunModels : DEYUNAI_MODELS.map((m) => ({ id: m, label: m }))).map((m) => (
                   <option key={m.id} value={m.id}>
@@ -668,11 +668,11 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </select>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-white/60 mb-1">思考强度</label>
+                  <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">思考强度</label>
                   <select
                     value={config.textConfig.reasoningEffort || "medium"}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, reasoningEffort: e.target.value as any } })}
-                    className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
                   >
                     <option value="low">low</option>
                     <option value="medium">medium</option>
@@ -680,11 +680,11 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] text-white/60 mb-1">输出详尽度</label>
+                  <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">输出详尽度</label>
                   <select
                     value={config.textConfig.verbosity || "medium"}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, verbosity: e.target.value as any } })}
-                    className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
                   >
                     <option value="low">low</option>
                     <option value="medium">medium</option>
@@ -692,13 +692,13 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   </select>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-[11px] text-white/60">
+              <div className="flex items-center gap-4 text-[11px] text-[var(--app-text-secondary)]">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={!!config.textConfig.stream}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, stream: e.target.checked } })}
-                    className="h-4 w-4 text-emerald-400 border-white/20 rounded bg-[#0b0d10]/70"
+                    className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
                   />
                   流式返回
                 </label>
@@ -707,13 +707,13 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     type="checkbox"
                     checked={!!config.textConfig.store}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, store: e.target.checked } })}
-                    className="h-4 w-4 text-emerald-400 border-white/20 rounded bg-[#0b0d10]/70"
+                    className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
                   />
                   结果存储
                 </label>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/3 p-3 space-y-2 text-[11px] text-white/70">
-                <div className="text-[11px] font-semibold text-white">常用工具</div>
+              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-2 text-[11px] text-[var(--app-text-secondary)]">
+                <div className="text-[11px] font-semibold text-[var(--app-text-primary)]">常用工具</div>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -726,12 +726,12 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                       const nextTools = enabled ? [...existingTools, { type: "web_search_preview" }] : existingTools;
                       setConfig({ ...config, textConfig: { ...config.textConfig, tools: nextTools } });
                     }}
-                    className="h-4 w-4 text-emerald-400 border-white/20 rounded bg-[#0b0d10]/70"
+                    className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
                   />
                   启用网络搜索工具（web_search_preview）
                 </label>
               </div>
-              <div className="text-[11px] text-white/50">
+              <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 DEYUNAI_API_KEY / VITE_DEYUNAI_API_KEY。
               </div>
             </div>

@@ -22,7 +22,7 @@ export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
   };
 
   return (
-    <div className="flex h-12 items-center gap-2 rounded-full border border-white/12 bg-[#0b0d10]/90 px-3 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+    <div className="flex h-12 items-center gap-2 rounded-full app-panel px-3">
       {modules.map((mod) => {
         const Icon = mod.icon;
         return (
@@ -30,7 +30,7 @@ export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
             key={mod.key}
             type="button"
             onClick={() => onOpen(mod.key)}
-            className="group h-10 w-10 flex items-center justify-center rounded-full border border-white/10 bg-white/6 text-white/85 shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:border-white/25 hover:bg-white/12 transition"
+            className="group h-10 w-10 flex items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] shadow-[0_6px_18px_rgba(0,0,0,0.28)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
           >
             <Icon size={18} style={{ color: accent[mod.key] }} />
           </button>

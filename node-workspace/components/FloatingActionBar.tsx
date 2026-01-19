@@ -111,13 +111,14 @@ export const FloatingActionBar: React.FC<Props> = ({
   const [showTemplate, setShowTemplate] = useState(false);
   const [showWip, setShowWip] = useState(false);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
-  const panelClass = "rounded-3xl border border-white/12 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl overflow-hidden";
+  const panelClass = "rounded-3xl app-panel overflow-hidden";
   const panelStyle: React.CSSProperties = {
-    backgroundColor: "rgba(11,13,16,0.95)",
-    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "var(--app-panel)",
+    borderColor: "var(--app-border)",
+    boxShadow: "var(--app-shadow)",
   };
   const pillButtonClass =
-    "inline-flex items-center justify-center h-9 px-3 rounded-full border border-white/12 bg-white/5 text-[12px] font-semibold text-white/85 hover:border-white/30 hover:bg-white/12 transition";
+    "inline-flex items-center justify-center h-9 px-3 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[12px] font-semibold text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition";
   const primaryPillButtonClass =
     "inline-flex items-center justify-center h-9 px-3 rounded-full bg-emerald-500 text-white text-[12px] font-semibold hover:bg-emerald-400 transition shadow-[0_10px_30px_rgba(16,185,129,0.2)]";
 
@@ -160,12 +161,12 @@ export const FloatingActionBar: React.FC<Props> = ({
             style={panelStyle}
           >
             <div className="p-4 space-y-3">
-              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">Project</div>
-              <div className="rounded-2xl border border-white/10 bg-white/4 px-3 py-3 space-y-2">
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)] px-2">Project</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-white">尝试示例</div>
-                    <div className="text-[12px] text-white/65 leading-relaxed">载入内置示例项目并体验节点流程。</div>
+                    <div className="text-sm font-semibold text-[var(--app-text-primary)]">尝试示例</div>
+                    <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed">载入内置示例项目并体验节点流程。</div>
                   </div>
                 </div>
                 <button
@@ -191,9 +192,9 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onOpenModule?.(key);
                       closeMenus();
                     }}
-                    className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/3 px-3 py-3 text-xs font-semibold text-white/85 hover:border-white/25 hover:bg-white/8 transition"
+                    className="flex flex-col items-center gap-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-xs font-semibold text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
                   >
-                    <span className="h-10 w-10 flex items-center justify-center rounded-xl bg-black/30 border border-white/10 text-white/85">
+                    <span className="h-10 w-10 flex items-center justify-center rounded-xl bg-black/30 border border-[var(--app-border)] text-[var(--app-text-primary)]">
                       <Icon size={18} />
                     </span>
                     {label}
@@ -201,13 +202,13 @@ export const FloatingActionBar: React.FC<Props> = ({
                 ))}
               </div>
 
-              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">模板管理</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)] px-2">模板管理</div>
               <button
                 onClick={() => {
                   onCreateTemplate();
                   closeMenus();
                 }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all group ${canCreateTemplate ? "hover:bg-white/5" : "opacity-50 cursor-not-allowed"}`}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all group ${canCreateTemplate ? "hover:bg-[var(--app-panel-muted)]" : "opacity-50 cursor-not-allowed"}`}
                 disabled={!canCreateTemplate}
               >
                 <div className="flex items-center gap-3">
@@ -215,22 +216,22 @@ export const FloatingActionBar: React.FC<Props> = ({
                     <Library size={18} />
                   </div>
                   <div className="text-left">
-                    <div className="text-sm font-bold text-white">保存为模板</div>
-                    <div className="text-[10px] text-white/60">选中 Group 后保存</div>
+                    <div className="text-sm font-bold text-[var(--app-text-primary)]">保存为模板</div>
+                    <div className="text-[10px] text-[var(--app-text-secondary)]">选中 Group 后保存</div>
                   </div>
                 </div>
-                <ChevronRight size={16} className="text-white/60 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                <ChevronRight size={16} className="text-[var(--app-text-secondary)] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
               </button>
 
-              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2 pt-2">我的模板</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)] px-2 pt-2">我的模板</div>
               {templates.length === 0 ? (
-                <div className="px-2 py-3 text-[11px] text-white/60">暂无自定义模板</div>
+                <div className="px-2 py-3 text-[11px] text-[var(--app-text-secondary)]">暂无自定义模板</div>
               ) : (
                 <div className="space-y-2">
                   {templates.map((template) => (
                     <div
                       key={template.id}
-                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all group"
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition-all group"
                     >
                       <button
                         onClick={() => {
@@ -239,12 +240,12 @@ export const FloatingActionBar: React.FC<Props> = ({
                         }}
                         className="flex-1 flex items-center gap-3 text-left"
                       >
-                        <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 text-white/70">
+                        <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)]">
                           <Library size={18} />
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-white">{template.name}</div>
-                          <div className="text-[10px] text-white/60">
+                          <div className="text-sm font-bold text-[var(--app-text-primary)]">{template.name}</div>
+                          <div className="text-[10px] text-[var(--app-text-secondary)]">
                             {new Date(template.createdAt).toLocaleDateString()}
                           </div>
                         </div>
@@ -255,7 +256,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                           onDeleteTemplate(template.id);
                           closeMenus();
                         }}
-                        className="h-8 w-8 rounded-full border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/40 transition"
+                        className="h-8 w-8 rounded-full border border-[var(--app-border)] text-[var(--app-text-muted)] hover:text-red-400 hover:border-red-400/40 transition"
                         title="删除模板"
                       >
                         ×
@@ -276,7 +277,7 @@ export const FloatingActionBar: React.FC<Props> = ({
             style={panelStyle}
           >
             <div className="p-4 space-y-3">
-              <div className="text-[10px] font-black uppercase tracking-widest text-white/60 px-2">Add Nodes</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)] px-2">Add Nodes</div>
               <div className="grid grid-cols-2 gap-2">
                 {nodeActions.map(({ label, hint, onClick, Icon }) => (
                   <button
@@ -285,14 +286,14 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onClick();
                       closeMenus();
                     }}
-                    className="flex items-center gap-3 p-3 rounded-2xl border border-white/10 bg-white/2 hover:border-white/25 hover:bg-white/8 transition-all group/node"
+                    className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition-all group/node"
                   >
-                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/6 ring-1 ring-white/8 group-hover/node:bg-white/10 group-hover/node:ring-white/12 transition-all">
-                      <Icon size={18} className="text-white" />
+                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--app-panel-muted)] ring-1 ring-white/8 group-hover/node:bg-[var(--app-panel-soft)] group-hover/node:ring-white/12 transition-all">
+                      <Icon size={18} className="text-[var(--app-text-primary)]" />
                     </div>
                     <div className="text-left overflow-hidden">
-                      <div className="text-[13px] font-bold text-white">{label}</div>
-                      <div className="text-[11px] text-white/60 truncate">{hint}</div>
+                      <div className="text-[13px] font-bold text-[var(--app-text-primary)]">{label}</div>
+                      <div className="text-[11px] text-[var(--app-text-secondary)] truncate">{hint}</div>
                     </div>
                   </button>
                 ))}
@@ -308,17 +309,17 @@ export const FloatingActionBar: React.FC<Props> = ({
             style={panelStyle}
           >
             <div className="p-5 space-y-4">
-              <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Account · IO</div>
-              <div className="rounded-2xl border border-white/10 bg-white/6 p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.45)]">
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Account · IO</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3 shadow-[0_22px_50px_rgba(0,0,0,0.45)]">
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
-                    <div className="h-12 w-12 rounded-xl bg-white/10" />
+                    <div className="h-12 w-12 rounded-xl bg-[var(--app-panel-soft)]" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-3 w-32 rounded bg-white/10" />
-                      <div className="h-3 w-24 rounded bg-white/8" />
+                      <div className="h-3 w-32 rounded bg-[var(--app-panel-soft)]" />
+                      <div className="h-3 w-24 rounded bg-[var(--app-panel-muted)]" />
                       <div className="flex gap-2">
-                        <div className="h-8 w-20 rounded bg-white/10" />
-                        <div className="h-8 w-20 rounded bg-white/6" />
+                        <div className="h-8 w-20 rounded bg-[var(--app-panel-soft)]" />
+                        <div className="h-8 w-20 rounded bg-[var(--app-panel-muted)]" />
                       </div>
                     </div>
                   </div>
@@ -328,16 +329,16 @@ export const FloatingActionBar: React.FC<Props> = ({
                       <img
                         src={accountInfo.avatarUrl}
                         alt="Avatar"
-                        className="h-12 w-12 rounded-xl object-cover border border-white/12 shadow-sm"
+                        className="h-12 w-12 rounded-xl object-cover border border-[var(--app-border)] shadow-sm"
                       />
                     ) : (
-                      <div className="h-12 w-12 rounded-xl bg-white/6 flex items-center justify-center text-white/80 border border-white/12">
+                      <div className="h-12 w-12 rounded-xl bg-[var(--app-panel-muted)] flex items-center justify-center text-[var(--app-text-secondary)] border border-[var(--app-border)]">
                         <User size={18} />
                       </div>
                     )}
                     <div className="flex-1 space-y-1">
-                      <div className="text-sm font-semibold text-white">{accountName}</div>
-                      {accountEmail && <div className="text-[12px] text-white/60 leading-relaxed truncate">{accountEmail}</div>}
+                      <div className="text-sm font-semibold text-[var(--app-text-primary)]">{accountName}</div>
+                      {accountEmail && <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed truncate">{accountEmail}</div>}
                       <div className="flex items-center gap-2 pt-3 flex-wrap md:flex-nowrap">
                         {onOpenStats && (
                           <button
@@ -388,12 +389,12 @@ export const FloatingActionBar: React.FC<Props> = ({
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
-                    <div className="h-12 w-12 rounded-xl border border-dashed border-white/30 bg-white/5 flex items-center justify-center text-white/70">
+                    <div className="h-12 w-12 rounded-xl border border-dashed border-[var(--app-border-strong)] bg-[var(--app-panel-muted)] flex items-center justify-center text-[var(--app-text-secondary)]">
                       <User size={18} />
                     </div>
                     <div className="flex-1 space-y-1">
-                      <div className="text-sm font-semibold text-white">未登录</div>
-                      <div className="text-[12px] text-white/60 leading-relaxed">登录以解锁同步、主题与项目管理。</div>
+                      <div className="text-sm font-semibold text-[var(--app-text-primary)]">未登录</div>
+                      <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed">登录以解锁同步、主题与项目管理。</div>
                       <div className="flex gap-2 pt-1">
                         <button
                           type="button"
@@ -407,7 +408,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         </button>
                         <button
                           type="button"
-                          className="px-3 py-1.5 rounded-full text-[12px] border border-white/15 text-white/80 hover:border-white/35 hover:text-white transition"
+                          className="px-3 py-1.5 rounded-full text-[12px] border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)] transition"
                           onClick={() => {
                             onOpenStats?.();
                             closeMenus();
@@ -420,7 +421,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         {["实时同步", "背景主题", "项目仪表盘"].map((chip) => (
                           <span
                             key={chip}
-                            className="px-2 py-1 rounded-full text-[11px] bg-white/6 border border-white/10 text-white/70"
+                            className="px-2 py-1 rounded-full text-[11px] bg-[var(--app-panel-muted)] border border-[var(--app-border)] text-[var(--app-text-secondary)]"
                           >
                             {chip}
                           </span>
@@ -432,7 +433,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </div>
 
               {ioActions.length > 0 && (
-                <div className="rounded-2xl border border-white/10 bg-white/4 overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.35)] divide-y divide-white/8">
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] overflow-hidden shadow-[0_18px_40px_rgba(0,0,0,0.35)] divide-y divide-white/8">
                   {ioActions.map((item) => {
                     const disabled = !item.onClick;
                     return (
@@ -445,38 +446,38 @@ export const FloatingActionBar: React.FC<Props> = ({
                         disabled={disabled}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
                           disabled
-                            ? "bg-transparent text-white/45 cursor-not-allowed"
-                            : "hover:bg-white/4 text-white/85"
+                            ? "bg-transparent text-[var(--app-text-muted)] cursor-not-allowed"
+                            : "hover:bg-[var(--app-panel-muted)] text-[var(--app-text-primary)]"
                         }`}
                       >
                         <span
-                          className="h-9 w-9 rounded-xl flex items-center justify-center border border-white/10 ring-1 ring-black/20"
+                          className="h-9 w-9 rounded-xl flex items-center justify-center border border-[var(--app-border)] ring-1 ring-black/20"
                           style={{ background: disabled ? "rgba(255,255,255,0.06)" : item.color }}
                         >
-                          <item.Icon size={16} className={disabled ? "text-white/60" : "text-black"} />
+                          <item.Icon size={16} className={disabled ? "text-[var(--app-text-secondary)]" : "text-black"} />
                         </span>
                         <div className="flex-1">
                           <div className="text-sm font-semibold">{item.label}</div>
-                          <div className="text-[11px] text-white/60">{item.desc}</div>
+                          <div className="text-[11px] text-[var(--app-text-secondary)]">{item.desc}</div>
                         </div>
-                        <ChevronRight size={14} className="text-white/30" />
+                        <ChevronRight size={14} className="text-[var(--app-text-muted)]" />
                       </button>
                     );
                   })}
                 </div>
               )}
 
-              <div className="text-[10px] font-black uppercase tracking-widest text-white/60">Share</div>
-              <div className="rounded-2xl border border-white/10 bg-white/4 p-4 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Share</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
                 <div className="space-y-2">
-                  <div className="text-[11px] uppercase tracking-widest text-white/50 px-1">Import</div>
+                  <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] px-1">Import</div>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => {
                         onImport();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition text-[var(--app-text-primary)]"
                     >
                       <SquareStack size={14} className="text-sky-300" />
                       Node
@@ -484,14 +485,14 @@ export const FloatingActionBar: React.FC<Props> = ({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-[11px] uppercase tracking-widest text-white/50 px-1">Export</div>
+                  <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] px-1">Export</div>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => {
                         onExport();
                         closeMenus();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition text-[var(--app-text-primary)]"
                     >
                       <Share size={14} className="text-emerald-300" />
                       Node
@@ -502,7 +503,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                           onExportCsv();
                           closeMenus();
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition text-[var(--app-text-primary)]"
                       >
                         <List size={14} className="text-sky-300" />
                         Shots
@@ -514,7 +515,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                           onExportUnderstandingJson();
                           closeMenus();
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-white/12 bg-white/5 hover:border-white/30 hover:bg-white/10 transition text-white"
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition text-[var(--app-text-primary)]"
                       >
                         <FileText size={14} className="text-amber-300" />
                         Understanding
@@ -529,7 +530,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         <div
-          className="inline-flex items-center gap-1 h-10 px-3 rounded-full border border-white/10 bg-[#0d0f12]/90 text-white shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="inline-flex items-center gap-1 h-10 px-3 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-text-primary)] shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur"
         >
           {/* Account / Share */}
           <button
@@ -539,9 +540,9 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowTemplate(false);
               setShowWip(false);
             }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showFileMenu ? 'bg-white/10' : 'hover:bg-white/5'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showFileMenu ? 'bg-[var(--app-panel-soft)]' : 'hover:bg-[var(--app-panel-muted)]'}`}
           >
-            <User size={16} className="text-white/80" />
+            <User size={16} className="text-[var(--app-text-secondary)]" />
           </button>
 
           {/* Template */}
@@ -552,9 +553,9 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowFileMenu(false);
               setShowWip(false);
             }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showTemplate ? 'bg-white/10' : 'hover:bg-white/5'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showTemplate ? 'bg-[var(--app-panel-soft)]' : 'hover:bg-[var(--app-panel-muted)]'}`}
           >
-            <Library size={14} className="text-white/80" />
+            <Library size={14} className="text-[var(--app-text-secondary)]" />
           </button>
 
           {/* Workflow (Layers) */}
@@ -565,10 +566,10 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowFileMenu(false);
               onToggleWorkflow?.();
             }}
-            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
+            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-[var(--app-panel-muted)]"
             title="Workflow Actions"
           >
-            <Layers size={14} className="text-white/75" />
+            <Layers size={14} className="text-[var(--app-text-secondary)]" />
           </button>
 
           {/* Plus */}
@@ -579,18 +580,18 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowTemplate(false);
               setShowWip(false);
             }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-white/10' : 'hover:bg-white/5'}`}
+            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-[var(--app-panel-soft)]' : 'hover:bg-[var(--app-panel-muted)]'}`}
           >
-            <Plus size={14} className={`text-white/80 transition-transform ${showPalette ? 'rotate-45' : ''}`} />
+            <Plus size={14} className={`text-[var(--app-text-secondary)] transition-transform ${showPalette ? 'rotate-45' : ''}`} />
           </button>
 
           {/* Projector / WIP */}
           <button
             onClick={() => setShowWip((v) => !v)}
-            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-white/5"
+            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-[var(--app-panel-muted)]"
             title="施工中"
           >
-            <Projector size={14} className="text-white/70" />
+            <Projector size={14} className="text-[var(--app-text-secondary)]" />
           </button>
 
           {/* Run */}
@@ -614,25 +615,25 @@ export const FloatingActionBar: React.FC<Props> = ({
               style={panelStyle}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/12 bg-white/2">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--app-border)] bg-[var(--app-panel-muted)]">
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 rounded-2xl bg-emerald-500/12 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
                     <Projector size={22} />
                   </div>
                   <div>
-                    <div className="text-lg font-semibold text-white">放映机 · 施工中</div>
-                    <div className="text-[12px] text-white/60">高级视图 / 回放 / 管理模块将很快上线。</div>
+                    <div className="text-lg font-semibold text-[var(--app-text-primary)]">放映机 · 施工中</div>
+                    <div className="text-[12px] text-[var(--app-text-secondary)]">高级视图 / 回放 / 管理模块将很快上线。</div>
                   </div>
                 </div>
                 <button
-                  className="h-9 px-3 rounded-full border border-white/15 hover:border-white/30 hover:bg-white/5 text-[12px]"
+                  className="h-9 px-3 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] text-[12px]"
                   onClick={() => setShowWip(false)}
                 >
                   关闭
                 </button>
               </div>
 
-              <div className="px-6 py-6 space-y-4 text-[13px] text-white/80 leading-relaxed">
+              <div className="px-6 py-6 space-y-4 text-[13px] text-[var(--app-text-secondary)] leading-relaxed">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {[
                     { title: "时间线 / 回放", desc: "查看生成历史、关键帧、回放并做版本对比。" },
@@ -642,20 +643,20 @@ export const FloatingActionBar: React.FC<Props> = ({
                   ].map((item) => (
                     <div
                       key={item.title}
-                      className="rounded-2xl border border-white/10 bg-white/2 px-4 py-3 hover:border-white/25 transition-all"
+                      className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-4 py-3 hover:border-[var(--app-border-strong)] transition-all"
                     >
-                      <div className="text-sm font-semibold text-white">{item.title}</div>
-                      <div className="text-[12px] text-white/65 mt-1">{item.desc}</div>
+                      <div className="text-sm font-semibold text-[var(--app-text-primary)]">{item.title}</div>
+                      <div className="text-[12px] text-[var(--app-text-secondary)] mt-1">{item.desc}</div>
                     </div>
                   ))}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/2 p-4">
-                  <div className="flex items-center gap-2 text-white font-semibold mb-2">
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4">
+                  <div className="flex items-center gap-2 text-[var(--app-text-primary)] font-semibold mb-2">
                     <Sparkles size={16} className="text-emerald-300" />
                     体验即将解锁
                   </div>
-                  <div className="text-[12px] text-white/65">
+                  <div className="text-[12px] text-[var(--app-text-secondary)]">
                     放映机将整合节点生成的全链路资产，支持分镜回放、剪辑草稿、版本分支与一键发布。
                   </div>
                 </div>

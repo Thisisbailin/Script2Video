@@ -11,14 +11,14 @@ export const EdgeToolbar: React.FC<Props> = ({ edgeId }) => {
   if (!edge) return null;
 
   return (
-    <div className="flex items-center gap-2 bg-[#0f0f0f] text-white px-2 py-1 rounded border border-gray-700 shadow">
+    <div className="flex items-center gap-2 app-panel px-2 py-1 rounded">
       <button
         onClick={() => toggleEdgePause(edgeId)}
-        className={`px-2 py-1 text-xs rounded ${edge.data?.hasPause ? "bg-amber-600" : "bg-gray-800"}`}
+        className={`px-2 py-1 text-xs rounded ${edge.data?.hasPause ? "bg-amber-600 text-white" : "bg-[var(--app-panel-muted)] text-[var(--app-text-primary)]"}`}
       >
         {edge.data?.hasPause ? "Unpause" : "Pause"}
       </button>
-      <button onClick={() => removeEdge(edgeId)} className="px-2 py-1 text-xs bg-red-600 rounded">
+      <button onClick={() => removeEdge(edgeId)} className="px-2 py-1 text-xs bg-red-600 text-white rounded">
         Delete
       </button>
     </div>

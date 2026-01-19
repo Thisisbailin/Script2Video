@@ -135,8 +135,8 @@ export const AnnotationModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
-      <div className="bg-[#0f0f0f] text-white rounded-xl border border-gray-700 shadow-2xl w-[90vw] h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+      <div className="app-panel rounded-xl w-[90vw] h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--app-border)]">
           <div className="flex items-center gap-2 text-sm">
             <span className="font-semibold">Annotation</span>
           </div>
@@ -144,7 +144,7 @@ export const AnnotationModal: React.FC = () => {
             <select
               value={currentTool}
               onChange={(e) => setCurrentTool(e.target.value as any)}
-              className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs"
+              className="bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded px-2 py-1 text-xs text-[var(--app-text-primary)]"
             >
               <option value="rectangle">Rectangle</option>
               <option value="circle">Circle</option>
@@ -156,13 +156,13 @@ export const AnnotationModal: React.FC = () => {
               type="color"
               value={toolOptions.strokeColor}
               onChange={(e) => setToolOptions({ strokeColor: e.target.value })}
-              className="w-8 h-8 bg-gray-900 border border-gray-700 rounded"
+              className="w-8 h-8 bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded"
             />
             <input
               type="number"
               value={toolOptions.strokeWidth}
               onChange={(e) => setToolOptions({ strokeWidth: Number(e.target.value) })}
-              className="w-12 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs"
+              className="w-12 bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded px-2 py-1 text-xs text-[var(--app-text-primary)]"
             />
             <button onClick={closeModal} className="px-3 py-1 text-xs bg-red-600 rounded">
               Close
