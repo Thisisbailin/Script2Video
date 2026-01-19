@@ -363,7 +363,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     addToGlobalHistory,
     globalAssetHistory,
   } = useWorkflowStore();
-  const { setViewport, screenToFlowPosition, getViewport } = useReactFlow();
+  const { setViewport, screenToFlowPosition, getViewport, fitView } = useReactFlow();
   const { show: showToast } = useToast();
   const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
 
@@ -417,6 +417,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   }, [getViewport, setViewportState]);
 
   const lastViewportRef = useRef<string>("");
+  const didInitFitRef = useRef(false);
   useEffect(() => {
     if (!viewport) return;
     const key = `${viewport.x}:${viewport.y}:${viewport.zoom}`;
@@ -429,6 +430,14 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     if (!viewport) return;
     setZoomValue(viewport.zoom);
   }, [viewport]);
+
+  useEffect(() => {
+    if (didInitFitRef.current) return;
+    if (viewport) return;
+    if (!nodes.length) return;
+    fitView({ padding: 0.2, duration: 0 });
+    didInitFitRef.current = true;
+  }, [fitView, nodes.length, viewport]);
 
   useEffect(() => {
     const videoNodes = nodes.filter((node) => node.type === "videoGen");
@@ -953,12 +962,13 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           nodesConnectable={!isLocked}
           elementsSelectable={!isLocked}
           panOnDrag={!isLocked}
-          zoomOnScroll={!isLocked}
+          panOnScroll={!isLocked}
+          panOnScrollMode="free"
+          zoomOnScroll={false}
           zoomOnPinch={!isLocked}
           zoomOnDoubleClick={!isLocked}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          fitView
           connectionMode={ConnectionMode.Loose}
           proOptions={{ hideAttribution: true }}
           data-active-mode="default"
