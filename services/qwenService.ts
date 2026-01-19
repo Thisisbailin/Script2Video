@@ -1,4 +1,5 @@
 import { TextServiceConfig, TokenUsage } from "../types";
+import { wrapWithProxy } from "../utils/api";
 
 export type QwenMessage = {
   role: "system" | "user" | "assistant";
@@ -97,7 +98,7 @@ export const fetchModels = async (
   const apiKey = resolveApiKey();
   const endpoint = resolveModelsEndpoint(baseUrl);
 
-  const res = await fetch(endpoint, {
+  const res = await fetch(wrapWithProxy(endpoint), {
     method: "GET",
     headers: { Authorization: `Bearer ${apiKey}` },
   });
@@ -141,7 +142,7 @@ export const chatCompletion = async (
     body.stream = true;
   }
 
-  const res = await fetch(endpoint, {
+  const res = await fetch(wrapWithProxy(endpoint), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
