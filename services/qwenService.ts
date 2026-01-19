@@ -58,6 +58,36 @@ const flattenContent = (content: any): string => {
   return "";
 };
 
+const resolveModelsEndpoint = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {
+  let base = (config?.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
+  base = base.replace(/\/chat\/completions$/, "");
+  if (base.endsWith("/models")) return base;
+  if (base.endsWith("/v1")) return `${base}/models`;
+  return `${base}/v1/models`;
+};
+
+export type QwenModel = { id: string; object?: string } & Record<string, any>;
+
+export const fetchModels = async (
+  options?: QwenChatOptions
+): Promise<QwenModel[]> => {
+  const apiKey = resolveApiKey(options);
+  const endpoint = resolveModelsEndpoint(options);
+
+  const res = await fetch(endpoint, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Qwen models fetch failed (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  if (Array.isArray(data?.data)) return data.data as QwenModel[];
+  if (Array.isArray(data?.models)) return data.models as QwenModel[];
+  return [];
+};
+
 export const chatCompletion = async (
   messages: QwenMessage[],
   options?: QwenChatOptions

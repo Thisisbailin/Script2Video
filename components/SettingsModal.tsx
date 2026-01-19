@@ -43,6 +43,8 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     const [multiModelFetchMessage, setMultiModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
     const [isLoadingDeyunModels, setIsLoadingDeyunModels] = useState(false);
     const [deyunModelFetchMessage, setDeyunModelFetchMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+    const [availableQwenModels, setAvailableQwenModels] = useState<string[]>([]);
+    const [qwenModelFetchMessage, setQwenModelFetchMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
     const [isTestingQwen, setIsTestingQwen] = useState(false);
     const [qwenTestMessage, setQwenTestMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
     const [qwenTestInput, setQwenTestInput] = useState("你好，来一句欢迎语。");
@@ -439,6 +441,28 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         }
     };
 
+    const handleFetchQwenModels = async () => {
+        setQwenModelFetchMessage(null);
+        setIsLoadingTextModels(true);
+        try {
+            const models = await QwenService.fetchModels({
+                apiKey: config.textConfig.apiKey || QWEN_TEST_API_KEY,
+                baseUrl: config.textConfig.baseUrl || QWEN_BASE_URL,
+            });
+            const ids = models.map((m) => m.id);
+            setAvailableQwenModels(ids);
+            const msg = ids.length ? `获取成功，${ids.length} 个模型` : "获取成功，但返回为空";
+            setQwenModelFetchMessage({ type: "success", text: msg });
+            if (ids.length && !ids.includes(config.textConfig.model)) {
+                onConfigChange({ ...config, textConfig: { ...config.textConfig, model: ids[0] } });
+            }
+        } catch (e: any) {
+            setQwenModelFetchMessage({ type: "error", text: e.message || "拉取失败" });
+        } finally {
+            setIsLoadingTextModels(false);
+        }
+    };
+
     const handleTestQwenChat = async () => {
         setQwenTestMessage(null);
         setIsTestingQwen(true);
@@ -771,13 +795,41 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">模型</label>
-                                            <input
-                                                type="text"
-                                                placeholder="qwen-plus / qwen-max"
-                                                value={config.textConfig.model || QWEN_DEFAULT_MODEL}
-                                                onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                                                className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                            />
+                                            <div className="flex items-center gap-2">
+                                                {availableQwenModels.length > 0 ? (
+                                                    <select
+                                                        value={config.textConfig.model || QWEN_DEFAULT_MODEL}
+                                                        onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                                                        className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                                    >
+                                                        {availableQwenModels.map((m) => (
+                                                            <option key={m} value={m}>{m}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        placeholder="qwen-plus / qwen-max"
+                                                        value={config.textConfig.model || QWEN_DEFAULT_MODEL}
+                                                        onChange={(e) => onConfigChange({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                                                        className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-2 text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
+                                                    />
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={handleFetchQwenModels}
+                                                    disabled={isLoadingTextModels}
+                                                    className="px-3 py-2 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] hover:border-[var(--accent-blue)] disabled:opacity-50"
+                                                >
+                                                    {isLoadingTextModels ? <Loader2 size={14} className="animate-spin" /> : '拉取模型'}
+                                                </button>
+                                            </div>
+                                            {qwenModelFetchMessage && (
+                                                <p className={`text-xs mt-1 flex items-center gap-1 ${qwenModelFetchMessage.type === 'error' ? 'text-red-500' : 'text-green-400'}`}>
+                                                    {qwenModelFetchMessage.type === 'error' ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                                                    {qwenModelFetchMessage.text}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div>
