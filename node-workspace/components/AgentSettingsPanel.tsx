@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {
+  AudioLines,
   AlertCircle,
-  BrainCircuit,
   CheckCircle,
   ChevronDown,
+  Code2,
+  Eye,
   Globe,
+  Layers,
   Loader2,
   Shield,
   Sparkles,
@@ -17,12 +20,12 @@ import {
   DEYUNAI_BASE_URL,
   DEYUNAI_MODELS,
   PARTNER_TEXT_BASE_URL,
-  QWEN_BASE_URL,
   QWEN_DEFAULT_MODEL,
 } from "../../constants";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
 import * as QwenService from "../../services/qwenService";
+import type { QwenModel } from "../../services/qwenService";
 
 type Props = {
   isOpen: boolean;
@@ -30,6 +33,52 @@ type Props = {
 };
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+
+const QwenIcon: React.FC<{ size?: number; className?: string }> = ({ size = 12, className }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="7.5" />
+    <path d="M16.5 16.5l4 4" />
+  </svg>
+);
+
+const getQwenCategory = (modelId: string) => {
+  const id = modelId.toLowerCase();
+  if (id.includes("vl") || id.includes("vision")) return { label: "Vision", Icon: Eye, tone: "text-sky-300 bg-sky-500/10 border-sky-400/30" };
+  if (id.includes("audio") || id.includes("speech") || id.includes("t2a")) return { label: "Audio", Icon: AudioLines, tone: "text-pink-300 bg-pink-500/10 border-pink-400/30" };
+  if (id.includes("coder") || id.includes("code")) return { label: "Code", Icon: Code2, tone: "text-amber-300 bg-amber-500/10 border-amber-400/30" };
+  if (id.includes("embed")) return { label: "Embedding", Icon: Layers, tone: "text-emerald-300 bg-emerald-500/10 border-emerald-400/30" };
+  if (id.includes("rerank")) return { label: "Rerank", Icon: Layers, tone: "text-indigo-300 bg-indigo-500/10 border-indigo-400/30" };
+  return { label: "Chat", Icon: Sparkles, tone: "text-violet-300 bg-violet-500/10 border-violet-400/30" };
+};
+
+const getQwenTags = (model: QwenModel) => {
+  const tags: string[] = [];
+  const modalities =
+    model.modalities ||
+    model.capabilities?.modalities ||
+    model.input_modalities ||
+    model.architecture?.input_modalities;
+  if (Array.isArray(modalities) && modalities.length) {
+    tags.push(modalities.join("/"));
+  }
+  const contextLength = model.context_length || model.contextLength || model.max_context_length || model.maxTokens;
+  if (typeof contextLength === "number") {
+    tags.push(`${contextLength} ctx`);
+  }
+  if (model.object) tags.push(model.object);
+  return tags.slice(0, 3);
+};
 
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
@@ -43,7 +92,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const [isLoadingQwenModels, setIsLoadingQwenModels] = useState(false);
   const [qwenModelFetchMessage, setQwenModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [availableQwenModels, setAvailableQwenModels] = useState<string[]>([]);
+  const [availableQwenModels, setAvailableQwenModels] = useState<QwenModel[]>([]);
 
   useEffect(() => {
     if (config.textConfig.provider === "deyunai" && Array.isArray(config.textConfig.deyunModels)) {
@@ -86,7 +135,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       nextConfig.store = nextConfig.store ?? false;
       nextConfig.deyunModels = [];
     } else if (p === "qwen") {
-      nextConfig.baseUrl = QWEN_BASE_URL;
+      nextConfig.baseUrl = "";
       nextConfig.model = nextConfig.model || QWEN_DEFAULT_MODEL;
       nextConfig.deyunModels = [];
     } else {
@@ -176,16 +225,15 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     setQwenModelFetchMessage(null);
     try {
       const models = await QwenService.fetchModels();
-      const ids = models.map((m) => m.id);
-      setAvailableQwenModels(ids);
+      setAvailableQwenModels(models);
       setQwenModelFetchMessage({
         type: "success",
-        text: ids.length ? `获取成功，${ids.length} 个模型` : "获取成功，但返回为空",
+        text: models.length ? `获取成功，${models.length} 个模型` : "获取成功，但返回为空",
       });
-      if (ids.length && !ids.includes(config.textConfig.model)) {
+      if (models.length && !models.find((m) => m.id === config.textConfig.model)) {
         setConfig({
           ...config,
-          textConfig: { ...config.textConfig, model: ids[0] },
+          textConfig: { ...config.textConfig, model: models[0].id },
         });
       }
     } catch (e: any) {
@@ -198,12 +246,17 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed bottom-20 left-4 z-50 w-[380px] max-w-[92vw] max-h-[70vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col pointer-events-auto">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-[520px] max-w-[92vw] max-h-[80vh] rounded-2xl border border-white/10 bg-[#0b0d10]/95 text-white shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur flex flex-col pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500/30 via-fuchsia-500/10 to-transparent border border-white/10 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-violet-500/30 via-fuchsia-500/10 to-transparent border border-white/10 flex items-center justify-center">
               <Sparkles size={16} className="text-violet-200" />
             </div>
             <div>
@@ -221,13 +274,13 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
           <div>
             <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Provider</div>
             <div className="flex flex-wrap gap-2">
               {[
                 { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
-                { key: "qwen" as TextProvider, label: "Qwen", Icon: BrainCircuit },
+                { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
                 { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
                 { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
                 { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
@@ -350,14 +403,59 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
                 className="w-full bg-[#0b0d10]/70 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-amber-300 focus:outline-none"
               >
-                {(availableQwenModels.length ? availableQwenModels : [QWEN_DEFAULT_MODEL]).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {(availableQwenModels.length ? availableQwenModels : [{ id: QWEN_DEFAULT_MODEL }]).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.id}
                   </option>
                 ))}
               </select>
               <div className="text-[11px] text-white/50">
                 使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+              </div>
+              <div className="pt-2 border-t border-white/10">
+                <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Models</div>
+                {availableQwenModels.length === 0 ? (
+                  <div className="text-[12px] text-white/50">暂无模型信息，请先拉取。</div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {availableQwenModels.map((model) => {
+                      const category = getQwenCategory(model.id);
+                      const tags = getQwenTags(model);
+                      const description = model.description || model.summary || model.display_name || "";
+                      const owner = model.owned_by || model.provider || model.vendor;
+                      return (
+                        <div
+                          key={model.id}
+                          className="rounded-2xl border border-white/10 bg-white/3 p-3 space-y-2 hover:border-white/30 transition"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-semibold text-white/90">{model.id}</div>
+                            <span className={`text-[10px] px-2 py-1 rounded-full border ${category.tone} flex items-center gap-1`}>
+                              <category.Icon size={10} />
+                              {category.label}
+                            </span>
+                          </div>
+                          {description && (
+                            <div className="text-[11px] text-white/60 line-clamp-2">{description}</div>
+                          )}
+                          {tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {tags.map((tag) => (
+                                <span
+                                  key={`${model.id}-${tag}`}
+                                  className="px-2 py-0.5 rounded-full border border-white/10 text-[10px] text-white/60"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {owner && <div className="text-[10px] text-white/40">owner: {owner}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -472,6 +570,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 };

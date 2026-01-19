@@ -15,15 +15,15 @@ export type QwenChatOptions = {
 
 const DEFAULT_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
-const resolveApiKey = (config?: QwenChatOptions | Partial<TextServiceConfig>) => {
-  const envKey = 
+const resolveApiKey = () => {
+  const envKey =
     (typeof import.meta !== "undefined"
       ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
       : undefined) ||
     (typeof process !== "undefined"
       ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
       : undefined);
-  const key = (config?.apiKey || (config as any)?.textApiKey || envKey || "").trim();
+  const key = (envKey || "").trim();
   if (!key) throw new Error("Missing Qwen API key. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 配置。");
   return key;
 };
@@ -73,7 +73,16 @@ const resolveModelsEndpoint = () => {
   return `${base}/v1/models`;
 };
 
-export type QwenModel = { id: string; object?: string } & Record<string, any>;
+export type QwenModel = {
+  id: string;
+  object?: string;
+  owned_by?: string;
+  name?: string;
+  description?: string;
+  modalities?: string[];
+  capabilities?: Record<string, any>;
+  context_length?: number;
+} & Record<string, any>;
 
 export const fetchModels = async (
   options?: QwenChatOptions
@@ -90,9 +99,17 @@ export const fetchModels = async (
     throw new Error(`Qwen models fetch failed (${res.status}): ${err}`);
   }
   const data = await res.json();
-  if (Array.isArray(data?.data)) return data.data as QwenModel[];
-  if (Array.isArray(data?.models)) return data.models as QwenModel[];
-  return [];
+  const models =
+    (Array.isArray(data?.data) && data.data) ||
+    (Array.isArray(data?.models) && data.models) ||
+    (Array.isArray(data?.result) && data.result) ||
+    [];
+  return models
+    .map((model: any) => ({
+      ...model,
+      id: model.id || model.model || model.name || model?.data?.id || "",
+    }))
+    .filter((model: QwenModel) => model.id);
 };
 
 export const chatCompletion = async (

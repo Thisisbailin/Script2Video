@@ -3,7 +3,7 @@ import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, L
 import { generatePartnerText } from "./partnerService";
 import * as DeyunAIService from "./deyunaiService";
 import * as QwenService from "./qwenService";
-import { QWEN_BASE_URL, QWEN_DEFAULT_MODEL } from "../constants";
+import { QWEN_DEFAULT_MODEL } from "../constants";
 
 // --- HELPERS ---
 
@@ -40,7 +40,6 @@ const resolveDeyunApiKey = (config: TextServiceConfig): string => {
 };
 
 const resolveQwenApiKey = (config: TextServiceConfig): string => {
-  const configKey = config.apiKey?.trim();
   const envKey =
     (typeof import.meta !== "undefined"
       ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
@@ -49,9 +48,9 @@ const resolveQwenApiKey = (config: TextServiceConfig): string => {
       ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
       : undefined);
 
-  const apiKey = configKey || envKey;
+  const apiKey = envKey;
   if (!apiKey) {
-    throw new Error("Qwen API key missing. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 或设置中填写。");
+    throw new Error("Qwen API key missing. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 配置。");
   }
   return apiKey;
 };
@@ -216,13 +215,11 @@ const generateText = async (
     if (systemInstruction) messages.push({ role: "system", content: systemInstruction });
     messages.push({ role: "user", content: refinedPrompt });
 
-    const baseUrl = config.baseUrl?.trim() || QWEN_BASE_URL;
     const model = config.model || QWEN_DEFAULT_MODEL;
 
     try {
       const { text, usage } = await QwenService.chatCompletion(messages, {
         apiKey,
-        baseUrl,
         model,
         responseFormat: "json_object",
       });

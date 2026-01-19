@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, SyncState } from '../types';
 import * as VideoService from '../services/videoService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Cpu, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Shield, Trash2, ChevronDown, ArrowUp } from 'lucide-react';
+import { X, Video, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Trash2, ChevronDown } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
