@@ -202,12 +202,33 @@ const extractReasoningSection = (text: string) => {
   const lines = (text || "").split("\n");
   let start = -1;
   let end = -1;
-  const headingRegex = /^\s*(?:#{1,4}\s*)?(思考过程|思考|Reasoning|Thoughts)\s*[:：]?\s*$/i;
-  const boldHeadingRegex = /^\s*\*\*(思考过程|思考|Reasoning|Thoughts)\*\*\s*[:：]?\s*$/i;
+  let inlineReasoning = "";
+
+  const normalizeHeadingLine = (line: string) => {
+    let cleaned = line.trim().replace(/^#{1,4}\s*/, "");
+    if (cleaned.startsWith("**")) {
+      const endBold = cleaned.indexOf("**", 2);
+      if (endBold !== -1) {
+        const inside = cleaned.slice(2, endBold);
+        const rest = cleaned.slice(endBold + 2);
+        cleaned = `${inside}${rest}`;
+      }
+    }
+    return cleaned.trim();
+  };
+
+  const matchReasoningHeading = (line: string) => {
+    const cleaned = normalizeHeadingLine(line);
+    const match = cleaned.match(/^(思考过程|思考|Reasoning|Thoughts)(?:\s*[\(（][^)）]+[\)）])?\s*[:：]?\s*(.*)$/i);
+    if (!match) return null;
+    return { inline: match[2]?.trim() || "" };
+  };
 
   for (let i = 0; i < lines.length; i += 1) {
-    if (headingRegex.test(lines[i]) || boldHeadingRegex.test(lines[i])) {
+    const match = matchReasoningHeading(lines[i]);
+    if (match) {
       start = i;
+      inlineReasoning = match.inline;
       break;
     }
   }
@@ -221,10 +242,19 @@ const extractReasoningSection = (text: string) => {
     if (!line.trim()) break;
     if (line.match(/^(#{1,4})\s+/)) break;
     if (line.match(/^\s*\*\*(.+)\*\*\s*$/)) break;
+    if (inlineReasoning) {
+      if (!line.match(/^\s*(?:[-*•]|\d+\.|\d+、)\s+/) && !line.match(/^\s{2,}/)) {
+        break;
+      }
+    }
     end += 1;
   }
 
-  const reasoning = lines.slice(start + 1, end).join("\n").trim();
+  const reasoningLines = [
+    ...(inlineReasoning ? [inlineReasoning] : []),
+    ...lines.slice(start + 1, end),
+  ];
+  const reasoning = reasoningLines.join("\n").trim();
   const cleaned = [...lines.slice(0, start), ...lines.slice(end)].join("\n").trim();
   return { text: cleaned, reasoning: reasoning || undefined };
 };
@@ -930,6 +960,20 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
   return parts.join("\n\n");
 };
 
+const buildConversationMemory = (messages: Message[], limit = 8) => {
+  const history = messages
+    .filter((m) => !isToolMessage(m))
+    .map((m) => {
+      const text = (m as ChatMessage).text?.trim();
+      if (!text) return null;
+      const clipped = text.length > 800 ? `${text.slice(0, 800)}...` : text;
+      const label = m.role === "user" ? "用户" : "助手";
+      return `${label}: ${clipped}`;
+    })
+    .filter(Boolean) as string[];
+  return history.slice(-limit).join("\n");
+};
+
 export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpenStats, onToggleAgentSettings }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const [collapsed, setCollapsed] = useState(true);
@@ -1101,11 +1145,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     let assistantIndex = -1;
     try {
       const systemInstruction =
-        "You are Qalam, a creative agent helping build this project. Keep responses concise.";
+        "You are Qalam, a creative agent helping build this project. Keep responses concise. You can use Markdown. Do not include chain-of-thought or internal reasoning; respond with final answers only.";
       const toolHint = isDeyunai
         ? "\n[Tooling]\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
         : "";
-      const prompt = `${contextText ? contextText + "\n\n" : ""}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
+      const memoryText = buildConversationMemory(messages);
+      const memoryBlock = memoryText ? `[Conversation]\n${memoryText}\n\n` : "";
+      const prompt = `${contextText ? contextText + "\n\n" : ""}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
 
       if (isDeyunai) {
         const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
@@ -1128,7 +1174,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                 role: "assistant",
                 text: "",
                 kind: "chat",
-                meta: { reasoningSummary: "思考中...", thinkingStatus: "active", searchEnabled },
+                meta: { thinkingStatus: "active", searchEnabled },
               },
             ];
           });
@@ -1150,13 +1196,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           },
           useStream
             ? (delta, rawDelta) => {
-                setMessages((prev) => {
-                  if (assistantIndex === -1) assistantIndex = prev.length - 1;
-                  return prev.map((m, idx) => {
-                    if (idx !== assistantIndex || isToolMessage(m)) return m;
-                    return { ...m, text: (m.text || "") + delta };
+                if (delta) {
+                  setMessages((prev) => {
+                    if (assistantIndex === -1) assistantIndex = prev.length - 1;
+                    return prev.map((m, idx) => {
+                      if (idx !== assistantIndex || isToolMessage(m)) return m;
+                      return { ...m, text: (m.text || "") + delta };
+                    });
                   });
-                });
+                }
                 const summary = extractReasoningSummary(rawDelta);
                 const usedSearch = extractSearchUsage(rawDelta);
                 const queries = extractSearchQueries(rawDelta);
@@ -1211,9 +1259,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         if (summaryFromRaw) reasoningSummary = summaryFromRaw;
 
         const extractedReasoning = extractReasoningSection(text || "");
-        if (!reasoningSummary && extractedReasoning.reasoning) {
-          reasoningSummary = extractedReasoning.reasoning;
-        }
         const parsed = parsePlanFromText(extractedReasoning.text || "");
         if (useStream && assistantIndex !== -1) {
           setMessages((prev) =>
@@ -1447,6 +1492,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     const searchEnabled = message.meta?.searchEnabled;
     const searchUsed = message.meta?.searchUsed;
     const searchQueries = message.meta?.searchQueries || [];
+    const showNoSummary = thinkingStatus === "done" && !reasoningSummary;
     return (
       <div className="w-full space-y-3">
         {(thinkingStatus || searchEnabled || searchUsed) && (
@@ -1466,15 +1512,23 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           </div>
         )}
         {reasoningSummary ? (
-          <details className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2">
+          <details
+            defaultOpen
+            className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2"
+          >
             <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
-              思考过程（摘要）
+              思考摘要（系统）
             </summary>
-            <div className="mt-2 text-[12px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
-              {reasoningSummary}
+            <div className="mt-2 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
+              {renderMarkdownLite(reasoningSummary)}
             </div>
           </details>
         ) : null}
+        {showNoSummary && (
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 text-[12px] text-[var(--app-text-secondary)]">
+            当前模型未提供思考摘要。
+          </div>
+        )}
         {searchQueries.length > 0 && (
           <details className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
             <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">

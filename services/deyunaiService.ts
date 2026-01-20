@@ -217,23 +217,26 @@ const readStream = async (
     buffer = parts.pop() || "";
 
     for (const part of parts) {
-      const line = part.trim();
-      if (!line.startsWith("data:")) continue;
-      const payload = line.replace(/^data:\s*/, "");
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const json = JSON.parse(payload);
-        const deltaText = extractTextFromChunk(json);
-        const deltaTools = collectToolCalls(json);
-        if (deltaTools.length) {
-          toolCalls.push(...deltaTools);
+      const lines = part.split("\n");
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line.startsWith("data:")) continue;
+        const payload = line.replace(/^data:\s*/, "");
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const json = JSON.parse(payload);
+          const deltaText = extractTextFromChunk(json);
+          const deltaTools = collectToolCalls(json);
+          if (deltaTools.length) {
+            toolCalls.push(...deltaTools);
+          }
+          if (deltaText) {
+            fullText += deltaText;
+          }
+          onDelta?.(deltaText || "", json);
+        } catch {
+          // Swallow JSON parse errors per chunk to keep stream flowing.
         }
-        if (deltaText) {
-          fullText += deltaText;
-          onDelta?.(deltaText, json);
-        }
-      } catch {
-        // Swallow JSON parse errors per chunk to keep stream flowing.
       }
     }
   }
