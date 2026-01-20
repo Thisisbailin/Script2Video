@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Episode, VideoServiceConfig } from "../types";
-import * as VideoService from "../services/videoService";
+import * as SoraService from "../services/soraService";
 
 type UseVideoPollingOptions<T extends { episodes: Episode[] }> = {
   episodes: Episode[];
@@ -39,7 +39,7 @@ export const useVideoPolling = <T extends { episodes: Episode[] }>({
 
       for (const task of tasksToCheck) {
         try {
-          const result = await VideoService.checkTaskStatus(task.taskId, videoConfig);
+          const result = await SoraService.checkSoraTaskStatus(task.taskId, videoConfig);
 
           // Completed or failed
           if (result.status !== "processing" && result.status !== "queued") {

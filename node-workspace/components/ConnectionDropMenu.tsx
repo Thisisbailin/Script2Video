@@ -16,7 +16,7 @@ export const ConnectionDropMenu: React.FC<Props> = ({ position, onCreate, onClos
     { label: "LLM", hint: "Generate or refine text", type: "llmGenerate", Icon: Bot },
     { label: "Image Gen", hint: "Create images", type: "imageGen", Icon: Sparkles },
     { label: "WAN Img", hint: "Wan 2.6 image", type: "wanImageGen", Icon: Sparkles },
-    { label: "Video Gen", hint: "Generate clips", type: "videoGen", Icon: Video },
+    { label: "Sora Video", hint: "Generate Sora clips", type: "soraVideoGen", Icon: Video },
     { label: "WAN Vid", hint: "Wan 2.6 video", type: "wanVideoGen", Icon: Video },
     { label: "Output", hint: "Final outputs", type: "output", Icon: SquareStack },
     { label: "Annotation", hint: "Markup image", type: "annotation", Icon: PenTool },

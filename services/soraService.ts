@@ -41,7 +41,7 @@ const resolveVideoApiKey = (baseUrl: string, apiKey: string) => {
     return "";
 };
 
-export const fetchModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
+export const fetchSoraModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
     if (!baseUrl) return [];
 
     const resolvedApiKey = resolveVideoApiKey(baseUrl, apiKey);
@@ -85,9 +85,9 @@ export const fetchModels = async (baseUrl: string, apiKey: string): Promise<stri
 
 /**
  * SUBMIT TASK
- * Sends the generation request and returns the Task ID immediately.
+ * Sends the Sora generation request and returns the Task ID immediately.
  */
-export const submitVideoTask = async (
+export const submitSoraTask = async (
     prompt: string,
     config: VideoServiceConfig,
     params?: VideoParams
@@ -174,7 +174,7 @@ export const submitVideoTask = async (
  * CHECK STATUS
  * Single poll to check status of a task.
  */
-export const checkTaskStatus = async (
+export const checkSoraTaskStatus = async (
     taskId: string,
     config: VideoServiceConfig
 ): Promise<TaskStatusResult> => {
@@ -274,15 +274,15 @@ export const checkTaskStatus = async (
 };
 
 // Legacy single-call (not used in new flow but kept for compatibility)
-export const generateVideo = async (
+export const generateSoraVideo = async (
     prompt: string,
     config: VideoServiceConfig,
     params?: VideoParams
 ): Promise<{ id: string, url: string }> => {
-    throw new Error("Please use submitVideoTask for async generation.");
+    throw new Error("Please use submitSoraTask for async generation.");
 };
 
-export const remixVideo = async (
+export const remixSoraVideo = async (
     originalVideoId: string,
     prompt: string,
     config: VideoServiceConfig
@@ -295,5 +295,5 @@ export const remixVideo = async (
 
     // Placeholder: Treating remix as a new submission for now as per limited doc.
     // In a real scenario, we'd add `parent_video_id` to body.
-    return submitVideoTask(prompt, config);
+    return submitSoraTask(prompt, config);
 };

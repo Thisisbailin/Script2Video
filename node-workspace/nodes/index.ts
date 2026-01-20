@@ -6,7 +6,7 @@ export * from "./GroupNode";
 export * from "./ShotNode";
 export { ImageGenNode } from "./ImageGenNode";
 export { WanImageGenNode } from "./WanImageGenNode";
-export { VideoGenNode } from "./VideoGenNode";
+export { SoraVideoGenNode } from "./SoraVideoGenNode";
 export { WanVideoGenNode } from "./WanVideoGenNode";
 export { ViduVideoGenNode } from "./ViduVideoGenNode";
 export { LLMGenerateNode } from "./LLMGenerateNode";

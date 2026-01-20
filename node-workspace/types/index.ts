@@ -9,7 +9,7 @@ export type NodeType =
   | "text"
   | "imageGen"
   | "wanImageGen"
-  | "videoGen"
+  | "soraVideoGen"
   | "wanVideoGen"
   | "viduVideoGen"
   | "llmGenerate"

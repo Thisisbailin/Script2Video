@@ -10,7 +10,7 @@ type Props = {
   data: VideoGenNodeData;
 };
 
-export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
+export const SoraVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, availableVideoModels, getConnectedInputs } = useWorkflowStore();
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -56,7 +56,7 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
   return (
     <BaseNode
-      title={data.title || "Video Synthesis"}
+      title={data.title || "Sora Video"}
       onTitleChange={(title) => updateNodeData(id, { title })}
       inputs={["image", "text"]}
       selected={selected}

@@ -1,7 +1,7 @@
 import { useWorkflowStore } from "./workflowStore";
 import * as GeminiService from "../../services/geminiService";
 import * as MultimodalService from "../../services/multimodalService";
-import * as VideoService from "../../services/videoService";
+import * as SoraService from "../../services/soraService";
 import * as ViduService from "../../services/viduService";
 import * as WuyinkejiService from "../../services/wuyinkejiService";
 import * as SeedreamService from "../../services/seedreamService";
@@ -746,13 +746,13 @@ export const useLabExecutor = () => {
         return;
       }
 
-      const { id } = await VideoService.submitVideoTask(prompt || "Animate this", configToUse, params);
+      const { id } = await SoraService.submitSoraTask(prompt || "Animate this", configToUse, params);
 
       store.updateNodeData(nodeId, { status: "loading", videoId: id, videoUrl: undefined, error: null });
 
       const maxAttempts = 60;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const result = await VideoService.checkTaskStatus(id, configToUse);
+        const result = await SoraService.checkSoraTaskStatus(id, configToUse);
         if (result.status === "succeeded") {
           store.updateNodeData(nodeId, { status: "complete", videoUrl: result.url, error: null });
           return;

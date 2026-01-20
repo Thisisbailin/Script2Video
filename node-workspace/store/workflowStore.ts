@@ -513,7 +513,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
           locations: false,
         },
       } as LLMGenerateNodeData;
-    case "videoGen":
+    case "soraVideoGen":
       return {
         inputImages: [],
         inputPrompt: null,
@@ -850,7 +850,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         if (!textConnected) errors.push(`ImageGen node "${node.id}" missing text input`);
       });
     nodes
-      .filter((n) => n.type === "videoGen" || n.type === "wanVideoGen")
+      .filter((n) => n.type === "soraVideoGen" || n.type === "wanVideoGen")
       .forEach((node) => {
         const imageConnected = edges.some((e) => e.target === node.id && e.targetHandle === "image");
         const textConnected = edges.some((e) => e.target === node.id && e.targetHandle === "text");

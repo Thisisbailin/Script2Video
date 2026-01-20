@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, SyncState } from '../types';
-import * as VideoService from '../services/videoService';
+import * as SoraService from '../services/soraService';
 import * as MultimodalService from '../services/multimodalService';
 import { X, Video, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Trash2, ChevronDown } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
@@ -223,7 +223,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         setIsLoadingModels(true);
         setModelFetchMessage(null);
         try {
-            const models = await VideoService.fetchModels(baseUrl, apiKey);
+            const models = await SoraService.fetchSoraModels(baseUrl, apiKey);
             if (models.length > 0) {
                 setAvailableVideoModels(models);
                 setAvailableVideoModelsStore(models);

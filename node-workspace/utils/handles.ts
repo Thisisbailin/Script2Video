@@ -10,7 +10,7 @@ export const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: s
       return { inputs: ["image", "text"], outputs: ["image"] };
     case "wanImageGen":
       return { inputs: ["image", "text"], outputs: ["image"] };
-    case "videoGen":
+    case "soraVideoGen":
       return { inputs: ["image", "text"], outputs: [] };
     case "wanVideoGen":
       return { inputs: ["image", "text"], outputs: [] };

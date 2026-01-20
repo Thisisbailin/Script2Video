@@ -71,10 +71,13 @@ export const DEYUNAI_MODELS = [
   'gpt-4.1-2025-04-14'
 ];
 
+export const SORA_DEFAULT_BASE_URL = "https://api.wuyinkeji.com/api/sora2/submit";
+export const SORA_DEFAULT_MODEL = "sora-2";
+
 export const INITIAL_VIDEO_CONFIG: VideoServiceConfig = {
-  baseUrl: '', // Default empty to force user input
+  baseUrl: SORA_DEFAULT_BASE_URL,
   apiKey: '',
-  model: 'sora-2'
+  model: SORA_DEFAULT_MODEL
 };
 
 export const INITIAL_VIDU_CONFIG: ViduServiceConfig = {

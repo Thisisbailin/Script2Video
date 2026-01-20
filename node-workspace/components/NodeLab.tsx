@@ -23,7 +23,7 @@ import {
   GroupNode,
   ImageGenNode,
   WanImageGenNode,
-  VideoGenNode,
+  SoraVideoGenNode,
   WanVideoGenNode,
   ViduVideoGenNode,
   LLMGenerateNode,
@@ -52,7 +52,7 @@ const nodeTypes: NodeTypes = {
   group: GroupNode,
   imageGen: ImageGenNode,
   wanImageGen: WanImageGenNode,
-  videoGen: VideoGenNode,
+  soraVideoGen: SoraVideoGenNode,
   wanVideoGen: WanVideoGenNode,
   viduVideoGen: ViduVideoGenNode,
   llmGenerate: LLMGenerateNode,
@@ -450,7 +450,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   }, [fitView, nodes.length, viewport]);
 
   useEffect(() => {
-    const videoNodes = nodes.filter((node) => node.type === "videoGen" || node.type === "wanVideoGen");
+    const videoNodes = nodes.filter((node) => node.type === "soraVideoGen" || node.type === "wanVideoGen");
     videoNodes.forEach((node) => {
       const data = node.data as VideoGenNodeData;
       if (!data?.videoUrl) return;
@@ -719,7 +719,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     for (const n of nodes) {
       if (n.type === "llmGenerate") await runLLM(n.id);
       if (n.type === "imageGen" || n.type === "wanImageGen") await runImageGen(n.id);
-      if (n.type === "videoGen" || n.type === "wanVideoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
+      if (n.type === "soraVideoGen" || n.type === "wanVideoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
     }
     alert("Run triggered");
   };
@@ -1054,7 +1054,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
             onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
             onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
-            onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
+            onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
             onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
             onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
             onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}

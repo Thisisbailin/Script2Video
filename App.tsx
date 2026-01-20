@@ -41,7 +41,7 @@ import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
 import * as GeminiService from './services/geminiService';
-import * as VideoService from './services/videoService';
+import * as SoraService from './services/soraService';
 import { useWorkflowStore } from './node-workspace/store/workflowStore';
 
 // --- Helpers: Character stats derived from parsed episodes ---
@@ -448,7 +448,7 @@ const App: React.FC = () => {
         if (!config.videoConfig.baseUrl || !config.videoConfig.apiKey) continue;
 
         try {
-          const result = await VideoService.checkTaskStatus(task.taskId, config.videoConfig);
+          const result = await SoraService.checkSoraTaskStatus(task.taskId, config.videoConfig);
 
           // Only update state if status changed or URL became available
           if (result.status !== 'processing' && result.status !== 'queued') {
@@ -1283,7 +1283,7 @@ const App: React.FC = () => {
       });
 
       try {
-        const { id } = await VideoService.submitVideoTask(customPrompt, config.videoConfig, params);
+        const { id } = await SoraService.submitSoraTask(customPrompt, config.videoConfig, params);
         setProjectData(prev => {
           const episodesCopy = prev.episodes.map(e => {
             if (e.id === playgroundId) {
@@ -1347,7 +1347,7 @@ const App: React.FC = () => {
     });
 
     try {
-      const { id } = await VideoService.submitVideoTask(customPrompt, config.videoConfig, params);
+      const { id } = await SoraService.submitSoraTask(customPrompt, config.videoConfig, params);
       setProjectData(prev => {
         const newEpisodes = prev.episodes.map(e => {
           if (e.id === episodeId) {
@@ -1403,7 +1403,7 @@ const App: React.FC = () => {
     });
 
     try {
-      const { id } = await VideoService.remixVideo(originalVideoId, customPrompt, config.videoConfig);
+      const { id } = await SoraService.remixSoraVideo(originalVideoId, customPrompt, config.videoConfig);
       setProjectData(prev => {
         const newEpisodes = prev.episodes.map(e => {
           if (e.id === episodeId) {
