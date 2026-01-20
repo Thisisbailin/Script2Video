@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { VideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Settings2, Film, RefreshCw, AlertCircle, ChevronUp } from "lucide-react";
+import { Settings2, Film, RefreshCw, AlertCircle, Download } from "lucide-react";
 
 type Props = {
   id: string;
@@ -14,14 +14,44 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
   const { updateNodeData, availableVideoModels, getConnectedInputs } = useWorkflowStore();
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
   const hasConnectedImages = connectedImages.length > 0;
+  const isLoading = data.status === "loading";
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
     await runVideoGen(id);
+  };
+
+  useEffect(() => {
+    if (!isLoading) {
+      setProgress(0);
+      return;
+    }
+    const start = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const eased = 1 - Math.exp(-elapsed / 14000);
+      const next = Math.min(95, Math.round(eased * 100));
+      setProgress(next);
+    }, 500);
+    return () => clearInterval(timer);
+  }, [isLoading]);
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.videoUrl) return;
+    const link = document.createElement("a");
+    link.href = data.videoUrl;
+    link.download = "video.mp4";
+    link.rel = "noreferrer";
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   return (
@@ -130,31 +160,15 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
         {/* Video Preview */}
         {data.videoUrl ? (
-          <div className="node-surface relative group/vid overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
-            <video
-              controls
-              className="w-full aspect-video transition-transform duration-700 bg-black/40"
-            >
-              <source src={data.videoUrl} />
-            </video>
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/vid:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm gap-2">
-              <button
-                onClick={() => window.open(data.videoUrl!, "_blank")}
-                className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/vid:scale-100 border border-white/10"
-                title="Open Video"
+            <div className="node-surface relative overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
+              <video
+                controls
+                className="w-full aspect-video transition-transform duration-700 bg-black/40"
               >
-                <ChevronUp size={20} className="rotate-45" />
-              </button>
-              <button
-                onClick={handleGenerate}
-                className="h-12 w-12 rounded-full bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 backdrop-blur-xl flex items-center justify-center text-white transition-all scale-90 group-hover/vid:scale-100 border border-white/10"
-                title="Regenerate"
-              >
-                <RefreshCw size={24} className={data.status === 'loading' ? 'animate-spin' : ''} />
-              </button>
+                <source src={data.videoUrl} />
+              </video>
             </div>
-          </div>
-        ) : (
+          ) : (
           <div
             onClick={handleGenerate}
             className={`node-surface node-surface--dashed w-full aspect-video rounded-[20px] flex flex-col items-center justify-center transition-all duration-500 ${data.status === 'loading'
@@ -166,6 +180,12 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
               <div className="flex flex-col items-center gap-3">
                 <RefreshCw size={24} className="text-[var(--node-accent)] animate-spin" />
                 <span className="text-[10px] opacity-50 uppercase tracking-[0.2em] font-black">Generating...</span>
+                <div className="w-full max-w-[180px] space-y-2">
+                  <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="text-[9px] font-semibold text-amber-300/80 text-center">{progress}%</div>
+                </div>
               </div>
             ) : (
               <>
@@ -177,6 +197,36 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
                   <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold transition-all duration-500">Click to run flow</span>
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {data.videoUrl && (
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-[var(--node-text-secondary)] bg-white/5 hover:bg-white/10 transition"
+            >
+              <Download size={12} />
+              下载
+            </button>
+            <div className="flex-1" />
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-[9px] font-semibold text-amber-300/90">
+                <div className="h-1 w-24 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <span>{progress}%</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-white bg-emerald-500/80 hover:bg-emerald-500 transition"
+                title="Regenerate"
+              >
+                <RefreshCw size={12} />
+                重试
+              </button>
             )}
           </div>
         )}

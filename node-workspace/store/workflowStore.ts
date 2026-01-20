@@ -89,6 +89,36 @@ const getAbsolutePosition = (node: WorkflowNode, nodeMap: Map<string, WorkflowNo
   return { x, y };
 };
 
+const normalizeNode = (node: WorkflowNode): WorkflowNode => {
+  const base = createDefaultNodeData(node.type as NodeType);
+  const data = base ? { ...base, ...(node.data || {}) } : (node.data || {});
+  const position = node.position || { x: 0, y: 0 };
+  return {
+    ...node,
+    position,
+    selected: false,
+    data,
+  };
+};
+
+const normalizeEdge = (edge: WorkflowEdge, index: number): WorkflowEdge => {
+  const id =
+    edge.id ||
+    `edge-${edge.source}-${edge.target}-${edge.sourceHandle || "default"}-${edge.targetHandle || "default"}-${index}`;
+  return { ...edge, id, selected: false };
+};
+
+const normalizeWorkflowData = (workflow: WorkflowFile) => {
+  const nodes = Array.isArray(workflow.nodes) ? workflow.nodes.map(normalizeNode) : [];
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const edges = Array.isArray(workflow.edges)
+    ? workflow.edges
+        .map(normalizeEdge)
+        .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+    : [];
+  return { nodes, edges };
+};
+
 const normalizeGroupBindings = (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const adjacency = new Map<string, Set<string>>();
@@ -865,7 +895,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   },
 
   loadWorkflow: (workflow) => {
-    const maxId = workflow.nodes.reduce((max, node) => {
+    const { nodes, edges } = normalizeWorkflowData(workflow);
+    const maxId = nodes.reduce((max, node) => {
       const match = node.id.match(/-(\d+)$/);
       if (match) return Math.max(max, parseInt(match[1], 10));
       return max;
@@ -873,8 +904,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     nodeIdCounter = maxId;
     const current = get();
     set({
-      nodes: workflow.nodes,
-      edges: workflow.edges,
+      nodes,
+      edges,
       edgeStyle: workflow.edgeStyle || "angular",
       activeView: workflow.activeView ?? null,
       globalAssetHistory: workflow.globalAssetHistory ?? [],
@@ -934,13 +965,14 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     if (!template) return { ok: false, error: "模板不存在或已被删除。" };
     if (!template.workflow.nodes.length) return { ok: false, error: "模板内容为空。" };
 
+    const normalizedTemplate = normalizeWorkflowData(template.workflow);
     const idMapping = new Map<string, string>();
-    template.workflow.nodes.forEach((node) => {
+    normalizedTemplate.nodes.forEach((node) => {
       const newId = `${node.type}-${++nodeIdCounter}`;
       idMapping.set(node.id, newId);
     });
 
-    const newNodes: WorkflowNode[] = template.workflow.nodes.map((node) => {
+    const newNodes: WorkflowNode[] = normalizedTemplate.nodes.map((node) => {
       const parentId = node.parentId ? idMapping.get(node.parentId) : undefined;
       const position = parentId
         ? node.position
@@ -960,7 +992,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       };
     });
 
-    const newEdges: WorkflowEdge[] = template.workflow.edges.map((edge) => ({
+    const newEdges: WorkflowEdge[] = normalizedTemplate.edges.map((edge) => ({
       ...edge,
       id: `edge-${idMapping.get(edge.source)}-${idMapping.get(edge.target)}-${edge.sourceHandle || "default"}-${edge.targetHandle || "default"}`,
       source: idMapping.get(edge.source)!,
