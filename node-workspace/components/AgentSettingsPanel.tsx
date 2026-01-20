@@ -127,6 +127,8 @@ const formatEpochDate = (value?: number) => {
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
+  const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen" | "deyunai">("openrouter");
+  const [activeVideoProvider, setActiveVideoProvider] = useState<"sora" | "qwen" | "vidu">("sora");
   const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
   const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
@@ -395,7 +397,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
             <div className="space-y-4">
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-widest app-text-muted">Type</div>
+                <div className="text-[11px] uppercase tracking-widest app-text-muted">Provider</div>
                 <div className="flex flex-col gap-2">
                   {[
                     { key: "chat", label: "Chat", Icon: Sparkles },
@@ -418,7 +420,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           <Icon size={14} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
                           {label}
                         </span>
-                        {active && <span className="text-[10px] text-emerald-400">Active</span>}
                       </button>
                     );
                   })}
@@ -474,6 +475,68 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           key={key}
                           type="button"
                           onClick={() => setProvider(key)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
+                            active
+                              ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                              : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                          }`}
+                        >
+                          <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                          {label}
+                          {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeType === "multi" && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Multi Providers</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: "openrouter" as const, label: "OpenRouter", Icon: Globe },
+                      { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
+                      { key: "deyunai" as const, label: "DeyunAI", Icon: Sparkles },
+                    ].map(({ key, label, Icon }) => {
+                      const active = activeMultiProvider === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setActiveMultiProvider(key)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
+                            active
+                              ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                              : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                          }`}
+                        >
+                          <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                          {label}
+                          {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeType === "video" && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Video Providers</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: "sora" as const, label: "Sora", Icon: Sparkles },
+                      { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
+                      { key: "vidu" as const, label: "Vidu", Icon: Video },
+                    ].map(({ key, label, Icon }) => {
+                      const active = activeVideoProvider === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setActiveVideoProvider(key)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
                             active
                               ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
@@ -677,31 +740,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     )}
                   </div>
                 </div>
-
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                      multimodal-generation · 1
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
-                    固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{QWEN_WAN_IMAGE_MODEL}</span>
-                  </div>
-                  <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Image 节点，端口已固定。</div>
-                </div>
-
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                      <Video size={12} />
-                      video-generation · 1
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
-                    固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{QWEN_WAN_VIDEO_MODEL}</span>
-                  </div>
-                  <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Video 节点，端口已固定。</div>
-                </div>
               </div>
             </div>
           )}
@@ -815,12 +853,75 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {activeType !== "chat" && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
-              <div className="text-sm font-semibold text-[var(--app-text-primary)]">即将上线</div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">
-                {activeType === "multi" ? "Multimodal 路线正在规划中。" : "Video 路线正在规划中。"}
+          {activeType === "multi" && activeMultiProvider === "openrouter" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+              <div className="text-xs text-[var(--app-text-secondary)]">OpenRouter</div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">multimodal-generation · 1</div>
+                <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
+                  固定模型：<span className="text-[var(--app-text-primary)] font-semibold">gemini-2.5-flash-image-preview</span>
+                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)]">用于多模态图片生成，占位可替换。</div>
               </div>
+              <div className="text-[11px] text-[var(--app-text-muted)]">
+                使用环境变量 OPENROUTER_API_KEY / VITE_OPENROUTER_API_KEY。
+              </div>
+            </div>
+          )}
+
+          {activeType === "multi" && activeMultiProvider === "qwen" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+              <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
+              <div className="text-[11px] text-[var(--app-text-muted)]">
+                使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+              </div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">multimodal-generation · 1</div>
+                <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
+                  固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{QWEN_WAN_IMAGE_MODEL}</span>
+                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Image 节点，端口已固定。</div>
+              </div>
+            </div>
+          )}
+
+          {activeType === "multi" && activeMultiProvider === "deyunai" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
+              <div className="text-sm font-semibold text-[var(--app-text-primary)]">DeyunAI</div>
+              <div className="text-[11px] text-[var(--app-text-secondary)]">多模态路线规划中。</div>
+            </div>
+          )}
+
+          {activeType === "video" && activeVideoProvider === "sora" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
+              <div className="text-sm font-semibold text-[var(--app-text-primary)]">Sora</div>
+              <div className="text-[11px] text-[var(--app-text-secondary)]">视频路线规划中。</div>
+            </div>
+          )}
+
+          {activeType === "video" && activeVideoProvider === "qwen" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+              <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
+              <div className="text-[11px] text-[var(--app-text-muted)]">
+                使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+              </div>
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                  <Video size={12} />
+                  video-generation · 1
+                </div>
+                <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
+                  固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{QWEN_WAN_VIDEO_MODEL}</span>
+                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Video 节点，端口已固定。</div>
+              </div>
+            </div>
+          )}
+
+          {activeType === "video" && activeVideoProvider === "vidu" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
+              <div className="text-sm font-semibold text-[var(--app-text-primary)]">Vidu</div>
+              <div className="text-[11px] text-[var(--app-text-secondary)]">视频路线规划中。</div>
             </div>
           )}
         </div>

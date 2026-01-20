@@ -43,9 +43,6 @@
   background: var(--bg-panel);
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-}
-
-.node-lab-canvas[data-zoomed="true"] {
   text-rendering: geometricPrecision;
 }
 
@@ -56,6 +53,13 @@
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+}
+
+.react-flow__renderer,
+.react-flow__viewport {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .react-flow__node-group {
@@ -74,7 +78,7 @@
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), transparent), var(--group-bg);
   border: 1px solid var(--group-border);
   box-shadow: var(--group-shadow);
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
   position: relative;
 }
 
@@ -105,7 +109,7 @@
   border: 1px solid var(--node-border);
   border-radius: 20px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(16px);
+  backdrop-filter: none;
   overflow: hidden;
 }
 
@@ -374,7 +378,7 @@
   border: 1px solid var(--node-border);
   background: var(--node-bg-gradient, var(--node-bg));
   box-shadow: var(--node-shadow);
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
   z-index: 0;
 }
 
@@ -419,7 +423,7 @@
   border: 1px solid var(--app-border);
   color: var(--app-text-primary);
   box-shadow: var(--app-shadow);
-  backdrop-filter: blur(16px);
+  backdrop-filter: none;
 }
 
 .node-lab-canvas[data-zoomed="true"] .app-panel {
@@ -432,7 +436,7 @@
   border: 1px solid var(--app-border-strong);
   color: var(--app-text-primary);
   box-shadow: var(--app-shadow-strong);
-  backdrop-filter: blur(18px);
+  backdrop-filter: none;
 }
 
 .node-lab-canvas[data-zoomed="true"] .app-panel-strong {
