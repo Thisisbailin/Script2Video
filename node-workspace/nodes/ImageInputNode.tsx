@@ -49,12 +49,12 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
         </button>
         {data.image && (
           <div
-            className="node-surface relative group/img overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.4)] bg-black/40 h-[180px]"
+            className="node-surface node-media-frame relative group/img overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.4)] bg-black/40"
           >
             <img
               src={data.image}
               alt="preview"
-              className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-[1.02]"
+              className="node-media-preview transition-transform duration-500 group-hover/img:scale-[1.02]"
             />
             <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
               <div className="text-[10px] font-black text-white truncate uppercase tracking-widest">{data.filename}</div>

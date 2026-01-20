@@ -41,7 +41,7 @@ export const EditableEdge: React.FC<Props> = (props) => {
             pointerEvents: "all",
           }}
           className={`
-            group flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full border transition-all duration-300 backdrop-blur-md cursor-pointer
+            group flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full border transition-all duration-300 cursor-pointer
             ${hover ? 'bg-[var(--accent-blue)] border-transparent scale-110 shadow-lg shadow-blue-500/20' : 'bg-[var(--bg-panel)]/80 border-[var(--border-subtle)]'}
           `}
         >

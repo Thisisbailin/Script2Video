@@ -201,10 +201,10 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           </div>
         )}
 
-        <div className="relative group/img cursor-pointer h-[180px]">
+        <div className={`relative group/img cursor-pointer ${data.outputImage ? "" : "h-[180px]"}`}>
           {data.outputImage ? (
             <div
-              className="node-surface relative overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] w-full h-[180px] group-hover/img:border-white/30 transition-all"
+              className="node-surface node-media-frame relative overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] group-hover/img:border-white/30 transition-all"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsPreviewOpen(true);
@@ -213,7 +213,7 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
               <img
                 src={data.outputImage}
                 alt="generated"
-                className="w-full h-full object-contain bg-black/40"
+                className="node-media-preview bg-black/40"
               />
             </div>
           ) : (

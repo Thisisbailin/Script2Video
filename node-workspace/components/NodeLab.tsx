@@ -981,7 +981,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     <div className="h-full w-full flex flex-col app-text-primary" style={backgroundStyle}>
       <div
         className="flex-1 relative node-lab-canvas"
-        data-zoomed={zoomValue >= 1.5}
+        data-zoomed={zoomValue > 1}
         style={backgroundStyle}
       >
         <ReactFlow

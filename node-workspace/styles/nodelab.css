@@ -30,6 +30,7 @@
   --node-shadow: var(--app-shadow);
   --node-shadow-strong: var(--app-shadow-strong);
   --node-header-bg: var(--app-panel-muted);
+  --node-card-width: 320px;
   --group-bg: rgba(13, 17, 24, 0.62);
   --group-bg-selected: rgba(18, 24, 34, 0.78);
   --group-border: rgba(255, 255, 255, 0.12);
@@ -57,9 +58,9 @@
 
 .react-flow__renderer,
 .react-flow__viewport {
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  will-change: transform;
+  transform-style: flat;
+  backface-visibility: visible;
+  will-change: auto;
 }
 
 .react-flow__node-group {
@@ -248,6 +249,8 @@
 
 .react-flow__node:not(.react-flow__node-group) {
   z-index: 2 !important;
+  width: var(--node-card-width);
+  min-width: var(--node-card-width);
 }
 
 .react-flow__edges {
@@ -400,6 +403,19 @@
   background: var(--node-bg-selected);
   border-color: var(--node-border-strong);
   box-shadow: var(--node-shadow-strong);
+}
+
+.node-media-frame {
+  width: 100%;
+  max-width: 100%;
+}
+
+.node-media-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
 }
 
 .node-textarea {
