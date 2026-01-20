@@ -260,21 +260,76 @@ const extractReasoningSection = (text: string) => {
 };
 
 const extractReasoningSummary = (raw: any) => {
+  const extractFromItem = (item: any) => {
+    if (!item || item.type !== "reasoning") return "";
+    const summary = item.summary;
+    if (typeof summary === "string") return summary;
+    if (Array.isArray(summary)) {
+      return summary.map((s: any) => (typeof s === "string" ? s : s?.text || "")).join("");
+    }
+    return "";
+  };
+
+  if (!raw) return undefined;
+
+  if (Array.isArray(raw)) {
+    let text = "";
+    raw.forEach((event) => {
+      const type = typeof event?.type === "string" ? event.type : "";
+      if (type.includes("reasoning_summary_text.delta") && typeof event.delta === "string") {
+        text += event.delta;
+        return;
+      }
+      if (type.includes("reasoning_summary_part.added")) {
+        const part = event?.part || event?.summary || event?.item;
+        const partText = typeof part === "string" ? part : part?.text;
+        if (partText) text += partText;
+        return;
+      }
+      if (event?.item) {
+        const itemText = extractFromItem(event.item);
+        if (itemText) text += itemText;
+      }
+      if (Array.isArray(event?.output)) {
+        const outSummary = extractReasoningSummary({ output: event.output });
+        if (outSummary) text += outSummary;
+      }
+    });
+    return text.trim() ? text : undefined;
+  }
+
+  const eventType = typeof raw?.type === "string" ? raw.type : "";
+  if (eventType.includes("reasoning_summary_text.delta") && typeof raw.delta === "string") return raw.delta;
+  if (eventType.includes("reasoning_summary_part.added")) {
+    const part = raw?.part || raw?.summary || raw?.item;
+    const partText = typeof part === "string" ? part : part?.text;
+    if (partText) return partText;
+  }
+  if (raw?.item) {
+    const itemText = extractFromItem(raw.item);
+    if (itemText) return itemText;
+  }
+
   const output = raw?.output;
   if (!Array.isArray(output)) return undefined;
   for (const item of output) {
-    if (item?.type === "reasoning") {
-      const summary = item?.summary;
-      if (typeof summary === "string") return summary;
-      if (Array.isArray(summary)) {
-        return summary.map((s: any) => (typeof s === "string" ? s : s?.text || "")).join("");
-      }
-    }
+    const summary = extractFromItem(item);
+    if (summary) return summary;
   }
   return undefined;
 };
 
 const extractSearchUsage = (raw: any) => {
+  if (!raw) return false;
+  if (Array.isArray(raw)) {
+    return raw.some((event) => {
+      const type = typeof event?.type === "string" ? event.type : "";
+      if (type.includes("web_search")) return true;
+      if (event?.item?.type && `${event.item.type}`.includes("web_search")) return true;
+      if (Array.isArray(event?.output)) return extractSearchUsage({ output: event.output });
+      return false;
+    });
+  }
   const output = raw?.output;
   if (!Array.isArray(output)) return false;
   return output.some((item: any) => {
@@ -284,16 +339,27 @@ const extractSearchUsage = (raw: any) => {
 };
 
 const extractSearchQueries = (raw: any) => {
-  const output = raw?.output;
-  if (!Array.isArray(output)) return [];
+  if (!raw) return [];
   const queries: string[] = [];
-  output.forEach((item: any) => {
+  const collectFromItem = (item: any) => {
     if (!item || typeof item !== "object") return;
     const type = typeof item.type === "string" ? item.type : "";
     if (!type.includes("web_search")) return;
     const query = item.query || item.input || item.q;
     if (typeof query === "string" && query.trim()) queries.push(query.trim());
-  });
+  };
+  if (Array.isArray(raw)) {
+    raw.forEach((event) => {
+      collectFromItem(event?.item);
+      if (Array.isArray(event?.output)) {
+        extractSearchQueries({ output: event.output }).forEach((q) => queries.push(q));
+      }
+    });
+    return Array.from(new Set(queries));
+  }
+  const output = raw?.output;
+  if (!Array.isArray(output)) return [];
+  output.forEach((item: any) => collectFromItem(item));
   return Array.from(new Set(queries));
 };
 
@@ -1324,8 +1390,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                     })
                   );
                 }
-                if (summary && summary !== reasoningSummary) {
-                  reasoningSummary = summary;
+                if (summary) {
+                  reasoningSummary = `${reasoningSummary}${summary}`;
                   setMessages((prev) =>
                     prev.map((m, idx) => {
                       if (idx !== assistantIndex || isToolMessage(m)) return m;

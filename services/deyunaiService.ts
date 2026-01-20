@@ -95,7 +95,7 @@ const flattenContent = (content: any): string => {
           return flattenContent(part.content);
         }
         if (part?.type === "reasoning") {
-          return flattenContent(part?.summary) || "";
+          return "";
         }
         if (part?.type === "output_text" && part?.text) return part.text;
         return "";
@@ -128,6 +128,8 @@ const assertApiKey = (config: DeyunAIConfig) => {
 };
 
 const extractTextFromChunk = (json: any): string => {
+  const eventType = typeof json?.type === "string" ? json.type : "";
+  if (eventType.includes("reasoning_summary")) return "";
   const choice = json?.choices?.[0];
   if (choice) {
     const delta = choice.delta || choice.message;
