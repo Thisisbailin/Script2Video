@@ -83,6 +83,7 @@ export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visua
 // --- NEW DEEP UNDERSTANDING TYPES ---
 
 export interface CharacterForm {
+  id: string;
   formName: string; // e.g. "Youth", "Blackened", "General"
   episodeRange: string; // e.g. "Ep 1-5"
   description: string;
@@ -132,6 +133,7 @@ export interface Location {
 }
 
 export interface LocationZone {
+  id: string;
   name: string;
   kind: 'interior' | 'exterior' | 'transition' | 'unspecified';
   episodeRange: string;

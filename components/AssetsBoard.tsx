@@ -1,6 +1,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DesignAssetItem, ProjectData } from '../types';
+import { createStableId } from '../utils/id';
 import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
 import { useWorkflowStore, GlobalAssetHistoryItem } from '../node-workspace/store/workflowStore';
 
@@ -109,11 +110,17 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       const characters = [...(prev.context.characters || [])];
       const current = characters[charIdx];
       if (!current) return prev;
-      characters[charIdx] = { ...current, name };
+      const updated = { ...current, name };
+      characters[charIdx] = updated;
+      const formNameById = new Map(
+        (updated.forms || []).map((form) => [form.id, form.formName])
+      );
       const prefix = `${current.id}|`;
       const designAssets = prev.designAssets.map((asset) => {
         if (asset.category !== "form" || !asset.refId.startsWith(prefix)) return asset;
-        const formName = asset.refId.slice(prefix.length);
+        const formId = asset.refId.slice(prefix.length);
+        const formName = formNameById.get(formId);
+        if (!formName) return asset;
         return { ...asset, label: `${name} · ${formName}` };
       });
       return {
@@ -128,11 +135,17 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       const locations = [...(prev.context.locations || [])];
       const current = locations[locIdx];
       if (!current) return prev;
-      locations[locIdx] = { ...current, name };
+      const updated = { ...current, name };
+      locations[locIdx] = updated;
+      const zoneNameById = new Map(
+        (updated.zones || []).map((zone) => [zone.id, zone.name])
+      );
       const prefix = `${current.id}|`;
       const designAssets = prev.designAssets.map((asset) => {
         if (asset.category !== "zone" || !asset.refId.startsWith(prefix)) return asset;
-        const zoneName = asset.refId.slice(prefix.length);
+        const zoneId = asset.refId.slice(prefix.length);
+        const zoneName = zoneNameById.get(zoneId);
+        if (!zoneName) return asset;
         return { ...asset, label: `${name} · ${zoneName}` };
       });
       return {
@@ -149,13 +162,12 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       if (!current) return prev;
       const forms = [...(current.forms || [])];
       const currentForm = forms[formIdx];
-      const prevRefId = currentForm ? `${current.id}|${currentForm.formName}` : "";
+      const refId = currentForm ? `${current.id}|${currentForm.id}` : "";
       forms[formIdx] = { ...currentForm, formName };
       characters[charIdx] = { ...current, forms };
-      const nextRefId = `${current.id}|${formName}`;
       const designAssets = prev.designAssets.map((asset) => {
-        if (asset.category !== "form" || asset.refId !== prevRefId) return asset;
-        return { ...asset, refId: nextRefId, label: `${current.name} · ${formName}` };
+        if (asset.category !== "form" || !refId || asset.refId !== refId) return asset;
+        return { ...asset, label: `${current.name} · ${formName}` };
       });
       return {
         ...prev,
@@ -171,13 +183,12 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       if (!current) return prev;
       const zones = [...(current.zones || [])];
       const currentZone = zones[zoneIdx];
-      const prevRefId = currentZone ? `${current.id}|${currentZone.name}` : "";
+      const refId = currentZone ? `${current.id}|${currentZone.id}` : "";
       zones[zoneIdx] = { ...currentZone, name: zoneName };
       locations[locIdx] = { ...current, zones };
-      const nextRefId = `${current.id}|${zoneName}`;
       const designAssets = prev.designAssets.map((asset) => {
-        if (asset.category !== "zone" || asset.refId !== prevRefId) return asset;
-        return { ...asset, refId: nextRefId, label: `${current.name} · ${zoneName}` };
+        if (asset.category !== "zone" || !refId || asset.refId !== refId) return asset;
+        return { ...asset, label: `${current.name} · ${zoneName}` };
       });
       return {
         ...prev,
@@ -235,7 +246,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       characters[charIdx] = { ...current, forms: nextForms };
       let designAssets = prev.designAssets;
       if (targetForm) {
-        const refId = `${current.id}|${targetForm.formName}`;
+        const refId = `${current.id}|${targetForm.id}`;
         designAssets = designAssets.filter(
           (asset) => !(asset.category === "form" && asset.refId === refId)
         );
@@ -258,7 +269,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       locations[locIdx] = { ...current, zones: nextZones };
       let designAssets = prev.designAssets;
       if (targetZone) {
-        const refId = `${current.id}|${targetZone.name}`;
+        const refId = `${current.id}|${targetZone.id}`;
         designAssets = designAssets.filter(
           (asset) => !(asset.category === "zone" && asset.refId === refId)
         );
@@ -899,7 +910,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                       {c.forms?.length ? (
                         <div className="text-[12px] leading-5 space-y-1">
                           {formsToShow.map((f, idx) => {
-                            const formRefId = `${c.id}|${f.formName}`;
+                            const formRefId = `${c.id}|${f.id}`;
                             const assets = designAssetMap.get(`form|${formRefId}`) || [];
                             return (
                               <div key={idx} className="space-y-1">
@@ -988,7 +999,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                       {l.zones?.length ? (
                         <div className="text-[12px] leading-5 space-y-1">
                           {l.zones.slice(0, 2).map((z, idx) => {
-                            const zoneRefId = `${l.id}|${z.name}`;
+                            const zoneRefId = `${l.id}|${z.id}`;
                             const assets = designAssetMap.get(`zone|${zoneRefId}`) || [];
                             return (
                               <div key={idx} className="space-y-1">
@@ -1193,7 +1204,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                                         ...c,
                                         forms: [
                                           ...(c.forms || []),
-                                          { formName: "新形态", episodeRange: "", description: "", visualTags: "", identityOrState: "" },
+                                          { id: createStableId("form"), formName: "新形态", episodeRange: "", description: "", visualTags: "", identityOrState: "" },
                                         ],
                                       }
                                     : c
@@ -1209,7 +1220,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                         ) : (
                           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                             {(char.forms || []).map((form, formIdx) => {
-                              const formRefId = `${char.id}|${form.formName}`;
+                              const formRefId = `${char.id}|${form.id}`;
                               const formAssets = designAssetMap.get(`form|${formRefId}`) || [];
                               return (
                                 <div
@@ -1545,7 +1556,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                                         ...l,
                                         zones: [
                                           ...(l.zones || []),
-                                          { name: "新分区", kind: "unspecified", episodeRange: "", layoutNotes: "", keyProps: "", lightingWeather: "", materialPalette: "" },
+                                          { id: createStableId("zone"), name: "新分区", kind: "unspecified", episodeRange: "", layoutNotes: "", keyProps: "", lightingWeather: "", materialPalette: "" },
                                         ],
                                       }
                                     : l
@@ -1561,7 +1572,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
                         ) : (
                           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                             {(loc.zones || []).map((zone, zoneIdx) => {
-                              const zoneRefId = `${loc.id}|${zone.name}`;
+                              const zoneRefId = `${loc.id}|${zone.id}`;
                               const zoneAssets = designAssetMap.get(`zone|${zoneRefId}`) || [];
                               return (
                                 <div

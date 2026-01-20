@@ -18,6 +18,7 @@ import { dropFileReplacer, isProjectEmpty, backupData, FORCE_CLOUD_CLEAR_KEY } f
 import { getDeviceId } from './utils/device';
 import { hashToBucket, isInRollout, normalizeRolloutPercent } from './utils/rollout';
 import { buildApiUrl } from './utils/api';
+import { ensureStableId } from './utils/id';
 import { usePersistedState } from './hooks/usePersistedState';
 import { useCloudSync } from './hooks/useCloudSync';
 import { useVideoPolling } from './hooks/useVideoPolling';
@@ -75,6 +76,10 @@ const formatEpisodeUsage = (episodeIds: Set<number>) => {
   if (!sorted.length) return "";
   return sorted.map((id) => `Ep${id}`).join(", ");
 };
+const normalizeFormsWithIds = (forms: any[]) =>
+  (forms || []).map((form) => ({ ...form, id: ensureStableId(form?.id, "form") }));
+const normalizeZonesWithIds = (zones: any[]) =>
+  (zones || []).map((zone) => ({ ...zone, id: ensureStableId(zone?.id, "zone") }));
 
 const PROJECT_STORAGE_KEY = 'script2video_project_v1';
 const CONFIG_STORAGE_KEY = 'script2video_config_v1';
@@ -976,10 +981,14 @@ const App: React.FC = () => {
           tags: brief?.tags || c.tags,
         };
       });
+      const normalizedCharacters = updatedCharacters.map((c) => ({
+        ...c,
+        forms: normalizeFormsWithIds(c.forms || []),
+      }));
 
       setProjectData(prev => ({
         ...prev,
-        context: { ...prev.context, characters: updatedCharacters },
+        context: { ...prev.context, characters: normalizedCharacters },
         contextUsage: briefResult ? GeminiService.addUsage(prev.contextUsage!, briefResult.usage) : prev.contextUsage!,
         phase1Usage: {
           ...prev.phase1Usage,
@@ -1032,7 +1041,7 @@ const App: React.FC = () => {
         const normalizedForms = (result.forms || []).map((f) => {
           const base = f.formName || "Standard";
           const prefix = base.startsWith(`${charName}-`) ? base : `${charName}-${base}`;
-          return { ...f, formName: prefix };
+          return { ...f, id: ensureStableId(f?.id, "form"), formName: prefix };
         });
         const updatedChars = prev.context.characters.map(c =>
           c.name === charName
@@ -1085,9 +1094,13 @@ const App: React.FC = () => {
     setProcessing(true, "Step 5/6: Mapping Locations...");
     try {
       const result = await GeminiService.identifyLocations(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
+      const normalizedLocations = (result.locations || []).map((loc) => ({
+        ...loc,
+        zones: normalizeZonesWithIds(loc.zones || []),
+      }));
       setProjectData(prev => ({
         ...prev,
-        context: { ...prev.context, locations: result.locations },
+        context: { ...prev.context, locations: normalizedLocations },
         contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
         phase1Usage: { ...prev.phase1Usage, locList: GeminiService.addUsage(prev.phase1Usage.locList, result.usage) }
       }));
@@ -1130,8 +1143,9 @@ const App: React.FC = () => {
       );
 
       setProjectData(prev => {
+        const normalizedZones = normalizeZonesWithIds(result.zones || []);
         const updatedLocs = prev.context.locations.map(l =>
-          l.name === locName ? { ...l, visuals: result.visuals, zones: result.zones ?? l.zones } : l
+          l.name === locName ? { ...l, visuals: result.visuals, zones: normalizedZones.length ? normalizedZones : l.zones } : l
         );
         return {
           ...prev,

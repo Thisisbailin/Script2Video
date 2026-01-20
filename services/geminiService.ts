@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig } from "../types";
+import { ensureStableId } from "../utils/id";
 import { generatePartnerText } from "./partnerService";
 import * as DeyunAIService from "./deyunaiService";
 import * as QwenService from "./qwenService";
@@ -597,7 +598,7 @@ export const identifyCharacters = async (
   const chars: Character[] = rawChars.map((c: any) => ({
     ...c,
     id: c.name,
-    forms: c.forms ?? []
+    forms: (c.forms ?? []).map((f: any) => ({ ...f, id: ensureStableId(f?.id, "form") }))
   }));
 
   return { characters: chars, usage };
@@ -751,7 +752,7 @@ export const analyzeCharacterDepth = async (
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = JSON.parse(text);
   return {
-    forms: parsed.forms,
+    forms: (parsed.forms || []).map((f: any) => ({ ...f, id: ensureStableId(f?.id, "form") })),
     bio: parsed.bio,
     archetype: parsed.archetype,
     episodeUsage: parsed.episodeUsage,
@@ -823,7 +824,7 @@ export const identifyLocations = async (
     ...l,
     id: l.name,
     visuals: '',
-    zones: l.zones ?? []
+    zones: (l.zones ?? []).map((z: any) => ({ ...z, id: ensureStableId(z?.id, "zone") }))
   }));
 
   return { locations, usage };
@@ -890,7 +891,7 @@ export const analyzeLocationDepth = async (
   const parsed = JSON.parse(text);
   return {
     visuals: parsed.visuals,
-    zones: parsed.zones ?? [],
+    zones: (parsed.zones || []).map((z: any) => ({ ...z, id: ensureStableId(z?.id, "zone") })),
     usage
   };
 };

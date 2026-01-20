@@ -1,4 +1,5 @@
-import { Character, CharacterForm, Episode, Location, LocationZone, ProjectData, Shot } from "../types";
+import { Character, CharacterForm, DesignAssetItem, Episode, Location, LocationZone, ProjectContext, ProjectData, Shot } from "../types";
+import { ensureStableId } from "./id";
 import { INITIAL_PROJECT_DATA } from "../constants";
 
 const stripConflictMarkers = (value: string) => {
@@ -80,6 +81,7 @@ const normalizeEpisode = (episode: any): Episode => {
 const normalizeCharacterForm = (form: any): CharacterForm => {
   if (!form || typeof form !== "object") {
     return {
+      id: ensureStableId(undefined, "form"),
       formName: "",
       episodeRange: "",
       description: "",
@@ -88,6 +90,7 @@ const normalizeCharacterForm = (form: any): CharacterForm => {
   }
   return {
     ...form,
+    id: ensureStableId(form.id, "form"),
     formName: toSafeString(form.formName),
     episodeRange: toSafeString(form.episodeRange),
     description: toSafeString(form.description),
@@ -142,6 +145,7 @@ const normalizeCharacter = (character: any): Character => {
 const normalizeLocationZone = (zone: any): LocationZone => {
   if (!zone || typeof zone !== "object") {
     return {
+      id: ensureStableId(undefined, "zone"),
       name: "",
       kind: "unspecified",
       episodeRange: "",
@@ -153,6 +157,7 @@ const normalizeLocationZone = (zone: any): LocationZone => {
   }
   return {
     ...zone,
+    id: ensureStableId(zone.id, "zone"),
     name: toSafeString(zone.name),
     kind:
       zone.kind === "interior" ||
@@ -203,6 +208,48 @@ const normalizeLocation = (location: any): Location => {
   };
 };
 
+const remapDesignAssets = (assets: DesignAssetItem[], context: ProjectContext): DesignAssetItem[] => {
+  if (!Array.isArray(assets) || assets.length === 0) return assets;
+  const formRefMap = new Map<string, { refId: string; label: string }>();
+  const zoneRefMap = new Map<string, { refId: string; label: string }>();
+
+  (context.characters || []).forEach((char) => {
+    (char.forms || []).forEach((form) => {
+      const oldRefId = `${char.id}|${form.formName}`;
+      const newRefId = `${char.id}|${form.id}`;
+      if (oldRefId !== newRefId) {
+        formRefMap.set(oldRefId, { refId: newRefId, label: `${char.name} · ${form.formName}` });
+      }
+    });
+  });
+
+  (context.locations || []).forEach((loc) => {
+    (loc.zones || []).forEach((zone) => {
+      const oldRefId = `${loc.id}|${zone.name}`;
+      const newRefId = `${loc.id}|${zone.id}`;
+      if (oldRefId !== newRefId) {
+        zoneRefMap.set(oldRefId, { refId: newRefId, label: `${loc.name} · ${zone.name}` });
+      }
+    });
+  });
+
+  if (formRefMap.size === 0 && zoneRefMap.size === 0) return assets;
+
+  return assets.map((asset) => {
+    if (asset.category === "form") {
+      const mapped = formRefMap.get(asset.refId);
+      if (!mapped) return asset;
+      return { ...asset, refId: mapped.refId, label: mapped.label };
+    }
+    if (asset.category === "zone") {
+      const mapped = zoneRefMap.get(asset.refId);
+      if (!mapped) return asset;
+      return { ...asset, refId: mapped.refId, label: mapped.label };
+    }
+    return asset;
+  });
+};
+
 export const normalizeProjectData = (data: any): ProjectData => {
   const base: ProjectData = {
     ...INITIAL_PROJECT_DATA,
@@ -221,6 +268,7 @@ export const normalizeProjectData = (data: any): ProjectData => {
   base.context.locations = Array.isArray(base.context.locations)
     ? base.context.locations.map(normalizeLocation)
     : [];
+  base.designAssets = remapDesignAssets(base.designAssets as DesignAssetItem[], base.context);
   base.shotGuide = data?.shotGuide || INITIAL_PROJECT_DATA.shotGuide;
   base.soraGuide = data?.soraGuide || INITIAL_PROJECT_DATA.soraGuide;
   base.globalStyleGuide = data?.globalStyleGuide || INITIAL_PROJECT_DATA.globalStyleGuide;

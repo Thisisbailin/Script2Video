@@ -1045,6 +1045,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         <div className="flex items-end gap-3 pointer-events-auto">
           <QalamAgent
             projectData={projectData}
+            setProjectData={setProjectData}
             onOpenStats={onOpenStats}
             onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
           />

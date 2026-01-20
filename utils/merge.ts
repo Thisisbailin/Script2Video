@@ -346,10 +346,11 @@ const mergeCharacterForms = (remote: CharacterForm[], local: CharacterForm[], pa
   mergeArrayByKey(
     remote || [],
     local || [],
-    (form) => form.formName,
+    (form) => form.id || form.formName,
     (remoteForm, localForm, itemPath) => {
       const conflicts: string[] = [];
       const merged: CharacterForm = {
+        id: remoteForm.id || localForm.id || remoteForm.formName,
         formName: remoteForm.formName,
         episodeRange: mergeString(remoteForm.episodeRange, localForm.episodeRange, `${itemPath}.episodeRange`, conflicts, "prefer-remote"),
         description: mergeString(remoteForm.description, localForm.description, `${itemPath}.description`, conflicts, "keep-both"),
@@ -405,10 +406,11 @@ const mergeLocationZones = (remote: LocationZone[], local: LocationZone[], path:
   mergeArrayByKey(
     remote || [],
     local || [],
-    (zone) => zone.name,
+    (zone) => zone.id || zone.name,
     (remoteZone, localZone, itemPath) => {
       const conflicts: string[] = [];
       const merged: LocationZone = {
+        id: remoteZone.id || localZone.id || remoteZone.name,
         name: remoteZone.name,
         kind: remoteZone.kind,
         episodeRange: mergeString(remoteZone.episodeRange, localZone.episodeRange, `${itemPath}.episodeRange`, conflicts, "prefer-remote"),

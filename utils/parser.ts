@@ -12,6 +12,7 @@ import {
   Location,
   LocationZone
 } from "../types";
+import { ensureStableId } from "./id";
 
 // Helper: Parse scenes from episode content
 const normalizeDigits = (text: string) =>
@@ -482,6 +483,7 @@ const normalizeCharacterForms = (value: unknown): CharacterForm[] => {
   return value.map((entry, index) => {
     const raw = isRecord(entry) ? entry : {};
     return {
+      id: ensureStableId(raw.id, "form"),
       formName: toSafeString(raw.formName, `Form ${index + 1}`),
       episodeRange: toSafeString(raw.episodeRange),
       description: toSafeString(raw.description),
@@ -538,6 +540,7 @@ const normalizeLocationZones = (value: unknown): LocationZone[] => {
         ? raw.kind
         : "unspecified";
     return {
+      id: ensureStableId(raw.id, "zone"),
       name: toSafeString(raw.name),
       kind,
       episodeRange: toSafeString(raw.episodeRange),
