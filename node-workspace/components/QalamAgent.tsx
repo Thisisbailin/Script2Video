@@ -25,7 +25,15 @@ type ToolPayload = {
   callId?: string;
 };
 
-type ChatMessage = { role: "user" | "assistant"; text: string; kind?: "chat" };
+type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+  kind?: "chat";
+  meta?: {
+    planItems?: string[];
+    reasoningSummary?: string;
+  };
+};
 type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; tool: ToolPayload };
 type Message = ChatMessage | ToolMessage;
 
@@ -146,6 +154,60 @@ const buildToolSummary = (name: string, args: any) => {
     return `场景：${target} · 分区 ${zonesCount} 个`;
   }
   return "工具调用";
+};
+
+const parsePlanFromText = (text: string) => {
+  const lines = (text || "").split("\n");
+  const planItems: string[] = [];
+  const bodyLines: string[] = [];
+  let inPlan = false;
+
+  const headingRegex = /^\s*(计划|Plan)\b\s*[:：]?\s*$/i;
+  const listRegex = /^\s*(?:[-*•]|\\d+\\.|\\d+、)\\s*(.+)$/;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!inPlan && headingRegex.test(line)) {
+      inPlan = true;
+      continue;
+    }
+    if (inPlan) {
+      if (!line.trim()) {
+        if (planItems.length > 0) {
+          inPlan = false;
+          continue;
+        }
+        continue;
+      }
+      const match = line.match(listRegex);
+      if (match) {
+        planItems.push(match[1].trim());
+        continue;
+      }
+      inPlan = false;
+    }
+    bodyLines.push(line);
+  }
+
+  return {
+    text: bodyLines.join("\n").trim(),
+    planItems: planItems.length ? planItems : undefined,
+  };
+};
+
+const extractReasoningSummary = (raw: any) => {
+  const output = raw?.output;
+  if (!Array.isArray(output)) return undefined;
+  for (const item of output) {
+    if (item?.type === "reasoning") {
+      const summary = item?.summary;
+      if (typeof summary === "string") return summary;
+      if (Array.isArray(summary)) {
+        return summary.map((s: any) => (typeof s === "string" ? s : s?.text || "")).join("");
+      }
+    }
+  }
+  return undefined;
 };
 
 const hasKey = (obj: any, key: string) => Object.prototype.hasOwnProperty.call(obj || {}, key);
@@ -627,30 +689,108 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsSending(true);
-    const useTools = config.textConfig.provider === "deyunai";
-    const useStream = !useTools && config.textConfig.provider === "deyunai" && config.textConfig.stream;
+    const isDeyunai = config.textConfig.provider === "deyunai";
+    const useStream = isDeyunai ? config.textConfig.stream ?? true : false;
     let assistantIndex = -1;
     try {
       const systemInstruction =
         "You are Qalam, a creative agent helping build this project. Keep responses concise.";
-      const toolHint = useTools
+      const toolHint = isDeyunai
         ? "\n[Tooling]\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
         : "";
       const prompt = `${contextText ? contextText + "\n\n" : ""}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
 
-      if (useTools) {
-        const { text, toolCalls } = await DeyunAIService.createFunctionCallResponse(
+      if (isDeyunai) {
+        const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
+        const webSearchTool: DeyunAITool = { type: "web_search_preview" };
+        const mergedTools: DeyunAITool[] = [];
+        const seen = new Set<string>();
+        [...TOOL_DEFS, webSearchTool, ...toolsFromConfig].forEach((tool) => {
+          const key = tool.type === "function" ? `function:${tool.name}` : tool.type;
+          if (seen.has(key)) return;
+          seen.add(key);
+          mergedTools.push(tool);
+        });
+
+        if (useStream) {
+          setMessages((prev) => {
+            assistantIndex = prev.length;
+            return [
+              ...prev,
+              { role: "assistant", text: "", kind: "chat", meta: { reasoningSummary: "思考中..." } },
+            ];
+          });
+        }
+
+        let reasoningSummary = "";
+        const { text, toolCalls, raw } = await DeyunAIService.createReasoningResponse(
           prompt,
-          TOOL_DEFS,
           { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
           {
             model: config.textConfig.model || "gpt-5.1",
-            toolChoice: "auto",
-          }
+            reasoningEffort: config.textConfig.reasoningEffort || "medium",
+            verbosity: config.textConfig.verbosity || "medium",
+            stream: useStream,
+            store: config.textConfig.store ?? true,
+            tools: mergedTools,
+          },
+          useStream
+            ? (delta, rawDelta) => {
+                setMessages((prev) => {
+                  if (assistantIndex === -1) assistantIndex = prev.length - 1;
+                  return prev.map((m, idx) => {
+                    if (idx !== assistantIndex || isToolMessage(m)) return m;
+                    return { ...m, text: (m.text || "") + delta };
+                  });
+                });
+                const summary = extractReasoningSummary(rawDelta);
+                if (summary && summary !== reasoningSummary) {
+                  reasoningSummary = summary;
+                  setMessages((prev) =>
+                    prev.map((m, idx) => {
+                      if (idx !== assistantIndex || isToolMessage(m)) return m;
+                      return { ...m, meta: { ...m.meta, reasoningSummary } };
+                    })
+                  );
+                }
+              }
+            : undefined
         );
-        if (text && text.trim()) {
-          setMessages((prev) => [...prev, { role: "assistant", text, kind: "chat" }]);
+
+        const summaryFromRaw = extractReasoningSummary(raw);
+        if (summaryFromRaw) reasoningSummary = summaryFromRaw;
+
+        const parsed = parsePlanFromText(text || "");
+        if (useStream && assistantIndex !== -1) {
+          setMessages((prev) =>
+            prev.map((m, idx) => {
+              if (idx !== assistantIndex || isToolMessage(m)) return m;
+              return {
+                ...m,
+                text: parsed.text || m.text,
+                meta: {
+                  ...m.meta,
+                  planItems: parsed.planItems,
+                  reasoningSummary: reasoningSummary || (m.meta?.reasoningSummary ? "已完成思考" : undefined),
+                },
+              };
+            })
+          );
+        } else if (text && text.trim()) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              text: parsed.text || text,
+              kind: "chat",
+              meta: {
+                planItems: parsed.planItems,
+                reasoningSummary: reasoningSummary || undefined,
+              },
+            },
+          ]);
         }
+
         if (toolCalls?.length) {
           const baseTs = Date.now();
           const toolMeta = toolCalls.map((tc: DeyunAIToolCall, idx: number) => {
@@ -674,6 +814,17 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           for (const { tc, args, callId } of toolMeta) {
             updateToolStatus(callId, "running");
             try {
+              if (tc.name !== "upsert_character" && tc.name !== "upsert_location") {
+                updateToolStatus(callId, "success");
+                appendToolResult({
+                  name: tc.name || "tool",
+                  status: "success",
+                  summary: "系统工具已执行",
+                  evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
+                  callId,
+                });
+                continue;
+              }
               const result = executeToolCall(tc);
               updateToolStatus(callId, "success");
               const summary =
@@ -701,6 +852,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             }
           }
         }
+
         setIsSending(false);
         setMood("thinking");
         return;
@@ -734,14 +886,19 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         console.log("[Agent] Raw response", res);
       } catch {}
       if (useStream && assistantIndex !== -1) {
+        const parsed = parsePlanFromText(res.outputText || "");
         setMessages((prev) =>
           prev.map((m, idx) => {
             if (idx !== assistantIndex || isToolMessage(m)) return m;
-            return { ...m, text: res.outputText || m.text };
+            return { ...m, text: parsed.text || m.text, meta: { ...m.meta, planItems: parsed.planItems } };
           })
         );
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", text: res.outputText || "", kind: "chat" }]);
+        const parsed = parsePlanFromText(res.outputText || "");
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: parsed.text || "", kind: "chat", meta: { planItems: parsed.planItems } },
+        ]);
       }
     } catch (err: any) {
       setMessages((prev) => [
@@ -797,6 +954,36 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         {message.tool.evidence && message.tool.evidence.length > 0 ? (
           <div className="text-[11px] text-[var(--app-text-secondary)]">
             证据：{message.tool.evidence.join(", ")}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderAssistantPanel = (message: ChatMessage) => {
+    const planItems = message.meta?.planItems || [];
+    const reasoningSummary = message.meta?.reasoningSummary;
+    return (
+      <div className="max-w-[92%] w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-3 space-y-3">
+        {reasoningSummary ? (
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">思考摘要</div>
+            <div className="text-[12px] leading-relaxed text-[var(--app-text-primary)]">{reasoningSummary}</div>
+          </div>
+        ) : null}
+        {planItems.length > 0 ? (
+          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">Plan</div>
+            <ul className="text-[12px] leading-relaxed text-[var(--app-text-primary)] list-decimal pl-4 space-y-1">
+              {planItems.map((item, idx) => (
+                <li key={`${idx}-${item.slice(0, 8)}`}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {message.text ? (
+          <div className="text-[13px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
+            {message.text}
           </div>
         ) : null}
       </div>
@@ -942,19 +1129,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           const isUser = m.role === "user";
           return (
             <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-              {isToolMessage(m) ? (
-                renderToolCard(m)
-              ) : (
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border ${
-                    isUser
-                      ? "bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]"
-                      : "bg-[var(--app-panel-muted)] border-[var(--app-border)] text-[var(--app-text-primary)]"
-                  }`}
-                >
-                  {m.text}
-                </div>
-              )}
+            {isToolMessage(m) ? (
+              renderToolCard(m)
+            ) : isUser ? (
+              <div className="max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]">
+                {m.text}
+              </div>
+            ) : (
+              renderAssistantPanel(m)
+            )}
             </div>
           );
         })}
