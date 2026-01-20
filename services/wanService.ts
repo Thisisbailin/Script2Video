@@ -67,14 +67,23 @@ const extractUrl = (payload: any) => {
   );
 };
 
-const requestWanTask = async (endpoint: string, apiKey: string, payload: Record<string, any>) => {
+const requestWanTask = async (
+  endpoint: string,
+  apiKey: string,
+  payload: Record<string, any>,
+  options?: { async?: boolean }
+) => {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (options?.async) {
+    headers["X-DashScope-Async"] = "enable";
+  }
+
   const response = await fetch(wrapWithProxy(endpoint), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "X-DashScope-Async": "enable",
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
@@ -142,7 +151,7 @@ export const submitWanImageTask = async (
     },
   };
 
-  return requestWanTask(endpoint, apiKey, payload);
+  return requestWanTask(endpoint, apiKey, payload, { async: false });
 };
 
 export const submitWanVideoTask = async (
@@ -178,7 +187,7 @@ export const submitWanVideoTask = async (
     payload.input.img_url = options.inputImageUrl;
   }
 
-  return requestWanTask(endpoint, apiKey, payload);
+  return requestWanTask(endpoint, apiKey, payload, { async: true });
 };
 
 export const checkWanTaskStatus = async (taskId: string): Promise<WanTaskStatusResult> => {

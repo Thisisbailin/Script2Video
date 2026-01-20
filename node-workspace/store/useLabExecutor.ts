@@ -535,7 +535,9 @@ export const useLabExecutor = () => {
     store.updateNodeData(nodeId, { status: "loading", error: null });
 
     try {
-      const refImage = images.find((src) => src.startsWith("http")) || undefined;
+      const refImage =
+        images.find((src) => src.startsWith("http")) ||
+        ((isWanVideo || isWanVideoNode) ? images[0] : undefined);
       const params: any = {
         aspectRatio: data.aspectRatio || "16:9",
         duration: data.duration || "5s",

@@ -82,7 +82,7 @@ const generateText = async (
   prompt: string,
   schema: Schema,
   systemInstruction?: string
-): Promise<{ text: string; usage: TokenUsage }> => {
+): Promise<{ text: string; usage: TokenUsage; raw?: any }> => {
 
   // 1. GEMINI PROVIDER
   if (config.provider === 'gemini') {
@@ -202,13 +202,14 @@ const generateText = async (
     const model = config.model || QWEN_DEFAULT_MODEL;
 
     try {
-      const { text, usage } = await QwenService.chatCompletion(messages, {
+      const { text, usage, raw } = await QwenService.chatCompletion(messages, {
         model,
         responseFormat: "json_object",
       });
       return {
         text: text || "{}",
         usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
+        raw,
       };
     } catch (e: any) {
       console.error("Qwen API Error:", e);
@@ -453,8 +454,27 @@ export const generateFreeformText = async (
     };
   }
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const parsed = JSON.parse(text || "{}");
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const candidate = (() => {
+    const trimmed = (text || "").trim();
+    if (!trimmed) return "{}";
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced?.[1]) return fenced[1].trim();
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) return trimmed.slice(start, end + 1);
+    return trimmed;
+  })();
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(candidate || "{}");
+  } catch (err: any) {
+    try {
+      console.warn("[Agent] JSON parse failed", { text, candidate, raw });
+    } catch {}
+    const message = err?.message || String(err);
+    throw new Error(`JSON Parse error: ${message}`);
+  }
   return {
     outputText: parsed.outputText || "",
     usage
