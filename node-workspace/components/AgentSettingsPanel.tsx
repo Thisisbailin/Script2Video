@@ -21,12 +21,14 @@ import {
   AVAILABLE_MODELS,
   DEYUNAI_BASE_URL,
   DEYUNAI_MODELS,
+  INITIAL_VIDU_CONFIG,
   PARTNER_TEXT_BASE_URL,
   QWEN_CHAT_COMPLETIONS_ENDPOINT,
   QWEN_DEFAULT_MODEL,
   QWEN_WAN_IMAGE_MODEL,
   QWEN_WAN_VIDEO_MODEL,
 } from "../../constants";
+import { useWorkflowStore } from "../store/workflowStore";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
 import * as QwenService from "../../services/qwenService";
@@ -126,6 +128,7 @@ const formatEpochDate = (value?: number) => {
 
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
+  const { applyViduReferenceDemo } = useWorkflowStore();
   const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
   const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen" | "deyunai">("openrouter");
   const [activeVideoProvider, setActiveVideoProvider] = useState<"sora" | "qwen" | "vidu">("sora");
@@ -921,7 +924,22 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           {activeType === "video" && activeVideoProvider === "vidu" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
               <div className="text-sm font-semibold text-[var(--app-text-primary)]">Vidu</div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">视频路线规划中。</div>
+              <div className="text-[11px] text-[var(--app-text-muted)]">
+                Base URL: {INITIAL_VIDU_CONFIG.baseUrl}
+              </div>
+              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 text-[12px] text-[var(--app-text-secondary)]">
+                固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{INITIAL_VIDU_CONFIG.defaultModel}</span>
+              </div>
+              <div className="text-[11px] text-[var(--app-text-muted)]">
+                使用环境变量 VIDU_API_KEY / VITE_VIDU_API_KEY。
+              </div>
+              <button
+                type="button"
+                onClick={() => applyViduReferenceDemo()}
+                className="inline-flex items-center justify-center px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-[var(--app-text-secondary)] bg-white/5 hover:bg-white/10 transition"
+              >
+                载入 Vidu 参考演示
+              </button>
             </div>
           )}
         </div>

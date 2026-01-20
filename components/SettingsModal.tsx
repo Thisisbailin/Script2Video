@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AppConfig, SyncState } from '../types';
 import * as VideoService from '../services/videoService';
 import * as MultimodalService from '../services/multimodalService';
-import { X, Video, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Copy, Trash2, ChevronDown } from 'lucide-react';
+import { X, Video, Key, Globe, RefreshCw, CheckCircle, AlertCircle, Loader2, Zap, Image as ImageIcon, Info, Sparkles, BrainCircuit, Film, Trash2, ChevronDown } from 'lucide-react';
 import { getDeviceId } from '../utils/device';
 import { buildApiUrl } from '../utils/api';
 
@@ -26,7 +26,7 @@ import { useWorkflowStore } from '../node-workspace/store/workflowStore';
 export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConfigChange, isSignedIn, getAuthToken, onForceSync, syncState, syncRollout, activeTabOverride, onResetProject }) => {
     const [activeTab, setActiveTab] = useState<'multimodal' | 'video' | 'sync' | 'about'>('multimodal');
     const deviceIdRef = useRef<string>(getDeviceId());
-    const { setAvailableImageModels: setAvailableImageModelsStore, setAvailableVideoModels: setAvailableVideoModelsStore, applyViduReferenceDemo } = useWorkflowStore();
+    const { setAvailableImageModels: setAvailableImageModelsStore, setAvailableVideoModels: setAvailableVideoModelsStore } = useWorkflowStore();
 
     // Model Fetch States
     const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -51,19 +51,11 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
     const syncAllowed = syncRollout?.enabled ?? true;
     const syncPercent = syncRollout?.percent ?? 100;
     const syncIsRollout = syncPercent < 100;
-    const [showViduOverlay, setShowViduOverlay] = useState(false);
-
     useEffect(() => {
         if (isOpen && activeTabOverride) {
             setActiveTab(activeTabOverride);
         }
     }, [activeTabOverride, isOpen]);
-
-    useEffect(() => {
-        if (isOpen && config.videoProvider === 'vidu') {
-            setShowViduOverlay(true);
-        }
-    }, [config.videoProvider, isOpen]);
 
     const formatSnapshotTime = (ts: number) => new Date(ts).toLocaleString();
     const formatSyncTime = (ts?: number) => (ts ? new Date(ts).toLocaleString() : "—");
@@ -83,67 +75,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
         return parts.join(" · ");
     };
 
-    const isViduEndpoint = () => {
-        const url = config.videoConfig?.baseUrl?.toLowerCase() || '';
-        const model = config.videoConfig?.model?.toLowerCase() || '';
-        return url.includes("api.deyunai.com") || url.includes("vidu") || model.includes("vidu");
-    };
-
-    const viduDemoAudioPayload = {
-        mode: "audioVideo",
-        audioParams: {
-            model: "viduq2-pro",
-            subjects: [
-                { id: "subject1", images: ["https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png"], voiceId: "professional_host" },
-                { id: "subject2", images: ["https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg"], voiceId: "professional_host" },
-                { id: "subject3", images: ["https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png"], voiceId: "professional_host" }
-            ],
-            prompt: "@1 和 @2 在一起吃火锅，并且旁白音说火锅大家都爱吃。",
-            duration: 10,
-            audio: true,
-            offPeak: true
-        }
-    };
-
-    const viduDemoVisualPayload = {
-        mode: "videoOnly",
-        visualParams: {
-            model: "viduq2-pro",
-            images: [
-                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png",
-                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png",
-                "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png"
-            ],
-            prompt: "Santa Claus and the bear hug by the lakeside.",
-            duration: 10,
-            seed: 0,
-            aspectRatio: "16:9",
-            resolution: "1080p",
-            movementAmplitude: "auto",
-            offPeak: true,
-            audio: false
-        }
-    };
-
-    const copyViduPayload = async (payload: unknown) => {
-        try {
-            await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-            setModelFetchMessage({ type: 'success', text: 'Vidu 演示 payload 已复制' });
-        } catch (err) {
-            setModelFetchMessage({ type: 'error', text: '复制失败，请手动复制' });
-        }
-    };
-
-    const handleVideoProviderChange = (provider: 'default' | 'vidu') => {
-        onConfigChange({
-            ...config,
-            videoProvider: provider
-        });
-        if (provider === 'vidu') {
-            applyViduReferenceDemo();
-            setShowViduOverlay(true);
-        }
-    };
     const statusLabel = (status?: string) => {
         switch (status) {
             case "synced":
@@ -578,59 +509,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                             <div className="p-3 bg-[var(--bg-panel)]/70 border border-[var(--border-subtle)] rounded text-xs text-indigo-200 mb-4">
                                 Phase 5 requires an external Video Generation API. You can use standard proxies (OneAPI) or direct endpoints.
                             </div>
-
-                            <div className="grid md:grid-cols-2 gap-3">
-                                <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 space-y-2">
-                                    <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">视频服务提供商</div>
-                                    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                                        <input
-                                            type="radio"
-                                            checked={config.videoProvider !== 'vidu'}
-                                            onChange={() => handleVideoProviderChange('default')}
-                                        />
-                                        默认（现有视频模型）
-                                    </label>
-                                    <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                                        <input
-                                            type="radio"
-                                            checked={config.videoProvider === 'vidu'}
-                                            onChange={() => handleVideoProviderChange('vidu')}
-                                        />
-                                        Vidu 聚合平台
-                                    </label>
-                                    <p className="text-[11px] text-[var(--text-secondary)]">选择 Vidu 将自动载入参考生视频演示组，并使用 Cloudflare 环境变量 VIDU_API_KEY。</p>
-                                </div>
-
-                                {config.videoProvider === 'vidu' && (
-                                    <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 space-y-2">
-                                        <div className="text-sm font-semibold text-[var(--text-primary)]">Vidu API</div>
-                                        <input
-                                            type="text"
-                                            placeholder="https://api.deyunai.com/ent/v2"
-                                            value={config.viduConfig?.baseUrl || ''}
-                                            onChange={(e) => onConfigChange({
-                                                ...config,
-                                                viduConfig: { ...config.viduConfig, baseUrl: e.target.value }
-                                            })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-xs focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                        <div className="text-[11px] text-[var(--text-secondary)] p-2 bg-[var(--bg-panel)]/60 rounded border border-dashed border-[var(--border-subtle)]">
-                                            已在 Pages 配置环境变量 <code>VIDU_API_KEY</code>，无需在此输入。
-                                        </div>
-                                        <input
-                                            type="text"
-                                            placeholder="默认模型（如 viduq2-pro）"
-                                            value={config.viduConfig?.defaultModel || ''}
-                                            onChange={(e) => onConfigChange({
-                                                ...config,
-                                                viduConfig: { ...config.viduConfig, defaultModel: e.target.value }
-                                            })}
-                                            className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-[var(--text-primary)] text-xs focus:ring-2 focus:ring-[var(--accent-blue)] focus:outline-none"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">

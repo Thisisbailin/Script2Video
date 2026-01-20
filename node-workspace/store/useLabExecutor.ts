@@ -6,7 +6,13 @@ import * as ViduService from "../../services/viduService";
 import * as WuyinkejiService from "../../services/wuyinkejiService";
 import * as SeedreamService from "../../services/seedreamService";
 import * as WanService from "../../services/wanService";
-import { QWEN_WAN_IMAGE_ENDPOINT, QWEN_WAN_IMAGE_MODEL, QWEN_WAN_VIDEO_ENDPOINT, QWEN_WAN_VIDEO_MODEL } from "../../constants";
+import {
+  INITIAL_VIDU_CONFIG,
+  QWEN_WAN_IMAGE_ENDPOINT,
+  QWEN_WAN_IMAGE_MODEL,
+  QWEN_WAN_VIDEO_ENDPOINT,
+  QWEN_WAN_VIDEO_MODEL,
+} from "../../constants";
 import { useCallback } from "react";
 import { Character, CharacterForm } from "../../types";
 import { buildApiUrl } from "../../utils/api";
@@ -468,9 +474,10 @@ export const useLabExecutor = () => {
     const prompt = (connectedText || data.inputPrompt || "").trim() || "The astronaut waved and the camera moved up.";
 
     const viduConfig = {
-      ...config.viduConfig,
-      defaultModel: data.model || config.viduConfig?.defaultModel || "viduq2-pro",
+      baseUrl: INITIAL_VIDU_CONFIG.baseUrl,
+      defaultModel: INITIAL_VIDU_CONFIG.defaultModel || "viduq2-pro",
     };
+    const fixedModel = viduConfig.defaultModel;
 
     const mode = data.mode || "audioVideo";
     const useCharacters = data.useCharacters !== false;
@@ -587,7 +594,7 @@ export const useLabExecutor = () => {
         ? {
           mode: "audioVideo" as const,
           audioParams: {
-            model: data.model || viduConfig.defaultModel,
+            model: fixedModel,
             subjects: hydratedSubjects,
             prompt: promptForVidu,
             duration: data.duration ?? 10,
@@ -598,7 +605,7 @@ export const useLabExecutor = () => {
         : {
           mode: "videoOnly" as const,
           visualParams: {
-            model: data.model || viduConfig.defaultModel,
+            model: fixedModel,
             images: visualImages,
             prompt: promptForVidu,
             duration: data.duration ?? 10,
@@ -611,19 +618,13 @@ export const useLabExecutor = () => {
           },
         };
 
-      const { taskId } = await ViduService.createReferenceVideo(request as any, {
-        ...viduConfig,
-        apiKey: viduConfig.apiKey || config.videoConfig.apiKey,
-      });
+      const { taskId } = await ViduService.createReferenceVideo(request as any, viduConfig);
 
       store.updateNodeData(nodeId, { status: "loading", videoId: taskId, videoUrl: undefined, error: null });
 
       const maxAttempts = 60;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const result = await ViduService.fetchTaskResult(taskId, {
-          ...viduConfig,
-          apiKey: viduConfig.apiKey || config.videoConfig.apiKey,
-        });
+        const result = await ViduService.fetchTaskResult(taskId, viduConfig);
         if (result.state === "success") {
           const url = result.creations?.[0]?.url || result.creations?.[0]?.watermarked_url;
           store.updateNodeData(nodeId, { status: "complete", videoUrl: url, error: null });
@@ -640,7 +641,7 @@ export const useLabExecutor = () => {
     } catch (e: any) {
       store.updateNodeData(nodeId, { status: "error", error: e.message || "Vidu 提交失败" });
     }
-  }, [config?.videoConfig, config?.viduConfig, store]);
+  }, [config, store]);
 
   const runVideoGen = useCallback(async (nodeId: string) => {
     const node = store.getNodeById(nodeId);

@@ -3,7 +3,7 @@ import { BaseNode } from "./BaseNode";
 import { ViduVideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { Settings2, RefreshCw, AlertCircle, Film, Sparkles, ShieldCheck, RefreshCcw, CheckCircle, AlertTriangle, Download } from "lucide-react";
+import { Settings2, RefreshCw, AlertCircle, Film, Sparkles, ShieldCheck, Download } from "lucide-react";
 
 type Props = {
   id: string;
@@ -12,11 +12,9 @@ type Props = {
 };
 
 export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs, availableVideoModels, setAvailableVideoModels } = useWorkflowStore();
+  const { updateNodeData, getConnectedInputs } = useWorkflowStore();
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(true);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
-  const [modelFetchMsg, setModelFetchMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [progress, setProgress] = useState(0);
 
   const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
@@ -156,53 +154,8 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
           <div className="node-panel space-y-3 p-3 animate-in fade-in slide-in-from-top-1">
             <div className="flex items-center gap-2 text-[9px] text-[var(--node-text-secondary)]">
               <Sparkles size={12} className="text-amber-300" />
-              默认模型：{data.model || "viduq2-pro"} · 动效 {data.movementAmplitude || "auto"} · 错峰 {data.offPeak !== false ? "On" : "Off"}
+              固定模型：viduq2-pro · 动效 {data.movementAmplitude || "auto"} · 错峰 {data.offPeak !== false ? "On" : "Off"}
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model</label>
-              <select
-                className="node-control node-control--tight text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors nodrag"
-                value={data.model || ""}
-                onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <option value="">viduq2-pro (默认)</option>
-                {availableVideoModels.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              <button
-                onClick={async () => {
-                  if (isFetchingModels) return;
-                  setIsFetchingModels(true);
-                  setModelFetchMsg(null);
-                  try {
-                    const models = await (await import("../../services/viduService")).fetchViduModels?.();
-                    if (models && Array.isArray(models)) {
-                      setAvailableVideoModels(models);
-                      setModelFetchMsg({ type: 'ok', text: `拉取成功 (${models.length})` });
-                    } else {
-                      setModelFetchMsg({ type: 'err', text: "返回数据为空" });
-                    }
-                  } catch (err) {
-                    console.warn("Fetch Vidu models failed", err);
-                    setModelFetchMsg({ type: 'err', text: (err as any)?.message || "拉取失败" });
-                  } finally {
-                    setIsFetchingModels(false);
-                  }
-                }}
-                className="node-control node-control--tight h-8 w-8 flex items-center justify-center"
-                title="拉取 Vidu 模型"
-              >
-                <RefreshCcw size={12} className={isFetchingModels ? "animate-spin" : ""} />
-              </button>
-            </div>
-            {modelFetchMsg && (
-              <div className={`text-[10px] flex items-center gap-1 ${modelFetchMsg.type === 'ok' ? 'text-emerald-200' : 'text-amber-200'}`}>
-                {modelFetchMsg.type === 'ok' ? <CheckCircle size={10} /> : <AlertTriangle size={10} />}
-                {modelFetchMsg.text}
-              </div>
-            )}
             <div className="grid grid-cols-2 gap-2 text-[9px] text-[var(--node-text-secondary)]">
               <label className="flex items-center gap-2">
                 <input
