@@ -297,10 +297,49 @@ const extractSearchQueries = (raw: any) => {
   return Array.from(new Set(queries));
 };
 
+const sanitizeUrl = (value: string) => {
+  let url = value.trim();
+  while (url && /[)\],.;:!?]$/.test(url)) {
+    url = url.slice(0, -1);
+  }
+  return url;
+};
+
+const extractUrls = (text: string) => {
+  const matches = text.match(/https?:\/\/[^\s)]+/g);
+  if (!matches) return [];
+  const cleaned = matches.map((m) => sanitizeUrl(m)).filter(Boolean);
+  return Array.from(new Set(cleaned));
+};
+
+const stripUrls = (text: string) =>
+  text.replace(/https?:\/\/[^\s)]+/g, "").replace(/\s{2,}/g, " ").trim();
+
 const renderInlineMarkdown = (text: string) => {
   const nodes: React.ReactNode[] = [];
   let i = 0;
   while (i < text.length) {
+    if (text.startsWith("http://", i) || text.startsWith("https://", i)) {
+      let end = i;
+      while (end < text.length && !/\s/.test(text[end])) end += 1;
+      const raw = text.slice(i, end);
+      const clean = sanitizeUrl(raw);
+      const tail = raw.slice(clean.length);
+      nodes.push(
+        <a
+          key={`u-${i}`}
+          href={clean}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sky-300 underline underline-offset-2"
+        >
+          {clean}
+        </a>
+      );
+      if (tail) nodes.push(tail);
+      i = end;
+      continue;
+    }
     if (text.startsWith("[", i)) {
       const close = text.indexOf("](", i);
       const end = text.indexOf(")", close + 2);
@@ -363,6 +402,32 @@ const renderInlineMarkdown = (text: string) => {
     i = next;
   }
   return nodes;
+};
+
+const renderLinkCard = (url: string, idx: number) => {
+  let host = url;
+  let path = "";
+  try {
+    const parsed = new URL(url);
+    host = parsed.hostname.replace(/^www\./, "");
+    path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "";
+  } catch {}
+  return (
+    <a
+      key={`${idx}-${url}`}
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="block rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 hover:border-[var(--app-border-strong)] transition"
+    >
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+        <Globe size={12} className="text-sky-300" />
+        Link
+      </div>
+      <div className="mt-1 text-[13px] text-[var(--app-text-primary)]">{host}{path ? ` · ${path}` : ""}</div>
+      <div className="mt-1 text-[11px] text-[var(--app-text-secondary)] truncate">{url}</div>
+    </a>
+  );
 };
 
 const renderMarkdownLite = (text: string) => {
@@ -552,11 +617,23 @@ const renderMarkdownLite = (text: string) => {
       paragraphLines.push(nextLine);
       i += 1;
     }
-    blocks.push(
-      <div key={`p-${i}`} className="text-[13px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
-        {renderInlineMarkdown(paragraphLines.join("\n").trim())}
-      </div>
-    );
+    const paragraphText = paragraphLines.join("\n").trim();
+    const urls = extractUrls(paragraphText);
+    const stripped = stripUrls(paragraphText);
+    if (stripped) {
+      blocks.push(
+        <div key={`p-${i}`} className="text-[13px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
+          {renderInlineMarkdown(paragraphText)}
+        </div>
+      );
+    }
+    if (urls.length > 0) {
+      blocks.push(
+        <div key={`p-links-${i}`} className="space-y-2">
+          {urls.map((url, idx) => renderLinkCard(url, idx))}
+        </div>
+      );
+    }
   }
 
   return <div className="space-y-2">{blocks}</div>;
@@ -1009,12 +1086,11 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     guides: false,
     summary: false,
   });
-  const [mode, setMode] = useState<"creative" | "precise" | "fun">("creative");
   const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentUrlsRef = useRef<string[]>([]);
   const [layoutMode, setLayoutMode] = useState<"floating" | "split">("floating");
-  const [splitWidth, setSplitWidth] = useState(420);
+  const [splitWidth, setSplitWidth] = useState(560);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
@@ -1063,13 +1139,22 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   };
 
   const canSend = input.trim().length > 0 && !isSending;
-  const splitMaxWidth = Math.max(320, viewportWidth - 32);
+  const splitMinWidth = Math.min(360, Math.max(280, Math.round(viewportWidth * 0.4)));
+  const splitMaxWidth = viewportWidth;
   const splitThreshold = 0.72;
   const handleSplitToggle = () => {
     setLayoutMode((prev) => (prev === "split" ? "floating" : "split"));
     setIsFullscreen(false);
     if (typeof window !== "undefined") {
-      setViewportWidth(window.innerWidth);
+      const width = window.innerWidth;
+      setViewportWidth(width);
+      if (layoutMode !== "split") {
+        const target = Math.round(width * 0.5);
+        const localMin = Math.min(360, Math.max(280, Math.round(width * 0.4)));
+        const nextWidth = Math.min(Math.max(target, localMin), width);
+        setSplitWidth(nextWidth);
+        setIsFullscreen(nextWidth >= width * splitThreshold);
+      }
     }
   };
 
@@ -1093,8 +1178,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     };
     const handleMove = (e: MouseEvent) => {
       if (!dragStateRef.current) return;
-      const delta = dragStateRef.current.startX - e.clientX;
-      const nextWidth = Math.min(splitMaxWidth, Math.max(360, dragStateRef.current.startWidth + delta));
+      const delta = e.clientX - dragStateRef.current.startX;
+      const nextWidth = Math.min(splitMaxWidth, Math.max(splitMinWidth, dragStateRef.current.startWidth + delta));
       const isWide = nextWidth >= window.innerWidth * splitThreshold;
       setSplitWidth(nextWidth);
       setIsFullscreen(isWide);
@@ -1113,7 +1198,26 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       window.removeEventListener("mouseup", handleUp);
       window.removeEventListener("resize", handleResize);
     };
-  }, [layoutMode, splitMaxWidth, splitThreshold, splitWidth]);
+  }, [layoutMode, splitMaxWidth, splitMinWidth, splitThreshold, splitWidth]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const className = "qalam-split";
+    const shouldSplit = layoutMode === "split" && !collapsed;
+    if (shouldSplit) {
+      root.classList.add(className);
+      const width = isFullscreen ? viewportWidth : splitWidth;
+      root.style.setProperty("--qalam-split-width", `${width}px`);
+    } else {
+      root.classList.remove(className);
+      root.style.removeProperty("--qalam-split-width");
+    }
+    return () => {
+      root.classList.remove(className);
+      root.style.removeProperty("--qalam-split-width");
+    };
+  }, [layoutMode, splitWidth, isFullscreen, viewportWidth, collapsed]);
   const contextText = useMemo(() => {
     const base = buildContext(projectData, ctxSelection);
     const attachText =
@@ -1124,14 +1228,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             )
             .join("\n")}`
         : "";
-    const modeHint =
-      mode === "creative"
-        ? "\n[Mode] 更有创意，主动补充灵感。"
-        : mode === "precise"
-        ? "\n[Mode] 更精准实干，直接输出可用方案。"
-        : "\n[Mode] 风趣幽默，轻松交流。";
-    return `${base}${attachText}${modeHint}`;
-  }, [projectData, ctxSelection, attachments, mode]);
+    return `${base}${attachText}`;
+  }, [projectData, ctxSelection, attachments]);
 
   const sendMessage = async () => {
     if (!canSend) return;
@@ -1248,6 +1346,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
               }
             : undefined
         );
+        try {
+          console.log("[Agent] DeyunAI full response", {
+            text,
+            toolCalls,
+            raw,
+          });
+        } catch {}
 
         const summaryFromRaw = extractReasoningSummary(raw);
         const usedSearchFromRaw = extractSearchUsage(raw);
@@ -1439,17 +1544,17 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const moodState = moodVisual();
   const isSplit = layoutMode === "split";
   const panelClassName = isSplit
-    ? "pointer-events-auto rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel shadow-2xl"
+    ? "pointer-events-auto app-panel flex flex-col overflow-hidden qalam-panel border-r border-[var(--app-border)] rounded-none"
     : "pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel";
   const panelStyle: React.CSSProperties | undefined = isSplit
     ? {
         position: "fixed",
-        top: 16,
-        bottom: 16,
-        right: 16,
-        left: isFullscreen ? 16 : undefined,
-        width: isFullscreen ? "calc(100vw - 32px)" : splitWidth,
-        maxWidth: "calc(100vw - 32px)",
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: isFullscreen ? 0 : undefined,
+        width: isFullscreen ? "100vw" : splitWidth,
+        maxWidth: "100vw",
       }
     : undefined;
   const toolStatusLabel: Record<ToolStatus, string> = {
@@ -1656,7 +1761,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     <div className={panelClassName} style={panelStyle}>
       {isSplit && !isFullscreen && (
         <div
-          className="absolute left-0 top-0 h-full w-2 cursor-col-resize z-20"
+          className="absolute right-0 top-0 h-full w-2 cursor-col-resize z-20"
           onMouseDown={(e) => {
             dragStateRef.current = { startX: e.clientX, startWidth: splitWidth };
           }}
@@ -1797,20 +1902,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                     {m.name}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div className="relative h-8 px-3 rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition flex items-center gap-2 min-w-[110px]">
-              <span className="truncate capitalize text-[var(--app-text-primary)]">{mode}</span>
-              <CaretDown size={12} className="text-[var(--app-text-muted)] pointer-events-none" />
-              <select
-                aria-label="选择模式"
-                value={mode}
-                onChange={(e) => setMode(e.target.value as any)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              >
-                <option value="creative">creative</option>
-                <option value="precise">precise</option>
-                <option value="fun">humor</option>
               </select>
             </div>
             {isDeyunaiProvider && (

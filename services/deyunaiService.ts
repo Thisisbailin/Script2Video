@@ -201,13 +201,14 @@ const collectToolCalls = (data: any): DeyunAIToolCall[] => {
 const readStream = async (
   response: Response,
   onDelta?: (text: string, raw: any) => void
-): Promise<{ text: string; toolCalls: DeyunAIToolCall[] }> => {
+): Promise<{ text: string; toolCalls: DeyunAIToolCall[]; raw: any[] }> => {
   if (!response.body) throw new Error("Streaming response body missing.");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let fullText = "";
   const toolCalls: DeyunAIToolCall[] = [];
+  const rawEvents: any[] = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -225,6 +226,7 @@ const readStream = async (
         if (!payload || payload === "[DONE]") continue;
         try {
           const json = JSON.parse(payload);
+          rawEvents.push(json);
           const deltaText = extractTextFromChunk(json);
           const deltaTools = collectToolCalls(json);
           if (deltaTools.length) {
@@ -240,7 +242,7 @@ const readStream = async (
       }
     }
   }
-  return { text: fullText, toolCalls };
+  return { text: fullText, toolCalls, raw: rawEvents };
 };
 
 const postResponse = async <T = any>(
@@ -273,8 +275,8 @@ const postResponse = async <T = any>(
   }
 
   if (isStream) {
-    const { text, toolCalls } = await readStream(response, onDelta);
-    return { text, raw: null as any, usage: undefined, toolCalls };
+    const { text, toolCalls, raw } = await readStream(response, onDelta);
+    return { text, raw: raw as any, usage: undefined, toolCalls };
   }
 
   const data = await response.json();

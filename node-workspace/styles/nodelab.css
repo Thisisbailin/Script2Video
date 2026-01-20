@@ -214,6 +214,11 @@
   animation: qalam-enter 280ms ease forwards;
 }
 
+:root.qalam-split .node-lab-canvas {
+  margin-left: var(--qalam-split-width, 0px);
+  width: calc(100% - var(--qalam-split-width, 0px));
+}
+
 @keyframes qalam-enter {
   from {
     opacity: 0;
