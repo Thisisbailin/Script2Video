@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, ChevronDown, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Loader2, ChevronUp, X, Plus, ArrowUp, Image as ImageIcon, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
 import type { DeyunAITool, DeyunAIToolCall } from "../../services/deyunaiService";
 import { useConfig } from "../../hooks/useConfig";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { ProjectData } from "../../types";
 import { AVAILABLE_MODELS, DEYUNAI_MODELS } from "../../constants";
 import { createStableId, ensureStableId } from "../../utils/id";
@@ -32,6 +33,9 @@ type ChatMessage = {
   meta?: {
     planItems?: string[];
     reasoningSummary?: string;
+    thinkingStatus?: "active" | "done";
+    searchEnabled?: boolean;
+    searchUsed?: boolean;
   };
 };
 type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; tool: ToolPayload };
@@ -159,7 +163,6 @@ const buildToolSummary = (name: string, args: any) => {
 const parsePlanFromText = (text: string) => {
   const lines = (text || "").split("\n");
   const planItems: string[] = [];
-  const bodyLines: string[] = [];
   let inPlan = false;
 
   const headingRegex = /^\s*(计划|Plan)\b\s*[:：]?\s*$/i;
@@ -186,11 +189,10 @@ const parsePlanFromText = (text: string) => {
       }
       inPlan = false;
     }
-    bodyLines.push(line);
   }
 
   return {
-    text: bodyLines.join("\n").trim(),
+    text: (text || "").trim(),
     planItems: planItems.length ? planItems : undefined,
   };
 };
@@ -208,6 +210,198 @@ const extractReasoningSummary = (raw: any) => {
     }
   }
   return undefined;
+};
+
+const extractSearchUsage = (raw: any) => {
+  const output = raw?.output;
+  if (!Array.isArray(output)) return false;
+  return output.some((item: any) => {
+    const type = typeof item?.type === "string" ? item.type : "";
+    return type.includes("web_search");
+  });
+};
+
+const renderInlineMarkdown = (text: string) => {
+  const nodes: React.ReactNode[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text.startsWith("[", i)) {
+      const close = text.indexOf("](", i);
+      const end = text.indexOf(")", close + 2);
+      if (close !== -1 && end !== -1) {
+        const label = text.slice(i + 1, close);
+        const url = text.slice(close + 2, end);
+        nodes.push(
+          <a
+            key={`a-${i}`}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-300 underline underline-offset-2"
+          >
+            {label}
+          </a>
+        );
+        i = end + 1;
+        continue;
+      }
+    }
+    if (text.startsWith("**", i)) {
+      const end = text.indexOf("**", i + 2);
+      if (end !== -1) {
+        nodes.push(<strong key={`b-${i}`}>{text.slice(i + 2, end)}</strong>);
+        i = end + 2;
+        continue;
+      }
+    }
+    if (text.startsWith("`", i)) {
+      const end = text.indexOf("`", i + 1);
+      if (end !== -1) {
+        nodes.push(
+          <code
+            key={`c-${i}`}
+            className="px-1.5 py-0.5 rounded bg-[var(--app-panel-soft)] border border-[var(--app-border)] text-[12px]"
+          >
+            {text.slice(i + 1, end)}
+          </code>
+        );
+        i = end + 1;
+        continue;
+      }
+    }
+    if (text.startsWith("*", i)) {
+      const end = text.indexOf("*", i + 1);
+      if (end !== -1) {
+        nodes.push(<em key={`i-${i}`}>{text.slice(i + 1, end)}</em>);
+        i = end + 1;
+        continue;
+      }
+    }
+    const next = Math.min(
+      ...["[", "**", "`", "*"].map((token) => {
+        const idx = text.indexOf(token, i + 1);
+        return idx === -1 ? text.length : idx;
+      })
+    );
+    nodes.push(text.slice(i, next));
+    i = next;
+  }
+  return nodes;
+};
+
+const renderMarkdownLite = (text: string) => {
+  const lines = (text || "").split("\n");
+  const blocks: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    if (/^\s*[-*_]{3,}\s*$/.test(line)) {
+      blocks.push(<div key={`hr-${i}`} className="h-px bg-[var(--app-border)]" />);
+      i += 1;
+      continue;
+    }
+
+    if (line.trim().startsWith("```")) {
+      const fenceLang = line.trim().slice(3).trim();
+      i += 1;
+      const codeLines: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith("```")) {
+        codeLines.push(lines[i]);
+        i += 1;
+      }
+      i += 1;
+      blocks.push(
+        <pre
+          key={`code-${i}`}
+          className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 overflow-x-auto text-[12px] leading-relaxed"
+        >
+          {fenceLang ? <div className="text-[10px] text-[var(--app-text-secondary)] mb-1">{fenceLang}</div> : null}
+          <code>{codeLines.join("\n")}</code>
+        </pre>
+      );
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,4})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const title = headingMatch[2];
+      const size =
+        level === 1 ? "text-[16px]" : level === 2 ? "text-[14px]" : level === 3 ? "text-[13px]" : "text-[12px]";
+      blocks.push(
+        <div key={`h-${i}`} className={`font-semibold ${size} text-[var(--app-text-primary)]`}>
+          {renderInlineMarkdown(title)}
+        </div>
+      );
+      i += 1;
+      continue;
+    }
+
+    if (line.trim().startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith(">")) {
+        quoteLines.push(lines[i].replace(/^\s*>\s?/, ""));
+        i += 1;
+      }
+      blocks.push(
+        <blockquote
+          key={`q-${i}`}
+          className="border-l-2 border-[var(--app-border-strong)] pl-3 text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap"
+        >
+          {renderInlineMarkdown(quoteLines.join("\n"))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    const listMatch = line.match(/^\s*(?:[-*•]|\d+\.|\d+、)\s+/);
+    if (listMatch) {
+      const items: string[] = [];
+      let ordered = false;
+      while (i < lines.length) {
+        const current = lines[i];
+        const bulletMatch = current.match(/^\s*([-*•])\s+(.+)$/);
+        const orderedMatch = current.match(/^\s*(\d+\.|\d+、)\s+(.+)$/);
+        if (!bulletMatch && !orderedMatch) break;
+        if (orderedMatch) ordered = true;
+        items.push((orderedMatch?.[2] || bulletMatch?.[2] || "").trim());
+        i += 1;
+      }
+      const ListTag = ordered ? "ol" : "ul";
+      blocks.push(
+        <ListTag key={`l-${i}`} className={`pl-5 text-[12px] space-y-1 ${ordered ? "list-decimal" : "list-disc"}`}>
+          {items.map((item, idx) => (
+            <li key={`${idx}-${item.slice(0, 8)}`}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ListTag>
+      );
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (i < lines.length && lines[i].trim()) {
+      const nextLine = lines[i];
+      if (nextLine.trim().startsWith("```")) break;
+      if (nextLine.match(/^(#{1,4})\s+/)) break;
+      if (nextLine.trim().startsWith(">")) break;
+      if (nextLine.match(/^\s*(?:[-*•]|\d+\.|\d+、)\s+/)) break;
+      paragraphLines.push(nextLine);
+      i += 1;
+    }
+    blocks.push(
+      <div key={`p-${i}`} className="text-[13px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
+        {renderInlineMarkdown(paragraphLines.join("\n").trim())}
+      </div>
+    );
+  }
+
+  return <div className="space-y-2">{blocks}</div>;
 };
 
 const hasKey = (obj: any, key: string) => Object.prototype.hasOwnProperty.call(obj || {}, key);
@@ -613,7 +807,29 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessagesState] = usePersistedState<Message[]>({
+    key: "script2video_qalam_messages_v1",
+    initialValue: [],
+    serialize: (value) => JSON.stringify(value),
+    deserialize: (value) => {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    },
+  });
+  const clampMessages = useCallback((items: Message[]) => items.slice(-120), []);
+  const setMessages = useCallback(
+    (updater: Message[] | ((prev: Message[]) => Message[])) => {
+      setMessagesState((prev) => {
+        const next = typeof updater === "function" ? (updater as (p: Message[]) => Message[])(prev) : updater;
+        return clampMessages(next);
+      });
+    },
+    [setMessagesState, clampMessages]
+  );
   const [isSending, setIsSending] = useState(false);
   const [ctxSelection, setCtxSelection] = useState({
     script: true,
@@ -625,6 +841,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentUrlsRef = useRef<string[]>([]);
+  const [layoutMode, setLayoutMode] = useState<"floating" | "split">("floating");
+  const [splitWidth, setSplitWidth] = useState(420);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+  const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   const updateToolStatus = (callId: string, status: ToolStatus, summary?: string) => {
     setMessages((prev) =>
@@ -663,6 +886,45 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   };
 
   const canSend = input.trim().length > 0 && !isSending;
+  const splitMaxWidth = Math.max(320, viewportWidth - 32);
+  const splitThreshold = 0.72;
+  const handleSplitToggle = () => {
+    setLayoutMode((prev) => (prev === "split" ? "floating" : "split"));
+    setIsFullscreen(false);
+    if (typeof window !== "undefined") {
+      setViewportWidth(window.innerWidth);
+    }
+  };
+
+  useEffect(() => {
+    if (layoutMode !== "split") return;
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+      setIsFullscreen(splitWidth >= window.innerWidth * splitThreshold);
+    };
+    const handleMove = (e: MouseEvent) => {
+      if (!dragStateRef.current) return;
+      const delta = dragStateRef.current.startX - e.clientX;
+      const nextWidth = Math.min(splitMaxWidth, Math.max(360, dragStateRef.current.startWidth + delta));
+      const isWide = nextWidth >= window.innerWidth * splitThreshold;
+      setSplitWidth(nextWidth);
+      setIsFullscreen(isWide);
+    };
+    const handleUp = () => {
+      dragStateRef.current = null;
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("resize", handleResize);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [layoutMode, splitMaxWidth, splitThreshold, splitWidth]);
   const contextText = useMemo(() => {
     const base = buildContext(projectData, ctxSelection);
     const attachText =
@@ -702,10 +964,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
       if (isDeyunai) {
         const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
-        const webSearchTool: DeyunAITool = { type: "web_search_preview" };
+        const searchEnabled = toolsFromConfig.some((tool: any) => tool?.type === "web_search_preview");
         const mergedTools: DeyunAITool[] = [];
         const seen = new Set<string>();
-        [...TOOL_DEFS, webSearchTool, ...toolsFromConfig].forEach((tool) => {
+        [...TOOL_DEFS, ...toolsFromConfig].forEach((tool) => {
           const key = tool.type === "function" ? `function:${tool.name}` : tool.type;
           if (seen.has(key)) return;
           seen.add(key);
@@ -717,12 +979,18 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             assistantIndex = prev.length;
             return [
               ...prev,
-              { role: "assistant", text: "", kind: "chat", meta: { reasoningSummary: "思考中..." } },
+              {
+                role: "assistant",
+                text: "",
+                kind: "chat",
+                meta: { reasoningSummary: "思考中...", thinkingStatus: "active", searchEnabled },
+              },
             ];
           });
         }
 
         let reasoningSummary = "";
+        let searchUsed = false;
         const { text, toolCalls, raw } = await DeyunAIService.createReasoningResponse(
           prompt,
           { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
@@ -744,12 +1012,31 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                   });
                 });
                 const summary = extractReasoningSummary(rawDelta);
+                const usedSearch = extractSearchUsage(rawDelta);
+                if (usedSearch && !searchUsed) {
+                  searchUsed = true;
+                  setMessages((prev) =>
+                    prev.map((m, idx) => {
+                      if (idx !== assistantIndex || isToolMessage(m)) return m;
+                      return { ...m, meta: { ...m.meta, searchUsed: true, searchEnabled } };
+                    })
+                  );
+                }
                 if (summary && summary !== reasoningSummary) {
                   reasoningSummary = summary;
                   setMessages((prev) =>
                     prev.map((m, idx) => {
                       if (idx !== assistantIndex || isToolMessage(m)) return m;
-                      return { ...m, meta: { ...m.meta, reasoningSummary } };
+                      return {
+                        ...m,
+                        meta: {
+                          ...m.meta,
+                          reasoningSummary,
+                          thinkingStatus: "active",
+                          searchEnabled,
+                          searchUsed,
+                        },
+                      };
                     })
                   );
                 }
@@ -758,6 +1045,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         );
 
         const summaryFromRaw = extractReasoningSummary(raw);
+        const usedSearchFromRaw = extractSearchUsage(raw);
+        if (usedSearchFromRaw) searchUsed = true;
         if (summaryFromRaw) reasoningSummary = summaryFromRaw;
 
         const parsed = parsePlanFromText(text || "");
@@ -772,6 +1061,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                   ...m.meta,
                   planItems: parsed.planItems,
                   reasoningSummary: reasoningSummary || (m.meta?.reasoningSummary ? "已完成思考" : undefined),
+                  thinkingStatus: "done",
+                  searchEnabled,
+                  searchUsed,
                 },
               };
             })
@@ -786,6 +1078,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
               meta: {
                 planItems: parsed.planItems,
                 reasoningSummary: reasoningSummary || undefined,
+                thinkingStatus: "done",
+                searchEnabled,
+                searchUsed,
               },
             },
           ]);
@@ -927,6 +1222,21 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     }
   };
   const moodState = moodVisual();
+  const isSplit = layoutMode === "split";
+  const panelClassName = isSplit
+    ? "pointer-events-auto rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel shadow-2xl"
+    : "pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel";
+  const panelStyle: React.CSSProperties | undefined = isSplit
+    ? {
+        position: "fixed",
+        top: 16,
+        bottom: 16,
+        right: 16,
+        left: isFullscreen ? 16 : undefined,
+        width: isFullscreen ? "calc(100vw - 32px)" : splitWidth,
+        maxWidth: "calc(100vw - 32px)",
+      }
+    : undefined;
   const toolStatusLabel: Record<ToolStatus, string> = {
     queued: "Queued",
     running: "Running",
@@ -963,8 +1273,27 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const renderAssistantPanel = (message: ChatMessage) => {
     const planItems = message.meta?.planItems || [];
     const reasoningSummary = message.meta?.reasoningSummary;
+    const thinkingStatus = message.meta?.thinkingStatus;
+    const searchEnabled = message.meta?.searchEnabled;
+    const searchUsed = message.meta?.searchUsed;
     return (
       <div className="max-w-[92%] w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-3 space-y-3">
+        {(thinkingStatus || searchEnabled || searchUsed) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {thinkingStatus && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] uppercase tracking-widest border border-[var(--app-border)] text-[var(--app-text-secondary)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {thinkingStatus === "active" ? "思考中" : "思考完成"}
+              </span>
+            )}
+            {(searchEnabled || searchUsed) && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] uppercase tracking-widest border border-[var(--app-border)] text-[var(--app-text-secondary)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                {searchUsed ? "已搜索" : "搜索开启"}
+              </span>
+            )}
+          </div>
+        )}
         {reasoningSummary ? (
           <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2">
             <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">思考摘要</div>
@@ -976,16 +1305,12 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">Plan</div>
             <ul className="text-[12px] leading-relaxed text-[var(--app-text-primary)] list-decimal pl-4 space-y-1">
               {planItems.map((item, idx) => (
-                <li key={`${idx}-${item.slice(0, 8)}`}>{item}</li>
+                <li key={`${idx}-${item.slice(0, 8)}`}>{renderInlineMarkdown(item)}</li>
               ))}
             </ul>
           </div>
         ) : null}
-        {message.text ? (
-          <div className="text-[13px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
-            {message.text}
-          </div>
-        ) : null}
+        {message.text ? renderMarkdownLite(message.text) : null}
       </div>
     );
   };
@@ -1087,7 +1412,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
   // Safe spacing: use symmetric top/bottom gaps equal to the bottom offset (16px).
   return (
-    <div className="pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel">
+    <div className={panelClassName} style={panelStyle}>
+      {isSplit && !isFullscreen && (
+        <div
+          className="absolute left-0 top-0 h-full w-2 cursor-col-resize z-20"
+          onMouseDown={(e) => {
+            dragStateRef.current = { startX: e.clientX, startWidth: splitWidth };
+          }}
+        />
+      )}
       <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-[var(--app-border)]">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
@@ -1115,13 +1448,22 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setCollapsed(true)}
-          className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
-          title="Collapse"
-        >
-          <ChevronDown size={14} className="mx-auto text-[var(--app-text-secondary)]" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSplitToggle}
+            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+            title={isSplit ? "Exit Split View" : "Split View"}
+          >
+            <Columns size={14} className="mx-auto text-[var(--app-text-secondary)]" />
+          </button>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+            title="Close"
+          >
+            <X size={14} className="mx-auto text-[var(--app-text-secondary)]" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
