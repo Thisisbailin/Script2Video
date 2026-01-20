@@ -22,7 +22,9 @@ import {
   NoteNode,
   GroupNode,
   ImageGenNode,
+  WanImageGenNode,
   VideoGenNode,
+  WanVideoGenNode,
   ViduVideoGenNode,
   LLMGenerateNode,
   OutputNode,
@@ -49,7 +51,9 @@ const nodeTypes: NodeTypes = {
   note: NoteNode,
   group: GroupNode,
   imageGen: ImageGenNode,
+  wanImageGen: WanImageGenNode,
   videoGen: VideoGenNode,
+  wanVideoGen: WanVideoGenNode,
   viduVideoGen: ViduVideoGenNode,
   llmGenerate: LLMGenerateNode,
   shot: ShotNode,
@@ -446,7 +450,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   }, [fitView, nodes.length, viewport]);
 
   useEffect(() => {
-    const videoNodes = nodes.filter((node) => node.type === "videoGen");
+    const videoNodes = nodes.filter((node) => node.type === "videoGen" || node.type === "wanVideoGen");
     videoNodes.forEach((node) => {
       const data = node.data as VideoGenNodeData;
       if (!data?.videoUrl) return;
@@ -477,7 +481,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) return;
-      if (source.type !== "text" || target.type !== "imageGen") return;
+      if (source.type !== "text" || (target.type !== "imageGen" && target.type !== "wanImageGen")) return;
       if (edge.sourceHandle && edge.sourceHandle !== "text") return;
       if (edge.targetHandle && edge.targetHandle !== "text") return;
 
@@ -531,7 +535,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) return;
-      if (source.type !== "text" || target.type !== "imageGen") return;
+      if (source.type !== "text" || (target.type !== "imageGen" && target.type !== "wanImageGen")) return;
       if (edge.sourceHandle && edge.sourceHandle !== "text") return;
       if (edge.targetHandle && edge.targetHandle !== "text") return;
       const data = source.data as TextNodeData;
@@ -714,8 +718,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const runAll = async () => {
     for (const n of nodes) {
       if (n.type === "llmGenerate") await runLLM(n.id);
-      if (n.type === "imageGen") await runImageGen(n.id);
-      if (n.type === "videoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
+      if (n.type === "imageGen" || n.type === "wanImageGen") await runImageGen(n.id);
+      if (n.type === "videoGen" || n.type === "wanVideoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
     }
     alert("Run triggered");
   };
@@ -1045,7 +1049,9 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
             onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
             onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+            onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
             onAddVideoGen={() => handleAddNode("videoGen", { x: 500, y: 100 })}
+            onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
             onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
             onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
             onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}

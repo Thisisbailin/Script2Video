@@ -449,6 +449,16 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         error: null,
         aspectRatio: "1:1",
       } as ImageGenNodeData;
+    case "wanImageGen":
+      return {
+        inputImages: [],
+        inputPrompt: null,
+        outputImage: null,
+        status: "idle",
+        error: null,
+        aspectRatio: "1:1",
+        model: "wan2.6-image",
+      } as ImageGenNodeData;
     case "llmGenerate":
       return {
         inputPrompt: null,
@@ -478,6 +488,19 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         status: "idle",
         error: null,
         aspectRatio: "16:9",
+      } as VideoGenNodeData;
+    case "wanVideoGen":
+      return {
+        inputImages: [],
+        inputPrompt: null,
+        videoId: undefined,
+        videoUrl: undefined,
+        status: "idle",
+        error: null,
+        aspectRatio: "16:9",
+        duration: "10s",
+        model: "wan2.6-i2v",
+        quality: "standard",
       } as VideoGenNodeData;
     case "viduVideoGen":
       return {
@@ -745,7 +768,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             const src = (sourceNode.data as AnnotationNodeData).outputImage;
             if (src) images.push(src);
             if (src) imageRefs.push({ src });
-          } else if (sourceNode.type === "imageGen") {
+          } else if (sourceNode.type === "imageGen" || sourceNode.type === "wanImageGen") {
             const src = (sourceNode.data as ImageGenNodeData).outputImage;
             if (src) images.push(src);
             if (src) imageRefs.push({ src, formTag: (sourceNode.data as ImageGenNodeData).formTag });
@@ -779,7 +802,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       return { valid: false, errors };
     }
     nodes
-      .filter((n) => n.type === "imageGen")
+      .filter((n) => n.type === "imageGen" || n.type === "wanImageGen")
       .forEach((node) => {
         const imageConnected = edges.some((e) => e.target === node.id && e.targetHandle === "image");
         const textConnected = edges.some((e) => e.target === node.id && e.targetHandle === "text");
@@ -787,7 +810,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         if (!textConnected) errors.push(`ImageGen node "${node.id}" missing text input`);
       });
     nodes
-      .filter((n) => n.type === "videoGen")
+      .filter((n) => n.type === "videoGen" || n.type === "wanVideoGen")
       .forEach((node) => {
         const imageConnected = edges.some((e) => e.target === node.id && e.targetHandle === "image");
         const textConnected = edges.some((e) => e.target === node.id && e.targetHandle === "text");

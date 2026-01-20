@@ -6,6 +6,7 @@ import * as ViduService from "../../services/viduService";
 import * as WuyinkejiService from "../../services/wuyinkejiService";
 import * as SeedreamService from "../../services/seedreamService";
 import * as WanService from "../../services/wanService";
+import { QWEN_WAN_IMAGE_ENDPOINT, QWEN_WAN_IMAGE_MODEL, QWEN_WAN_VIDEO_ENDPOINT, QWEN_WAN_VIDEO_MODEL } from "../../constants";
 import { useCallback } from "react";
 import { Character, CharacterForm } from "../../types";
 
@@ -114,6 +115,7 @@ export const useLabExecutor = () => {
     const data = node.data as any; // Cast for easier access to new fields
     const manualPrompt = data.inputPrompt;
     const text = connectedText || manualPrompt;
+    const isWanImageNode = node.type === "wanImageGen";
 
     if (!text && images.length === 0) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)" });
@@ -128,13 +130,18 @@ export const useLabExecutor = () => {
     store.updateNodeData(nodeId, { status: "loading", error: null });
     try {
       const aspectRatio = data.aspectRatio || "1:1";
-      const modelOverride = data.model;
+      const modelOverride = isWanImageNode ? QWEN_WAN_IMAGE_MODEL : data.model;
 
       // Use node-specific model or fallback to config
       const configToUse = {
         ...config.multimodalConfig,
         model: modelOverride || config.multimodalConfig.model
       };
+      if (isWanImageNode) {
+        configToUse.provider = "wan";
+        configToUse.baseUrl = QWEN_WAN_IMAGE_ENDPOINT;
+        configToUse.apiKey = "";
+      }
 
       if (configToUse.provider === 'wuyinkeji') {
         // --- Asynchronous Flow (NanoBanana-pro) ---
@@ -214,6 +221,7 @@ export const useLabExecutor = () => {
         const { id, url } = await WanService.submitWanImageTask(text || "Generate an image", configToUse, {
           aspectRatio,
           inputImageUrl: refImage,
+          inputImages: images,
         });
 
         if (url) {
@@ -518,7 +526,8 @@ export const useLabExecutor = () => {
     }
 
     const isWanVideo = (config.videoConfig.baseUrl || "").includes("/api/v1/services/aigc/video-generation/");
-    if (!config.videoConfig.baseUrl || (!config.videoConfig.apiKey && !isWanVideo)) {
+    const isWanVideoNode = node.type === "wanVideoGen";
+    if (!config.videoConfig.baseUrl || (!config.videoConfig.apiKey && !isWanVideo && !isWanVideoNode)) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing video API configuration." });
       return;
     }
@@ -533,14 +542,22 @@ export const useLabExecutor = () => {
         quality: data.quality || "standard",
         inputImageUrl: refImage,
       };
+      if (isWanVideo || isWanVideoNode) {
+        params.resolution = data.quality === "high" ? "1080P" : "720P";
+      }
 
       // Use node-specific model or fallback to config
       const configToUse = {
         ...config.videoConfig,
         model: data.model || config.videoConfig.model
       };
+      if (isWanVideoNode) {
+        configToUse.baseUrl = QWEN_WAN_VIDEO_ENDPOINT;
+        configToUse.model = QWEN_WAN_VIDEO_MODEL;
+        configToUse.apiKey = "";
+      }
 
-      if (isWanVideo) {
+      if (isWanVideo || isWanVideoNode) {
         const { id, url } = await WanService.submitWanVideoTask(prompt || "Animate this", configToUse, params);
         if (url) {
           store.updateNodeData(nodeId, { status: "complete", videoUrl: url, error: null });

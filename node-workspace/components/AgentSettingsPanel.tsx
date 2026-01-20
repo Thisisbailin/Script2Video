@@ -24,8 +24,8 @@ import {
   PARTNER_TEXT_BASE_URL,
   QWEN_CHAT_COMPLETIONS_ENDPOINT,
   QWEN_DEFAULT_MODEL,
-  QWEN_WAN_IMAGE_ENDPOINT,
-  QWEN_WAN_VIDEO_ENDPOINT,
+  QWEN_WAN_IMAGE_MODEL,
+  QWEN_WAN_VIDEO_MODEL,
 } from "../../constants";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
@@ -36,8 +36,6 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
 };
-
-type QwenGroupKey = "chat" | "multimodal" | "video";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -137,24 +135,10 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [availableDeyunModels, setAvailableDeyunModels] = useState<Array<{ id: string; label: string; meta?: any }>>([]);
 
   const [isLoadingQwenChatModels, setIsLoadingQwenChatModels] = useState(false);
-  const [isLoadingQwenImageModels, setIsLoadingQwenImageModels] = useState(false);
-  const [isLoadingQwenVideoModels, setIsLoadingQwenVideoModels] = useState(false);
   const [qwenChatFetchMessage, setQwenChatFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [qwenImageFetchMessage, setQwenImageFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [qwenVideoFetchMessage, setQwenVideoFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [qwenChatModels, setQwenChatModels] = useState<QwenModel[]>([]);
-  const [qwenImageModels, setQwenImageModels] = useState<QwenModel[]>([]);
-  const [qwenVideoModels, setQwenVideoModels] = useState<QwenModel[]>([]);
-  const [qwenModelsRaw, setQwenModelsRaw] = useState<Record<QwenGroupKey, string>>({
-    chat: "",
-    multimodal: "",
-    video: "",
-  });
-  const [showQwenRaw, setShowQwenRaw] = useState<Record<QwenGroupKey, boolean>>({
-    chat: false,
-    multimodal: false,
-    video: false,
-  });
+  const [qwenModelsRaw, setQwenModelsRaw] = useState<string>("");
+  const [showQwenRaw, setShowQwenRaw] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const qwenGroups = useMemo(() => {
@@ -303,82 +287,28 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleFetchQwenModels = async (group: QwenGroupKey) => {
-    const endpointMap: Record<QwenGroupKey, string> = {
-      chat: QWEN_CHAT_COMPLETIONS_ENDPOINT,
-      multimodal: QWEN_WAN_IMAGE_ENDPOINT,
-      video: QWEN_WAN_VIDEO_ENDPOINT,
-    };
-    const endpoint = endpointMap[group];
-    const setLoading = {
-      chat: setIsLoadingQwenChatModels,
-      multimodal: setIsLoadingQwenImageModels,
-      video: setIsLoadingQwenVideoModels,
-    }[group];
-    const setMessage = {
-      chat: setQwenChatFetchMessage,
-      multimodal: setQwenImageFetchMessage,
-      video: setQwenVideoFetchMessage,
-    }[group];
-
-    setLoading(true);
-    setMessage(null);
+  const handleFetchQwenModels = async () => {
+    setIsLoadingQwenChatModels(true);
+    setQwenChatFetchMessage(null);
     try {
-      const method = group === "chat" ? "GET" : "POST";
-      const { models, raw } = await QwenService.fetchModels(endpoint, method);
-      if (group === "chat") {
-        setQwenChatModels(models);
-      } else if (group === "multimodal") {
-        setQwenImageModels(models);
-      } else {
-        setQwenVideoModels(models);
-      }
-      setQwenModelsRaw((prev) => ({ ...prev, [group]: JSON.stringify(raw, null, 2) }));
-      setMessage({
+      const { models, raw } = await QwenService.fetchModels(QWEN_CHAT_COMPLETIONS_ENDPOINT, "GET");
+      setQwenChatModels(models);
+      setQwenModelsRaw(JSON.stringify(raw, null, 2));
+      setQwenChatFetchMessage({
         type: "success",
         text: models.length ? `获取成功，${models.length} 个模型` : "获取成功，但返回为空",
       });
-      if (models.length) {
-        if (group === "chat" && !models.find((m) => m.id === config.textConfig.model)) {
-          setConfig((prev) => ({
-            ...prev,
-            textConfig: { ...prev.textConfig, model: models[0].id },
-          }));
-        }
-        if (group === "multimodal") {
-          setConfig((prev) => {
-            const nextModel = models.find((m) => m.id === prev.multimodalConfig.model)?.id || models[0].id;
-            return {
-              ...prev,
-              multimodalConfig: {
-                ...prev.multimodalConfig,
-                provider: "wan",
-                baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
-                model: nextModel,
-              },
-            };
-          });
-        }
-        if (group === "video") {
-          setConfig((prev) => {
-            const nextModel = models.find((m) => m.id === prev.videoConfig.model)?.id || models[0].id;
-            return {
-              ...prev,
-              videoProvider: "default",
-              videoConfig: {
-                ...prev.videoConfig,
-                baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
-                model: nextModel,
-              },
-            };
-          });
-        }
+      if (models.length && !models.find((m) => m.id === config.textConfig.model)) {
+        setConfig((prev) => ({
+          ...prev,
+          textConfig: { ...prev.textConfig, model: models[0].id },
+        }));
       }
     } catch (e: any) {
-      setMessage({ type: "error", text: e.message || "拉取失败" });
-      setQwenModelsRaw((prev) => ({ ...prev, [group]: "" }));
+      setQwenChatFetchMessage({ type: "error", text: e.message || "拉取失败" });
+      setQwenModelsRaw("");
     } finally {
-      setLoading(false);
+      setIsLoadingQwenChatModels(false);
     }
   };
 
@@ -621,18 +551,18 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleFetchQwenModels("chat")}
+                        onClick={handleFetchQwenModels}
                         disabled={isLoadingQwenChatModels}
                         className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
                       >
                         {isLoadingQwenChatModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
                       </button>
-                      {qwenModelsRaw.chat && (
+                      {qwenModelsRaw && (
                         <button
                           type="button"
                           onClick={async () => {
                             try {
-                              await navigator.clipboard.writeText(qwenModelsRaw.chat);
+                              await navigator.clipboard.writeText(qwenModelsRaw);
                             } catch {
                               // Ignore clipboard failures.
                             }
@@ -698,18 +628,18 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                         })}
                       </div>
                     )}
-                    {qwenModelsRaw.chat && (
+                    {qwenModelsRaw && (
                       <div className="pt-3">
                         <button
                           type="button"
-                          onClick={() => setShowQwenRaw((prev) => ({ ...prev, chat: !prev.chat }))}
+                          onClick={() => setShowQwenRaw((prev) => !prev)}
                           className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
                         >
-                          {showQwenRaw.chat ? "隐藏原始返回" : "查看原始返回"}
+                          {showQwenRaw ? "隐藏原始返回" : "查看原始返回"}
                         </button>
-                        {showQwenRaw.chat && (
+                        {showQwenRaw && (
                           <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                            {qwenModelsRaw.chat}
+                            {qwenModelsRaw}
                           </pre>
                         )}
                       </div>
@@ -720,200 +650,26 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                      multimodal-generation · {qwenImageModels.length}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleFetchQwenModels("multimodal")}
-                        disabled={isLoadingQwenImageModels}
-                        className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
-                      >
-                        {isLoadingQwenImageModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
-                      </button>
-                      {qwenModelsRaw.multimodal && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(qwenModelsRaw.multimodal);
-                            } catch {
-                              // Ignore clipboard failures.
-                            }
-                          }}
-                          className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
-                        >
-                          复制原始返回
-                        </button>
-                      )}
+                      multimodal-generation · 1
                     </div>
                   </div>
-                  {qwenImageFetchMessage && (
-                    <div className={`text-[11px] flex items-center gap-1 ${qwenImageFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
-                      {qwenImageFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                      {qwenImageFetchMessage.text}
-                    </div>
-                  )}
-                  <select
-                    value={config.multimodalConfig.provider === "wan" ? config.multimodalConfig.model : ""}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        multimodalConfig: {
-                          ...config.multimodalConfig,
-                          provider: "wan",
-                          model: e.target.value,
-                          baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
-                        },
-                      })
-                    }
-                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
-                  >
-                    <option value="">选择图像模型</option>
-                    {qwenImageModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.id}
-                      </option>
-                    ))}
-                  </select>
-                  {qwenImageModels.length === 0 ? (
-                    <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {qwenImageModels.map((model) =>
-                        renderQwenModelCard(
-                          model,
-                          config.multimodalConfig.provider === "wan" && config.multimodalConfig.model === model.id,
-                          () =>
-                            setConfig({
-                              ...config,
-                              multimodalConfig: {
-                                ...config.multimodalConfig,
-                                provider: "wan",
-                                model: model.id,
-                                baseUrl: QWEN_WAN_IMAGE_ENDPOINT,
-                              },
-                            })
-                        )
-                      )}
-                    </div>
-                  )}
-                  {qwenModelsRaw.multimodal && (
-                    <div className="pt-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowQwenRaw((prev) => ({ ...prev, multimodal: !prev.multimodal }))}
-                        className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
-                      >
-                        {showQwenRaw.multimodal ? "隐藏原始返回" : "查看原始返回"}
-                      </button>
-                      {showQwenRaw.multimodal && (
-                        <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                          {qwenModelsRaw.multimodal}
-                        </pre>
-                      )}
-                    </div>
-                  )}
+                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
+                    固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{QWEN_WAN_IMAGE_MODEL}</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Image 节点，端口已固定。</div>
                 </div>
 
                 <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
                       <Video size={12} />
-                      video-generation · {qwenVideoModels.length}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleFetchQwenModels("video")}
-                        disabled={isLoadingQwenVideoModels}
-                        className="text-[11px] flex items-center gap-1 text-amber-300 hover:text-amber-200 disabled:opacity-50"
-                      >
-                        {isLoadingQwenVideoModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
-                      </button>
-                      {qwenModelsRaw.video && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(qwenModelsRaw.video);
-                            } catch {
-                              // Ignore clipboard failures.
-                            }
-                          }}
-                          className="text-[11px] flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
-                        >
-                          复制原始返回
-                        </button>
-                      )}
+                      video-generation · 1
                     </div>
                   </div>
-                  {qwenVideoFetchMessage && (
-                    <div className={`text-[11px] flex items-center gap-1 ${qwenVideoFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
-                      {qwenVideoFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                      {qwenVideoFetchMessage.text}
-                    </div>
-                  )}
-                  <select
-                    value={config.videoProvider !== "vidu" ? config.videoConfig.model || "" : ""}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        videoProvider: "default",
-                        videoConfig: {
-                          ...config.videoConfig,
-                          model: e.target.value,
-                          baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
-                        },
-                      })
-                    }
-                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
-                  >
-                    <option value="">选择视频模型</option>
-                    {qwenVideoModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.id}
-                      </option>
-                    ))}
-                  </select>
-                  {qwenVideoModels.length === 0 ? (
-                    <div className="text-[12px] text-[var(--app-text-muted)]">暂无模型信息，请先拉取。</div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {qwenVideoModels.map((model) =>
-                        renderQwenModelCard(
-                          model,
-                          config.videoProvider !== "vidu" && config.videoConfig.model === model.id,
-                          () =>
-                            setConfig({
-                              ...config,
-                              videoProvider: "default",
-                              videoConfig: {
-                                ...config.videoConfig,
-                                model: model.id,
-                                baseUrl: QWEN_WAN_VIDEO_ENDPOINT,
-                              },
-                            })
-                        )
-                      )}
-                    </div>
-                  )}
-                  {qwenModelsRaw.video && (
-                    <div className="pt-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowQwenRaw((prev) => ({ ...prev, video: !prev.video }))}
-                        className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
-                      >
-                        {showQwenRaw.video ? "隐藏原始返回" : "查看原始返回"}
-                      </button>
-                      {showQwenRaw.video && (
-                        <pre className="mt-2 max-h-56 overflow-auto rounded-xl border border-[var(--app-border)] bg-black/30 p-3 text-[10px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                          {qwenModelsRaw.video}
-                        </pre>
-                      )}
-                    </div>
-                  )}
+                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
+                    固定模型：<span className="text-[var(--app-text-primary)] font-semibold">{QWEN_WAN_VIDEO_MODEL}</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Video 节点，端口已固定。</div>
                 </div>
               </div>
             </div>

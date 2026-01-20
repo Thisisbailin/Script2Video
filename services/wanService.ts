@@ -103,7 +103,7 @@ const requestWanTask = async (endpoint: string, apiKey: string, payload: Record<
 export const submitWanImageTask = async (
   prompt: string,
   config: MultimodalConfig,
-  options?: { aspectRatio?: string; inputImageUrl?: string }
+  options?: { aspectRatio?: string; inputImageUrl?: string; inputImages?: string[] }
 ): Promise<WanTaskSubmissionResult> => {
   const apiKey = resolveQwenApiKey();
   if (!apiKey) {
@@ -114,20 +114,33 @@ export const submitWanImageTask = async (
   }
 
   const endpoint = config.baseUrl || QWEN_WAN_IMAGE_ENDPOINT;
+  const images = options?.inputImages || (options?.inputImageUrl ? [options.inputImageUrl] : []);
+  const content: Array<{ text?: string; image?: string }> = [];
+  if (prompt) {
+    content.push({ text: prompt });
+  }
+  images.forEach((image) => {
+    if (image) content.push({ image });
+  });
+
   const payload: Record<string, any> = {
     model: config.model,
     input: {
-      prompt,
+      messages: [
+        {
+          role: "user",
+          content,
+        },
+      ],
     },
     parameters: {
-      size: resolveSize(options?.aspectRatio),
+      prompt_extend: true,
+      watermark: false,
       n: 1,
+      enable_interleave: false,
+      size: resolveSize(options?.aspectRatio),
     },
   };
-
-  if (options?.inputImageUrl) {
-    payload.input.image_url = options.inputImageUrl;
-  }
 
   return requestWanTask(endpoint, apiKey, payload);
 };
@@ -135,7 +148,7 @@ export const submitWanImageTask = async (
 export const submitWanVideoTask = async (
   prompt: string,
   config: VideoServiceConfig,
-  options?: { aspectRatio?: string; duration?: string; inputImageUrl?: string }
+  options?: { aspectRatio?: string; duration?: string; inputImageUrl?: string; resolution?: string }
 ): Promise<WanTaskSubmissionResult> => {
   const apiKey = resolveQwenApiKey();
   if (!apiKey) {
@@ -147,19 +160,22 @@ export const submitWanVideoTask = async (
 
   const endpoint = config.baseUrl || QWEN_WAN_VIDEO_ENDPOINT;
   const duration = options?.duration ? Number.parseInt(options.duration.replace("s", ""), 10) : undefined;
+  const resolution = options?.resolution || "720P";
   const payload: Record<string, any> = {
     model: config.model,
     input: {
       prompt,
     },
     parameters: {
-      size: resolveSize(options?.aspectRatio),
+      resolution,
+      prompt_extend: true,
+      shot_type: "multi",
       ...(Number.isFinite(duration) ? { duration } : {}),
     },
   };
 
   if (options?.inputImageUrl) {
-    payload.input.image_url = options.inputImageUrl;
+    payload.input.img_url = options.inputImageUrl;
   }
 
   return requestWanTask(endpoint, apiKey, payload);

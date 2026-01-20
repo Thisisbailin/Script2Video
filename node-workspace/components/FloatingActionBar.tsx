@@ -46,7 +46,9 @@ type Props = {
   onAddImage: () => void;
   onAddLLM: () => void;
   onAddImageGen: () => void;
+  onAddWanImageGen: () => void;
   onAddVideoGen: () => void;
+  onAddWanVideoGen: () => void;
   onAddOutput: () => void;
   onAddGroup: () => void;
   onAddNote: () => void;
@@ -79,7 +81,9 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddImage,
   onAddLLM,
   onAddImageGen,
+  onAddWanImageGen,
   onAddVideoGen,
+  onAddWanVideoGen,
   onAddOutput,
   onAddGroup,
   onAddNote,
@@ -129,7 +133,9 @@ export const FloatingActionBar: React.FC<Props> = ({
     { label: "Image", hint: "Add an input image", onClick: onAddImage, Icon: ImageIcon },
     { label: "LLM", hint: "Generate text", onClick: onAddLLM, Icon: Bot },
     { label: "Img Gen", hint: "Create images", onClick: onAddImageGen, Icon: Sparkles },
+    { label: "WAN Img", hint: "Wan 2.6 image", onClick: onAddWanImageGen, Icon: Sparkles },
     { label: "Video", hint: "Generate clips", onClick: onAddVideoGen, Icon: Video },
+    { label: "WAN Vid", hint: "Wan 2.6 video", onClick: onAddWanVideoGen, Icon: Video },
     { label: "Output", hint: "Final results", onClick: onAddOutput, Icon: SquareStack },
   ];
 

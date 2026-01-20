@@ -8,7 +8,11 @@ export const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: s
       return { inputs: [], outputs: ["text"] };
     case "imageGen":
       return { inputs: ["image", "text"], outputs: ["image"] };
+    case "wanImageGen":
+      return { inputs: ["image", "text"], outputs: ["image"] };
     case "videoGen":
+      return { inputs: ["image", "text"], outputs: [] };
+    case "wanVideoGen":
       return { inputs: ["image", "text"], outputs: [] };
     case "llmGenerate":
       return { inputs: ["text"], outputs: ["text"] };
