@@ -201,10 +201,10 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           </div>
         )}
 
-        <div className="flex-1 relative group/img cursor-pointer min-h-[200px]">
+        <div className="relative group/img cursor-pointer h-[180px]">
           {data.outputImage ? (
             <div
-              className="node-surface relative overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] w-full h-full group-hover/img:border-white/30 transition-all"
+              className="node-surface relative overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] w-full h-[180px] group-hover/img:border-white/30 transition-all"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsPreviewOpen(true);
@@ -219,7 +219,7 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           ) : (
             <div
               onClick={handleGenerate}
-              className={`node-surface node-surface--dashed w-full h-full rounded-[24px] flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative ${data.status === "loading"
+              className={`node-surface node-surface--dashed w-full h-[180px] rounded-[24px] flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative ${data.status === "loading"
                 ? "border-amber-500/40 bg-amber-500/[0.02]"
                 : "hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]"
                 }`}

@@ -38,13 +38,6 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
     e.target.value = "";
   };
 
-  const aspectRatio = useMemo(() => {
-    if (data.dimensions?.width && data.dimensions?.height) {
-      return `${data.dimensions.width}/${data.dimensions.height}`;
-    }
-    return "16/9";
-  }, [data.dimensions?.height, data.dimensions?.width]);
-
   return (
     <BaseNode title="Visual Input" outputs={["image"]} selected={selected}>
       <div className="space-y-4 flex-1 flex flex-col">
@@ -56,8 +49,7 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
         </button>
         {data.image && (
           <div
-            className="node-surface relative group/img overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.4)] bg-black/40"
-            style={{ aspectRatio }}
+            className="node-surface relative group/img overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.4)] bg-black/40 h-[180px]"
           >
             <img
               src={data.image}

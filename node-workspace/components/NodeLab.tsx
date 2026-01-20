@@ -341,8 +341,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   accountInfo,
   onToggleWorkflow,
 }) => {
-  const [bgTheme, setBgTheme] = useState<ThemeKey>("dark");
-  const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("dots");
+  const [bgTheme, setBgTheme] = useState<ThemeKey>("creative");
+  const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("cross");
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showAgentSettings, setShowAgentSettings] = useState(false);
   const {
@@ -979,7 +979,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
   return (
     <div className="h-full w-full flex flex-col app-text-primary" style={backgroundStyle}>
-      <div className="flex-1 relative node-lab-canvas" style={backgroundStyle}>
+      <div
+        className="flex-1 relative node-lab-canvas"
+        data-zoomed={zoomValue >= 1.5}
+        style={backgroundStyle}
+      >
         <ReactFlow
           nodes={displayNodes}
           edges={displayEdges}

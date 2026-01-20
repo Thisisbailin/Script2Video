@@ -23,7 +23,7 @@ const parseAtMentions = (text: string): string[] => {
 
 const escapeRegex = (str: string) => str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 
-const uploadReferenceImage = async (source: string, options?: { bucket?: string; prefix?: string }) => {
+const uploadReferenceFile = async (source: string, options?: { bucket?: string; prefix?: string }) => {
   const response = await fetch(source);
   const blob = await response.blob();
   const contentType = blob.type || "image/png";
@@ -82,13 +82,65 @@ const normalizeWanImages = async (sources: string[]) => {
       continue;
     }
     if (src.startsWith("data:") || src.startsWith("blob:")) {
-      const uploaded = await uploadReferenceImage(src, { bucket: "assets", prefix: "wan-inputs/" });
+      const uploaded = await uploadReferenceFile(src, { bucket: "assets", prefix: "wan-inputs/" });
       results.push(uploaded);
       continue;
     }
     results.push(src);
   }
   return results;
+};
+
+const normalizeWanAudio = async (source?: string) => {
+  if (!source) return undefined;
+  if (source.startsWith("http://") || source.startsWith("https://")) return source;
+  if (source.startsWith("data:") || source.startsWith("blob:")) {
+    return uploadReferenceFile(source, { bucket: "assets", prefix: "wan-audio/" });
+  }
+  try {
+    const downloadRes = await fetch(buildApiUrl("/api/download-url"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: source, bucket: "assets" }),
+    });
+    if (!downloadRes.ok) {
+      const err = await downloadRes.text();
+      throw new Error(err);
+    }
+    const data = await downloadRes.json();
+    if (data?.signedUrl) return data.signedUrl as string;
+  } catch (e) {
+    console.warn("Failed to resolve audio URL", e);
+  }
+  return source;
+};
+
+const mapWanVideoSize = (aspectRatio?: string, resolution?: string) => {
+  const ratio = (aspectRatio || "16:9").trim();
+  const res = (resolution || "720P").toUpperCase();
+  const sizeMap: Record<string, Record<string, string>> = {
+    "480P": {
+      "16:9": "832*480",
+      "9:16": "480*832",
+      "1:1": "624*624",
+    },
+    "720P": {
+      "16:9": "1280*720",
+      "9:16": "720*1280",
+      "1:1": "960*960",
+      "4:3": "1088*832",
+      "3:4": "832*1088",
+    },
+    "1080P": {
+      "16:9": "1920*1080",
+      "9:16": "1080*1920",
+      "1:1": "1440*1440",
+      "4:3": "1632*1248",
+      "3:4": "1248*1632",
+    },
+  };
+  const normalizedRatio = ["16:9", "9:16", "1:1", "4:3", "3:4"].includes(ratio) ? ratio : "16:9";
+  return sizeMap[res]?.[normalizedRatio] || "1280*720";
 };
 
 export const useLabExecutor = () => {
@@ -616,6 +668,10 @@ export const useLabExecutor = () => {
       store.updateNodeData(nodeId, { status: "error", error: "Wan 视频需要至少一张参考图。" });
       return;
     }
+    if ((isWanVideo || isWanVideoNode) && !prompt) {
+      store.updateNodeData(nodeId, { status: "error", error: "Wan 视频需要提示词。" });
+      return;
+    }
 
     store.updateNodeData(nodeId, { status: "loading", error: null });
 
@@ -631,7 +687,20 @@ export const useLabExecutor = () => {
         inputImageUrl: refImage,
       };
       if (isWanVideo || isWanVideoNode) {
-        params.resolution = data.quality === "high" ? "1080P" : "720P";
+        const fallbackResolution = data.quality === "high" ? "1080P" : "720P";
+        const resolution = data.resolution || fallbackResolution;
+        params.size = mapWanVideoSize(data.aspectRatio, resolution);
+        params.promptExtend = data.promptExtend;
+        if (data.promptExtend !== false) {
+          params.shotType = data.shotType;
+        }
+        params.watermark = data.watermark;
+        params.negativePrompt = data.negativePrompt;
+        params.seed = data.seed;
+        if (data.audioEnabled && data.audioUrl) {
+          const audioUrl = data.audioUrl.trim();
+          params.audioUrl = await normalizeWanAudio(audioUrl);
+        }
       }
 
       // Use node-specific model or fallback to config

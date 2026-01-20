@@ -535,6 +535,12 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         duration: "10s",
         model: "wan2.6-i2v",
         quality: "standard",
+        resolution: "720P",
+        shotType: "multi",
+        promptExtend: true,
+        watermark: false,
+        audioEnabled: false,
+        audioUrl: "",
       } as VideoGenNodeData;
     case "viduVideoGen":
       return {

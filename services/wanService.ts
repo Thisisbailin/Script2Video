@@ -193,7 +193,18 @@ export const submitWanImageTask = async (
 export const submitWanVideoTask = async (
   prompt: string,
   config: VideoServiceConfig,
-  options?: { aspectRatio?: string; duration?: string; inputImageUrl?: string; resolution?: string }
+  options?: {
+    aspectRatio?: string;
+    duration?: string;
+    inputImageUrl?: string;
+    size?: string;
+    negativePrompt?: string;
+    seed?: number;
+    watermark?: boolean;
+    promptExtend?: boolean;
+    shotType?: "single" | "multi";
+    audioUrl?: string;
+  }
 ): Promise<WanTaskSubmissionResult> => {
   const apiKey = resolveQwenApiKey();
   if (!apiKey) {
@@ -205,22 +216,31 @@ export const submitWanVideoTask = async (
 
   const endpoint = config.baseUrl || QWEN_WAN_VIDEO_ENDPOINT;
   const duration = options?.duration ? Number.parseInt(options.duration.replace("s", ""), 10) : undefined;
-  const resolution = options?.resolution || "720P";
+  const parameters: Record<string, any> = {
+    prompt_extend: options?.promptExtend ?? true,
+    shot_type: options?.shotType || "multi",
+    watermark: options?.watermark ?? false,
+    ...(options?.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
+    ...(Number.isFinite(options?.seed) ? { seed: options?.seed } : {}),
+    ...(Number.isFinite(duration) ? { duration } : {}),
+  };
+  if (options?.size) {
+    parameters.size = options.size;
+  }
+
   const payload: Record<string, any> = {
     model: config.model,
     input: {
       prompt,
     },
-    parameters: {
-      resolution,
-      prompt_extend: true,
-      shot_type: "multi",
-      ...(Number.isFinite(duration) ? { duration } : {}),
-    },
+    parameters,
   };
 
   if (options?.inputImageUrl) {
     payload.input.img_url = options.inputImageUrl;
+  }
+  if (options?.audioUrl) {
+    payload.input.audio_url = options.audioUrl;
   }
 
   return requestWanTask(endpoint, apiKey, payload, { async: true });

@@ -85,9 +85,10 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
           <div className="grid grid-cols-2 gap-1.5">
             {/* Aspect Ratio */}
             <select
-              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
               value={data.aspectRatio || "16:9"}
               onChange={(e) => updateNodeData(id, { aspectRatio: e.target.value })}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <option value="16:9">16:9 Landscape</option>
               <option value="9:16">9:16 Portrait</option>
@@ -97,9 +98,10 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
             {/* Duration */}
             <select
-              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
               value={data.duration || "5s"}
               onChange={(e) => updateNodeData(id, { duration: e.target.value })}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <option value="5s">5 Seconds</option>
               <option value="10s">10 Seconds</option>
@@ -114,9 +116,10 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
             <div className="space-y-1">
               <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model Override</label>
               <select
-                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors nodrag"
                 value={data.model || ""}
                 onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <option value="">Default (Global)</option>
                 {availableVideoModels.map(m => (
@@ -129,9 +132,10 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
             <div className="space-y-1">
               <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Quality</label>
               <select
-                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors nodrag"
                 value={data.quality || "standard"}
                 onChange={(e) => updateNodeData(id, { quality: e.target.value })}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <option value="standard">Standard</option>
                 <option value="high">High Quality</option>
@@ -141,13 +145,14 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
         )}
 
         {showPromptInput && (
-          <div className="group/prompt relative">
+          <div className="group/prompt relative nodrag">
             <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
+              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
               placeholder="Enter prompt..."
               value={data.inputPrompt || ""}
               onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
               onKeyDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             />
           </div>
         )}
@@ -161,10 +166,12 @@ export const VideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
         {/* Video Preview */}
         {data.videoUrl ? (
             <div className="node-surface relative overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
-              <video
-                controls
-                className="w-full aspect-video transition-transform duration-700 bg-black/40"
-              >
+            <video
+              controls
+              className="w-full aspect-video transition-transform duration-700 bg-black/40 nodrag"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
                 <source src={data.videoUrl} />
               </video>
             </div>

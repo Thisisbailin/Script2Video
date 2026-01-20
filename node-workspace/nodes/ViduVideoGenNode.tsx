@@ -107,17 +107,19 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
 
         <div className="grid grid-cols-2 gap-1.5">
           <select
-            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
             value={data.mode || "audioVideo"}
             onChange={(e) => updateNodeData(id, { mode: e.target.value as any })}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <option value="audioVideo">音视频直出</option>
             <option value="videoOnly">纯视频直出</option>
           </select>
           <select
-            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
             value={data.resolution || "1080p"}
             onChange={(e) => updateNodeData(id, { resolution: e.target.value })}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <option value="1080p">1080p</option>
             <option value="720p">720p</option>
@@ -127,9 +129,10 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
 
         <div className="grid grid-cols-2 gap-1.5">
           <select
-            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
             value={data.aspectRatio || "16:9"}
             onChange={(e) => updateNodeData(id, { aspectRatio: e.target.value })}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <option value="16:9">16:9</option>
             <option value="9:16">9:16</option>
@@ -138,9 +141,10 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
           </select>
 
           <select
-            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+            className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
             value={data.duration?.toString() || "10"}
             onChange={(e) => updateNodeData(id, { duration: parseInt(e.target.value, 10) })}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <option value="5">5s</option>
             <option value="8">8s</option>
@@ -157,9 +161,10 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
             <div className="flex items-center gap-2">
               <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model</label>
               <select
-                className="node-control node-control--tight text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                className="node-control node-control--tight text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors nodrag"
                 value={data.model || ""}
                 onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <option value="">viduq2-pro (默认)</option>
                 {availableVideoModels.map((m) => (
@@ -270,13 +275,14 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
         )}
 
         {showPromptInput && (
-          <div className="group/prompt relative">
+          <div className="group/prompt relative nodrag">
             <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
+              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
               placeholder="输入 Vidu 提示词..."
               value={data.inputPrompt || ""}
               onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
               onKeyDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             />
           </div>
         )}
@@ -289,7 +295,9 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
           <div className="node-surface relative group/vid overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
             <video
               controls
-              className="w-full aspect-video transition-transform duration-700 bg-black/40"
+              className="w-full aspect-video transition-transform duration-700 bg-black/40 nodrag"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
             >
               <source src={data.videoUrl} />
             </video>

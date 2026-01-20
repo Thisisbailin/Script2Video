@@ -45,6 +45,10 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+.node-lab-canvas[data-zoomed="true"] {
+  text-rendering: geometricPrecision;
+}
+
 /* React Flow nodes */
 .react-flow__node {
   font-family: inherit;
@@ -74,6 +78,11 @@
   position: relative;
 }
 
+.node-lab-canvas[data-zoomed="true"] .group-surface {
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
 .group-surface::before {
   content: "";
   position: absolute;
@@ -98,6 +107,11 @@
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(16px);
   overflow: hidden;
+}
+
+.node-lab-canvas[data-zoomed="true"] .connection-menu {
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .connection-menu-header {
@@ -364,6 +378,11 @@
   z-index: 0;
 }
 
+.node-lab-canvas[data-zoomed="true"] .node-card-base::before {
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
 .node-card-base > * {
   position: relative;
   z-index: 1;
@@ -403,12 +422,22 @@
   backdrop-filter: blur(16px);
 }
 
+.node-lab-canvas[data-zoomed="true"] .app-panel {
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
 .app-panel-strong {
   background: var(--app-panel-strong);
   border: 1px solid var(--app-border-strong);
   color: var(--app-text-primary);
   box-shadow: var(--app-shadow-strong);
   backdrop-filter: blur(18px);
+}
+
+.node-lab-canvas[data-zoomed="true"] .app-panel-strong {
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .app-panel-muted {

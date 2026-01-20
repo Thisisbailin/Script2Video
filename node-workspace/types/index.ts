@@ -137,6 +137,15 @@ export interface VideoGenNodeData extends BaseNodeData {
   duration?: string;
   model?: string;
   quality?: string;
+  resolution?: string;
+  size?: string;
+  negativePrompt?: string;
+  seed?: number;
+  watermark?: boolean;
+  promptExtend?: boolean;
+  shotType?: "single" | "multi";
+  audioEnabled?: boolean;
+  audioUrl?: string;
 }
 
 export interface ViduVideoGenNodeData extends BaseNodeData {
