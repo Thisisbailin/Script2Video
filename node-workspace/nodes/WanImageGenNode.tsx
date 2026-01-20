@@ -23,6 +23,8 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
 
   const { text: connectedText } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
+  const enableInterleave = data.enableInterleave ?? false;
+  const outputCount = Math.max(1, Math.min(4, data.outputCount ?? 1));
 
   const forms = useMemo(() => {
     const chars = labContext?.context?.characters || [];
@@ -68,6 +70,63 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           </div>
         </div>
 
+        <div className="node-panel space-y-2 p-3">
+          <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">WAN 参数</label>
+          <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
+            <span>图文模式</span>
+            <button
+              className={`h-5 w-9 rounded-full border transition-all ${enableInterleave ? "bg-emerald-500/20 border-emerald-400/40" : "bg-white/5 border-white/10"}`}
+              onClick={() => updateNodeData(id, { enableInterleave: !enableInterleave })}
+            >
+              <span className={`block h-4 w-4 rounded-full bg-white/70 transition-all ${enableInterleave ? "translate-x-4" : "translate-x-1"}`} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[8px] uppercase tracking-widest text-[var(--node-text-secondary)]">输出张数</label>
+              <input
+                type="number"
+                min={1}
+                max={4}
+                className="node-control node-control--tight w-full text-[9px] font-semibold px-2 text-[var(--node-text-primary)]"
+                value={outputCount}
+                onChange={(e) => updateNodeData(id, { outputCount: Number(e.target.value) || 1 })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[8px] uppercase tracking-widest text-[var(--node-text-secondary)]">随机种子</label>
+              <input
+                type="number"
+                min={0}
+                className="node-control node-control--tight w-full text-[9px] font-semibold px-2 text-[var(--node-text-primary)]"
+                value={data.seed ?? ""}
+                onChange={(e) => {
+                  const next = e.target.value === "" ? undefined : Number(e.target.value);
+                  updateNodeData(id, { seed: Number.isFinite(next) ? next : undefined });
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
+            <span>提示词扩展</span>
+            <button
+              className={`h-5 w-9 rounded-full border transition-all ${data.promptExtend !== false ? "bg-emerald-500/20 border-emerald-400/40" : "bg-white/5 border-white/10"}`}
+              onClick={() => updateNodeData(id, { promptExtend: data.promptExtend === false })}
+            >
+              <span className={`block h-4 w-4 rounded-full bg-white/70 transition-all ${data.promptExtend !== false ? "translate-x-4" : "translate-x-1"}`} />
+            </button>
+          </div>
+          <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
+            <span>添加水印</span>
+            <button
+              className={`h-5 w-9 rounded-full border transition-all ${data.watermark ? "bg-emerald-500/20 border-emerald-400/40" : "bg-white/5 border-white/10"}`}
+              onClick={() => updateNodeData(id, { watermark: !data.watermark })}
+            >
+              <span className={`block h-4 w-4 rounded-full bg-white/70 transition-all ${data.watermark ? "translate-x-4" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+
         {showPromptInput && (
           <div className="group/prompt relative">
             <textarea
@@ -79,6 +138,16 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
             />
           </div>
         )}
+
+        <div className="group/prompt relative">
+          <textarea
+            className="node-textarea w-full text-[10px] leading-relaxed outline-none transition-all resize-none min-h-[48px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
+            placeholder="Negative prompt (可选)..."
+            value={data.negativePrompt || ""}
+            onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </div>
 
         {forms.length > 0 && (
           <div className="node-panel space-y-2 p-3">

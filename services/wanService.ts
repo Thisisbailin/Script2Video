@@ -55,6 +55,11 @@ const mapStatus = (status?: string) => {
 
 const extractUrl = (payload: any) => {
   const output = payload?.output || payload?.data || payload?.result || payload;
+  const choiceContent = output?.choices?.[0]?.message?.content || output?.choices?.[0]?.content;
+  if (Array.isArray(choiceContent)) {
+    const imagePart = choiceContent.find((part: any) => part?.type === "image" && part?.image);
+    if (imagePart?.image) return imagePart.image;
+  }
   const result = output?.results?.[0] || output?.result?.[0] || output?.result || output?.results;
   return (
     result?.url ||
@@ -112,7 +117,19 @@ const requestWanTask = async (
 export const submitWanImageTask = async (
   prompt: string,
   config: MultimodalConfig,
-  options?: { aspectRatio?: string; inputImageUrl?: string; inputImages?: string[] }
+  options?: {
+    aspectRatio?: string;
+    inputImageUrl?: string;
+    inputImages?: string[];
+    negativePrompt?: string;
+    enableInterleave?: boolean;
+    outputCount?: number;
+    maxImages?: number;
+    seed?: number;
+    promptExtend?: boolean;
+    watermark?: boolean;
+    size?: string;
+  }
 ): Promise<WanTaskSubmissionResult> => {
   const apiKey = resolveQwenApiKey();
   if (!apiKey) {
@@ -124,14 +141,30 @@ export const submitWanImageTask = async (
 
   const endpoint = config.baseUrl || QWEN_WAN_IMAGE_ENDPOINT;
   const images = options?.inputImages || (options?.inputImageUrl ? [options.inputImageUrl] : []);
+  const hasImages = images.length > 0;
+  const enableInterleave =
+    typeof options?.enableInterleave === "boolean" ? options.enableInterleave : !hasImages;
+  let finalImages = images.slice();
+  if (enableInterleave && finalImages.length > 1) {
+    finalImages = finalImages.slice(0, 1);
+  }
+  if (!enableInterleave) {
+    if (finalImages.length === 0) {
+      throw new Error("Wan 图像编辑模式需要至少 1 张参考图。");
+    }
+    if (finalImages.length > 4) {
+      finalImages = finalImages.slice(0, 4);
+    }
+  }
   const content: Array<{ text?: string; image?: string }> = [];
   if (prompt) {
     content.push({ text: prompt });
   }
-  images.forEach((image) => {
+  finalImages.forEach((image) => {
     if (image) content.push({ image });
   });
 
+  const outputCount = Math.max(1, Math.min(4, options?.outputCount ?? 1));
   const payload: Record<string, any> = {
     model: config.model,
     input: {
@@ -143,11 +176,14 @@ export const submitWanImageTask = async (
       ],
     },
     parameters: {
-      prompt_extend: true,
-      watermark: false,
-      n: 1,
-      enable_interleave: false,
-      size: resolveSize(options?.aspectRatio),
+      prompt_extend: options?.promptExtend ?? true,
+      watermark: options?.watermark ?? false,
+      n: outputCount,
+      enable_interleave: enableInterleave,
+      size: options?.size || resolveSize(options?.aspectRatio),
+      ...(options?.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
+      ...(options?.maxImages ? { max_images: options.maxImages } : {}),
+      ...(Number.isFinite(options?.seed) ? { seed: options?.seed } : {}),
     },
   };
 

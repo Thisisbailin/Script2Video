@@ -458,6 +458,10 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         error: null,
         aspectRatio: "1:1",
         model: "wan2.6-image",
+        enableInterleave: false,
+        promptExtend: true,
+        watermark: false,
+        outputCount: 1,
       } as ImageGenNodeData;
     case "llmGenerate":
       return {

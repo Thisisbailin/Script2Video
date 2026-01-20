@@ -9,6 +9,7 @@ import * as WanService from "../../services/wanService";
 import { QWEN_WAN_IMAGE_ENDPOINT, QWEN_WAN_IMAGE_MODEL, QWEN_WAN_VIDEO_ENDPOINT, QWEN_WAN_VIDEO_MODEL } from "../../constants";
 import { useCallback } from "react";
 import { Character, CharacterForm } from "../../types";
+import { buildApiUrl } from "../../utils/api";
 
 const parseAtMentions = (text: string): string[] => {
   const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
@@ -21,6 +22,74 @@ const parseAtMentions = (text: string): string[] => {
 };
 
 const escapeRegex = (str: string) => str.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+const uploadReferenceImage = async (source: string, options?: { bucket?: string; prefix?: string }) => {
+  const response = await fetch(source);
+  const blob = await response.blob();
+  const contentType = blob.type || "image/png";
+  const ext = contentType.split("/")[1] || "png";
+  const fileName = `${options?.prefix || "wan-inputs/"}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const bucket = options?.bucket || "assets";
+
+  const signedRes = await fetch(buildApiUrl("/api/upload-url"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName, bucket, contentType }),
+  });
+  if (!signedRes.ok) {
+    const err = await signedRes.text();
+    throw new Error(`Reference upload URL error (${signedRes.status}): ${err}`);
+  }
+  const signedData = await signedRes.json();
+  if (!signedData?.signedUrl) {
+    throw new Error("Reference upload failed: missing signedUrl.");
+  }
+
+  const uploadRes = await fetch(signedData.signedUrl, {
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    body: blob,
+  });
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`Reference upload failed (${uploadRes.status}): ${err}`);
+  }
+
+  if (signedData.publicUrl) return signedData.publicUrl as string;
+  if (signedData.path) {
+    const downloadRes = await fetch(buildApiUrl("/api/download-url"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: signedData.path, bucket: signedData.bucket || bucket }),
+    });
+    if (!downloadRes.ok) {
+      const err = await downloadRes.text();
+      throw new Error(`Reference download URL error (${downloadRes.status}): ${err}`);
+    }
+    const downloadData = await downloadRes.json();
+    if (downloadData?.signedUrl) return downloadData.signedUrl as string;
+  }
+
+  throw new Error("Reference upload failed: no accessible URL returned.");
+};
+
+const normalizeWanImages = async (sources: string[]) => {
+  const results: string[] = [];
+  for (const src of sources) {
+    if (!src) continue;
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      results.push(src);
+      continue;
+    }
+    if (src.startsWith("data:") || src.startsWith("blob:")) {
+      const uploaded = await uploadReferenceImage(src, { bucket: "assets", prefix: "wan-inputs/" });
+      results.push(uploaded);
+      continue;
+    }
+    results.push(src);
+  }
+  return results;
+};
 
 export const useLabExecutor = () => {
   const store = useWorkflowStore();
@@ -217,11 +286,22 @@ export const useLabExecutor = () => {
       }
 
       if (configToUse.provider === 'wan') {
-        const refImage = images.find((src) => src.startsWith("http")) || undefined;
+        if (!text) {
+          store.updateNodeData(nodeId, { status: "error", error: "Wan 图片需要提示词。" });
+          return;
+        }
+        const normalizedImages = await normalizeWanImages(images);
         const { id, url } = await WanService.submitWanImageTask(text || "Generate an image", configToUse, {
           aspectRatio,
-          inputImageUrl: refImage,
-          inputImages: images,
+          inputImages: normalizedImages,
+          enableInterleave: data.enableInterleave,
+          negativePrompt: data.negativePrompt,
+          outputCount: data.outputCount,
+          maxImages: data.maxImages,
+          seed: data.seed,
+          promptExtend: data.promptExtend,
+          watermark: data.watermark,
+          size: data.size,
         });
 
         if (url) {
@@ -532,12 +612,18 @@ export const useLabExecutor = () => {
       return;
     }
 
+    if ((isWanVideo || isWanVideoNode) && images.length === 0) {
+      store.updateNodeData(nodeId, { status: "error", error: "Wan 视频需要至少一张参考图。" });
+      return;
+    }
+
     store.updateNodeData(nodeId, { status: "loading", error: null });
 
     try {
+      const normalizedImages = (isWanVideo || isWanVideoNode) ? await normalizeWanImages(images) : images;
       const refImage =
-        images.find((src) => src.startsWith("http")) ||
-        ((isWanVideo || isWanVideoNode) ? images[0] : undefined);
+        normalizedImages.find((src) => src.startsWith("http")) ||
+        ((isWanVideo || isWanVideoNode) ? normalizedImages[0] : undefined);
       const params: any = {
         aspectRatio: data.aspectRatio || "16:9",
         duration: data.duration || "5s",

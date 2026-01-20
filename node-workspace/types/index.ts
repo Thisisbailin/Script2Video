@@ -113,6 +113,14 @@ export interface ImageGenNodeData extends BaseNodeData {
   model?: string;
   aspectRatio: string;
   quality?: string;
+  negativePrompt?: string;
+  enableInterleave?: boolean;
+  outputCount?: number;
+  maxImages?: number;
+  seed?: number;
+  promptExtend?: boolean;
+  watermark?: boolean;
+  size?: string;
   designCategory?: "form" | "zone";
   designRefId?: string;
   formTag?: string;
