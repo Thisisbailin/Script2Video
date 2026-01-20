@@ -129,15 +129,37 @@ const assertApiKey = (config: DeyunAIConfig) => {
 
 const extractTextFromChunk = (json: any): string => {
   const choice = json?.choices?.[0];
-  if (!choice) return "";
-  const delta = choice.delta || choice.message;
-  const content = delta?.content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((part: any) => part?.text || part?.content || "")
-      .join("");
+  if (choice) {
+    const delta = choice.delta || choice.message;
+    const content = delta?.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      const value = content
+        .map((part: any) => part?.text || part?.content || "")
+        .join("");
+      if (value) return value;
+    }
   }
+
+  const output = json?.output;
+  if (Array.isArray(output)) {
+    const value = output
+      .map((item: any) => {
+        if (typeof item?.text === "string") return item.text;
+        if (typeof item?.delta === "string") return item.delta;
+        if (typeof item?.output_text === "string") return item.output_text;
+        if (typeof item?.output_text?.text === "string") return item.output_text.text;
+        if (Array.isArray(item?.content)) {
+          return item.content.map((part: any) => part?.text || part?.content || "").join("");
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("");
+    if (value) return value;
+  }
+  if (typeof json?.delta === "string") return json.delta;
+  if (typeof json?.text === "string") return json.text;
   return "";
 };
 

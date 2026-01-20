@@ -36,6 +36,7 @@ type ChatMessage = {
     thinkingStatus?: "active" | "done";
     searchEnabled?: boolean;
     searchUsed?: boolean;
+    searchQueries?: string[];
   };
 };
 type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; tool: ToolPayload };
@@ -197,6 +198,37 @@ const parsePlanFromText = (text: string) => {
   };
 };
 
+const extractReasoningSection = (text: string) => {
+  const lines = (text || "").split("\n");
+  let start = -1;
+  let end = -1;
+  const headingRegex = /^\s*(?:#{1,4}\s*)?(思考过程|思考|Reasoning|Thoughts)\s*[:：]?\s*$/i;
+  const boldHeadingRegex = /^\s*\*\*(思考过程|思考|Reasoning|Thoughts)\*\*\s*[:：]?\s*$/i;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (headingRegex.test(lines[i]) || boldHeadingRegex.test(lines[i])) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) {
+    return { text: (text || "").trim(), reasoning: undefined };
+  }
+
+  end = start + 1;
+  while (end < lines.length) {
+    const line = lines[end];
+    if (!line.trim()) break;
+    if (line.match(/^(#{1,4})\s+/)) break;
+    if (line.match(/^\s*\*\*(.+)\*\*\s*$/)) break;
+    end += 1;
+  }
+
+  const reasoning = lines.slice(start + 1, end).join("\n").trim();
+  const cleaned = [...lines.slice(0, start), ...lines.slice(end)].join("\n").trim();
+  return { text: cleaned, reasoning: reasoning || undefined };
+};
+
 const extractReasoningSummary = (raw: any) => {
   const output = raw?.output;
   if (!Array.isArray(output)) return undefined;
@@ -219,6 +251,20 @@ const extractSearchUsage = (raw: any) => {
     const type = typeof item?.type === "string" ? item.type : "";
     return type.includes("web_search");
   });
+};
+
+const extractSearchQueries = (raw: any) => {
+  const output = raw?.output;
+  if (!Array.isArray(output)) return [];
+  const queries: string[] = [];
+  output.forEach((item: any) => {
+    if (!item || typeof item !== "object") return;
+    const type = typeof item.type === "string" ? item.type : "";
+    if (!type.includes("web_search")) return;
+    const query = item.query || item.input || item.q;
+    if (typeof query === "string" && query.trim()) queries.push(query.trim());
+  });
+  return Array.from(new Set(queries));
 };
 
 const renderInlineMarkdown = (text: string) => {
@@ -358,6 +404,88 @@ const renderMarkdownLite = (text: string) => {
         </blockquote>
       );
       continue;
+    }
+
+    const taskMatch = line.match(/^\s*[-*•]\s+\[(\s|x|X)\]\s+(.+)$/);
+    if (taskMatch) {
+      const tasks: Array<{ text: string; checked: boolean }> = [];
+      while (i < lines.length) {
+        const current = lines[i];
+        const match = current.match(/^\s*[-*•]\s+\[(\s|x|X)\]\s+(.+)$/);
+        if (!match) break;
+        tasks.push({ text: match[2].trim(), checked: match[1].toLowerCase() === "x" });
+        i += 1;
+      }
+      blocks.push(
+        <ul key={`t-${i}`} className="space-y-1">
+          {tasks.map((task, idx) => (
+            <li key={`${idx}-${task.text.slice(0, 8)}`} className="flex items-start gap-2 text-[12px]">
+              <span
+                className={`mt-0.5 h-3.5 w-3.5 rounded border ${
+                  task.checked ? "bg-emerald-500/70 border-emerald-400" : "border-[var(--app-border)]"
+                }`}
+              />
+              <span
+                className={`text-[var(--app-text-primary)] ${task.checked ? "line-through opacity-70" : ""}`}
+              >
+                {renderInlineMarkdown(task.text)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    if (line.includes("|") && i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      const separatorMatch = nextLine.match(/^\s*\|?\s*[-:]+(\s*\|\s*[-:]+)+\s*\|?\s*$/);
+      if (separatorMatch) {
+        const parseRow = (row: string) =>
+          row
+            .trim()
+            .replace(/^\|/, "")
+            .replace(/\|$/, "")
+            .split("|")
+            .map((cell) => cell.trim());
+        const headers = parseRow(line);
+        i += 2;
+        const rows: string[][] = [];
+        while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+          rows.push(parseRow(lines[i]));
+          i += 1;
+        }
+        blocks.push(
+          <div key={`tbl-${i}`} className="overflow-x-auto">
+            <table className="min-w-full text-[12px] border-collapse">
+              <thead>
+                <tr>
+                  {headers.map((h, idx) => (
+                    <th
+                      key={`${idx}-${h}`}
+                      className="text-left font-semibold text-[var(--app-text-primary)] border-b border-[var(--app-border)] pb-1 pr-4"
+                    >
+                      {renderInlineMarkdown(h)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rIdx) => (
+                  <tr key={`r-${rIdx}`}>
+                    {row.map((cell, cIdx) => (
+                      <td key={`${rIdx}-${cIdx}`} className="py-1 pr-4 text-[var(--app-text-secondary)]">
+                        {renderInlineMarkdown(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
     }
 
     const listMatch = line.match(/^\s*(?:[-*•]|\d+\.|\d+、)\s+/);
@@ -848,6 +976,11 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const isDeyunaiProvider = config.textConfig.provider === "deyunai";
+  const searchEnabledInUi = useMemo(
+    () => Array.isArray(config.textConfig.tools) && config.textConfig.tools.some((tool: any) => tool?.type === "web_search_preview"),
+    [config.textConfig.tools]
+  );
 
   const updateToolStatus = (callId: string, status: ToolStatus, summary?: string) => {
     setMessages((prev) =>
@@ -894,6 +1027,18 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     if (typeof window !== "undefined") {
       setViewportWidth(window.innerWidth);
     }
+  };
+
+  const toggleSearch = () => {
+    if (!isDeyunaiProvider) return;
+    setConfig((prev) => {
+      const tools = Array.isArray(prev.textConfig.tools) ? [...prev.textConfig.tools] : [];
+      const hasSearch = tools.some((tool: any) => tool?.type === "web_search_preview");
+      const nextTools = hasSearch
+        ? tools.filter((tool: any) => tool?.type !== "web_search_preview")
+        : [...tools, { type: "web_search_preview" }];
+      return { ...prev, textConfig: { ...prev.textConfig, tools: nextTools } };
+    });
   };
 
   useEffect(() => {
@@ -991,6 +1136,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
         let reasoningSummary = "";
         let searchUsed = false;
+        let searchQueries: string[] = [];
         const { text, toolCalls, raw } = await DeyunAIService.createReasoningResponse(
           prompt,
           { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
@@ -1013,6 +1159,16 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                 });
                 const summary = extractReasoningSummary(rawDelta);
                 const usedSearch = extractSearchUsage(rawDelta);
+                const queries = extractSearchQueries(rawDelta);
+                if (queries.length) {
+                  searchQueries = Array.from(new Set([...searchQueries, ...queries]));
+                  setMessages((prev) =>
+                    prev.map((m, idx) => {
+                      if (idx !== assistantIndex || isToolMessage(m)) return m;
+                      return { ...m, meta: { ...m.meta, searchQueries, searchEnabled } };
+                    })
+                  );
+                }
                 if (usedSearch && !searchUsed) {
                   searchUsed = true;
                   setMessages((prev) =>
@@ -1035,6 +1191,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                           thinkingStatus: "active",
                           searchEnabled,
                           searchUsed,
+                          searchQueries,
                         },
                       };
                     })
@@ -1046,10 +1203,18 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
         const summaryFromRaw = extractReasoningSummary(raw);
         const usedSearchFromRaw = extractSearchUsage(raw);
+        const queriesFromRaw = extractSearchQueries(raw);
+        if (queriesFromRaw.length) {
+          searchQueries = Array.from(new Set([...searchQueries, ...queriesFromRaw]));
+        }
         if (usedSearchFromRaw) searchUsed = true;
         if (summaryFromRaw) reasoningSummary = summaryFromRaw;
 
-        const parsed = parsePlanFromText(text || "");
+        const extractedReasoning = extractReasoningSection(text || "");
+        if (!reasoningSummary && extractedReasoning.reasoning) {
+          reasoningSummary = extractedReasoning.reasoning;
+        }
+        const parsed = parsePlanFromText(extractedReasoning.text || "");
         if (useStream && assistantIndex !== -1) {
           setMessages((prev) =>
             prev.map((m, idx) => {
@@ -1060,10 +1225,12 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                 meta: {
                   ...m.meta,
                   planItems: parsed.planItems,
-                  reasoningSummary: reasoningSummary || (m.meta?.reasoningSummary ? "已完成思考" : undefined),
+                  reasoningSummary:
+                    reasoningSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
                   thinkingStatus: "done",
                   searchEnabled,
                   searchUsed,
+                  searchQueries,
                 },
               };
             })
@@ -1081,6 +1248,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                 thinkingStatus: "done",
                 searchEnabled,
                 searchUsed,
+                searchQueries,
               },
             },
           ]);
@@ -1181,7 +1349,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         console.log("[Agent] Raw response", res);
       } catch {}
       if (useStream && assistantIndex !== -1) {
-        const parsed = parsePlanFromText(res.outputText || "");
+        const extracted = extractReasoningSection(res.outputText || "");
+        const parsed = parsePlanFromText(extracted.text || "");
         setMessages((prev) =>
           prev.map((m, idx) => {
             if (idx !== assistantIndex || isToolMessage(m)) return m;
@@ -1189,7 +1358,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           })
         );
       } else {
-        const parsed = parsePlanFromText(res.outputText || "");
+        const extracted = extractReasoningSection(res.outputText || "");
+        const parsed = parsePlanFromText(extracted.text || "");
         setMessages((prev) => [
           ...prev,
           { role: "assistant", text: parsed.text || "", kind: "chat", meta: { planItems: parsed.planItems } },
@@ -1276,8 +1446,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     const thinkingStatus = message.meta?.thinkingStatus;
     const searchEnabled = message.meta?.searchEnabled;
     const searchUsed = message.meta?.searchUsed;
+    const searchQueries = message.meta?.searchQueries || [];
     return (
-      <div className="max-w-[92%] w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-3 space-y-3">
+      <div className="w-full space-y-3">
         {(thinkingStatus || searchEnabled || searchUsed) && (
           <div className="flex flex-wrap items-center gap-2">
             {thinkingStatus && (
@@ -1295,11 +1466,27 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           </div>
         )}
         {reasoningSummary ? (
-          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">思考摘要</div>
-            <div className="text-[12px] leading-relaxed text-[var(--app-text-primary)]">{reasoningSummary}</div>
-          </div>
+          <details className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2">
+            <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+              思考过程（摘要）
+            </summary>
+            <div className="mt-2 text-[12px] leading-relaxed text-[var(--app-text-primary)] whitespace-pre-wrap">
+              {reasoningSummary}
+            </div>
+          </details>
         ) : null}
+        {searchQueries.length > 0 && (
+          <details className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
+            <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+              搜索记录
+            </summary>
+            <ul className="mt-2 text-[12px] space-y-1 text-[var(--app-text-secondary)] list-disc pl-4">
+              {searchQueries.map((q, idx) => (
+                <li key={`${idx}-${q.slice(0, 8)}`}>{q}</li>
+              ))}
+            </ul>
+          </details>
+        )}
         {planItems.length > 0 ? (
           <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
             <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">Plan</div>
@@ -1469,17 +1656,21 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((m, idx) => {
           const isUser = m.role === "user";
+          const isAssistantPanel = !isUser && !isToolMessage(m);
           return (
-            <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-            {isToolMessage(m) ? (
-              renderToolCard(m)
-            ) : isUser ? (
-              <div className="max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]">
-                {m.text}
-              </div>
-            ) : (
-              renderAssistantPanel(m)
-            )}
+            <div
+              key={idx}
+              className={`flex ${isUser ? "justify-end" : "justify-start"} ${isAssistantPanel ? "w-full" : ""}`}
+            >
+              {isToolMessage(m) ? (
+                renderToolCard(m)
+              ) : isUser ? (
+                <div className="max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]">
+                  {m.text}
+                </div>
+              ) : (
+                renderAssistantPanel(m)
+              )}
             </div>
           );
         })}
@@ -1568,6 +1759,21 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                 <option value="fun">humor</option>
               </select>
             </div>
+            {isDeyunaiProvider && (
+              <button
+                type="button"
+                onClick={toggleSearch}
+                className={`h-8 px-3 rounded-full border text-[11px] flex items-center gap-2 transition ${
+                  searchEnabledInUi
+                    ? "border-sky-400/60 text-sky-200 bg-sky-400/10"
+                    : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                }`}
+                title={searchEnabledInUi ? "关闭搜索" : "开启搜索"}
+              >
+                <Globe size={12} />
+                搜索
+              </button>
+            )}
             <div className="flex-1" />
             <button
               onClick={sendMessage}
