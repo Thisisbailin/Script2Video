@@ -1155,6 +1155,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentUrlsRef = useRef<string[]>([]);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const [layoutMode, setLayoutMode] = useState<"floating" | "split">("floating");
   const [splitWidth, setSplitWidth] = useState(560);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1807,6 +1809,14 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     };
   }, []);
 
+  useEffect(() => {
+    if (!messagesRef.current) return;
+    const node = messagesRef.current;
+    requestAnimationFrame(() => {
+      node.scrollTop = node.scrollHeight;
+    });
+  }, [messages, isSending]);
+
   if (collapsed) {
     return (
       <button
@@ -1878,7 +1888,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((m, idx) => {
           const isUser = m.role === "user";
           const isAssistantPanel = !isUser && !isToolMessage(m);
@@ -1899,6 +1909,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             </div>
           );
         })}
+        <div ref={bottomRef} />
       </div>
 
       <div className="px-4 py-4 space-y-3">
