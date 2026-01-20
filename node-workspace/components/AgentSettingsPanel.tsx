@@ -126,6 +126,7 @@ const formatEpochDate = (value?: number) => {
 
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
+  const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
   const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
   const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
@@ -394,21 +395,19 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
             <div className="space-y-4">
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-widest app-text-muted">Provider</div>
+                <div className="text-[11px] uppercase tracking-widest app-text-muted">Type</div>
                 <div className="flex flex-col gap-2">
                   {[
-                    { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
-                    { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
-                    { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
-                    { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
-                    { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
+                    { key: "chat", label: "Chat", Icon: Sparkles },
+                    { key: "multi", label: "Multi", Icon: Eye },
+                    { key: "video", label: "Video", Icon: Video },
                   ].map(({ key, label, Icon }) => {
-                    const active = config.textConfig.provider === key;
+                    const active = activeType === key;
                     return (
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setProvider(key)}
+                        onClick={() => setActiveType(key)}
                         className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
                           active
                             ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
@@ -458,8 +457,40 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
 
             <div className="space-y-4">
+              {activeType === "chat" && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Chat Providers</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
+                      { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
+                      { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
+                      { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
+                      { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
+                    ].map(({ key, label, Icon }) => {
+                      const active = config.textConfig.provider === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setProvider(key)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
+                            active
+                              ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                              : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                          }`}
+                        >
+                          <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                          {label}
+                          {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-          {config.textConfig.provider === "gemini" && (
+          {activeType === "chat" && config.textConfig.provider === "gemini" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div>
                 <label className="block text-xs text-[var(--app-text-secondary)] mb-2">Gemini Model</label>
@@ -481,7 +512,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {config.textConfig.provider === "openrouter" && (
+          {activeType === "chat" && config.textConfig.provider === "openrouter" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div>
                 <div className="text-xs text-[var(--app-text-secondary)] mb-1">API Endpoint</div>
@@ -533,7 +564,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {config.textConfig.provider === "qwen" && (
+          {activeType === "chat" && config.textConfig.provider === "qwen" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
@@ -675,7 +706,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {config.textConfig.provider === "partner" && (
+          {activeType === "chat" && config.textConfig.provider === "partner" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
               <div className="text-sm font-semibold text-[var(--app-text-primary)]">合作专线</div>
               <div className="text-[11px] text-[var(--app-text-secondary)]">使用平台预置密钥与专属网关，无需配置。</div>
@@ -683,7 +714,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {config.textConfig.provider === "deyunai" && (
+          {activeType === "chat" && config.textConfig.provider === "deyunai" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <label className="text-xs text-[var(--app-text-secondary)]">模型</label>
@@ -780,6 +811,15 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
               <div className="text-[11px] text-[var(--app-text-muted)]">
                 使用环境变量 DEYUNAI_API_KEY / VITE_DEYUNAI_API_KEY。
+              </div>
+            </div>
+          )}
+
+          {activeType !== "chat" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
+              <div className="text-sm font-semibold text-[var(--app-text-primary)]">即将上线</div>
+              <div className="text-[11px] text-[var(--app-text-secondary)]">
+                {activeType === "multi" ? "Multimodal 路线正在规划中。" : "Video 路线正在规划中。"}
               </div>
             </div>
           )}
