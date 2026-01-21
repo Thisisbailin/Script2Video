@@ -1,4 +1,4 @@
-import type { DeyunAITool } from "../../services/deyunaiService";
+import type { DeyunAITool } from "../../../services/deyunaiService";
 
 export const TOOL_DEFS: DeyunAITool[] = [
   {
