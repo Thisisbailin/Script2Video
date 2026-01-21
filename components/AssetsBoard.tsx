@@ -1,6 +1,6 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { DesignAssetItem, ProjectData } from '../types';
+import { DesignAssetItem, ProjectData, Scene } from '../types';
 import { createStableId } from '../utils/id';
 import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
 import { useWorkflowStore, GlobalAssetHistoryItem } from '../node-workspace/store/workflowStore';
@@ -15,6 +15,17 @@ interface Props {
   ) => void;
 }
 
+type SceneLibraryEntry = {
+  id: string;
+  title: string;
+  partition?: string;
+  timeOfDay?: string;
+  location?: string;
+  metadata?: Scene['metadata'];
+  count: number;
+  episodes: number[];
+};
+
 export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad }) => {
   // Input Refs
   const scriptInputRef = useRef<HTMLInputElement>(null);
@@ -27,6 +38,7 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
   const designUploadInputRef = useRef<HTMLInputElement>(null);
   const [showAllCharacters, setShowAllCharacters] = useState(false);
   const [expandedCharacterForms, setExpandedCharacterForms] = useState<Record<string, boolean>>({});
+  const [showAllScenes, setShowAllScenes] = useState(false);
   const [designUploadTarget, setDesignUploadTarget] = useState<{
     refId: string;
     category: 'form' | 'zone';
@@ -52,6 +64,65 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
     });
     return map;
   }, [designAssets]);
+
+  const characterLibrary = useMemo(() => {
+    const items = data.context.characters || [];
+    return [...items].sort((a, b) => {
+      const countDiff = (b.appearanceCount || 0) - (a.appearanceCount || 0);
+      if (countDiff !== 0) return countDiff;
+      return (b.name || "").localeCompare(a.name || "");
+    });
+  }, [data.context.characters]);
+
+  const totalCharacterAppearances = useMemo(
+    () => characterLibrary.reduce((sum, c) => sum + (c.appearanceCount || 0), 0),
+    [characterLibrary]
+  );
+
+  const sceneLibrary = useMemo(() => {
+    const map = new Map<string, SceneLibraryEntry>();
+    data.episodes.forEach((episode) => {
+      (episode.scenes || []).forEach((scene) => {
+        if (!scene) return;
+        const key = scene.id || `${episode.id}-${scene.title}`;
+        const existing = map.get(key);
+        if (!existing) {
+          map.set(key, {
+            id: scene.id || `${episode.id}-scene`,
+            title: scene.title || scene.metadata?.rawTitle || "未命名场景",
+            partition: scene.partition,
+            timeOfDay: scene.timeOfDay,
+            location: scene.location,
+            metadata: scene.metadata,
+            count: 1,
+            episodes: [episode.id],
+          });
+        } else {
+          existing.count += 1;
+          if (!existing.episodes.includes(episode.id)) existing.episodes.push(episode.id);
+          existing.partition = existing.partition || scene.partition;
+          existing.timeOfDay = existing.timeOfDay || scene.timeOfDay;
+          existing.location = existing.location || scene.location;
+          if (!existing.metadata && scene.metadata) existing.metadata = scene.metadata;
+        }
+      });
+    });
+    return Array.from(map.values())
+      .map((entry) => ({ ...entry, episodes: [...new Set(entry.episodes)].sort((a, b) => a - b) }))
+      .sort((a, b) => {
+        const countDiff = b.count - a.count;
+        if (countDiff !== 0) return countDiff;
+        return a.id.localeCompare(b.id);
+      });
+  }, [data.episodes]);
+
+  const totalSceneAppearances = useMemo(
+    () => sceneLibrary.reduce((sum, entry) => sum + entry.count, 0),
+    [sceneLibrary]
+  );
+
+  const charactersToShow = showAllCharacters ? characterLibrary : characterLibrary.slice(0, 4);
+  const scenesToShow = showAllScenes ? sceneLibrary : sceneLibrary.slice(0, 4);
   const updateCharacters = (updater: (items: ProjectData["context"]["characters"]) => ProjectData["context"]["characters"]) => {
     setProjectData((prev) => ({
       ...prev,
@@ -781,6 +852,125 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
               onUpload={() => understandingInputRef.current?.click()}
               colorClass="text-amber-400"
             />
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+              <Sparkles size={16} /> 剧本资产库
+            </div>
+            <div className="text-xs text-[var(--text-secondary)]">自动解析角色 · 场景</div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/40 shadow-[var(--shadow-soft)]/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[var(--text-primary)] font-semibold">
+                  <Users size={16} className="text-emerald-300" />
+                  角色库
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  {characterLibrary.length} 人 · {totalCharacterAppearances || 0} 次出现
+                </div>
+              </div>
+              {characterLibrary.length ? (
+                <ul className="space-y-3 text-sm text-[var(--text-secondary)]">
+                  {charactersToShow.map((char) => (
+                    <li key={char.id} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/60 p-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[var(--text-primary)] font-semibold">{char.name || "未命名角色"}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+                          {char.appearanceCount ?? 1} 次出现
+                        </span>
+                        {char.assetPriority && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+                            {char.assetPriority}
+                          </span>
+                        )}
+                        {char.episodeUsage && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">
+                            {char.episodeUsage}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
+                        <span>{(char.forms?.length || 0)} 形态</span>
+                        <span>{char.role || "角色未设定"}</span>
+                      </div>
+                      {char.bio ? (
+                        <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">{char.bio}</p>
+                      ) : (
+                        <p className="text-[12px] text-[var(--text-secondary)]">暂无概述</p>
+                      )}
+                    </li>
+                  ))}
+                  {characterLibrary.length > 4 && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCharacters((prev) => !prev)}
+                        className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        {showAllCharacters ? "收起角色库" : `展开完整角色库 · ${characterLibrary.length} 人`}
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-sm text-[var(--text-secondary)]">尚未解析角色，上传剧本后自动生成。</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/40 shadow-[var(--shadow-soft)]/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[var(--text-primary)] font-semibold">
+                  <MapPin size={16} className="text-cyan-300" />
+                  场景库
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  {sceneLibrary.length} 个场景 · {totalSceneAppearances || 0} 次出现
+                </div>
+              </div>
+              {sceneLibrary.length ? (
+                <ul className="space-y-3 text-sm text-[var(--text-secondary)]">
+                  {scenesToShow.map((scene) => (
+                    <li key={`${scene.id}-${scene.title}`} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/60 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[var(--text-primary)] font-semibold max-w-[70%] truncate">{scene.title || "未命名场景"}</span>
+                        <span className="text-[11px] text-[var(--text-secondary)]">出现 {scene.count} 次</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
+                        <span>编号 {scene.id}</span>
+                        {scene.partition && <span>分区 {scene.partition}</span>}
+                        {scene.timeOfDay && <span>时间 {scene.timeOfDay}</span>}
+                        {scene.location && <span>位置 {scene.location}</span>}
+                      </div>
+                      <div className="text-[11px] text-[var(--text-secondary)]">
+                        关联集：{scene.episodes.join("，")}
+                      </div>
+                      {scene.metadata?.rawTitle && (
+                        <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">
+                          原始标题：{scene.metadata.rawTitle}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                  {sceneLibrary.length > 4 && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllScenes((prev) => !prev)}
+                        className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        {showAllScenes ? "收起场景库" : `展开完整场景库 · ${sceneLibrary.length} 条`}
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-sm text-[var(--text-secondary)]">尚未解析场景，上传剧本后自动生成。</p>
+              )}
+            </div>
           </div>
         </section>
 
