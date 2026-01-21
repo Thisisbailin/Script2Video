@@ -10,7 +10,8 @@ import {
   Character,
   CharacterForm,
   Location,
-  LocationZone
+  LocationZone,
+  SceneMetadata,
 } from "../types";
 import { ensureStableId } from "./id";
 
@@ -26,6 +27,113 @@ const normalizeNewlines = (text: string) =>
   text
     .replace(/\r(?!\n)/g, "\n")
     .replace(/[\u2028\u2029]/g, "\n");
+
+const sanitizeSceneToken = (value: string) => {
+  return value
+    .trim()
+    .replace(/^[^A-Za-z0-9\u4e00-\u9fff]+|[^A-Za-z0-9\u4e00-\u9fff]+$/g, "")
+    .trim();
+};
+
+const SCENE_TIME_MAP: Record<string, string> = {
+  日: "日",
+  夜: "夜",
+  白天: "白天",
+  夜晚: "夜晚",
+  day: "day",
+  night: "night",
+  daytime: "day",
+  nighttime: "night",
+  dawn: "dawn",
+  dusk: "dusk",
+  morning: "morning",
+  evening: "evening",
+  am: "AM",
+  pm: "PM",
+};
+
+const SCENE_LOCATION_MAP: Record<string, string> = {
+  内: "内",
+  外: "外",
+  内景: "内景",
+  外景: "外景",
+  室内: "内",
+  室外: "外",
+  interior: "interior",
+  exterior: "exterior",
+  "interior-space": "interior",
+  "exterior-space": "exterior",
+};
+
+const matchTimeToken = (token: string): string | undefined => {
+  const raw = sanitizeSceneToken(token);
+  if (!raw) return undefined;
+  const lower = raw.toLowerCase();
+  return SCENE_TIME_MAP[raw] || SCENE_TIME_MAP[lower];
+};
+
+const matchLocationToken = (token: string): string | undefined => {
+  const raw = sanitizeSceneToken(token);
+  if (!raw) return undefined;
+  const lower = raw.toLowerCase();
+  return SCENE_LOCATION_MAP[raw] || SCENE_LOCATION_MAP[lower];
+};
+
+type SceneHeader = {
+  name: string;
+  partition?: string;
+  timeOfDay?: string;
+  location?: string;
+  metadata: SceneMetadata;
+};
+
+const parseSceneHeader = (rawTitle: string): SceneHeader => {
+  const normalized = rawTitle
+    .replace(/[\u3000]/g, " ")
+    .replace(/[·•・]/g, " ")
+    .replace(/[\s]+/g, " ")
+    .trim();
+  const originalTokens = normalized.split(/\s+/).filter(Boolean);
+  const tokens = [...originalTokens];
+
+  let location: string | undefined;
+  if (tokens.length) {
+    const candidate = tokens[tokens.length - 1];
+    const matched = matchLocationToken(candidate);
+    if (matched) {
+      location = matched;
+      tokens.pop();
+    }
+  }
+
+  let timeOfDay: string | undefined;
+  if (tokens.length) {
+    const candidate = tokens[tokens.length - 1];
+    const matched = matchTimeToken(candidate);
+    if (matched) {
+      timeOfDay = matched;
+      tokens.pop();
+    }
+  }
+
+  let partition: string | undefined;
+  if (tokens.length > 1) {
+    partition = tokens.pop();
+  }
+
+  const name = tokens.join(" ").trim() || partition || normalized;
+
+  return {
+    name,
+    partition,
+    timeOfDay,
+    location,
+    metadata: {
+      rawTitle: rawTitle.trim(),
+      tokens: originalTokens,
+    },
+  };
+};
 
 const parseScenes = (episodeContent: string): Scene[] => {
   const lines = episodeContent.split(/\r?\n/);
@@ -49,10 +157,15 @@ const parseScenes = (episodeContent: string): Scene[] => {
       buffer = [];
       const sceneId = `${normalizeDigits(match[1])}-${normalizeDigits(match[2])}`; // e.g. 16-1
       const sceneTitle = match[3].trim();
+      const parsedTitle = parseSceneHeader(sceneTitle);
       
       currentScene = {
         id: sceneId,
-        title: sceneTitle,
+        title: parsedTitle.name,
+        partition: parsedTitle.partition,
+        timeOfDay: parsedTitle.timeOfDay,
+        location: parsedTitle.location,
+        metadata: parsedTitle.metadata,
         content: ''
       };
       // Do not include the header line in content buffer to avoid duplication

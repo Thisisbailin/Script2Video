@@ -58,10 +58,19 @@ export interface Shot {
   isApproved?: boolean; // User marked as satisfied
 }
 
+export interface SceneMetadata {
+  rawTitle: string;
+  tokens: string[];
+}
+
 export interface Scene {
   id: string; // e.g., "1-1"
   title: string; // e.g., "Inside Cafe - Day"
   content: string;
+  partition?: string;
+  timeOfDay?: string;
+  location?: string;
+  metadata?: SceneMetadata;
 }
 
 export interface Episode {
