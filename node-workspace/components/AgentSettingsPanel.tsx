@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useConfig } from "../../hooks/useConfig";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { TextProvider } from "../../types";
 import {
   AVAILABLE_MODELS,
@@ -35,10 +36,24 @@ import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
 import * as QwenService from "../../services/qwenService";
 import type { QwenModel } from "../../services/qwenService";
+import { createStableId } from "../../utils/id";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
+};
+
+type ConversationRecord = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: Array<{ role?: string; text?: string }>;
+};
+
+type ConversationState = {
+  activeId: string;
+  items: ConversationRecord[];
 };
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -128,6 +143,20 @@ const formatEpochDate = (value?: number) => {
   return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString();
 };
 
+const formatTimestamp = (value?: number) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString();
+};
+
+const buildConversationTitle = (messages: Array<{ role?: string; text?: string }>) => {
+  const firstUser = messages.find((m) => m.role === "user" && m.text && m.text.trim());
+  if (!firstUser?.text) return "新对话";
+  const text = firstUser.text.trim();
+  return text.length > 20 ? `${text.slice(0, 20)}...` : text;
+};
+
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const { applyViduReferenceDemo } = useWorkflowStore();
@@ -148,6 +177,23 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [qwenModelsRaw, setQwenModelsRaw] = useState<string>("");
   const [showQwenRaw, setShowQwenRaw] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [conversationState, setConversationState] = usePersistedState<ConversationState>({
+    key: "script2video_qalam_conversations_v1",
+    initialValue: { activeId: "", items: [] },
+    serialize: (value) => JSON.stringify(value),
+    deserialize: (value) => {
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
+          return {
+            activeId: typeof parsed.activeId === "string" ? parsed.activeId : "",
+            items: parsed.items,
+          } as ConversationState;
+        }
+      } catch {}
+      return { activeId: "", items: [] };
+    },
+  });
 
   const qwenGroups = useMemo(() => {
     const groups = new Map<string, { key: string; label: string; Icon: React.ComponentType<{ size?: number }>; tone: string; items: QwenModel[] }>();
@@ -181,6 +227,13 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       setAvailableDeyunModels([]);
     }
   }, [config.textConfig.deyunModels, config.textConfig.provider]);
+
+  useEffect(() => {
+    if (!conversationState.items.length) return;
+    if (!conversationState.activeId || !conversationState.items.find((item) => item.id === conversationState.activeId)) {
+      setConversationState((prev) => ({ ...prev, activeId: prev.items[0]?.id || "" }));
+    }
+  }, [conversationState.activeId, conversationState.items, setConversationState]);
 
   useEffect(() => {
     if (!config.textConfig.provider) {
@@ -225,6 +278,45 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         ...nextConfig,
         provider: p,
       },
+    });
+  };
+
+  const handleNewConversation = () => {
+    const id = createStableId("chat");
+    const now = Date.now();
+    const next: ConversationRecord = {
+      id,
+      title: "新对话",
+      createdAt: now,
+      updatedAt: now,
+      messages: [],
+    };
+    setConversationState((prev) => ({
+      activeId: id,
+      items: [next, ...prev.items],
+    }));
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setConversationState((prev) => ({ ...prev, activeId: id }));
+  };
+
+  const handleClearConversation = (id: string) => {
+    setConversationState((prev) => {
+      const remaining = prev.items.filter((item) => item.id !== id);
+      const nextActive =
+        prev.activeId === id ? (remaining[0]?.id || "") : prev.activeId;
+      if (!remaining.length) {
+        const created = {
+          id: createStableId("chat"),
+          title: "新对话",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [],
+        };
+        return { activeId: created.id, items: [created] };
+      }
+      return { ...prev, activeId: nextActive, items: remaining };
     });
   };
 
@@ -449,7 +541,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
                 <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
                 <div className="flex flex-wrap gap-2">
-                  {["tool1", "tool2", "tool3"].map((tag) => (
+                  {["tool1", "tool2", "角色/场景写入（upsert_character / upsert_location）"].map((tag) => (
                     <span
                       key={tag}
                       className="px-3 py-1 rounded-full border border-[var(--app-border)] text-[11px] text-[var(--app-text-secondary)]"
@@ -459,6 +551,71 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   ))}
                 </div>
                 <div className="text-[11px] app-text-muted">规划中。</div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] uppercase tracking-widest app-text-muted">History</div>
+                  <button
+                    type="button"
+                    onClick={handleNewConversation}
+                    className="px-2 py-1 rounded-full text-[11px] border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)] transition"
+                  >
+                    新对话
+                  </button>
+                </div>
+                {conversationState.items.length ? (
+                  <div className="space-y-2">
+                    {conversationState.items
+                      .slice()
+                      .sort((a, b) => b.updatedAt - a.updatedAt)
+                      .map((item) => {
+                        const active = item.id === conversationState.activeId;
+                        const title = item.title || buildConversationTitle(item.messages || []);
+                        const preview = (item.messages || [])
+                          .filter((m) => m.role === "user" && m.text)
+                          .slice(-1)[0]?.text;
+                        return (
+                          <div
+                            key={item.id}
+                            className={`rounded-xl border px-3 py-2 text-left transition ${
+                              active
+                                ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)]"
+                                : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSelectConversation(item.id)}
+                                className="text-[12px] font-semibold text-[var(--app-text-primary)] hover:underline"
+                              >
+                                {title || "新对话"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleClearConversation(item.id)}
+                                className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                              >
+                                清除
+                              </button>
+                            </div>
+                            {preview ? (
+                              <div className="mt-1 text-[11px] text-[var(--app-text-secondary)] truncate">
+                                {preview}
+                              </div>
+                            ) : null}
+                            <div className="mt-1 text-[10px] text-[var(--app-text-muted)]">
+                              {formatTimestamp(item.updatedAt || item.createdAt)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="text-[11px] app-text-muted">暂无对话记录。</div>
+                )}
+                <div className="text-[11px] app-text-muted">仅对 Qalam 对话生效。</div>
               </div>
             </div>
 

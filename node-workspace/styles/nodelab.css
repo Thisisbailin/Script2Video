@@ -219,6 +219,22 @@
   width: calc(100% - var(--qalam-split-width, 0px));
 }
 
+:root.qalam-split .qalam-bottom-bar {
+  left: calc(var(--qalam-split-width, 0px) + 16px);
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+:root.qalam-split .qalam-bottom-left {
+  margin-left: auto;
+}
+
+body.qalam-resizing,
+body.qalam-resizing * {
+  user-select: none !important;
+  cursor: col-resize !important;
+}
+
 @keyframes qalam-enter {
   from {
     opacity: 0;

@@ -8,6 +8,7 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { ProjectData } from "../../types";
 import { AVAILABLE_MODELS, DEYUNAI_MODELS } from "../../constants";
 import { createStableId, ensureStableId } from "../../utils/id";
+import { buildApiUrl } from "../../utils/api";
 
 type Props = {
   projectData: ProjectData;
@@ -41,6 +42,19 @@ type ChatMessage = {
 };
 type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; tool: ToolPayload };
 type Message = ChatMessage | ToolMessage;
+
+type ConversationRecord = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: Message[];
+};
+
+type ConversationState = {
+  activeId: string;
+  items: ConversationRecord[];
+};
 
 const isToolMessage = (message: Message): message is ToolMessage =>
   message.kind === "tool" || message.kind === "tool_result";
@@ -283,34 +297,36 @@ const extractReasoningSummary = (raw: any) => {
   };
 
   if (Array.isArray(raw)) {
-    let text = "";
+    let deltaText = "";
+    let fallbackText = "";
     raw.forEach((event) => {
       const type = typeof event?.type === "string" ? event.type : "";
       if (type.includes("reasoning_summary_text.delta")) {
-        const deltaText = extractDeltaText(event);
-        if (deltaText) text += deltaText;
+        const chunk = extractDeltaText(event);
+        if (chunk) deltaText += chunk;
         return;
       }
       if (type.includes("reasoning_summary_part.added")) {
         const part = event?.part || event?.summary || event?.item;
         const partText = typeof part === "string" ? part : part?.text;
-        if (partText) text += partText;
+        if (partText) fallbackText += partText;
         return;
       }
       if (event?.item) {
         const itemText = extractFromItem(event.item);
-        if (itemText) text += itemText;
+        if (itemText) fallbackText += itemText;
       }
       if (event?.response) {
         const responseSummary = extractReasoningSummary(event.response);
-        if (responseSummary) text += responseSummary;
+        if (responseSummary) fallbackText += responseSummary;
       }
       if (Array.isArray(event?.output)) {
         const outSummary = extractReasoningSummary({ output: event.output });
-        if (outSummary) text += outSummary;
+        if (outSummary) fallbackText += outSummary;
       }
     });
-    return text.trim() ? text : undefined;
+    const finalText = deltaText.trim() ? deltaText : fallbackText.trim() ? fallbackText : "";
+    return finalText || undefined;
   }
 
   const eventType = typeof raw?.type === "string" ? raw.type : "";
@@ -319,9 +335,7 @@ const extractReasoningSummary = (raw: any) => {
     if (deltaText) return deltaText;
   }
   if (eventType.includes("reasoning_summary_part.added")) {
-    const part = raw?.part || raw?.summary || raw?.item;
-    const partText = typeof part === "string" ? part : part?.text;
-    if (partText) return partText;
+    return undefined;
   }
   if (raw?.item) {
     const itemText = extractFromItem(raw.item);
@@ -398,6 +412,55 @@ const extractUrls = (text: string) => {
 
 const stripUrls = (text: string) =>
   text.replace(/https?:\/\/[^\s)]+/g, "").replace(/\s{2,}/g, " ").trim();
+
+const uploadAgentImage = async (source: string, contentType?: string) => {
+  const response = await fetch(source);
+  const blob = await response.blob();
+  const finalType = blob.type || contentType || "image/png";
+  const ext = finalType.split("/")[1] || "png";
+  const fileName = `agent-inputs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const signedRes = await fetch(buildApiUrl("/api/upload-url"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName, bucket: "assets", contentType: finalType }),
+  });
+  if (!signedRes.ok) {
+    const err = await signedRes.text();
+    throw new Error(`上传 URL 获取失败 (${signedRes.status}): ${err}`);
+  }
+  const signedData = await signedRes.json();
+  if (!signedData?.signedUrl) {
+    throw new Error("上传失败：未返回签名 URL。");
+  }
+
+  const uploadRes = await fetch(signedData.signedUrl, {
+    method: "PUT",
+    headers: { "Content-Type": finalType },
+    body: blob,
+  });
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`上传失败 (${uploadRes.status}): ${err}`);
+  }
+
+  if (signedData.publicUrl) return signedData.publicUrl as string;
+  if (signedData.path) {
+    const downloadRes = await fetch(buildApiUrl("/api/download-url"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: signedData.path, bucket: signedData.bucket || "assets" }),
+    });
+    if (!downloadRes.ok) {
+      const err = await downloadRes.text();
+      throw new Error(`下载 URL 获取失败 (${downloadRes.status}): ${err}`);
+    }
+    const downloadData = await downloadRes.json();
+    if (downloadData?.signedUrl) return downloadData.signedUrl as string;
+  }
+
+  throw new Error("上传失败：无法获取可访问的图片 URL。");
+};
 
 const renderInlineMarkdown = (text: string) => {
   const nodes: React.ReactNode[] = [];
@@ -1135,33 +1198,93 @@ const buildConversationMemory = (messages: Message[], limit = 8) => {
   return history.slice(-limit).join("\n");
 };
 
+const buildConversationTitle = (messages: Message[]) => {
+  const firstUser = messages.find((m) => m.role === "user" && (m as ChatMessage).text?.trim()) as ChatMessage | undefined;
+  if (!firstUser) return "新对话";
+  const text = firstUser.text.trim();
+  return text.length > 20 ? `${text.slice(0, 20)}...` : text;
+};
+
+const createConversationRecord = (messages: Message[] = []): ConversationRecord => {
+  const now = Date.now();
+  const title = buildConversationTitle(messages);
+  return {
+    id: createStableId("chat"),
+    title,
+    createdAt: now,
+    updatedAt: now,
+    messages,
+  };
+};
+
 export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpenStats, onToggleAgentSettings }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
-  const [messages, setMessagesState] = usePersistedState<Message[]>({
-    key: "script2video_qalam_messages_v1",
-    initialValue: [],
+  const [conversationState, setConversationState] = usePersistedState<ConversationState>({
+    key: "script2video_qalam_conversations_v1",
+    initialValue: { activeId: "", items: [] },
     serialize: (value) => JSON.stringify(value),
     deserialize: (value) => {
       try {
         const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
+        if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
+          return {
+            activeId: typeof parsed.activeId === "string" ? parsed.activeId : "",
+            items: parsed.items,
+          } as ConversationState;
+        }
+        return { activeId: "", items: [] };
       } catch {
-        return [];
+        return { activeId: "", items: [] };
       }
     },
   });
   const clampMessages = useCallback((items: Message[]) => items.slice(-120), []);
+  const activeConversation = useMemo(() => {
+    if (!conversationState.items.length) return null;
+    return (
+      conversationState.items.find((item) => item.id === conversationState.activeId) ||
+      conversationState.items[0] ||
+      null
+    );
+  }, [conversationState.items, conversationState.activeId]);
+  const messages = activeConversation?.messages || [];
   const setMessages = useCallback(
     (updater: Message[] | ((prev: Message[]) => Message[])) => {
-      setMessagesState((prev) => {
-        const next = typeof updater === "function" ? (updater as (p: Message[]) => Message[])(prev) : updater;
-        return clampMessages(next);
+      setConversationState((prev) => {
+        let items = [...prev.items];
+        let activeId = prev.activeId;
+        if (!items.length) {
+          const created = createConversationRecord();
+          items = [created];
+          activeId = created.id;
+        }
+        if (!activeId && items.length) activeId = items[0].id;
+        let idx = items.findIndex((item) => item.id === activeId);
+        if (idx < 0) {
+          const created = createConversationRecord();
+          items = [created, ...items];
+          activeId = created.id;
+          idx = 0;
+        }
+        const current = items[idx];
+        const currentMessages = Array.isArray(current.messages) ? current.messages : [];
+        const nextMessages =
+          typeof updater === "function" ? (updater as (p: Message[]) => Message[])(currentMessages) : updater;
+        const clamped = clampMessages(nextMessages);
+        const nextTitle = current.title && current.title !== "新对话" ? current.title : buildConversationTitle(clamped);
+        items[idx] = {
+          ...current,
+          title: nextTitle,
+          messages: clamped,
+          updatedAt: Date.now(),
+        };
+        return { ...prev, activeId, items };
       });
     },
-    [setMessagesState, clampMessages]
+    [setConversationState, clampMessages]
   );
   const [isSending, setIsSending] = useState(false);
   const [ctxSelection, setCtxSelection] = useState({
@@ -1170,7 +1293,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     guides: false,
     summary: false,
   });
-  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string }[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string; remoteUrl?: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentUrlsRef = useRef<string[]>([]);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -1275,6 +1398,9 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
       window.removeEventListener("resize", handleResize);
+      if (typeof document !== "undefined") {
+        document.body.classList.remove("qalam-resizing");
+      }
     };
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
@@ -1285,6 +1411,75 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       window.removeEventListener("resize", handleResize);
     };
   }, [layoutMode, splitMaxWidth, splitMinWidth, splitThreshold, splitWidth]);
+
+  useEffect(() => {
+    if (conversationState.items.length) return;
+    try {
+      const stored = localStorage.getItem("script2video_qalam_messages_v1");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length) {
+          const migrated = createConversationRecord(clampMessages(parsed));
+          setConversationState({ activeId: migrated.id, items: [migrated] });
+          localStorage.removeItem("script2video_qalam_messages_v1");
+          return;
+        }
+      }
+    } catch {}
+    if (!conversationState.items.length) {
+      const created = createConversationRecord();
+      setConversationState({ activeId: created.id, items: [created] });
+    }
+  }, [conversationState.items.length, setConversationState, clampMessages]);
+
+  useEffect(() => {
+    if (!conversationState.items.length) return;
+    if (!conversationState.activeId) {
+      setConversationState((prev) => ({ ...prev, activeId: prev.items[0]?.id || "" }));
+      return;
+    }
+    if (!conversationState.items.find((item) => item.id === conversationState.activeId)) {
+      setConversationState((prev) => ({ ...prev, activeId: prev.items[0]?.id || "" }));
+    }
+  }, [conversationState.activeId, conversationState.items, setConversationState]);
+
+  useEffect(() => {
+    setInput("");
+    setAttachments([]);
+  }, [activeConversation?.id]);
+
+  const resolveAttachmentUrls = useCallback(async () => {
+    if (!attachments.length) return [];
+    const updated = [...attachments];
+    const results: string[] = [];
+    let changed = false;
+    for (let i = 0; i < attachments.length; i += 1) {
+      const item = attachments[i];
+      if (item.remoteUrl) {
+        results.push(item.remoteUrl);
+        continue;
+      }
+      if (item.url.startsWith("http://") || item.url.startsWith("https://")) {
+        results.push(item.url);
+        updated[i] = { ...item, remoteUrl: item.url };
+        changed = true;
+        continue;
+      }
+      try {
+        const remoteUrl = await uploadAgentImage(item.url, item.type);
+        results.push(remoteUrl);
+        updated[i] = { ...item, remoteUrl };
+        changed = true;
+      } catch (err: any) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: `图片上传失败：${item.name}。${err?.message || ""}`.trim(), kind: "chat" },
+        ]);
+      }
+    }
+    if (changed) setAttachments(updated);
+    return results;
+  }, [attachments, setAttachments, setMessages]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -1338,6 +1533,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       const prompt = `${contextText ? contextText + "\n\n" : ""}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
 
       if (isDeyunai) {
+        const imageUrls = await resolveAttachmentUrls();
         const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
         const searchEnabled = toolsFromConfig.some((tool: any) => tool?.type === "web_search_preview");
         const mergedTools: DeyunAITool[] = [];
@@ -1367,6 +1563,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         let reasoningSummary = "";
         let searchUsed = false;
         let searchQueries: string[] = [];
+        const inputContent = [
+          { type: "input_text", text: prompt },
+          ...imageUrls.map((url) => ({ type: "input_image", image_url: { url } })),
+        ];
         const { text, toolCalls, raw } = await DeyunAIService.createReasoningResponse(
           prompt,
           { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
@@ -1377,6 +1577,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             stream: useStream,
             store: config.textConfig.store ?? true,
             tools: mergedTools,
+            inputContent: imageUrls.length ? inputContent : undefined,
           },
           useStream
             ? (delta, rawDelta) => {
@@ -1857,7 +2058,12 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         <div
           className="absolute right-0 top-0 h-full w-2 cursor-col-resize z-20"
           onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
             dragStateRef.current = { startX: e.clientX, startWidth: splitWidth };
+            if (typeof document !== "undefined") {
+              document.body.classList.add("qalam-resizing");
+            }
           }}
         />
       )}

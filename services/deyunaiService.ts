@@ -5,8 +5,12 @@ type Role = "system" | "user" | "assistant";
 type InputContent =
   | string
   | Array<{
-      type: "input_text" | "text";
-      text: string;
+      type: "input_text" | "text" | "input_image";
+      text?: string;
+      image_url?: {
+        url: string;
+        detail?: "low" | "high" | "auto";
+      };
     }>;
 
 export type DeyunAIMessage = {
@@ -129,7 +133,19 @@ const assertApiKey = (config: DeyunAIConfig) => {
 
 const extractTextFromChunk = (json: any): string => {
   const eventType = typeof json?.type === "string" ? json.type : "";
-  if (eventType.includes("reasoning_summary")) return "";
+  if (eventType) {
+    if (eventType.includes("reasoning_summary")) return "";
+    if (eventType.includes("output_text.delta")) {
+      return (
+        (typeof json?.delta === "string" ? json.delta : "") ||
+        (typeof json?.part?.text === "string" ? json.part.text : "") ||
+        (typeof json?.text === "string" ? json.text : "")
+      );
+    }
+    if (eventType.includes("output_text.done") || eventType.includes("content_part.done") || eventType.includes("output_item")) {
+      return "";
+    }
+  }
   const choice = json?.choices?.[0];
   if (choice) {
     const delta = choice.delta || choice.message;
@@ -337,20 +353,31 @@ export const createReasoningResponse = async (
     stream?: boolean;
     store?: boolean;
     tools?: DeyunAITool[];
+    inputContent?: Array<{
+      type: "input_text" | "input_image";
+      text?: string;
+      image_url?: {
+        url: string;
+        detail?: "low" | "high" | "auto";
+      };
+    }>;
   },
   onDelta?: (text: string, raw: any) => void
 ): Promise<DeyunAIResponse> => {
+  const content = options?.inputContent?.length
+    ? options.inputContent
+    : [
+        {
+          type: "input_text",
+          text: prompt,
+        },
+      ];
   const body = {
     model: options?.model || "gpt-5-2025-08-07",
     input: [
       {
         role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: prompt,
-          },
-        ],
+        content,
       },
     ],
     tools: options?.tools || [],

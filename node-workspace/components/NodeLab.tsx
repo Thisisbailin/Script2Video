@@ -1041,8 +1041,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
       <MultiSelectToolbar />
       <AgentSettingsPanel isOpen={showAgentSettings} onClose={() => setShowAgentSettings(false)} />
-      <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none">
-        <div className="flex items-end gap-3 pointer-events-auto">
+      <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none qalam-bottom-bar">
+        <div className="flex items-end gap-3 pointer-events-auto qalam-bottom-left">
           <QalamAgent
             projectData={projectData}
             setProjectData={setProjectData}
@@ -1083,7 +1083,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onToggleWorkflow={onToggleWorkflow}
           />
         </div>
-        <div className="flex items-center gap-3 pointer-events-auto">
+        <div className="flex items-center gap-3 pointer-events-auto qalam-bottom-right">
           <ViewportControls
             zoom={zoomValue}
             minZoom={minZoom}
