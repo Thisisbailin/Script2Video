@@ -272,12 +272,23 @@ const extractReasoningSummary = (raw: any) => {
 
   if (!raw) return undefined;
 
+  const extractDeltaText = (event: any) => {
+    if (!event || typeof event !== "object") return "";
+    if (typeof event.delta === "string") return event.delta;
+    if (typeof event.text === "string") return event.text;
+    if (typeof event.part?.text === "string") return event.part.text;
+    if (typeof event.data?.delta === "string") return event.data.delta;
+    if (typeof event.data?.text === "string") return event.data.text;
+    return "";
+  };
+
   if (Array.isArray(raw)) {
     let text = "";
     raw.forEach((event) => {
       const type = typeof event?.type === "string" ? event.type : "";
-      if (type.includes("reasoning_summary_text.delta") && typeof event.delta === "string") {
-        text += event.delta;
+      if (type.includes("reasoning_summary_text.delta")) {
+        const deltaText = extractDeltaText(event);
+        if (deltaText) text += deltaText;
         return;
       }
       if (type.includes("reasoning_summary_part.added")) {
@@ -290,6 +301,10 @@ const extractReasoningSummary = (raw: any) => {
         const itemText = extractFromItem(event.item);
         if (itemText) text += itemText;
       }
+      if (event?.response) {
+        const responseSummary = extractReasoningSummary(event.response);
+        if (responseSummary) text += responseSummary;
+      }
       if (Array.isArray(event?.output)) {
         const outSummary = extractReasoningSummary({ output: event.output });
         if (outSummary) text += outSummary;
@@ -299,7 +314,10 @@ const extractReasoningSummary = (raw: any) => {
   }
 
   const eventType = typeof raw?.type === "string" ? raw.type : "";
-  if (eventType.includes("reasoning_summary_text.delta") && typeof raw.delta === "string") return raw.delta;
+  if (eventType.includes("reasoning_summary_text.delta")) {
+    const deltaText = extractDeltaText(raw);
+    if (deltaText) return deltaText;
+  }
   if (eventType.includes("reasoning_summary_part.added")) {
     const part = raw?.part || raw?.summary || raw?.item;
     const partText = typeof part === "string" ? part : part?.text;
