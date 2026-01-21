@@ -22,6 +22,9 @@ type SceneLibraryEntry = {
   timeOfDay?: string;
   location?: string;
   metadata?: Scene['metadata'];
+  partitions: string[];
+  timesOfDay: string[];
+  locations: string[];
   count: number;
   episodes: number[];
 };
@@ -94,15 +97,24 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
             timeOfDay: scene.timeOfDay,
             location: scene.location,
             metadata: scene.metadata,
+            partitions: scene.partition ? [scene.partition] : [],
+            timesOfDay: scene.timeOfDay ? [scene.timeOfDay] : [],
+            locations: scene.location ? [scene.location] : [],
             count: 1,
             episodes: [episode.id],
           });
         } else {
           existing.count += 1;
           if (!existing.episodes.includes(episode.id)) existing.episodes.push(episode.id);
-          existing.partition = existing.partition || scene.partition;
-          existing.timeOfDay = existing.timeOfDay || scene.timeOfDay;
-          existing.location = existing.location || scene.location;
+          if (scene.partition && !existing.partitions.includes(scene.partition)) {
+            existing.partitions.push(scene.partition);
+          }
+          if (scene.timeOfDay && !existing.timesOfDay.includes(scene.timeOfDay)) {
+            existing.timesOfDay.push(scene.timeOfDay);
+          }
+          if (scene.location && !existing.locations.includes(scene.location)) {
+            existing.locations.push(scene.location);
+          }
           if (!existing.metadata && scene.metadata) existing.metadata = scene.metadata;
         }
       });
@@ -123,6 +135,11 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
 
   const charactersToShow = showAllCharacters ? characterLibrary : characterLibrary.slice(0, 4);
   const scenesToShow = showAllScenes ? sceneLibrary : sceneLibrary.slice(0, 4);
+  const formatAggregated = (items?: string[]) => {
+    if (!items || !items.length) return undefined;
+    const unique = Array.from(new Set(items.filter(Boolean)));
+    return unique.length ? unique.join(" / ") : undefined;
+  };
   const updateCharacters = (updater: (items: ProjectData["context"]["characters"]) => ProjectData["context"]["characters"]) => {
     setProjectData((prev) => ({
       ...prev,
@@ -933,28 +950,33 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
               </div>
               {sceneLibrary.length ? (
                 <ul className="space-y-3 text-sm text-[var(--text-secondary)]">
-                  {scenesToShow.map((scene) => (
-                    <li key={`${scene.id}-${scene.title}`} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/60 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-primary)] font-semibold max-w-[70%] truncate">{scene.title || "未命名场景"}</span>
-                        <span className="text-[11px] text-[var(--text-secondary)]">出现 {scene.count} 次</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
-                        <span>编号 {scene.id}</span>
-                        {scene.partition && <span>分区 {scene.partition}</span>}
-                        {scene.timeOfDay && <span>时间 {scene.timeOfDay}</span>}
-                        {scene.location && <span>位置 {scene.location}</span>}
-                      </div>
-                      <div className="text-[11px] text-[var(--text-secondary)]">
-                        关联集：{scene.episodes.join("，")}
-                      </div>
-                      {scene.metadata?.rawTitle && (
-                        <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">
-                          原始标题：{scene.metadata.rawTitle}
-                        </p>
-                      )}
-                    </li>
-                  ))}
+                  {scenesToShow.map((scene) => {
+                    const partitionLabel = formatAggregated(scene.partitions);
+                    const timeLabel = formatAggregated(scene.timesOfDay);
+                    const locationLabel = formatAggregated(scene.locations);
+                    return (
+                      <li key={`${scene.id}-${scene.title}`} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/60 p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[var(--text-primary)] font-semibold max-w-[70%] truncate">{scene.title || "未命名场景"}</span>
+                          <span className="text-[11px] text-[var(--text-secondary)]">出现 {scene.count} 次</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
+                          <span>编号 {scene.id}</span>
+                          {partitionLabel && <span>分区 {partitionLabel}</span>}
+                          {timeLabel && <span>时间 {timeLabel}</span>}
+                          {locationLabel && <span>位置 {locationLabel}</span>}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-secondary)]">
+                          关联集：{scene.episodes.join("，")}
+                        </div>
+                        {scene.metadata?.rawTitle && (
+                          <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">
+                            原始标题：{scene.metadata.rawTitle}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
                   {sceneLibrary.length > 4 && (
                     <li>
                       <button

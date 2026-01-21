@@ -1049,7 +1049,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onOpenStats={onOpenStats}
             onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
           />
-          <FloatingActionBar
+            <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
             onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
@@ -1079,6 +1079,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onOpenSettings={onOpenSettings}
             onResetProject={onResetProject}
             onSignOut={onSignOut}
+            projectData={projectData}
             accountInfo={accountInfo}
             onToggleWorkflow={onToggleWorkflow}
           />
