@@ -183,20 +183,39 @@ const extractTextFromChunk = (json: any): string => {
 
 const collectToolCalls = (data: any): DeyunAIToolCall[] => {
   const calls: DeyunAIToolCall[] = [];
+  const pushFromItem = (item: any) => {
+    if (!item) return;
+    const itemType = typeof item?.type === "string" ? item.type : "";
+    const name = item?.name || item?.function?.name || item?.tool?.name || "";
+    const isFunction =
+      itemType === "function_call" ||
+      itemType === "tool_call" ||
+      itemType === "function" ||
+      Boolean(name && (item?.arguments || item?.function?.arguments || item?.tool?.arguments));
+    if (!isFunction || !name) return;
+    const rawArgs = item?.arguments ?? item?.function?.arguments ?? item?.tool?.arguments ?? {};
+    const args = typeof rawArgs === "string" ? rawArgs : JSON.stringify(rawArgs || {});
+    calls.push({
+      type: "function",
+      name,
+      arguments: args,
+      callId: item?.call_id || item?.id || item?.tool_call_id,
+      status: item?.status,
+    });
+  };
+
   const output = data?.output;
   if (Array.isArray(output)) {
-    for (const item of output) {
-      if (item?.type === "function_call") {
-        calls.push({
-          type: "function",
-          name: item.name,
-          arguments: typeof item.arguments === "string" ? item.arguments : JSON.stringify(item.arguments || {}),
-          callId: item.call_id,
-          status: item.status,
-        });
-      }
-    }
+    for (const item of output) pushFromItem(item);
   }
+
+  const responseOutput = data?.response?.output;
+  if (Array.isArray(responseOutput)) {
+    for (const item of responseOutput) pushFromItem(item);
+  }
+
+  if (data?.item) pushFromItem(data.item);
+  if (data?.output_item) pushFromItem(data.output_item);
 
   const toolCalls = data?.choices?.[0]?.message?.tool_calls || data?.choices?.[0]?.delta?.tool_calls;
   if (Array.isArray(toolCalls)) {
@@ -205,7 +224,10 @@ const collectToolCalls = (data: any): DeyunAIToolCall[] => {
         calls.push({
           type: "function",
           name: tc.function?.name || "",
-          arguments: typeof tc.function?.arguments === "string" ? tc.function.arguments : JSON.stringify(tc.function?.arguments || {}),
+          arguments:
+            typeof tc.function?.arguments === "string"
+              ? tc.function.arguments
+              : JSON.stringify(tc.function?.arguments || {}),
           callId: tc.id || tc.call_id,
           status: tc.status,
         });
@@ -226,6 +248,7 @@ const readStream = async (
   let buffer = "";
   let fullText = "";
   const toolCalls: DeyunAIToolCall[] = [];
+  const toolCallIndex = new Map<string, number>();
   const rawEvents: any[] = [];
 
   while (true) {
@@ -248,7 +271,26 @@ const readStream = async (
           const deltaText = extractTextFromChunk(json);
           const deltaTools = collectToolCalls(json);
           if (deltaTools.length) {
-            toolCalls.push(...deltaTools);
+            for (const toolCall of deltaTools) {
+              const key = toolCall.callId
+                ? `id:${toolCall.callId}`
+                : `sig:${toolCall.name}:${toolCall.arguments}`;
+              const existingIndex = toolCallIndex.get(key);
+              if (existingIndex === undefined) {
+                toolCallIndex.set(key, toolCalls.length);
+                toolCalls.push(toolCall);
+                continue;
+              }
+              const existing = toolCalls[existingIndex];
+              if (
+                existing &&
+                typeof existing.arguments === "string" &&
+                typeof toolCall.arguments === "string" &&
+                toolCall.arguments.length > existing.arguments.length
+              ) {
+                toolCalls[existingIndex] = { ...existing, ...toolCall };
+              }
+            }
           }
           if (deltaText) {
             fullText += deltaText;
@@ -353,6 +395,8 @@ export const createReasoningResponse = async (
     stream?: boolean;
     store?: boolean;
     tools?: DeyunAITool[];
+    toolChoice?: "auto" | "none";
+    parallelToolCalls?: boolean;
     inputContent?: Array<{
       type: "input_text" | "input_image";
       text?: string;
@@ -372,6 +416,8 @@ export const createReasoningResponse = async (
           text: prompt,
         },
       ];
+  const hasTools = Array.isArray(options?.tools) && options.tools.length > 0;
+  const toolChoice = options?.toolChoice ?? (hasTools ? "auto" : undefined);
   const body = {
     model: options?.model || "gpt-5-2025-08-07",
     input: [
@@ -381,6 +427,8 @@ export const createReasoningResponse = async (
       },
     ],
     tools: options?.tools || [],
+    tool_choice: toolChoice,
+    parallel_tool_calls: hasTools ? options?.parallelToolCalls ?? true : undefined,
     text: {
       format: { type: "text" },
       verbosity: options?.verbosity || "medium",

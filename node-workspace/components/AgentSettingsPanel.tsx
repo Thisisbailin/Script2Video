@@ -57,6 +57,44 @@ type ConversationState = {
   items: ConversationRecord[];
 };
 
+type ToolKey = "project-data" | "asset-library" | "workflow-builder";
+
+type ToolItem = {
+  key: ToolKey;
+  label: string;
+  description: string;
+  note: string;
+  status: "ready" | "placeholder";
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
+};
+
+const TOOL_ITEMS: ToolItem[] = [
+  {
+    key: "project-data",
+    label: "项目数据查询",
+    description: "用于读取剧本或项目数据片段，供 Agent 作为证据或上下文。",
+    note: "占位：后续接入剧本/资源检索调用。",
+    status: "placeholder",
+    Icon: Eye,
+  },
+  {
+    key: "asset-library",
+    label: "资产库写入",
+    description: "将角色与场景这一致的结构写回统一资产库，支持局部更新与合并。",
+    note: "已接入：工具接口为 upsert_character / upsert_location。",
+    status: "ready",
+    Icon: Layers,
+  },
+  {
+    key: "workflow-builder",
+    label: "节点工作流构建",
+    description: "让 Agent 自动搭建可执行的节点工作流。",
+    note: "占位：后续接入工作流编排与节点连接能力。",
+    status: "placeholder",
+    Icon: Code2,
+  },
+];
+
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 const QwenIcon: React.FC<{ size?: number; className?: string }> = ({ size = 12, className }) => (
@@ -164,6 +202,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
   const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen" | "deyunai">("openrouter");
   const [activeVideoProvider, setActiveVideoProvider] = useState<"sora" | "qwen" | "vidu">("sora");
+  const [activeTool, setActiveTool] = useState<ToolKey>("asset-library");
   const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
   const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
@@ -205,6 +244,11 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       zonesMode: current.zonesMode || base.zonesMode || "merge",
     };
   }, [config.textConfig.qalamTools]);
+  const activeToolItem = useMemo(
+    () => TOOL_ITEMS.find((item) => item.key === activeTool) || TOOL_ITEMS[0],
+    [activeTool]
+  );
+  const ActiveToolIcon = activeToolItem.Icon;
   const updateQalamToolSettings = (patch: Partial<typeof qalamToolSettings>) => {
     setConfig((prev) => {
       const existing = prev.textConfig.qalamTools?.characterLocation || {};
@@ -567,61 +611,32 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
 
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
                 <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
-                  <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                    角色 / 场景写入
-                  </div>
-                  <div className="text-[12px] text-[var(--app-text-secondary)]">
-                    工具：<span className="text-[var(--app-text-primary)]">upsert_character</span> /
-                    <span className="text-[var(--app-text-primary)]"> upsert_location</span>
-                  </div>
-                  <div className="text-[11px] text-[var(--app-text-muted)]">
-                    用于把角色/场景写回项目上下文。下列选项作为默认值，仅在工具参数缺省时生效。
-                  </div>
-                  <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
-                    <input
-                      type="checkbox"
-                      checked={qalamToolSettings.enabled}
-                      onChange={(e) => updateQalamToolSettings({ enabled: e.target.checked })}
-                      className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                    />
-                    启用角色/场景工具
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">合并策略</label>
-                      <select
-                        value={qalamToolSettings.mergeStrategy}
-                        onChange={(e) => updateQalamToolSettings({ mergeStrategy: e.target.value as any })}
-                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                <div className="flex flex-col gap-2">
+                  {TOOL_ITEMS.map(({ key, label, Icon, status }) => {
+                    const active = activeTool === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setActiveTool(key)}
+                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
+                          active
+                            ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                        }`}
                       >
-                        <option value="patch">patch（局部更新）</option>
-                        <option value="replace">replace（整段替换）</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">形态合并</label>
-                      <select
-                        value={qalamToolSettings.formsMode}
-                        onChange={(e) => updateQalamToolSettings({ formsMode: e.target.value as any })}
-                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                      >
-                        <option value="merge">merge（合并）</option>
-                        <option value="replace">replace（替换）</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">分区合并</label>
-                      <select
-                        value={qalamToolSettings.zonesMode}
-                        onChange={(e) => updateQalamToolSettings({ zonesMode: e.target.value as any })}
-                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                      >
-                        <option value="merge">merge（合并）</option>
-                        <option value="replace">replace（替换）</option>
-                      </select>
-                    </div>
-                  </div>
+                        <span className="flex items-center gap-2">
+                          <Icon size={14} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                          {label}
+                        </span>
+                        {status === "placeholder" ? (
+                          <span className="text-[10px] text-[var(--app-text-muted)]">占位</span>
+                        ) : (
+                          <span className="text-[10px] text-emerald-300">已接入</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1181,6 +1196,79 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </button>
             </div>
           )}
+
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+            <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                  <ActiveToolIcon size={14} className="text-[var(--app-text-primary)]" />
+                  {activeToolItem.label}
+                </div>
+                {activeToolItem.status === "placeholder" ? (
+                  <span className="text-[10px] text-[var(--app-text-muted)]">占位</span>
+                ) : (
+                  <span className="text-[10px] text-emerald-300">已接入</span>
+                )}
+              </div>
+              <div className="text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.description}</div>
+              {activeTool === "asset-library" ? (
+                <>
+                  <div className="text-[12px] text-[var(--app-text-secondary)]">
+                    接口：<span className="text-[var(--app-text-primary)]">upsert_character</span> /
+                    <span className="text-[var(--app-text-primary)]"> upsert_location</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--app-text-muted)]">下列选项作为默认值，仅在工具参数缺省时生效。</div>
+                  <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={qalamToolSettings.enabled}
+                      onChange={(e) => updateQalamToolSettings({ enabled: e.target.checked })}
+                      className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
+                    />
+                    启用资产库写入工具
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">合并策略</label>
+                      <select
+                        value={qalamToolSettings.mergeStrategy}
+                        onChange={(e) => updateQalamToolSettings({ mergeStrategy: e.target.value as any })}
+                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                      >
+                        <option value="patch">patch（局部更新）</option>
+                        <option value="replace">replace（整段替换）</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">形态合并</label>
+                      <select
+                        value={qalamToolSettings.formsMode}
+                        onChange={(e) => updateQalamToolSettings({ formsMode: e.target.value as any })}
+                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                      >
+                        <option value="merge">merge（合并）</option>
+                        <option value="replace">replace（替换）</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">分区合并</label>
+                      <select
+                        value={qalamToolSettings.zonesMode}
+                        onChange={(e) => updateQalamToolSettings({ zonesMode: e.target.value as any })}
+                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                      >
+                        <option value="merge">merge（合并）</option>
+                        <option value="replace">replace（替换）</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-[11px] text-[var(--app-text-muted)]">{activeToolItem.note}</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
