@@ -1,4 +1,6 @@
-import type { DeyunAITool } from "../../../services/deyunaiService";
+import type { DeyunAITool, DeyunAIToolCall } from "../../../services/deyunaiService";
+import type { ToolMessage } from "./types";
+import type { QalamToolSettings } from "../../../types";
 
 export const TOOL_DEFS: DeyunAITool[] = [
   {
@@ -93,6 +95,23 @@ export const TOOL_DEFS: DeyunAITool[] = [
   },
 ];
 
+export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined) => {
+  const characterLocation = value?.characterLocation || {};
+  return {
+    characterLocation: {
+      enabled: characterLocation.enabled ?? true,
+      mergeStrategy: characterLocation.mergeStrategy === "replace" ? "replace" : "patch",
+      formsMode: characterLocation.formsMode === "replace" ? "replace" : "merge",
+      zonesMode: characterLocation.zonesMode === "replace" ? "replace" : "merge",
+    },
+  };
+};
+
+export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolSettings>) => {
+  if (!settings.characterLocation.enabled) return [];
+  return TOOL_DEFS;
+};
+
 export const parseToolArguments = (value: string) => {
   if (!value) return {};
   try {
@@ -115,3 +134,56 @@ export const buildToolSummary = (name: string, args: any) => {
   }
   return "工具调用";
 };
+
+export const applyToolDefaults = (
+  name: string | undefined,
+  args: any,
+  settings: ReturnType<typeof normalizeQalamToolSettings>
+) => {
+  if (!args || typeof args !== "object") return args;
+  if (name === "upsert_character") {
+    const next = { ...args };
+    if (!next.mergeStrategy) next.mergeStrategy = settings.characterLocation.mergeStrategy;
+    if (!next.formsMode) next.formsMode = settings.characterLocation.formsMode;
+    return next;
+  }
+  if (name === "upsert_location") {
+    const next = { ...args };
+    if (!next.mergeStrategy) next.mergeStrategy = settings.characterLocation.mergeStrategy;
+    if (!next.zonesMode) next.zonesMode = settings.characterLocation.zonesMode;
+    return next;
+  }
+  return args;
+};
+
+export type ToolCallMeta = {
+  tc: DeyunAIToolCall;
+  args: any;
+  callId: string;
+};
+
+export const buildToolCallMeta = (
+  toolCalls: DeyunAIToolCall[],
+  settings: ReturnType<typeof normalizeQalamToolSettings>
+): ToolCallMeta[] => {
+  const baseTs = Date.now();
+  return toolCalls.map((tc, idx) => {
+    const parsed = parseToolArguments(tc.arguments);
+    const args = applyToolDefaults(tc.name, parsed, settings);
+    const callId = tc.callId || `${tc.name || "tool"}-${baseTs}-${idx}`;
+    return { tc, args, callId };
+  });
+};
+
+export const buildToolMessages = (toolMeta: ToolCallMeta[]): ToolMessage[] =>
+  toolMeta.map(({ tc, args, callId }) => ({
+    role: "assistant",
+    kind: "tool",
+    tool: {
+      name: tc.name || "tool",
+      status: "queued",
+      summary: buildToolSummary(tc.name, args),
+      evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
+      callId,
+    },
+  }));

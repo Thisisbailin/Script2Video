@@ -1,5 +1,5 @@
 
-import { ProjectData, TextServiceConfig, VideoServiceConfig, MultimodalConfig, ViduServiceConfig } from './types';
+import { ProjectData, TextServiceConfig, VideoServiceConfig, MultimodalConfig, ViduServiceConfig, QalamToolSettings } from './types';
 
 export const INITIAL_PROJECT_DATA: ProjectData = {
   fileName: '',
@@ -51,11 +51,21 @@ export const QWEN_WAN_VIDEO_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/se
 export const QWEN_WAN_IMAGE_MODEL = 'wan2.6-image';
 export const QWEN_WAN_VIDEO_MODEL = 'wan2.6-i2v';
 
+export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
+  characterLocation: {
+    enabled: true,
+    mergeStrategy: "patch",
+    formsMode: "merge",
+    zonesMode: "merge",
+  },
+};
+
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   provider: 'gemini',
   baseUrl: '', // Not used for Gemini SDK
   apiKey: '', // Uses process.env by default if empty
-  model: 'gemini-2.5-flash'
+  model: 'gemini-2.5-flash',
+  qalamTools: DEFAULT_QALAM_TOOL_SETTINGS,
 };
 
 export const DEYUNAI_MODELS = [

@@ -308,6 +308,7 @@ export interface TextServiceConfig {
   stream?: boolean;
   store?: boolean;
   tools?: any[];
+  qalamTools?: QalamToolSettings;
   deyunModels?: Array<{
     id: string;
     label?: string;
@@ -316,6 +317,15 @@ export interface TextServiceConfig {
     description?: string;
   }>;
 }
+
+export type QalamToolSettings = {
+  characterLocation?: {
+    enabled?: boolean;
+    mergeStrategy?: "patch" | "replace";
+    formsMode?: "merge" | "replace";
+    zonesMode?: "merge" | "replace";
+  };
+};
 
 export interface DeyunAIConfig {
   apiKey: string;
