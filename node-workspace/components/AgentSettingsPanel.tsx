@@ -202,6 +202,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
   const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen" | "deyunai">("openrouter");
   const [activeVideoProvider, setActiveVideoProvider] = useState<"sora" | "qwen" | "vidu">("sora");
+  const [selectedPanel, setSelectedPanel] = useState<"provider" | "tools" | "history">("provider");
   const [activeTool, setActiveTool] = useState<ToolKey>("asset-library");
   const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
   const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -366,6 +367,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       activeId: id,
       items: [next, ...prev.items],
     }));
+    setSelectedPanel("history");
   };
 
   const handleSelectConversation = (id: string) => {
@@ -577,7 +579,10 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setActiveType(key)}
+                        onClick={() => {
+                          setActiveType(key);
+                          setSelectedPanel("provider");
+                        }}
                         className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
                           active
                             ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
@@ -618,7 +623,10 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setActiveTool(key)}
+                        onClick={() => {
+                          setActiveTool(key);
+                          setSelectedPanel("tools");
+                        }}
                         className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
                           active
                             ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
@@ -672,13 +680,16 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleSelectConversation(item.id)}
-                                className="text-[12px] font-semibold text-[var(--app-text-primary)] hover:underline"
-                              >
-                                {title || "新对话"}
-                              </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSelectConversation(item.id);
+                              setSelectedPanel("history");
+                            }}
+                            className="text-[12px] font-semibold text-[var(--app-text-primary)] hover:underline"
+                          >
+                            {title || "新对话"}
+                          </button>
                               <button
                                 type="button"
                                 onClick={() => handleClearConversation(item.id)}
