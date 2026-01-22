@@ -1544,10 +1544,11 @@ const App: React.FC = () => {
       case 'lab':
         return (
           <div className="h-full">
-            <NodeLab
-              projectData={projectData}
-              setProjectData={setProjectData}
-              onOpenModule={handleOpenLabModule}
+              <NodeLab
+                projectData={projectData}
+                setProjectData={setProjectData}
+                onAssetLoad={handleAssetLoad}
+                onOpenModule={handleOpenLabModule}
               syncIndicator={syncIndicator}
               onExportCsv={handleExportCsv}
               onExportXls={handleExportXls}

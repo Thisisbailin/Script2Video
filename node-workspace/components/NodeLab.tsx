@@ -76,6 +76,11 @@ interface ConnectionDropState {
 interface NodeLabProps {
   projectData: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
+  onAssetLoad?: (
+    type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson",
+    content: string,
+    fileName?: string
+  ) => void;
   onOpenModule?: (key: ModuleKey) => void;
   syncIndicator?: { label: string; color: string } | null;
   onExportCsv?: () => void;
@@ -327,6 +332,7 @@ const THEME_PRESETS: Record<ThemeKey, ThemePreset> = {
 const NodeLabInner: React.FC<NodeLabProps> = ({
   projectData,
   setProjectData,
+  onAssetLoad,
   onOpenModule,
   syncIndicator,
   onExportCsv,
@@ -1049,7 +1055,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onOpenStats={onOpenStats}
             onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
           />
-            <FloatingActionBar
+          <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
             onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
@@ -1080,6 +1086,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onResetProject={onResetProject}
             onSignOut={onSignOut}
             projectData={projectData}
+            onAssetLoad={onAssetLoad}
             accountInfo={accountInfo}
             onToggleWorkflow={onToggleWorkflow}
           />

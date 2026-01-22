@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Plus,
   Play,
@@ -19,6 +19,9 @@ import {
   FileText,
   List,
   BarChart2,
+  BookOpen,
+  Palette,
+  FileCode,
   Sun,
   Moon,
   Settings,
@@ -78,6 +81,11 @@ type Props = {
   onTryMe?: () => void;
   onToggleWorkflow?: () => void;
   projectData: ProjectData;
+  onAssetLoad?: (
+    type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson",
+    content: string,
+    fileName?: string
+  ) => void;
 };
 
 export const FloatingActionBar: React.FC<Props> = ({
@@ -114,11 +122,19 @@ export const FloatingActionBar: React.FC<Props> = ({
   onTryMe,
   onToggleWorkflow,
   projectData,
+  onAssetLoad,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   const [showWip, setShowWip] = useState(false);
+  const scriptInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const understandingInputRef = useRef<HTMLInputElement>(null);
+  const globalStyleInputRef = useRef<HTMLInputElement>(null);
+  const shotGuideInputRef = useRef<HTMLInputElement>(null);
+  const soraGuideInputRef = useRef<HTMLInputElement>(null);
+  const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
   const panelClass = "rounded-3xl app-panel overflow-hidden";
   const panelStyle: React.CSSProperties = {
@@ -158,6 +174,21 @@ export const FloatingActionBar: React.FC<Props> = ({
     setShowWip(false);
   };
 
+  const handleAssetFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson"
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !onAssetLoad) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = typeof reader.result === "string" ? reader.result : "";
+      if (content) onAssetLoad(type, content, file.name);
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
   const ioActions: { label: string; desc: string; Icon: any; onClick?: () => void; color: string }[] = [];
 
   const sortedCharacters = React.useMemo(() => {
@@ -170,20 +201,22 @@ export const FloatingActionBar: React.FC<Props> = ({
   }, [projectData.context.characters]);
 
   const buildSceneLibrary = React.useMemo(() => {
-    const map = new Map<string, { id: string; title: string; partitions: string[]; timeLabels: string[]; locations: string[]; count: number; episodes: number[]; metadata?: Scene["metadata"] }>();
+    const map = new Map<string, { id: string; title: string; ids: string[]; partitions: string[]; timeLabels: string[]; locations: string[]; count: number; episodes: number[]; metadata?: Scene["metadata"] }>();
     projectData.episodes.forEach((episode) => {
       (episode.scenes || []).forEach((scene) => {
         if (!scene) return;
-        const key = scene.id || `${episode.id}-${scene.title}`;
+        const baseTitle = (scene.title || scene.metadata?.rawTitle || "未命名场景").trim();
+        const key = baseTitle || scene.id || `${episode.id}-scene`;
         const item = map.get(key);
         const normalized = {
           id: scene.id || `${episode.id}-scene`,
-          title: scene.title || scene.metadata?.rawTitle || "未命名场景",
+          title: baseTitle,
           metadata: scene.metadata,
         };
         if (!item) {
           map.set(key, {
             ...normalized,
+            ids: scene.id ? [scene.id] : [],
             partitions: scene.partition ? [scene.partition] : [],
             timeLabels: scene.timeOfDay ? [scene.timeOfDay] : [],
             locations: scene.location ? [scene.location] : [],
@@ -194,6 +227,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         }
         item.count += 1;
         if (!item.episodes.includes(episode.id)) item.episodes.push(episode.id);
+        if (scene.id && !item.ids.includes(scene.id)) item.ids.push(scene.id);
         if (scene.partition && !item.partitions.includes(scene.partition)) item.partitions.push(scene.partition);
         if (scene.timeOfDay && !item.timeLabels.includes(scene.timeOfDay)) item.timeLabels.push(scene.timeOfDay);
         if (scene.location && !item.locations.includes(scene.location)) item.locations.push(scene.location);
@@ -203,7 +237,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     return Array.from(map.values()).sort((a, b) => {
       const diff = b.count - a.count;
       if (diff !== 0) return diff;
-      return a.id.localeCompare(b.id);
+      return a.title.localeCompare(b.title);
     });
   }, [projectData.episodes]);
 
@@ -211,6 +245,12 @@ export const FloatingActionBar: React.FC<Props> = ({
   const totalSceneAppearances = React.useMemo(() => buildSceneLibrary.reduce((sum, entry) => sum + entry.count, 0), [buildSceneLibrary]);
 
   const formatList = (items: string[]) => Array.from(new Set(items.filter(Boolean))).join(" / ");
+  const formatIdList = (ids: string[]) => {
+    if (!ids.length) return "未标注";
+    const unique = Array.from(new Set(ids.filter(Boolean)));
+    if (unique.length <= 3) return unique.join(" / ");
+    return `${unique.slice(0, 3).join(" / ")} 等`;
+  };
 
   return (
     <div className={rootClass}>
@@ -424,7 +464,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                               <span className="text-[10px] text-[var(--app-text-secondary)]">出現 {scene.count} 次</span>
                             </div>
                             <div className="flex flex-wrap gap-2 text-[11px]">
-                              <span>編號 {scene.id}</span>
+                              <span>編號 {formatIdList(scene.ids)}</span>
                               {scene.partitions.length ? <span>分區 {formatList(scene.partitions)}</span> : null}
                               {scene.timeLabels.length ? <span>時間 {formatList(scene.timeLabels)}</span> : null}
                               {scene.locations.length ? <span>位置 {formatList(scene.locations)}</span> : null}
@@ -619,7 +659,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
               <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Share</div>
               <div className="rounded-2xl app-card p-4 space-y-3">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] px-1">Import</div>
                   <div className="grid grid-cols-3 gap-2">
                     <button
@@ -632,6 +672,156 @@ export const FloatingActionBar: React.FC<Props> = ({
                       <SquareStack size={14} className="text-sky-300" />
                       Node
                     </button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] px-1">Core Documents</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        ref={scriptInputRef}
+                        type="file"
+                        accept=".txt"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "script")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => scriptInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <FileText size={14} className="text-blue-300" />
+                        剧本
+                      </button>
+                      <input
+                        ref={csvInputRef}
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "csvShots")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => csvInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <List size={14} className="text-emerald-300" />
+                        Shots CSV
+                      </button>
+                      <input
+                        ref={understandingInputRef}
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "understandingJson")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => understandingInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <BookOpen size={14} className="text-amber-300" />
+                        Understanding
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)] px-1">AI Instructions</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        ref={globalStyleInputRef}
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "globalStyleGuide")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => globalStyleInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <Palette size={14} className="text-purple-300" />
+                        Style
+                      </button>
+                      <input
+                        ref={shotGuideInputRef}
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "shotGuide")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => shotGuideInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <FileCode size={14} className="text-yellow-300" />
+                        Shot
+                      </button>
+                      <input
+                        ref={soraGuideInputRef}
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "soraGuide")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => soraGuideInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <Sparkles size={14} className="text-pink-300" />
+                        Sora
+                      </button>
+                      <input
+                        ref={dramaGuideInputRef}
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "dramaGuide")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => dramaGuideInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
+                          onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                        }`}
+                      >
+                        <FileCode size={14} className="text-indigo-300" />
+                        Drama
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
