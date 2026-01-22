@@ -1533,7 +1533,7 @@ const App: React.FC = () => {
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
       case 'assets':
-        return <AssetsModule data={projectData} setProjectData={setProjectData} onAssetLoad={handleAssetLoad} />;
+        return <AssetsModule data={projectData} setProjectData={setProjectData} />;
       case 'script':
         return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} characters={projectData.context.characters} />;
       case 'table':
@@ -1605,7 +1605,7 @@ const App: React.FC = () => {
     labModalTitle = "Assets";
     labModalWidth = 1040;
     labModalContent = (
-      <AssetsModule data={projectData} setProjectData={setProjectData} onAssetLoad={handleAssetLoad} />
+      <AssetsModule data={projectData} setProjectData={setProjectData} />
     );
   } else if (openLabModal === "script") {
     labModalTitle = "Script";
@@ -1622,11 +1622,15 @@ const App: React.FC = () => {
   } else if (openLabModal === "characters") {
     labModalTitle = "角色库";
     labModalWidth = 960;
-    labModalContent = <CharacterLibraryPanel projectData={projectData} />;
+    labModalContent = (
+      <CharacterLibraryPanel projectData={projectData} setProjectData={setProjectData} />
+    );
   } else if (openLabModal === "scenes") {
     labModalTitle = "场景库";
     labModalWidth = 960;
-    labModalContent = <SceneLibraryPanel projectData={projectData} />;
+    labModalContent = (
+      <SceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
+    );
   }
 
   return (

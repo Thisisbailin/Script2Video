@@ -156,6 +156,13 @@ export const FloatingActionBar: React.FC<Props> = ({
     { label: "WAN Vid", hint: "Wan 2.6 video", onClick: onAddWanVideoGen, Icon: Video },
     { label: "Output", hint: "Final results", onClick: onAddOutput, Icon: SquareStack },
   ];
+  const projectModules = [
+    { key: "assets" as ModuleKey, label: "Assets", desc: "资产与设定", Icon: FolderOpen, tone: "text-emerald-300", surface: "bg-emerald-500/10" },
+    { key: "script" as ModuleKey, label: "Script", desc: "剧本与解析", Icon: FileText, tone: "text-sky-300", surface: "bg-sky-500/10" },
+    { key: "shots" as ModuleKey, label: "Shots", desc: "分镜与镜头", Icon: List, tone: "text-amber-300", surface: "bg-amber-500/10" },
+    { key: "characters" as ModuleKey, label: "角色", desc: "角色库", Icon: Users, tone: "text-emerald-200", surface: "bg-emerald-500/10" },
+    { key: "scenes" as ModuleKey, label: "场景", desc: "场景库", Icon: MapPin, tone: "text-cyan-200", surface: "bg-cyan-500/10" },
+  ];
 
   const accountLoaded = accountInfo?.isLoaded ?? true;
   const accountSignedIn = accountLoaded && !!accountInfo?.isSignedIn;
@@ -202,44 +209,62 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="p-4 space-y-3">
               <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)] px-2">Project</div>
-              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 space-y-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--app-text-primary)]">尝试示例</div>
-                    <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed">载入内置示例项目并体验节点流程。</div>
+              <div className="rounded-3xl border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(56,189,248,0.08))] px-4 py-4 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="h-11 w-11 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 flex items-center justify-center text-emerald-300">
+                      <Sparkles size={18} />
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+                        Quick Start
+                      </div>
+                      <div className="text-sm font-semibold text-[var(--app-text-primary)]">尝试示例项目</div>
+                      <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed">
+                        载入内置示例并快速浏览脚本、资产与节点流。
+                      </div>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onTryMe?.();
+                      closeMenus();
+                    }}
+                    className="h-9 px-4 rounded-full bg-[var(--accent-blue)] text-white text-[12px] font-semibold hover:bg-sky-500 transition"
+                  >
+                    载入示例
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onTryMe?.();
-                    closeMenus();
-                  }}
-                  className="w-full h-10 rounded-xl bg-[var(--accent-blue)] text-white text-sm font-semibold hover:bg-sky-500 transition"
-                >
-                  载入示例
-                </button>
+                <div className="flex flex-wrap gap-2 text-[10px] text-[var(--app-text-secondary)]">
+                  {["脚本解析", "资产预览", "节点流"].map((item) => (
+                    <span
+                      key={item}
+                      className="px-2 py-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)]"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 px-2">
-                {[
-                  { key: "assets" as ModuleKey, label: "Assets", Icon: FolderOpen },
-                  { key: "script" as ModuleKey, label: "Script", Icon: FileText },
-                  { key: "shots" as ModuleKey, label: "Shots", Icon: List },
-                  { key: "characters" as ModuleKey, label: "角色", Icon: Users },
-                  { key: "scenes" as ModuleKey, label: "场景", Icon: MapPin },
-                ].map(({ key, label, Icon }) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 px-1">
+                {projectModules.map(({ key, label, desc, Icon, tone, surface }) => (
                   <button
                     key={key}
                     onClick={() => {
                       onOpenModule?.(key);
                       closeMenus();
                     }}
-                    className="flex flex-col items-center gap-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-xs font-semibold text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+                    className="group flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-left hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
                   >
-                    <span className="h-10 w-10 flex items-center justify-center rounded-xl bg-black/30 border border-[var(--app-border)] text-[var(--app-text-primary)]">
+                    <span className={`h-10 w-10 flex items-center justify-center rounded-xl border border-[var(--app-border)] ${surface} ${tone}`}>
                       <Icon size={18} />
                     </span>
-                    {label}
+                    <div className="flex-1">
+                      <div className="text-[13px] font-semibold text-[var(--app-text-primary)]">{label}</div>
+                      <div className="text-[11px] text-[var(--app-text-secondary)]">{desc}</div>
+                    </div>
+                    <ChevronRight size={14} className="text-[var(--app-text-secondary)] opacity-0 group-hover:opacity-100 transition" />
                   </button>
                 ))}
               </div>

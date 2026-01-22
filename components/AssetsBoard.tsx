@@ -1,47 +1,20 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { DesignAssetItem, ProjectData, Scene } from '../types';
+import { DesignAssetItem, ProjectData } from '../types';
 import { createStableId } from '../utils/id';
-import { FileText, Palette, Upload, FileSpreadsheet, CheckCircle, Image, Film, Sparkles, FileCode, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
+import { Image, Film, Sparkles, BookOpen, Users, MapPin, ListChecks, Trash2, X } from 'lucide-react';
 import { useWorkflowStore, GlobalAssetHistoryItem } from '../node-workspace/store/workflowStore';
 
 interface Props {
   data: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
-  onAssetLoad: (
-    type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson',
-    content: string,
-    fileName?: string
-  ) => void;
 }
 
-type SceneLibraryEntry = {
-  id: string;
-  title: string;
-  partition?: string;
-  timeOfDay?: string;
-  location?: string;
-  metadata?: Scene['metadata'];
-  partitions: string[];
-  timesOfDay: string[];
-  locations: string[];
-  count: number;
-  episodes: number[];
-};
-
-export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad }) => {
+export const AssetsBoard: React.FC<Props> = ({ data, setProjectData }) => {
   // Input Refs
-  const scriptInputRef = useRef<HTMLInputElement>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
-  const understandingInputRef = useRef<HTMLInputElement>(null);
-  const globalStyleInputRef = useRef<HTMLInputElement>(null);
-  const shotGuideInputRef = useRef<HTMLInputElement>(null);
-  const soraGuideInputRef = useRef<HTMLInputElement>(null);
-  const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const designUploadInputRef = useRef<HTMLInputElement>(null);
   const [showAllCharacters, setShowAllCharacters] = useState(false);
   const [expandedCharacterForms, setExpandedCharacterForms] = useState<Record<string, boolean>>({});
-  const [showAllScenes, setShowAllScenes] = useState(false);
   const [designUploadTarget, setDesignUploadTarget] = useState<{
     refId: string;
     category: 'form' | 'zone';
@@ -68,78 +41,6 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
     return map;
   }, [designAssets]);
 
-  const characterLibrary = useMemo(() => {
-    const items = data.context.characters || [];
-    return [...items].sort((a, b) => {
-      const countDiff = (b.appearanceCount || 0) - (a.appearanceCount || 0);
-      if (countDiff !== 0) return countDiff;
-      return (b.name || "").localeCompare(a.name || "");
-    });
-  }, [data.context.characters]);
-
-  const totalCharacterAppearances = useMemo(
-    () => characterLibrary.reduce((sum, c) => sum + (c.appearanceCount || 0), 0),
-    [characterLibrary]
-  );
-
-  const sceneLibrary = useMemo(() => {
-    const map = new Map<string, SceneLibraryEntry>();
-    data.episodes.forEach((episode) => {
-      (episode.scenes || []).forEach((scene) => {
-        if (!scene) return;
-        const key = scene.id || `${episode.id}-${scene.title}`;
-        const existing = map.get(key);
-        if (!existing) {
-          map.set(key, {
-            id: scene.id || `${episode.id}-scene`,
-            title: scene.title || scene.metadata?.rawTitle || "未命名场景",
-            partition: scene.partition,
-            timeOfDay: scene.timeOfDay,
-            location: scene.location,
-            metadata: scene.metadata,
-            partitions: scene.partition ? [scene.partition] : [],
-            timesOfDay: scene.timeOfDay ? [scene.timeOfDay] : [],
-            locations: scene.location ? [scene.location] : [],
-            count: 1,
-            episodes: [episode.id],
-          });
-        } else {
-          existing.count += 1;
-          if (!existing.episodes.includes(episode.id)) existing.episodes.push(episode.id);
-          if (scene.partition && !existing.partitions.includes(scene.partition)) {
-            existing.partitions.push(scene.partition);
-          }
-          if (scene.timeOfDay && !existing.timesOfDay.includes(scene.timeOfDay)) {
-            existing.timesOfDay.push(scene.timeOfDay);
-          }
-          if (scene.location && !existing.locations.includes(scene.location)) {
-            existing.locations.push(scene.location);
-          }
-          if (!existing.metadata && scene.metadata) existing.metadata = scene.metadata;
-        }
-      });
-    });
-    return Array.from(map.values())
-      .map((entry) => ({ ...entry, episodes: [...new Set(entry.episodes)].sort((a, b) => a - b) }))
-      .sort((a, b) => {
-        const countDiff = b.count - a.count;
-        if (countDiff !== 0) return countDiff;
-        return a.id.localeCompare(b.id);
-      });
-  }, [data.episodes]);
-
-  const totalSceneAppearances = useMemo(
-    () => sceneLibrary.reduce((sum, entry) => sum + entry.count, 0),
-    [sceneLibrary]
-  );
-
-  const charactersToShow = showAllCharacters ? characterLibrary : characterLibrary.slice(0, 4);
-  const scenesToShow = showAllScenes ? sceneLibrary : sceneLibrary.slice(0, 4);
-  const formatAggregated = (items?: string[]) => {
-    if (!items || !items.length) return undefined;
-    const unique = Array.from(new Set(items.filter(Boolean)));
-    return unique.length ? unique.join(" / ") : undefined;
-  };
   const updateCharacters = (updater: (items: ProjectData["context"]["characters"]) => ProjectData["context"]["characters"]) => {
     setProjectData((prev) => ({
       ...prev,
@@ -369,30 +270,6 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       };
     });
   };
-  const hasUnderstandingData = Boolean(
-    data.context.projectSummary ||
-      data.context.episodeSummaries.length > 0 ||
-      data.context.characters?.length > 0 ||
-      data.context.locations?.length > 0
-  );
-
-  const handleFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson'
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      onAssetLoad(type, text, file.name);
-      // Reset value to allow re-uploading same file if needed
-      e.target.value = '';
-    };
-    reader.readAsText(file);
-  };
-
   const createDesignAssetId = () => {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
       return crypto.randomUUID();
@@ -446,67 +323,6 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
       designAssets: prev.designAssets.filter((asset) => asset.id !== id),
     }));
   };
-
-  const AssetCard = ({
-    title,
-    desc,
-    icon: Icon,
-    isLoaded,
-    fileName,
-    onUpload,
-    colorClass,
-    badge,
-  }: {
-    title: string;
-    desc: string;
-    icon: any;
-    isLoaded: boolean;
-    fileName?: string;
-    onUpload?: () => void;
-    colorClass: string;
-    badge?: 'required' | 'optional';
-  }) => (
-    <div
-      className={`p-3 rounded-2xl border transition-all duration-300 ${
-        isLoaded
-          ? 'bg-[var(--bg-overlay)] border-[var(--border-subtle)] shadow-[var(--shadow-soft)]'
-          : 'bg-[var(--bg-overlay)]/80 border-[var(--border-subtle)]/80 hover:border-[var(--accent-blue)]/70'
-      }`}
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div className="p-2 rounded-xl bg-[var(--bg-muted)]/60">
-          <Icon size={24} className={isLoaded ? colorClass : 'text-[var(--text-secondary)]'} />
-        </div>
-        {isLoaded && <CheckCircle size={20} className="text-green-500" />}
-      </div>
-      <div className="flex items-center gap-2 mb-1">
-        <h3 className="text-sm font-bold text-[var(--text-primary)] leading-5">{title}</h3>
-        {badge && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] uppercase">
-            {badge === 'required' ? 'Required' : 'Optional'}
-          </span>
-        )}
-      </div>
-      <p className="text-[11px] text-[var(--text-secondary)] mb-3 min-h-[24px] leading-5">
-        {fileName ? `Current: ${fileName}` : desc}
-      </p>
-
-      {onUpload ? (
-        <button
-          onClick={onUpload}
-          className={`w-full py-2 rounded-lg text-[13px] font-medium flex items-center justify-center gap-2 transition-colors ${
-            isLoaded
-              ? 'bg-[var(--bg-panel)] border border-[var(--border-subtle)] hover:border-[var(--accent-blue)] text-[var(--text-primary)]'
-              : 'bg-[var(--accent-blue)] hover:bg-sky-500 text-white'
-          }`}
-        >
-          <Upload size={16} /> {isLoaded ? 'Replace File' : 'Upload File'}
-        </button>
-      ) : (
-        <div className="text-xs text-[var(--text-secondary)]">Coming soon</div>
-      )}
-    </div>
-  );
 
   const GeneratedLibraryCard = ({
     title,
@@ -826,232 +642,6 @@ export const AssetsBoard: React.FC<Props> = ({ data, setProjectData, onAssetLoad
           className="hidden"
           onChange={handleDesignFileChange}
         />
-        {/* Core Assets */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-              Core Documents
-            </h3>
-          </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
-            {/* Script */}
-            <input type="file" ref={scriptInputRef} className="hidden" accept=".txt" onChange={(e) => handleFileChange(e, 'script')} />
-            <AssetCard
-              title="Screenplay (TXT)"
-              desc="The raw script text file (formatted with scenes)."
-              icon={FileText}
-              isLoaded={!!data.rawScript}
-              fileName={data.fileName}
-              onUpload={() => scriptInputRef.current?.click()}
-              colorClass="text-blue-400"
-            />
-
-            {/* CSV Import */}
-            <input type="file" ref={csvInputRef} className="hidden" accept=".csv" onChange={(e) => handleFileChange(e, 'csvShots')} />
-            <AssetCard
-              title="Import CSV Shots (Optional)"
-              desc="Restore shot lists from a previous export. Optional."
-              icon={FileSpreadsheet}
-              isLoaded={false}
-              fileName={data.episodes.some(e => e.shots.length > 0) ? `${data.episodes.reduce((acc,e)=>acc+e.shots.length,0)} Shots Loaded` : undefined}
-              onUpload={() => csvInputRef.current?.click()}
-              colorClass="text-green-400"
-            />
-
-            {/* Understanding JSON Import */}
-            <input type="file" ref={understandingInputRef} className="hidden" accept=".json" onChange={(e) => handleFileChange(e, 'understandingJson')} />
-            <AssetCard
-              title="Import Understanding JSON (Optional)"
-              desc="Restore Phase 1 understanding results from a JSON export."
-              icon={BookOpen}
-              isLoaded={hasUnderstandingData}
-              fileName={hasUnderstandingData ? 'Understanding Loaded' : undefined}
-              onUpload={() => understandingInputRef.current?.click()}
-              colorClass="text-amber-400"
-            />
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-              <Sparkles size={16} /> 剧本资产库
-            </div>
-            <div className="text-xs text-[var(--text-secondary)]">自动解析角色 · 场景</div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/40 shadow-[var(--shadow-soft)]/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[var(--text-primary)] font-semibold">
-                  <Users size={16} className="text-emerald-300" />
-                  角色库
-                </div>
-                <div className="text-[11px] text-[var(--text-secondary)]">
-                  {characterLibrary.length} 人 · {totalCharacterAppearances || 0} 次出现
-                </div>
-              </div>
-              {characterLibrary.length ? (
-                <ul className="space-y-3 text-sm text-[var(--text-secondary)]">
-                  {charactersToShow.map((char) => (
-                    <li key={char.id} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/60 p-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[var(--text-primary)] font-semibold">{char.name || "未命名角色"}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)]">
-                          {char.appearanceCount ?? 1} 次出现
-                        </span>
-                        {char.assetPriority && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">
-                            {char.assetPriority}
-                          </span>
-                        )}
-                        {char.episodeUsage && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--border-subtle)] text-[var(--text-secondary)]">
-                            {char.episodeUsage}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
-                        <span>{(char.forms?.length || 0)} 形态</span>
-                        <span>{char.role || "角色未设定"}</span>
-                      </div>
-                      {char.bio ? (
-                        <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">{char.bio}</p>
-                      ) : (
-                        <p className="text-[12px] text-[var(--text-secondary)]">暂无概述</p>
-                      )}
-                    </li>
-                  ))}
-                  {characterLibrary.length > 4 && (
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => setShowAllCharacters((prev) => !prev)}
-                        className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                      >
-                        {showAllCharacters ? "收起角色库" : `展开完整角色库 · ${characterLibrary.length} 人`}
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              ) : (
-                <p className="text-sm text-[var(--text-secondary)]">尚未解析角色，上传剧本后自动生成。</p>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)]/40 shadow-[var(--shadow-soft)]/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[var(--text-primary)] font-semibold">
-                  <MapPin size={16} className="text-cyan-300" />
-                  场景库
-                </div>
-                <div className="text-[11px] text-[var(--text-secondary)]">
-                  {sceneLibrary.length} 个场景 · {totalSceneAppearances || 0} 次出现
-                </div>
-              </div>
-              {sceneLibrary.length ? (
-                <ul className="space-y-3 text-sm text-[var(--text-secondary)]">
-                  {scenesToShow.map((scene) => {
-                    const partitionLabel = formatAggregated(scene.partitions);
-                    const timeLabel = formatAggregated(scene.timesOfDay);
-                    const locationLabel = formatAggregated(scene.locations);
-                    return (
-                      <li key={`${scene.id}-${scene.title}`} className="space-y-1 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-panel)]/60 p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[var(--text-primary)] font-semibold max-w-[70%] truncate">{scene.title || "未命名场景"}</span>
-                          <span className="text-[11px] text-[var(--text-secondary)]">出现 {scene.count} 次</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
-                          <span>编号 {scene.id}</span>
-                          {partitionLabel && <span>分区 {partitionLabel}</span>}
-                          {timeLabel && <span>时间 {timeLabel}</span>}
-                          {locationLabel && <span>位置 {locationLabel}</span>}
-                        </div>
-                        <div className="text-[11px] text-[var(--text-secondary)]">
-                          关联集：{scene.episodes.join("，")}
-                        </div>
-                        {scene.metadata?.rawTitle && (
-                          <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">
-                            原始标题：{scene.metadata.rawTitle}
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
-                  {sceneLibrary.length > 4 && (
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => setShowAllScenes((prev) => !prev)}
-                        className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                      >
-                        {showAllScenes ? "收起场景库" : `展开完整场景库 · ${sceneLibrary.length} 条`}
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              ) : (
-                <p className="text-sm text-[var(--text-secondary)]">尚未解析场景，上传剧本后自动生成。</p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* SOPs / Guides */}
-        <section>
-          <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
-            Standard Operating Procedures (AI Instructions)
-          </h3>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-            {/* Style Guide */}
-            <input type="file" ref={globalStyleInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'globalStyleGuide')} />
-            <AssetCard
-              title="Style Guide (Optional)"
-              desc="Project-wide style direction and tone. Optional to upload."
-              icon={Palette}
-              isLoaded={!!data.globalStyleGuide}
-              fileName={data.globalStyleGuide ? 'Style Guide Loaded' : undefined}
-              onUpload={() => globalStyleInputRef.current?.click()}
-              colorClass="text-purple-400"
-            />
-
-            {/* Shot Guide */}
-            <input type="file" ref={shotGuideInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'shotGuide')} />
-            <AssetCard
-              title="Shot Generation Guide"
-              desc="Rules for converting text to shots."
-              icon={FileCode}
-              isLoaded={!!data.shotGuide}
-              fileName={data.shotGuide ? 'Custom Guide Loaded' : 'Default Guide Active'}
-              onUpload={() => shotGuideInputRef.current?.click()}
-              colorClass="text-yellow-400"
-            />
-
-            {/* Sora Guide */}
-            <input type="file" ref={soraGuideInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'soraGuide')} />
-            <AssetCard
-              title="Sora Prompt Guide"
-              desc="Rules for writing video prompts."
-              icon={FileCode}
-              isLoaded={!!data.soraGuide}
-              fileName={data.soraGuide ? 'Custom Guide Loaded' : 'Default Guide Active'}
-              onUpload={() => soraGuideInputRef.current?.click()}
-              colorClass="text-pink-400"
-            />
-
-            {/* Drama Guide */}
-            <input type="file" ref={dramaGuideInputRef} className="hidden" accept=".md,.txt" onChange={(e) => handleFileChange(e, 'dramaGuide')} />
-            <AssetCard
-              title="Drama Writing Guide"
-              desc="Amplify narrative tension and professionalism."
-              icon={FileCode}
-              isLoaded={!!data.dramaGuide}
-              fileName={data.dramaGuide ? 'Drama Guide Loaded' : 'Default Guide Active'}
-              onUpload={() => dramaGuideInputRef.current?.click()}
-              colorClass="text-indigo-400"
-            />
-          </div>
-        </section>
-
         {/* Understanding Snapshot */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
