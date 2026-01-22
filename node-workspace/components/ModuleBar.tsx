@@ -1,7 +1,7 @@
 import React from "react";
 import type { LucideIcon } from "lucide-react";
 
-export type ModuleKey = "assets" | "script" | "shots";
+export type ModuleKey = "assets" | "script" | "shots" | "characters" | "scenes";
 
 type ModuleItem = {
   key: ModuleKey;
@@ -19,6 +19,8 @@ export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
     assets: "#38bdf8",
     script: "#a78bfa",
     shots: "#34d399",
+    characters: "#34d399",
+    scenes: "#22d3ee",
   };
 
   return (

@@ -38,6 +38,8 @@ import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
+import { CharacterLibraryPanel } from './node-workspace/components/CharacterLibraryPanel';
+import { SceneLibraryPanel } from './node-workspace/components/SceneLibraryPanel';
 import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
@@ -1617,6 +1619,14 @@ const App: React.FC = () => {
     labModalContent = (
       <ShotsModule shots={projectData.episodes[currentEpIndex]?.shots || []} showSora={step >= WorkflowStep.GENERATE_SORA} />
     );
+  } else if (openLabModal === "characters") {
+    labModalTitle = "角色库";
+    labModalWidth = 960;
+    labModalContent = <CharacterLibraryPanel projectData={projectData} />;
+  } else if (openLabModal === "scenes") {
+    labModalTitle = "场景库";
+    labModalWidth = 960;
+    labModalContent = <SceneLibraryPanel projectData={projectData} />;
   }
 
   return (

@@ -33,7 +33,6 @@ import {
   MapPin,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
-import { ProjectData, Scene } from "../../types";
 import type { ModuleKey } from "./ModuleBar";
 
 type AccountInfo = {
@@ -80,7 +79,6 @@ type Props = {
   accountInfo?: AccountInfo;
   onTryMe?: () => void;
   onToggleWorkflow?: () => void;
-  projectData: ProjectData;
   onAssetLoad?: (
     type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson",
     content: string,
@@ -121,7 +119,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   accountInfo,
   onTryMe,
   onToggleWorkflow,
-  projectData,
   onAssetLoad,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
@@ -191,66 +188,6 @@ export const FloatingActionBar: React.FC<Props> = ({
 
   const ioActions: { label: string; desc: string; Icon: any; onClick?: () => void; color: string }[] = [];
 
-  const sortedCharacters = React.useMemo(() => {
-    const chars = projectData.context.characters || [];
-    return [...chars].sort((a, b) => {
-      const countDiff = (b.appearanceCount || 0) - (a.appearanceCount || 0);
-      if (countDiff !== 0) return countDiff;
-      return (a.name || "").localeCompare(b.name || "");
-    });
-  }, [projectData.context.characters]);
-
-  const buildSceneLibrary = React.useMemo(() => {
-    const map = new Map<string, { id: string; title: string; ids: string[]; partitions: string[]; timeLabels: string[]; locations: string[]; count: number; episodes: number[]; metadata?: Scene["metadata"] }>();
-    projectData.episodes.forEach((episode) => {
-      (episode.scenes || []).forEach((scene) => {
-        if (!scene) return;
-        const baseTitle = (scene.title || scene.metadata?.rawTitle || "未命名场景").trim();
-        const key = baseTitle || scene.id || `${episode.id}-scene`;
-        const item = map.get(key);
-        const normalized = {
-          id: scene.id || `${episode.id}-scene`,
-          title: baseTitle,
-          metadata: scene.metadata,
-        };
-        if (!item) {
-          map.set(key, {
-            ...normalized,
-            ids: scene.id ? [scene.id] : [],
-            partitions: scene.partition ? [scene.partition] : [],
-            timeLabels: scene.timeOfDay ? [scene.timeOfDay] : [],
-            locations: scene.location ? [scene.location] : [],
-            count: 1,
-            episodes: [episode.id],
-          });
-          return;
-        }
-        item.count += 1;
-        if (!item.episodes.includes(episode.id)) item.episodes.push(episode.id);
-        if (scene.id && !item.ids.includes(scene.id)) item.ids.push(scene.id);
-        if (scene.partition && !item.partitions.includes(scene.partition)) item.partitions.push(scene.partition);
-        if (scene.timeOfDay && !item.timeLabels.includes(scene.timeOfDay)) item.timeLabels.push(scene.timeOfDay);
-        if (scene.location && !item.locations.includes(scene.location)) item.locations.push(scene.location);
-        if (!item.metadata && scene.metadata) item.metadata = scene.metadata;
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => {
-      const diff = b.count - a.count;
-      if (diff !== 0) return diff;
-      return a.title.localeCompare(b.title);
-    });
-  }, [projectData.episodes]);
-
-  const totalCharacterAppearances = React.useMemo(() => sortedCharacters.reduce((sum, char) => sum + (char.appearanceCount || 0), 0), [sortedCharacters]);
-  const totalSceneAppearances = React.useMemo(() => buildSceneLibrary.reduce((sum, entry) => sum + entry.count, 0), [buildSceneLibrary]);
-
-  const formatList = (items: string[]) => Array.from(new Set(items.filter(Boolean))).join(" / ");
-  const formatIdList = (ids: string[]) => {
-    if (!ids.length) return "未标注";
-    const unique = Array.from(new Set(ids.filter(Boolean)));
-    if (unique.length <= 3) return unique.join(" / ");
-    return `${unique.slice(0, 3).join(" / ")} 等`;
-  };
 
   return (
     <div className={rootClass}>
@@ -288,6 +225,8 @@ export const FloatingActionBar: React.FC<Props> = ({
                   { key: "assets" as ModuleKey, label: "Assets", Icon: FolderOpen },
                   { key: "script" as ModuleKey, label: "Script", Icon: FileText },
                   { key: "shots" as ModuleKey, label: "Shots", Icon: List },
+                  { key: "characters" as ModuleKey, label: "角色", Icon: Users },
+                  { key: "scenes" as ModuleKey, label: "场景", Icon: MapPin },
                 ].map(({ key, label, Icon }) => (
                   <button
                     key={key}
@@ -402,92 +341,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                 ))}
               </div>
 
-              <div className="space-y-3 px-2">
-                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">
-                  劇本資產庫
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                        <Users size={14} className="text-emerald-300" />
-                        角色庫
-                      </div>
-                      <span className="text-[11px] text-[var(--app-text-secondary)]">
-                        {sortedCharacters.length} 人 · {totalCharacterAppearances || 0} 次登場
-                      </span>
-                    </div>
-                    {sortedCharacters.length ? (
-                      <ul className="space-y-2 text-[13px] text-[var(--app-text-secondary)]">
-                        {sortedCharacters.slice(0, 3).map((char) => (
-                          <li key={char.id} className="flex items-center justify-between">
-                            <div>
-                              <div className="text-[var(--app-text-primary)] font-semibold">{char.name || "未命名角色"}</div>
-                              <div className="text-[11px] text-[var(--app-text-secondary)]">
-                                出現 {char.appearanceCount ?? 1} 次 · {char.episodeUsage || "集數未標註"}
-                              </div>
-                            </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)]">
-                              {char.role || "角色"}
-                            </span>
-                          </li>
-                        ))}
-                        {sortedCharacters.length > 3 && (
-                          <li>
-                            <div className="text-[11px] text-[var(--app-text-secondary)]">
-                              其餘 {sortedCharacters.length - 3} 人...
-                            </div>
-                          </li>
-                        )}
-                      </ul>
-                    ) : (
-                      <p className="text-[12px] text-[var(--app-text-secondary)]">上傳劇本後自動解析角色，並填充此處。</p>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                        <MapPin size={14} className="text-cyan-300" />
-                        場景庫
-                      </div>
-                      <span className="text-[11px] text-[var(--app-text-secondary)]">
-                        {buildSceneLibrary.length} 個場景 · {totalSceneAppearances || 0} 次登場
-                      </span>
-                    </div>
-                    {buildSceneLibrary.length ? (
-                      <ul className="space-y-2 text-[13px] text-[var(--app-text-secondary)]">
-                        {buildSceneLibrary.slice(0, 3).map((scene) => (
-                          <li key={scene.id} className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[var(--app-text-primary)] font-semibold">{scene.title}</span>
-                              <span className="text-[10px] text-[var(--app-text-secondary)]">出現 {scene.count} 次</span>
-                            </div>
-                            <div className="flex flex-wrap gap-2 text-[11px]">
-                              <span>編號 {formatIdList(scene.ids)}</span>
-                              {scene.partitions.length ? <span>分區 {formatList(scene.partitions)}</span> : null}
-                              {scene.timeLabels.length ? <span>時間 {formatList(scene.timeLabels)}</span> : null}
-                              {scene.locations.length ? <span>位置 {formatList(scene.locations)}</span> : null}
-                            </div>
-                            <div className="text-[11px] text-[var(--text-secondary)]">
-                              集數 {scene.episodes.join("、")}
-                            </div>
-                          </li>
-                        ))}
-                        {buildSceneLibrary.length > 3 && (
-                          <li>
-                            <div className="text-[11px] text-[var(--app-text-secondary)]">
-                              其餘 {buildSceneLibrary.length - 3} 個場景...
-                            </div>
-                          </li>
-                        )}
-                      </ul>
-                    ) : (
-                      <p className="text-[12px] text-[var(--app-text-secondary)]">上傳劇本後自動解析場景並填入此處。</p>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         )}

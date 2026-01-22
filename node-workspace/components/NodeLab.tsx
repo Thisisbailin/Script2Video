@@ -1085,7 +1085,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onOpenSettings={onOpenSettings}
             onResetProject={onResetProject}
             onSignOut={onSignOut}
-            projectData={projectData}
             onAssetLoad={onAssetLoad}
             accountInfo={accountInfo}
             onToggleWorkflow={onToggleWorkflow}
