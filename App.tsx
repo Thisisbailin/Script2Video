@@ -38,8 +38,7 @@ import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
-import { CharacterLibraryPanel } from './node-workspace/components/CharacterLibraryPanel';
-import { SceneLibraryPanel } from './node-workspace/components/SceneLibraryPanel';
+import { CharacterSceneLibraryPanel } from './node-workspace/components/CharacterSceneLibraryPanel';
 import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
@@ -1620,16 +1619,16 @@ const App: React.FC = () => {
       <ShotsModule shots={projectData.episodes[currentEpIndex]?.shots || []} showSora={step >= WorkflowStep.GENERATE_SORA} />
     );
   } else if (openLabModal === "characters") {
-    labModalTitle = "角色库";
+    labModalTitle = "角色与场景库";
     labModalWidth = 960;
     labModalContent = (
-      <CharacterLibraryPanel projectData={projectData} setProjectData={setProjectData} />
+      <CharacterSceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
     );
   } else if (openLabModal === "scenes") {
-    labModalTitle = "场景库";
+    labModalTitle = "角色与场景库";
     labModalWidth = 960;
     labModalContent = (
-      <SceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
+      <CharacterSceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
     );
   }
 

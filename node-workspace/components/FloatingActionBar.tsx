@@ -14,6 +14,7 @@ import {
   BoxSelect,
   Library,
   ChevronRight,
+  ChevronsRight,
   Layers,
   FolderOpen,
   FileText,
@@ -204,7 +205,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
+            className={`absolute bottom-16 left-0 w-[92vw] max-w-[520px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
             style={panelStyle}
           >
             <div className="p-4 space-y-3">
@@ -231,9 +232,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onTryMe?.();
                       closeMenus();
                     }}
-                    className="h-9 px-4 rounded-full bg-[var(--accent-blue)] text-white text-[12px] font-semibold hover:bg-sky-500 transition"
+                    className="h-9 w-9 flex items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition"
+                    aria-label="载入示例"
                   >
-                    载入示例
+                    <ChevronsRight size={18} />
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[10px] text-[var(--app-text-secondary)]">
@@ -247,7 +249,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 px-1">
+              <div className="grid grid-cols-3 gap-2 px-1">
                 {projectModules.map(({ key, label, desc, Icon, tone, surface }) => (
                   <button
                     key={key}
@@ -255,16 +257,13 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onOpenModule?.(key);
                       closeMenus();
                     }}
-                    className="group flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-left hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
+                    className="group flex flex-col gap-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-left hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
                   >
-                    <span className={`h-10 w-10 flex items-center justify-center rounded-xl border border-[var(--app-border)] ${surface} ${tone}`}>
+                    <span className={`h-9 w-9 flex items-center justify-center rounded-xl border border-[var(--app-border)] ${surface} ${tone}`}>
                       <Icon size={18} />
                     </span>
-                    <div className="flex-1">
-                      <div className="text-[13px] font-semibold text-[var(--app-text-primary)]">{label}</div>
-                      <div className="text-[11px] text-[var(--app-text-secondary)]">{desc}</div>
-                    </div>
-                    <ChevronRight size={14} className="text-[var(--app-text-secondary)] opacity-0 group-hover:opacity-100 transition" />
+                    <div className="text-[13px] font-semibold text-[var(--app-text-primary)]">{label}</div>
+                    <div className="text-[10px] text-[var(--app-text-secondary)]">{desc}</div>
                   </button>
                 ))}
               </div>
