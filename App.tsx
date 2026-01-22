@@ -30,7 +30,6 @@ import { useShotGeneration } from './hooks/useShotGeneration';
 import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { AppShell } from './components/layout/AppShell';
 import { Header, WorkflowCard } from './components/layout/Header';
-import { SettingsModal } from './components/SettingsModal';
 import { ConflictModal } from './components/ConflictModal';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { AssetsModule } from './modules/assets/AssetsModule';
@@ -39,6 +38,10 @@ import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
 import { CharacterSceneLibraryPanel } from './node-workspace/components/CharacterSceneLibraryPanel';
+import { MaterialsPanel } from './node-workspace/components/MaterialsPanel';
+import { UnderstandingPanel } from './node-workspace/components/UnderstandingPanel';
+import { SyncPanel } from './node-workspace/components/SyncPanel';
+import { InfoPanel } from './node-workspace/components/InfoPanel';
 import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
@@ -193,8 +196,7 @@ const App: React.FC = () => {
     setAnalysisError(null);
   }, [analysisStep]);
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'multimodal' | 'video' | 'sync' | 'about' | null>(null);
+  const [accountPanel, setAccountPanel] = useState<"sync" | "info" | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
@@ -238,15 +240,11 @@ const App: React.FC = () => {
   }, [user?.id, userSignedIn]);
   const isSyncFeatureEnabled = !!authSignedIn && syncRollout.enabled;
 
-  const openSettings = useCallback((tab?: 'multimodal' | 'video' | 'sync' | 'about') => {
-    setSettingsTab(tab || null);
-    setIsSettingsOpen(true);
+  const openAccountPanel = useCallback((panel: "sync" | "info") => {
+    setAccountPanel(panel);
   }, []);
 
-  const closeSettings = useCallback(() => {
-    setIsSettingsOpen(false);
-    setSettingsTab(null);
-  }, []);
+  const closeAccountPanel = useCallback(() => setAccountPanel(null), []);
 
   const handleOpenLabModule = useCallback((key: ModuleKey) => {
     setOpenLabModal(key);
@@ -1238,8 +1236,7 @@ const App: React.FC = () => {
   // === PHASE 5: VIDEO GENERATION ===
   const handleGenerateVideo = async (episodeId: number, shotId: string, customPrompt: string, params: VideoParams) => {
     if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) {
-      alert("Video API settings missing. Please open Settings -> Video Generation.");
-      openSettings('video');
+      alert("Video API settings missing. Please open Agent Settings -> Video.");
       return;
     }
 
@@ -1556,7 +1553,8 @@ const App: React.FC = () => {
               onExportUnderstandingJson={handleExportUnderstandingJson}
               onToggleTheme={toggleTheme}
               isDarkMode={isDarkMode}
-              onOpenSettings={openSettings}
+              onOpenSyncPanel={() => openAccountPanel("sync")}
+              onOpenInfoPanel={() => openAccountPanel("info")}
               onResetProject={handleResetProject}
               onSignOut={() => signOut()}
               onOpenStats={handleOpenStats}
@@ -1619,17 +1617,25 @@ const App: React.FC = () => {
       <ShotsModule shots={projectData.episodes[currentEpIndex]?.shots || []} showSora={step >= WorkflowStep.GENERATE_SORA} />
     );
   } else if (openLabModal === "characters") {
-    labModalTitle = "角色与场景库";
+    labModalTitle = "Characters & Scenes";
     labModalWidth = 960;
     labModalContent = (
       <CharacterSceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
     );
   } else if (openLabModal === "scenes") {
-    labModalTitle = "角色与场景库";
+    labModalTitle = "Characters & Scenes";
     labModalWidth = 960;
     labModalContent = (
       <CharacterSceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
     );
+  } else if (openLabModal === "understanding") {
+    labModalTitle = "理解";
+    labModalWidth = 980;
+    labModalContent = <UnderstandingPanel projectData={projectData} />;
+  } else if (openLabModal === "materials") {
+    labModalTitle = "素材";
+    labModalWidth = 980;
+    labModalContent = <MaterialsPanel />;
   }
 
   return (
@@ -1644,26 +1650,13 @@ const App: React.FC = () => {
               isOnline={isOnline}
               isSignedIn={!!authSignedIn}
               syncRollout={syncRollout}
-              onOpenDetails={() => openSettings('sync')}
+              onOpenDetails={() => openAccountPanel("sync")}
               onForceSync={forceCloudPull}
               onClose={() => setIsSyncBannerDismissed(true)}
             />
           )
         }
       >
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={closeSettings}
-          config={config}
-          onConfigChange={setConfig}
-          isSignedIn={!!authSignedIn}
-          getAuthToken={getAuthToken}
-          onForceSync={forceCloudPull}
-          syncState={syncState}
-          syncRollout={syncRollout}
-          activeTabOverride={settingsTab || undefined}
-          onResetProject={handleResetProject}
-        />
         {activeConflict && (
           <ConflictModal
             isOpen={!!activeConflict}
@@ -1691,6 +1684,25 @@ const App: React.FC = () => {
         {showStatsModal && (
           <FloatingPanelShell title="Dashboard" isOpen onClose={closeStats} width={960}>
             <Dashboard data={projectData} isDarkMode={isDarkMode} />
+          </FloatingPanelShell>
+        )}
+        {accountPanel === "sync" && (
+          <FloatingPanelShell title="Sync" isOpen onClose={closeAccountPanel} width={980}>
+            <SyncPanel
+              config={config}
+              onConfigChange={setConfig}
+              isSignedIn={!!authSignedIn}
+              getAuthToken={getAuthToken}
+              onForceSync={forceCloudPull}
+              syncState={syncState}
+              syncRollout={syncRollout}
+              onResetProject={handleResetProject}
+            />
+          </FloatingPanelShell>
+        )}
+        {accountPanel === "info" && (
+          <FloatingPanelShell title="Info" isOpen onClose={closeAccountPanel} width={960}>
+            <InfoPanel />
           </FloatingPanelShell>
         )}
       </AppShell>

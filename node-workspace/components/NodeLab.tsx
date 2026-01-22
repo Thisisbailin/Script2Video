@@ -89,7 +89,8 @@ interface NodeLabProps {
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
   isDarkMode?: boolean;
-  onOpenSettings?: (tab?: "multimodal" | "video" | "sync" | "about") => void;
+  onOpenSyncPanel?: () => void;
+  onOpenInfoPanel?: () => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: {
@@ -341,7 +342,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onOpenStats,
   onToggleTheme,
   isDarkMode,
-  onOpenSettings,
+  onOpenSyncPanel,
+  onOpenInfoPanel,
   onResetProject,
   onSignOut,
   accountInfo,
@@ -1082,7 +1084,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onOpenStats={onOpenStats}
             onToggleTheme={onToggleTheme}
             isDarkMode={isDarkMode}
-            onOpenSettings={onOpenSettings}
+            onOpenSyncPanel={onOpenSyncPanel}
+            onOpenInfoPanel={onOpenInfoPanel}
             onResetProject={onResetProject}
             onSignOut={onSignOut}
             onAssetLoad={onAssetLoad}

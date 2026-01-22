@@ -25,7 +25,6 @@ import {
   FileCode,
   Sun,
   Moon,
-  Settings,
   Trash2,
   LogOut,
   Upload,
@@ -74,7 +73,8 @@ type Props = {
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
   isDarkMode?: boolean;
-  onOpenSettings?: (tab?: "multimodal" | "video" | "sync" | "about") => void;
+  onOpenSyncPanel?: () => void;
+  onOpenInfoPanel?: () => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: AccountInfo;
@@ -114,7 +114,8 @@ export const FloatingActionBar: React.FC<Props> = ({
   onOpenStats,
   onToggleTheme,
   isDarkMode,
-  onOpenSettings,
+  onOpenSyncPanel,
+  onOpenInfoPanel,
   onResetProject,
   onSignOut,
   accountInfo,
@@ -161,8 +162,10 @@ export const FloatingActionBar: React.FC<Props> = ({
     { key: "assets" as ModuleKey, label: "Assets", desc: "资产与设定", Icon: FolderOpen, tone: "text-emerald-300", surface: "bg-emerald-500/10" },
     { key: "script" as ModuleKey, label: "Script", desc: "剧本与解析", Icon: FileText, tone: "text-sky-300", surface: "bg-sky-500/10" },
     { key: "shots" as ModuleKey, label: "Shots", desc: "分镜与镜头", Icon: List, tone: "text-amber-300", surface: "bg-amber-500/10" },
-    { key: "characters" as ModuleKey, label: "角色", desc: "角色库", Icon: Users, tone: "text-emerald-200", surface: "bg-emerald-500/10" },
-    { key: "scenes" as ModuleKey, label: "场景", desc: "场景库", Icon: MapPin, tone: "text-cyan-200", surface: "bg-cyan-500/10" },
+    { key: "characters" as ModuleKey, label: "Characters", desc: "Character Library", Icon: Users, tone: "text-emerald-200", surface: "bg-emerald-500/10" },
+    { key: "scenes" as ModuleKey, label: "Scenes", desc: "Scene Library", Icon: MapPin, tone: "text-cyan-200", surface: "bg-cyan-500/10" },
+    { key: "understanding" as ModuleKey, label: "理解", desc: "理解快照", Icon: BookOpen, tone: "text-yellow-200", surface: "bg-yellow-500/10" },
+    { key: "materials" as ModuleKey, label: "素材", desc: "生成素材库", Icon: Sparkles, tone: "text-blue-200", surface: "bg-blue-500/10" },
   ];
 
   const accountLoaded = accountInfo?.isLoaded ?? true;
@@ -205,7 +208,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className={`absolute bottom-16 left-0 w-[92vw] max-w-[520px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
+            className={`absolute bottom-16 left-0 w-[92vw] max-w-[680px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
             style={panelStyle}
           >
             <div className="p-4 space-y-3">
@@ -423,11 +426,21 @@ export const FloatingActionBar: React.FC<Props> = ({
                           type="button"
                           className={pillButtonClass}
                           onClick={() => {
-                            onOpenSettings?.();
+                            onOpenSyncPanel?.();
                             closeMenus();
                           }}
                         >
-                          Setting
+                          Sync
+                        </button>
+                        <button
+                          type="button"
+                          className={pillButtonClass}
+                          onClick={() => {
+                            onOpenInfoPanel?.();
+                            closeMenus();
+                          }}
+                        >
+                          Info
                         </button>
                         {handleUploadAvatar && (
                           <button
@@ -482,6 +495,16 @@ export const FloatingActionBar: React.FC<Props> = ({
                           }}
                         >
                           先看看
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-full text-[12px] border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)] transition"
+                          onClick={() => {
+                            onOpenInfoPanel?.();
+                            closeMenus();
+                          }}
+                        >
+                          Info
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-2 pt-2">

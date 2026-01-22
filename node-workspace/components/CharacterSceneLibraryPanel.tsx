@@ -49,7 +49,7 @@ const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("文件读取失败"));
+    reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 
@@ -78,9 +78,9 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
     projectData.episodes.forEach((episode) => {
       (episode.scenes || []).forEach((scene) => {
         if (!scene) return;
-        const title = normalizeLabel(scene.title || scene.metadata?.rawTitle || "未命名场景");
+        const title = normalizeLabel(scene.title || scene.metadata?.rawTitle || "Untitled Scene");
         const key = title || scene.id || `scene-${episode.id}`;
-        const partitionName = normalizeLabel(scene.partition || "主场景");
+        const partitionName = normalizeLabel(scene.partition || "Main Zone");
         const partitionKey = `${key}::${partitionName}`;
         const refId = `scene:${key}|${partitionName}`;
         const entry = map.get(key);
@@ -228,7 +228,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
         designAssets: [...(prev.designAssets || []), ...newAssets],
       }));
     } catch (err) {
-      alert((err as Error).message || "设定图上传失败");
+      alert((err as Error).message || "Upload failed");
     } finally {
       event.target.value = "";
       setUploadTarget(null);
@@ -253,7 +253,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
   }) => (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {assets.length === 0 && (
-        <span className="text-[10px] text-[var(--app-text-secondary)]">暂无设定图</span>
+        <span className="text-[10px] text-[var(--app-text-secondary)]">No design yet</span>
       )}
       {assets.map((asset) => (
         <div
@@ -276,15 +276,15 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
         onClick={onUpload}
         className="h-16 min-w-[100px] rounded-lg border border-dashed border-[var(--app-border)]/70 px-3 text-[11px] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)] transition"
       >
-        上传设定图
+        Upload design
       </button>
     </div>
   );
 
   const formatIds = (ids: string[]) => {
-    if (!ids.length) return "未标注";
+    if (!ids.length) return "Unlabeled";
     if (ids.length <= 3) return ids.join(" / ");
-    return `${ids.slice(0, 3).join(" / ")} 等`;
+    return `${ids.slice(0, 3).join(" / ")} +`;
   };
 
   return (
@@ -304,10 +304,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[12px] font-semibold">
                 <Users size={16} className="text-emerald-300" />
-                角色列表
+                Characters
               </div>
               <div className="text-[11px] text-[var(--app-text-secondary)]">
-                {characters.length} 人 · {totalCharacterAppearances} 次
+                {characters.length} characters · {totalCharacterAppearances} appearances
               </div>
             </div>
             <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
@@ -327,21 +327,21 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[12px] font-semibold truncate">
-                          {char.name || "未命名角色"}
+                          {char.name || "Untitled Character"}
                         </div>
                         <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)]">
-                          {char.appearanceCount ?? 1} 次
+                          {char.appearanceCount ?? 1}x
                         </span>
                       </div>
                       <div className="mt-1 text-[10px] text-[var(--app-text-secondary)]">
-                        形态 {char.forms?.length || 0} · {char.role || "定位未标注"}
+                        Forms {char.forms?.length || 0} · {char.role || "Role unset"}
                       </div>
                     </button>
                   );
                 })
               ) : (
                 <div className="text-[12px] text-[var(--app-text-secondary)]">
-                  尚未解析角色。
+                  No characters yet.
                 </div>
               )}
             </div>
@@ -351,10 +351,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[12px] font-semibold">
                 <MapPin size={16} className="text-cyan-300" />
-                场景列表
+                Scenes
               </div>
               <div className="text-[11px] text-[var(--app-text-secondary)]">
-                {sceneEntries.length} 个 · {totalSceneAppearances} 次
+                {sceneEntries.length} scenes · {totalSceneAppearances} appearances
               </div>
             </div>
             <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
@@ -375,18 +375,18 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[12px] font-semibold truncate">{scene.title}</div>
                         <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)]">
-                          {scene.count} 次
+                          {scene.count}x
                         </span>
                       </div>
                       <div className="mt-1 text-[10px] text-[var(--app-text-secondary)]">
-                        分区 {scene.partitions.length} · 集数 {scene.episodes.join("、")}
+                        Zones {scene.partitions.length} · Episodes {scene.episodes.join(", ")}
                       </div>
                     </button>
                   );
                 })
               ) : (
                 <div className="text-[12px] text-[var(--app-text-secondary)]">
-                  尚未解析场景。
+                  No scenes yet.
                 </div>
               )}
             </div>
@@ -400,16 +400,16 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-lg font-semibold">
-                      {selectedCharacter.name || "未命名角色"}
+                      {selectedCharacter.name || "Untitled Character"}
                     </div>
                     <div className="text-[12px] text-[var(--app-text-secondary)] mt-1">
-                      {selectedCharacter.role || "角色定位未标注"}
-                      {selectedCharacter.assetPriority ? ` · 优先级 ${selectedCharacter.assetPriority}` : ""}
+                      {selectedCharacter.role || "Role unset"}
+                      {selectedCharacter.assetPriority ? ` · Priority ${selectedCharacter.assetPriority}` : ""}
                     </div>
                   </div>
                   <div className="text-right text-[11px] text-[var(--app-text-secondary)]">
-                    <div>出现 {selectedCharacter.appearanceCount ?? 1} 次</div>
-                    <div>集数 {selectedCharacter.episodeUsage || "未标注"}</div>
+                    <div>Appearances {selectedCharacter.appearanceCount ?? 1}</div>
+                    <div>Episodes {selectedCharacter.episodeUsage || "—"}</div>
                   </div>
                 </div>
 
@@ -420,9 +420,9 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                 )}
 
                 <div className="flex items-center justify-between">
-                  <div className="text-[12px] font-semibold">角色形态</div>
+                  <div className="text-[12px] font-semibold">Character Forms</div>
                   <div className="text-[11px] text-[var(--app-text-secondary)]">
-                    {selectedCharacter.forms?.length || 0} 个形态
+                    {selectedCharacter.forms?.length || 0} forms
                   </div>
                 </div>
 
@@ -433,7 +433,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                       const assets = designAssets.filter(
                         (asset) => asset.category === "form" && asset.refId === refId
                       );
-                      const label = `${selectedCharacter.name || "角色"} · ${form.formName || "形态"}`;
+                      const label = `${selectedCharacter.name || "Character"} · ${form.formName || "Form"}`;
                       return (
                         <div
                           key={form.id}
@@ -442,10 +442,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <div className="text-[13px] font-semibold">
-                                {form.formName || "未命名形态"}
+                                {form.formName || "Untitled Form"}
                               </div>
                               <div className="text-[11px] text-[var(--app-text-secondary)]">
-                                {form.episodeRange || "出现范围未标注"}
+                                {form.episodeRange || "Episode range unset"}
                               </div>
                             </div>
                             <button
@@ -460,7 +460,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                               className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2 py-1 text-[10px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
                             >
                               <ImagePlus size={12} />
-                              设定图
+                              Design
                             </button>
                           </div>
                           {(form.identityOrState || form.visualTags) && (
@@ -489,11 +489,13 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                     })}
                   </div>
                 ) : (
-                  <div className="text-[12px] text-[var(--app-text-secondary)]">暂无形态信息</div>
+                  <div className="text-[12px] text-[var(--app-text-secondary)]">No forms yet.</div>
                 )}
               </>
             ) : (
-              <div className="text-[12px] text-[var(--app-text-secondary)]">请选择左侧角色查看详情。</div>
+              <div className="text-[12px] text-[var(--app-text-secondary)]">
+                Select a character on the left.
+              </div>
             )
           ) : selection?.type === "scene" ? (
             selectedScene ? (
@@ -502,25 +504,25 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                   <div>
                     <div className="text-lg font-semibold">{selectedScene.title}</div>
                     <div className="text-[12px] text-[var(--app-text-secondary)] mt-1">
-                      编号 {formatIds(selectedScene.ids)}
+                      IDs {formatIds(selectedScene.ids)}
                     </div>
                   </div>
                   <div className="text-right text-[11px] text-[var(--app-text-secondary)]">
-                    <div>出现 {selectedScene.count} 次</div>
-                    <div>集数 {selectedScene.episodes.join("、")}</div>
+                    <div>Appearances {selectedScene.count}</div>
+                    <div>Episodes {selectedScene.episodes.join(", ")}</div>
                   </div>
                 </div>
 
                 {selectedScene.metadata?.rawTitle && (
                   <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 text-[12px] text-[var(--app-text-secondary)]">
-                    原始标题：{selectedScene.metadata.rawTitle}
+                    Original title: {selectedScene.metadata.rawTitle}
                   </div>
                 )}
 
                 <div className="flex items-center justify-between">
-                  <div className="text-[12px] font-semibold">场景分区</div>
+                  <div className="text-[12px] font-semibold">Scene Zones</div>
                   <div className="text-[11px] text-[var(--app-text-secondary)]">
-                    {selectedScene.partitions.length} 个分区
+                    {selectedScene.partitions.length} zones
                   </div>
                 </div>
 
@@ -541,7 +543,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                           <div>
                             <div className="text-[13px] font-semibold">{partition.name}</div>
                             <div className="text-[11px] text-[var(--app-text-secondary)]">
-                              出现 {partition.count} 次
+                              Appearances {partition.count}
                             </div>
                           </div>
                           <button
@@ -556,14 +558,14 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                             className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2 py-1 text-[10px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
                           >
                             <ImagePlus size={12} />
-                            设定图
+                            Design
                           </button>
                         </div>
                         <div className="text-[11px] text-[var(--app-text-secondary)] space-y-1">
-                          <div>编号 {formatIds(partition.ids)}</div>
-                          {timeLabel && <div>时间 {timeLabel}</div>}
-                          {locationLabel && <div>位置 {locationLabel}</div>}
-                          <div>集数 {partition.episodes.join("、")}</div>
+                          <div>IDs {formatIds(partition.ids)}</div>
+                          {timeLabel && <div>Time {timeLabel}</div>}
+                          {locationLabel && <div>Location {locationLabel}</div>}
+                          <div>Episodes {partition.episodes.join(", ")}</div>
                         </div>
                         <DesignAssetStrip
                           assets={assets}
@@ -582,10 +584,14 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                 </div>
               </>
             ) : (
-              <div className="text-[12px] text-[var(--app-text-secondary)]">请选择左侧场景查看详情。</div>
+              <div className="text-[12px] text-[var(--app-text-secondary)]">
+                Select a scene on the left.
+              </div>
             )
           ) : (
-            <div className="text-[12px] text-[var(--app-text-secondary)]">请选择左侧条目查看详情。</div>
+            <div className="text-[12px] text-[var(--app-text-secondary)]">
+              Select an item on the left.
+            </div>
           )}
         </div>
       </div>
