@@ -245,6 +245,10 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       zonesMode: current.zonesMode || base.zonesMode || "merge",
     };
   }, [config.textConfig.qalamTools]);
+  const activeConversation = useMemo(
+    () => conversationState.items.find((item) => item.id === conversationState.activeId) || null,
+    [conversationState.activeId, conversationState.items]
+  );
   const activeToolItem = useMemo(
     () => TOOL_ITEMS.find((item) => item.key === activeTool) || TOOL_ITEMS[0],
     [activeTool]
@@ -718,100 +722,102 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
 
             <div className="space-y-4">
-              {activeType === "chat" && (
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Chat Providers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
-                      { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
-                      { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
-                      { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
-                      { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
-                    ].map(({ key, label, Icon }) => {
-                      const active = config.textConfig.provider === key;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setProvider(key)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
-                            active
-                              ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
-                              : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
-                          }`}
-                        >
-                          <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
-                          {label}
-                          {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {selectedPanel === "provider" && (
+                <>
+                  {activeType === "chat" && (
+                    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                      <div className="text-[11px] uppercase tracking-widest app-text-muted">Chat Providers</div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
+                          { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
+                          { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
+                          { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
+                          { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
+                        ].map(({ key, label, Icon }) => {
+                          const active = config.textConfig.provider === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setProvider(key)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
+                                active
+                                  ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                                  : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                              }`}
+                            >
+                              <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                              {label}
+                              {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-              {activeType === "multi" && (
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Multi Providers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: "openrouter" as const, label: "OpenRouter", Icon: Globe },
-                      { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
-                      { key: "deyunai" as const, label: "DeyunAI", Icon: Sparkles },
-                    ].map(({ key, label, Icon }) => {
-                      const active = activeMultiProvider === key;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setActiveMultiProvider(key)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
-                            active
-                              ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
-                              : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
-                          }`}
-                        >
-                          <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
-                          {label}
-                          {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                  {activeType === "multi" && (
+                    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                      <div className="text-[11px] uppercase tracking-widest app-text-muted">Multi Providers</div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: "openrouter" as const, label: "OpenRouter", Icon: Globe },
+                          { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
+                          { key: "deyunai" as const, label: "DeyunAI", Icon: Sparkles },
+                        ].map(({ key, label, Icon }) => {
+                          const active = activeMultiProvider === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setActiveMultiProvider(key)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
+                                active
+                                  ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                                  : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                              }`}
+                            >
+                              <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                              {label}
+                              {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-              {activeType === "video" && (
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Video Providers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: "sora" as const, label: "Sora", Icon: Sparkles },
-                      { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
-                      { key: "vidu" as const, label: "Vidu", Icon: Video },
-                    ].map(({ key, label, Icon }) => {
-                      const active = activeVideoProvider === key;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setActiveVideoProvider(key)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
-                            active
-                              ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
-                              : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
-                          }`}
-                        >
-                          <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
-                          {label}
-                          {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                  {activeType === "video" && (
+                    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                      <div className="text-[11px] uppercase tracking-widest app-text-muted">Video Providers</div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: "sora" as const, label: "Sora", Icon: Sparkles },
+                          { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
+                          { key: "vidu" as const, label: "Vidu", Icon: Video },
+                        ].map(({ key, label, Icon }) => {
+                          const active = activeVideoProvider === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setActiveVideoProvider(key)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-full text-[11px] border transition ${
+                                active
+                                  ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                                  : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                              }`}
+                            >
+                              <Icon size={12} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                              {label}
+                              {active && <span className="ml-1 text-[10px] text-emerald-400">Active</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
           {activeType === "chat" && config.textConfig.provider === "gemini" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
@@ -1207,79 +1213,123 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </button>
             </div>
           )}
-
-          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-            <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                  <ActiveToolIcon size={14} className="text-[var(--app-text-primary)]" />
-                  {activeToolItem.label}
-                </div>
-                {activeToolItem.status === "placeholder" ? (
-                  <span className="text-[10px] text-[var(--app-text-muted)]">占位</span>
-                ) : (
-                  <span className="text-[10px] text-emerald-300">已接入</span>
-                )}
-              </div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.description}</div>
-              {activeTool === "asset-library" ? (
-                <>
-                  <div className="text-[12px] text-[var(--app-text-secondary)]">
-                    接口：<span className="text-[var(--app-text-primary)]">upsert_character</span> /
-                    <span className="text-[var(--app-text-primary)]"> upsert_location</span>
-                  </div>
-                  <div className="text-[11px] text-[var(--app-text-muted)]">下列选项作为默认值，仅在工具参数缺省时生效。</div>
-                  <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
-                    <input
-                      type="checkbox"
-                      checked={qalamToolSettings.enabled}
-                      onChange={(e) => updateQalamToolSettings({ enabled: e.target.checked })}
-                      className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                    />
-                    启用资产库写入工具
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">合并策略</label>
-                      <select
-                        value={qalamToolSettings.mergeStrategy}
-                        onChange={(e) => updateQalamToolSettings({ mergeStrategy: e.target.value as any })}
-                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                      >
-                        <option value="patch">patch（局部更新）</option>
-                        <option value="replace">replace（整段替换）</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">形态合并</label>
-                      <select
-                        value={qalamToolSettings.formsMode}
-                        onChange={(e) => updateQalamToolSettings({ formsMode: e.target.value as any })}
-                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                      >
-                        <option value="merge">merge（合并）</option>
-                        <option value="replace">replace（替换）</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">分区合并</label>
-                      <select
-                        value={qalamToolSettings.zonesMode}
-                        onChange={(e) => updateQalamToolSettings({ zonesMode: e.target.value as any })}
-                        className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                      >
-                        <option value="merge">merge（合并）</option>
-                        <option value="replace">replace（替换）</option>
-                      </select>
-                    </div>
-                  </div>
                 </>
-              ) : (
-                <div className="text-[11px] text-[var(--app-text-muted)]">{activeToolItem.note}</div>
               )}
-            </div>
-          </div>
+
+              {selectedPanel === "tools" && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
+                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                        <ActiveToolIcon size={14} className="text-[var(--app-text-primary)]" />
+                        {activeToolItem.label}
+                      </div>
+                      {activeToolItem.status === "placeholder" ? (
+                        <span className="text-[10px] text-[var(--app-text-muted)]">占位</span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-300">已接入</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.description}</div>
+                    {activeTool === "asset-library" ? (
+                      <>
+                        <div className="text-[12px] text-[var(--app-text-secondary)]">
+                          接口：<span className="text-[var(--app-text-primary)]">upsert_character</span> /
+                          <span className="text-[var(--app-text-primary)]"> upsert_location</span>
+                        </div>
+                        <div className="text-[11px] text-[var(--app-text-muted)]">下列选项作为默认值，仅在工具参数缺省时生效。</div>
+                        <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={qalamToolSettings.enabled}
+                            onChange={(e) => updateQalamToolSettings({ enabled: e.target.checked })}
+                            className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
+                          />
+                          启用资产库写入工具
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">合并策略</label>
+                            <select
+                              value={qalamToolSettings.mergeStrategy}
+                              onChange={(e) => updateQalamToolSettings({ mergeStrategy: e.target.value as any })}
+                              className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                            >
+                              <option value="patch">patch（局部更新）</option>
+                              <option value="replace">replace（整段替换）</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">形态合并</label>
+                            <select
+                              value={qalamToolSettings.formsMode}
+                              onChange={(e) => updateQalamToolSettings({ formsMode: e.target.value as any })}
+                              className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                            >
+                              <option value="merge">merge（合并）</option>
+                              <option value="replace">replace（替换）</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">分区合并</label>
+                            <select
+                              value={qalamToolSettings.zonesMode}
+                              onChange={(e) => updateQalamToolSettings({ zonesMode: e.target.value as any })}
+                              className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
+                            >
+                              <option value="merge">merge（合并）</option>
+                              <option value="replace">replace（替换）</option>
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-[var(--app-text-muted)]">{activeToolItem.note}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedPanel === "history" && (
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                  <div className="text-[11px] uppercase tracking-widest app-text-muted">History</div>
+                  {activeConversation ? (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-1">
+                        <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">
+                          {activeConversation.title || buildConversationTitle(activeConversation.messages || [])}
+                        </div>
+                        <div className="text-[10px] text-[var(--app-text-muted)]">
+                          更新 {formatTimestamp(activeConversation.updatedAt || activeConversation.createdAt)}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {(activeConversation.messages || []).length ? (
+                          activeConversation.messages.map((message, index) => (
+                            <div
+                              key={`${activeConversation.id}-${index}`}
+                              className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2"
+                            >
+                              <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                                {message.role || "unknown"}
+                              </div>
+                              <div className="mt-1 text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                                {message.text || "（空消息）"}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[11px] text-[var(--app-text-muted)]">暂无对话内容。</div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-[var(--app-text-muted)]">请选择一条对话。</div>
+                  )}
+                  <div className="text-[11px] text-[var(--app-text-muted)]">仅对 Qalam 对话生效。</div>
+                </div>
+              )}
         </div>
       </div>
     </div>
