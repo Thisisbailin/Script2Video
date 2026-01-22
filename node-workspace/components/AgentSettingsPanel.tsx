@@ -574,9 +574,9 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 <div className="text-[11px] uppercase tracking-widest app-text-muted">Provider</div>
                 <div className="flex flex-col gap-2">
                   {[
-                    { key: "chat", label: "Chat", Icon: Sparkles },
-                    { key: "multi", label: "Multi", Icon: Eye },
-                    { key: "video", label: "Video", Icon: Video },
+                    { key: "chat" as const, label: "Chat", Icon: Sparkles },
+                    { key: "multi" as const, label: "Multi", Icon: Eye },
+                    { key: "video" as const, label: "Video", Icon: Video },
                   ].map(({ key, label, Icon }) => {
                     const active = activeType === key;
                     return (
