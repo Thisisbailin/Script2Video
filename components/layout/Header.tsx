@@ -589,7 +589,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
   }, [step]);
 
   return (
-    <div className="w-[380px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl app-panel flex flex-col">
+    <div className="w-[460px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl app-panel flex flex-col">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-teal-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">

@@ -1561,7 +1561,7 @@ const App: React.FC = () => {
     if (!workflowAnchor || typeof window === "undefined") {
       return { right: 16, bottom: 16 };
     }
-    const panelWidth = 380;
+    const panelWidth = 460;
     const gap = 12;
     const left = Math.min(
       Math.max(workflowAnchor.left + workflowAnchor.width / 2 - panelWidth / 2, 12),
@@ -1752,41 +1752,44 @@ const App: React.FC = () => {
         )}
       </AppShell>
       {showWorkflow && (
-        <div
-          className="fixed z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300"
-          style={workflowPanelStyle}
-        >
-          <WorkflowCard
-            workflow={{
-              step,
-              analysisStep,
-              analysisQueueLength: analysisQueue.length,
-              analysisTotal,
-              isProcessing,
-              analysisError,
-              currentEpIndex,
-              episodes: projectData.episodes,
-              setCurrentEpIndex,
-              setStep,
-              setAnalysisStep,
-              onStartAnalysis: startAnalysis,
-              onConfirmSummaryNext: confirmSummaryAndNext,
-              onConfirmEpSummariesNext: confirmEpSummariesAndNext,
-              onConfirmCharListNext: confirmCharListAndNext,
-              onConfirmCharDepthNext: confirmCharDepthAndNext,
-              onConfirmLocListNext: confirmLocListAndNext,
-              onFinishAnalysis: finishAnalysis,
-              onRetryAnalysis: retryAnalysisStep,
-              onStartPhase2: startPhase2,
-              onConfirmEpisodeShots: confirmEpisodeShots,
-              onRetryEpisodeShots: retryCurrentEpisodeShots,
-              onStartPhase3: startPhase3,
-              onRetryEpisodeSora: retryCurrentEpisodeSora,
-              onContinueNextEpisodeSora: continueNextEpisodeSora,
-            }}
-            onClose={() => setShowWorkflow(false)}
-          />
-        </div>
+        <>
+          <div className="fixed inset-0 z-[55]" onClick={() => setShowWorkflow(false)} />
+          <div
+            className="fixed z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300"
+            style={workflowPanelStyle}
+          >
+            <WorkflowCard
+              workflow={{
+                step,
+                analysisStep,
+                analysisQueueLength: analysisQueue.length,
+                analysisTotal,
+                isProcessing,
+                analysisError,
+                currentEpIndex,
+                episodes: projectData.episodes,
+                setCurrentEpIndex,
+                setStep,
+                setAnalysisStep,
+                onStartAnalysis: startAnalysis,
+                onConfirmSummaryNext: confirmSummaryAndNext,
+                onConfirmEpSummariesNext: confirmEpSummariesAndNext,
+                onConfirmCharListNext: confirmCharListAndNext,
+                onConfirmCharDepthNext: confirmCharDepthAndNext,
+                onConfirmLocListNext: confirmLocListAndNext,
+                onFinishAnalysis: finishAnalysis,
+                onRetryAnalysis: retryAnalysisStep,
+                onStartPhase2: startPhase2,
+                onConfirmEpisodeShots: confirmEpisodeShots,
+                onRetryEpisodeShots: retryCurrentEpisodeShots,
+                onStartPhase3: startPhase3,
+                onRetryEpisodeSora: retryCurrentEpisodeSora,
+                onContinueNextEpisodeSora: continueNextEpisodeSora,
+              }}
+              onClose={() => setShowWorkflow(false)}
+            />
+          </div>
+        </>
       )}
     </>
   );

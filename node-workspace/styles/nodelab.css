@@ -460,7 +460,8 @@ body.qalam-resizing * {
   border: 1px solid var(--app-border);
   color: var(--app-text-primary);
   box-shadow: var(--app-shadow);
-  backdrop-filter: none;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .node-lab-canvas[data-zoomed="true"] .app-panel {
@@ -473,7 +474,8 @@ body.qalam-resizing * {
   border: 1px solid var(--app-border-strong);
   color: var(--app-text-primary);
   box-shadow: var(--app-shadow-strong);
-  backdrop-filter: none;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .node-lab-canvas[data-zoomed="true"] .app-panel-strong {
