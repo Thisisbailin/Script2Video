@@ -103,7 +103,7 @@ interface NodeLabProps {
     onSignOut?: () => void;
     onUploadAvatar?: () => void;
   };
-  onToggleWorkflow?: () => void;
+  onToggleWorkflow?: (anchorRect?: DOMRect) => void;
   onTryMe?: () => void;
 }
 

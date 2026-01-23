@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film, X } from "lucide-react";
 import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep, SyncState, SyncStatus } from "../../types";
@@ -269,29 +269,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
     onContinueNextEpisodeSora,
   } = workflow;
 
-  const [expandedPhases, setExpandedPhases] = useState<Record<number, boolean>>({
-    1: false,
-    2: false,
-    3: false,
-  });
-
-  const isExpanded = Object.values(expandedPhases).some(v => v);
-
-  const toggleAll = () => {
-    const nextValue = !isExpanded;
-    setExpandedPhases({
-      1: nextValue,
-      2: nextValue,
-      3: nextValue,
-    });
-  };
-
-  const togglePhase = (phase: number) => {
-    setExpandedPhases(prev => ({
-      ...prev,
-      [phase]: !prev[phase]
-    }));
-  };
+  const [activePhase, setActivePhase] = useState<1 | 2 | 3>(1);
 
   const hasAnalysisError = analysisError?.step === analysisStep;
   const currentEpisode = episodes[currentEpIndex];
@@ -354,22 +332,22 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
       case "error":
         return { dot: "bg-rose-400", text: "失败", tag: "text-rose-200" };
       default:
-        return { dot: "bg-slate-400", text: "待开始", tag: "text-[var(--text-secondary)]" };
+        return { dot: "bg-slate-400", text: "待开始", tag: "text-[var(--app-text-muted)]" };
     }
   };
 
   const itemRowClass = (status: ItemStatus) => {
     switch (status) {
       case "active":
-        return "border-sky-400/40 bg-sky-900/10";
+        return "border-sky-400/40 bg-sky-500/10";
       case "ready":
-        return "border-amber-400/40 bg-amber-900/10";
+        return "border-amber-400/40 bg-amber-500/10";
       case "error":
-        return "border-rose-400/40 bg-rose-900/10";
+        return "border-rose-400/40 bg-rose-500/10";
       case "done":
-        return "border-emerald-400/20 bg-emerald-900/10";
+        return "border-emerald-400/30 bg-emerald-500/10";
       default:
-        return "border-[var(--border-subtle)] bg-[var(--bg-overlay)]";
+        return "border-[var(--app-border)] bg-[var(--app-panel-muted)]";
     }
   };
 
@@ -384,7 +362,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
       case "error":
         return { dot: "bg-rose-400", text: "有错误", tag: "text-rose-200" };
       default:
-        return { dot: "bg-slate-400", text: "未开始", tag: "text-[var(--text-secondary)]" };
+        return { dot: "bg-slate-400", text: "未开始", tag: "text-[var(--app-text-muted)]" };
     }
   };
 
@@ -592,60 +570,80 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
   const actionButtonClass = (tone: ActionTone) => {
     switch (tone) {
       case "primary":
-        return "bg-[var(--accent-blue)] text-white hover:bg-sky-500";
+        return "bg-emerald-500/90 text-white hover:bg-emerald-400";
       case "secondary":
-        return "border border-[var(--border-subtle)] hover:border-sky-400 hover:text-sky-200";
+        return "border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)]";
       default:
-        return "border border-[var(--border-subtle)] bg-[var(--bg-panel)]/70 text-[var(--text-secondary)] hover:text-[var(--text-primary)]";
+        return "border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]";
     }
   };
 
+  useEffect(() => {
+    if (step === WorkflowStep.GENERATE_SHOTS) {
+      setActivePhase(2);
+    } else if (step === WorkflowStep.GENERATE_SORA) {
+      setActivePhase(3);
+    } else {
+      setActivePhase(1);
+    }
+  }, [step]);
+
   return (
-    <div className="w-[420px] max-w-[calc(100vw-24px)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-panel)] text-[var(--text-primary)] shadow-[var(--shadow-soft)] backdrop-blur overflow-hidden">
-      <div
-        className="px-4 py-3 border-b flex items-center justify-between text-xs uppercase tracking-wide text-[var(--text-secondary)]"
-        style={{ borderColor: "var(--border-subtle)" }}
-      >
-        <div className="flex items-center gap-2">
-          <Layers size={14} /> Workflow
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleAll}
-            className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
-          >
-            {isExpanded ? "全部收起" : "全部展开"}
-            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="h-6 w-6 flex items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition"
-              title="关闭"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="p-4 space-y-4">
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-3">
-          <div
-            className="flex items-center justify-between cursor-pointer group"
-            onClick={() => togglePhase(1)}
-          >
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase1Status).dot}`} />
-              <div className="text-sm font-semibold group-hover:text-sky-400 transition-colors">Phase 1 · 剧本理解</div>
-              <span className="text-[11px] text-[var(--text-secondary)]">{phase1Progress}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
-              {expandedPhases[1] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </div>
+    <div className="w-[380px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl app-panel flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-teal-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
+            <Layers size={16} className="text-emerald-200" />
           </div>
-          {expandedPhases[1] && (
-            <div className="space-y-2 pl-3 border-l border-[var(--border-subtle)]/60 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div>
+            <div className="text-sm font-semibold text-[var(--app-text-primary)]">Workflow</div>
+            <div className="text-[11px] text-[var(--app-text-muted)]">{focusLabel}</div>
+          </div>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+            title="关闭"
+          >
+            <X size={14} className="mx-auto text-[var(--app-text-secondary)]" />
+          </button>
+        )}
+      </div>
+      <div className="px-4 pt-3 pb-2 flex items-center gap-2 overflow-x-auto">
+        {[
+          { key: 1 as const, label: "Phase 1", meta: phase1Progress },
+          { key: 2 as const, label: "Phase 2", meta: phase2Progress },
+          { key: 3 as const, label: "Phase 3", meta: phase3Progress },
+        ].map((tab) => {
+          const active = activePhase === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActivePhase(tab.key)}
+              className={`px-3 py-1.5 rounded-full text-[11px] uppercase tracking-wide border transition whitespace-nowrap ${
+                active
+                  ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                  : "border-[var(--app-border)] text-[var(--app-text-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+              }`}
+            >
+              {tab.label} ({tab.meta})
+            </button>
+          );
+        })}
+      </div>
+      <div className="px-4 pb-4 space-y-3 overflow-y-auto">
+        {activePhase === 1 && (
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase1Status).dot}`} />
+                Phase 1 · 剧本理解
+              </div>
+              <span className={`text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
+            </div>
+            <div className="space-y-2">
               {analysisItems.map((item, index) => {
                 const status = getAnalysisItemStatus(item.step, index);
                 const meta = getAnalysisItemMeta(item.step);
@@ -659,50 +657,43 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setAnalysisStep(item.step);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)} ${isProcessing ? 'cursor-not-allowed' : 'hover:border-[var(--accent-blue)]/50'}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
                       <div className="truncate font-medium">{item.label}</div>
-                      {meta && <span className="text-[10px] text-[var(--text-secondary)]">{meta}</span>}
+                      {meta && <span className="text-[10px] text-[var(--app-text-muted)]">{meta}</span>}
                     </div>
                     <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
-          )}
-          {analysisError && (
-            <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-[11px] text-rose-200">
-              当前步骤失败：{analysisError.message}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-3">
-          <div
-            className="flex items-center justify-between cursor-pointer group"
-            onClick={() => togglePhase(2)}
-          >
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase2Status).dot}`} />
-              <div className="text-sm font-semibold group-hover:text-sky-400 transition-colors">Phase 2 · Shot Lists</div>
-              <span className="text-[11px] text-[var(--text-secondary)]">{phase2Progress}</span>
-              {reviewShots > 0 && (
-                <span className="text-[10px] text-amber-200">待确认 {reviewShots}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
-              {expandedPhases[2] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </div>
+            {analysisError && (
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
+                当前步骤失败：{analysisError.message}
+              </div>
+            )}
           </div>
-          {expandedPhases[2] && (
-            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60 animate-in fade-in slide-in-from-top-1 duration-200">
+        )}
+
+        {activePhase === 2 && (
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase2Status).dot}`} />
+                Phase 2 · Shot Lists
+              </div>
+              <div className="flex items-center gap-2">
+                {reviewShots > 0 && <span className="text-[10px] text-amber-200">待确认 {reviewShots}</span>}
+                <span className={`text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
+              </div>
+            </div>
+            <div className="max-h-56 overflow-auto pr-1 space-y-2">
               {episodes.length === 0 && (
-                <div className="text-xs text-[var(--text-secondary)] px-2 py-2">
-                  暂无剧集，导入脚本后可生成。
-                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)] px-2 py-2">暂无剧集，导入脚本后可生成。</div>
               )}
               {episodes.map((episode, index) => {
                 const status = getPhase2ItemStatus(episode, index);
@@ -722,51 +713,40 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setCurrentEpIndex(index);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)} ${isProcessing ? 'cursor-not-allowed opacity-60' : 'hover:border-[var(--accent-blue)]/50'}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                      <div className="truncate font-medium">
-                        {episode.title || `第${episode.id}集`}
-                      </div>
-                      <span className="text-[10px] text-[var(--text-secondary)] truncate max-w-[120px]">
-                        {meta}
-                      </span>
+                      <div className="truncate font-medium">{episode.title || `第${episode.id}集`}</div>
+                      <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[140px]">{meta}</span>
                     </div>
                     <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
-          )}
-          {currentEpisodeError && step === WorkflowStep.GENERATE_SHOTS && (
-            <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-[11px] text-rose-200">
-              当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-3">
-          <div
-            className="flex items-center justify-between cursor-pointer group"
-            onClick={() => togglePhase(3)}
-          >
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase3Status).dot}`} />
-              <div className="text-sm font-semibold group-hover:text-sky-400 transition-colors">Phase 3 · Sora Prompts</div>
-              <span className="text-[11px] text-[var(--text-secondary)]">{phase3Progress}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
-              {expandedPhases[3] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </div>
+            {currentEpisodeError && step === WorkflowStep.GENERATE_SHOTS && (
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
+                当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
+              </div>
+            )}
           </div>
-          {expandedPhases[3] && (
-            <div className="max-h-48 overflow-auto pr-1 space-y-2 pl-3 border-l border-[var(--border-subtle)]/60 animate-in fade-in slide-in-from-top-1 duration-200">
+        )}
+
+        {activePhase === 3 && (
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase3Status).dot}`} />
+                Phase 3 · Sora Prompts
+              </div>
+              <span className={`text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
+            </div>
+            <div className="max-h-56 overflow-auto pr-1 space-y-2">
               {episodes.length === 0 && (
-                <div className="text-xs text-[var(--text-secondary)] px-2 py-2">
-                  暂无剧集，先完成 Phase 2。
-                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)] px-2 py-2">暂无剧集，先完成 Phase 2。</div>
               )}
               {episodes.map((episode, index) => {
                 const status = getPhase3ItemStatus(episode, index);
@@ -786,34 +766,34 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setCurrentEpIndex(index);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${itemRowClass(status)} ${isProcessing ? 'cursor-not-allowed opacity-60' : 'hover:border-[var(--accent-blue)]/50'}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                      <div className="truncate font-medium">
-                        {episode.title || `第${episode.id}集`}
-                      </div>
-                      <span className="text-[10px] text-[var(--text-secondary)] truncate max-w-[120px]">
-                        {meta}
-                      </span>
+                      <div className="truncate font-medium">{episode.title || `第${episode.id}集`}</div>
+                      <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[140px]">{meta}</span>
                     </div>
                     <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
-          )}
-          {currentEpisodeError && step === WorkflowStep.GENERATE_SORA && (
-            <div className="rounded-lg border border-rose-400/40 bg-rose-900/20 p-2 text-[11px] text-rose-200">
-              当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
-            </div>
-          )}
-        </div>
+            {currentEpisodeError && step === WorkflowStep.GENERATE_SORA && (
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
+                当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
+              </div>
+            )}
+          </div>
+        )}
 
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-overlay)] p-3 space-y-2">
-          <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
+        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-2">
+          <div className="flex items-center justify-between text-[11px] text-[var(--app-text-secondary)]">
             <span>当前：{focusLabel}</span>
-            <span className={isProcessing ? "text-sky-200" : ""}>{isProcessing ? "处理中..." : "就绪"}</span>
+            <span className={isProcessing ? "text-emerald-300" : "text-[var(--app-text-muted)]"}>
+              {isProcessing ? "处理中..." : "就绪"}
+            </span>
           </div>
           {actionButtons.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -822,14 +802,14 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                   key={action.label}
                   onClick={action.onClick}
                   disabled={action.disabled}
-                  className={`flex-1 min-w-[110px] px-3 py-2 rounded-lg text-xs font-semibold transition ${actionButtonClass(action.tone)} disabled:opacity-60 disabled:cursor-not-allowed`}
+                  className={`flex-1 min-w-[110px] px-3 py-2 rounded-full text-[11px] font-semibold transition ${actionButtonClass(action.tone)} disabled:opacity-60 disabled:cursor-not-allowed`}
                 >
                   {action.label}
                 </button>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-[var(--text-secondary)]">
+            <div className="text-[11px] text-[var(--app-text-secondary)]">
               {step === WorkflowStep.COMPLETED
                 ? "流程已完成，可前往 Video Studio 或导出结果。"
                 : totalEpisodes === 0
@@ -884,7 +864,6 @@ export const Header: React.FC<HeaderProps> = ({
     [visibleTabs, activeTab]
   );
   const [showTabs, setShowTabs] = useState(false);
-  const [showWorkflow, setShowWorkflow] = useState(false);
   const [showTryInfo, setShowTryInfo] = useState(false);
   const formatSyncTime = (ts?: number) => (ts ? new Date(ts).toLocaleTimeString() : "—");
   const statusLabel = (status: SyncStatus) => {
@@ -972,7 +951,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const closeAll = () => {
     setShowTabs(false);
-    setShowWorkflow(false);
     setShowTryInfo(false);
     splitView.onClose();
     if (isUserMenuOpen) setIsUserMenuOpen(false);
@@ -981,21 +959,11 @@ export const Header: React.FC<HeaderProps> = ({
 
   const toggleTabs = () => {
     if (!hasTabs) return;
-    setShowWorkflow(false);
     setShowTryInfo(false);
     splitView.onClose();
     if (isUserMenuOpen) setIsUserMenuOpen(false);
     if (isExportMenuOpen) onToggleExportMenu();
     setShowTabs((v) => !v);
-  };
-
-  const toggleWorkflow = () => {
-    setShowTabs(false);
-    setShowTryInfo(false);
-    splitView.onClose();
-    if (isUserMenuOpen) setIsUserMenuOpen(false);
-    if (isExportMenuOpen) onToggleExportMenu();
-    setShowWorkflow((v) => !v);
   };
 
   const cardShell = (title: string, content: React.ReactNode, align: "left" | "center" = "left") => (
@@ -1016,7 +984,6 @@ export const Header: React.FC<HeaderProps> = ({
       currentEpIndex={workflow.currentEpIndex}
       onSelect={(idx) => {
         workflow.setCurrentEpIndex(idx);
-        setShowWorkflow(false);
       }}
     />,
     "center"
@@ -1024,7 +991,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      {(showTabs || showWorkflow || isUserMenuOpen || isExportMenuOpen || showTryInfo || splitView.isOpen) && (
+      {(showTabs || isUserMenuOpen || isExportMenuOpen || showTryInfo || splitView.isOpen) && (
         <div className="fixed inset-0 z-20" onClick={closeAll} />
       )}
       <header className="pointer-events-none fixed top-0 left-0 right-0 z-40 px-4 sm:px-6 pt-3">
@@ -1160,11 +1127,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </header>
-      {showWorkflow && (
-        <div className="fixed top-[84px] left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-40 pointer-events-auto">
-          <WorkflowCard workflow={workflow} onClose={() => setShowWorkflow(false)} />
-        </div>
-      )}
     </>
   );
 };

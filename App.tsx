@@ -199,6 +199,7 @@ const App: React.FC = () => {
   const [accountPanel, setAccountPanel] = useState<"sync" | "info" | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
+  const [workflowAnchor, setWorkflowAnchor] = useState<DOMRect | null>(null);
   const [hasLoadedRemote, setHasLoadedRemote] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>({
     project: { status: 'idle' },
@@ -1524,7 +1525,51 @@ const App: React.FC = () => {
   const handleExportXls = () => exportToXLS(projectData.episodes);
   const handleExportUnderstandingJson = () => exportUnderstandingToJSON(projectData);
 
+  const handleToggleWorkflow = useCallback((anchorRect?: DOMRect) => {
+    setShowWorkflow((prev) => {
+      const next = !prev;
+      if (next) {
+        if (anchorRect) {
+          setWorkflowAnchor(anchorRect);
+        } else if (typeof document !== "undefined") {
+          const anchor = document.querySelector("[data-workflow-trigger]") as HTMLElement | null;
+          if (anchor) setWorkflowAnchor(anchor.getBoundingClientRect());
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!showWorkflow) return;
+    const updateAnchor = () => {
+      if (typeof document === "undefined") return;
+      const anchor = document.querySelector("[data-workflow-trigger]") as HTMLElement | null;
+      if (anchor) setWorkflowAnchor(anchor.getBoundingClientRect());
+    };
+    updateAnchor();
+    window.addEventListener("resize", updateAnchor);
+    window.addEventListener("scroll", updateAnchor, true);
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+      window.removeEventListener("scroll", updateAnchor, true);
+    };
+  }, [showWorkflow]);
+
   const headerNode = null;
+  const workflowPanelStyle = useMemo<React.CSSProperties>(() => {
+    if (!workflowAnchor || typeof window === "undefined") {
+      return { right: 16, bottom: 16 };
+    }
+    const panelWidth = 380;
+    const gap = 12;
+    const left = Math.min(
+      Math.max(workflowAnchor.left + workflowAnchor.width / 2 - panelWidth / 2, 12),
+      window.innerWidth - panelWidth - 12
+    );
+    const bottom = Math.max(16, window.innerHeight - workflowAnchor.top + gap);
+    return { left, bottom };
+  }, [workflowAnchor]);
 
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
@@ -1569,7 +1614,7 @@ const App: React.FC = () => {
                 onUploadAvatar: handleAvatarUploadClick,
               }}
               onTryMe={handleTryMe}
-              onToggleWorkflow={() => setShowWorkflow((v) => !v)}
+              onToggleWorkflow={handleToggleWorkflow}
             />
           </div>
         );
@@ -1707,7 +1752,10 @@ const App: React.FC = () => {
         )}
       </AppShell>
       {showWorkflow && (
-        <div className="fixed bottom-16 left-6 z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div
+          className="fixed z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300"
+          style={workflowPanelStyle}
+        >
           <WorkflowCard
             workflow={{
               step,

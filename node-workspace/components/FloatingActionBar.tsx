@@ -79,7 +79,7 @@ type Props = {
   onSignOut?: () => void;
   accountInfo?: AccountInfo;
   onTryMe?: () => void;
-  onToggleWorkflow?: () => void;
+  onToggleWorkflow?: (anchorRect?: DOMRect) => void;
   onAssetLoad?: (
     type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson",
     content: string,
@@ -134,6 +134,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   const shotGuideInputRef = useRef<HTMLInputElement>(null);
   const soraGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
+  const workflowButtonRef = useRef<HTMLButtonElement>(null);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
   const panelClass = "rounded-3xl app-panel overflow-hidden";
   const panelStyle: React.CSSProperties = {
@@ -802,8 +803,11 @@ export const FloatingActionBar: React.FC<Props> = ({
               setShowPalette(false);
               setShowTemplate(false);
               setShowFileMenu(false);
-              onToggleWorkflow?.();
+              const rect = workflowButtonRef.current?.getBoundingClientRect();
+              onToggleWorkflow?.(rect);
             }}
+            ref={workflowButtonRef}
+            data-workflow-trigger
             className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-[var(--app-panel-muted)]"
             title="Workflow Actions"
           >
