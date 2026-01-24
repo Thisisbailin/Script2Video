@@ -141,8 +141,10 @@ export const generateSpeech = async (
         console.log("[Qwen TTS] Using WebSocket for Realtime Model:", model);
 
         return new Promise((resolve, reject) => {
-            // Attempt auth via query param since browser WebSocket doesn't support headers
-            const wsUrl = `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?token=${apiKey}`;
+            // Use local proxy to inject Authorization header (browser WS API doesn't support headers)
+            // The proxy at /qwen-ws will forward to wss://dashscope.aliyuncs.com and move 'token' to 'Authorization' header.
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/qwen-ws/v1/realtime?token=${apiKey}`;
             const ws = new WebSocket(wsUrl);
             const taskId = generateUUID();
             const audioChunks: Uint8Array[] = [];
