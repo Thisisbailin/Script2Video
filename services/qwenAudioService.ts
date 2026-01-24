@@ -115,10 +115,11 @@ export const generateSpeech = async (
     // If using a custom voice ID (starting with vd-), we MUST use the target_model identified during design
     // As per official docs: "此步骤指定的语音合成模型必须和上一步的target_model一致"
     let model = options?.model;
-    if (!model) {
-        if (options?.voice?.startsWith('vd-')) {
-            model = "qwen3-tts-vd-realtime-2025-12-16";
-        } else if (options?.voicePrompt) {
+    if (options?.voice?.startsWith('vd-') || options?.voice?.includes('vd-')) {
+        // Force the specific model required for designed voices
+        model = "qwen3-tts-vd-realtime-2025-12-16";
+    } else if (!model) {
+        if (options?.voicePrompt) {
             model = "qwen3-tts-vd-flash";
         } else {
             model = "qwen3-tts-flash";
@@ -141,16 +142,22 @@ export const generateSpeech = async (
 
     // 1. UNIQUE PERSONA (Voice Design)
     if (options?.voice) {
-        body.parameters.voice = options.voice;
+        body.input.voice = options.voice;
     } else if (options?.voicePrompt) {
         // One-shot voice design
         body.input.voice_prompt = options.voicePrompt;
     }
 
     // 2. ATMOSPHERIC DUBBING (Instruction-based expressive prosody)
-    if (options?.instruction) {
+    // IMPORTANT: For Designed Voices (vd-), 'instruction' and 'pitch' are currently NOT supported via standard REST call.
+    // Including them may return InvalidParameter/url-error.
+    if (options?.voice?.includes('vd-')) {
+        delete body.parameters.pitch;
+    } else if (options?.instruction) {
         body.parameters.instruction = options.instruction;
     }
+
+    console.log("[Qwen TTS] Request Body:", JSON.stringify(body));
 
     const res = await fetch(wrapWithProxy(GENERATE_BASE), {
         method: "POST",

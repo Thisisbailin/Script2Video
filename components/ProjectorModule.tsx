@@ -93,6 +93,19 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
         return charactersWithVoice.find(c => c.id === selectedCharId);
     }, [charactersWithVoice, selectedCharId]);
 
+    // Automatically ensure the dubbing model is set to the required one for designed voices
+    React.useEffect(() => {
+        if (activeCharacter?.voiceId && stage === 'dubbing') {
+            const requiredModel = "qwen3-tts-vd-realtime-2025-12-16";
+            if (activeDubbingModel !== requiredModel) {
+                setConfig(prev => ({
+                    ...prev,
+                    textConfig: { ...prev.textConfig, voiceDubbingModel: requiredModel }
+                }));
+            }
+        }
+    }, [activeCharacter, stage, activeDubbingModel, setConfig]);
+
     // --- Common Logic ---
     const [isGenerating, setIsGenerating] = useState(false);
     const [audioResult, setAudioResult] = useState<{ url: string; prompt: string; text: string; time: number; type: LabStage } | null>(null);
@@ -478,9 +491,16 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                             <input
                                                 value={atmosphere}
                                                 onChange={(e) => setAtmosphere(e.target.value)}
-                                                placeholder="例如：'激动万分，语速逐渐加快，最后略带哽咽'..."
-                                                className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-2xl px-4 py-3 text-[13px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none transition-all"
+                                                disabled={!!selectedCharId}
+                                                placeholder={selectedCharId ? "自定义音色暂不支持情绪指示" : "例如：'激动万分，语速逐渐加快，最后略带哽咽'..."}
+                                                className={`w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-2xl px-4 py-3 text-[13px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none transition-all ${selectedCharId ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             />
+                                            {selectedCharId && (
+                                                <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
+                                                    <AlertTriangle size={10} />
+                                                    Qwen3-TTS 专属音色目前由独立模型驱动，暂不支持额外的“情绪/指示”参数。
+                                                </p>
+                                            )}
                                         </section>
 
                                         <section className="space-y-4">
@@ -499,9 +519,18 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                                 <div className="space-y-4">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-[11px] text-[var(--app-text-secondary)]">Pitch (音调)</span>
-                                                        <span className="text-[11px] font-mono text-[var(--app-accent-strong)]">{designPitch.toFixed(1)}x</span>
+                                                        <span className="text-[11px] font-mono text-[var(--app-accent-strong)]">{activeCharacter ? "1.0 (锁定)" : designPitch.toFixed(1) + "x"}</span>
                                                     </div>
-                                                    <input type="range" min="0.5" max="2.0" step="0.1" value={designPitch} onChange={(e) => setDesignPitch(parseFloat(e.target.value))} className="w-full h-1.5 bg-[var(--app-border)] rounded-lg appearance-none cursor-pointer accent-[var(--app-accent)]" />
+                                                    <input
+                                                        type="range"
+                                                        min="0.5"
+                                                        max="2.0"
+                                                        step="0.1"
+                                                        value={activeCharacter ? 1.0 : designPitch}
+                                                        onChange={(e) => setDesignPitch(parseFloat(e.target.value))}
+                                                        disabled={!!activeCharacter}
+                                                        className={`w-full h-1.5 bg-[var(--app-border)] rounded-lg appearance-none cursor-pointer accent-[var(--app-accent)] ${activeCharacter ? 'opacity-30' : ''}`}
+                                                    />
                                                 </div>
                                                 <div className="space-y-4">
                                                     <div className="flex items-center justify-between">
@@ -621,8 +650,8 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                         audioRef.current?.play();
                                     }}
                                     className={`w-full text-left p-4 rounded-2xl border transition-all relative group overflow-hidden ${audioResult?.time === item.time
-                                            ? 'border-[var(--app-accent-strong)] bg-[var(--app-accent-soft)] shadow-sm'
-                                            : 'border-transparent hover:border-[var(--app-border-strong)] bg-[var(--app-panel-soft)]'
+                                        ? 'border-[var(--app-accent-strong)] bg-[var(--app-accent-soft)] shadow-sm'
+                                        : 'border-transparent hover:border-[var(--app-border-strong)] bg-[var(--app-panel-soft)]'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
