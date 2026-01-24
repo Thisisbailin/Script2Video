@@ -13,17 +13,21 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       proxy: {
-        '/qwen-ws': {
+        '/api/qwen-ws': {
           target: 'wss://dashscope.aliyuncs.com',
           ws: true,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/qwen-ws/, '/api-ws'),
+          rewrite: (path) => path.replace(/^\/api\/qwen-ws/, '/api-ws'),
           configure: (proxy, options) => {
             proxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
+              console.log('[Vite Proxy] Intercepted WebSocket connection:', req.url);
               const url = new URL(req.url || '', 'http://dummy');
               const token = url.searchParams.get('token');
               if (token) {
+                console.log('[Vite Proxy] Injecting Authorization header...');
                 proxyReq.setHeader('Authorization', `Bearer ${token}`);
+              } else {
+                console.warn('[Vite Proxy] No token found in URL query params!');
               }
             });
           }

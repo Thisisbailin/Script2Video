@@ -152,6 +152,11 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
 
             } else {
                 // Stage 2: Dubbing -> Use GenerateSpeech with the specific Voice ID
+                // Verify activeCharacter and logs
+                console.log("[ProjectorModule] Dubbing Start");
+                console.log("[ProjectorModule] Active Character:", activeCharacter);
+                console.log("[ProjectorModule] Voice ID:", activeCharacter?.voiceId);
+
                 if (!activeCharacter?.voiceId) {
                     throw new Error("请先选择一个拥有自定音色的角色。");
                 }

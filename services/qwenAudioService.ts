@@ -138,19 +138,25 @@ export const generateSpeech = async (
 
     // === WebSocket Implementation for Designed Voices (Realtime Model) ===
     if (model === "qwen3-tts-vd-realtime-2025-12-16") {
-        console.log("[Qwen TTS] Using WebSocket for Realtime Model:", model);
+        console.log("[Qwen TTS] Starting WebSocket flow...");
+        console.log(`[Qwen TTS] Model: ${model}`);
+        console.log(`[Qwen TTS] Voice ID: ${options?.voice || "UNDEFINED"}`);
+        console.log(`[Qwen TTS] API Key present: ${!!apiKey}`);
 
         return new Promise((resolve, reject) => {
             // Use local proxy to inject Authorization header (browser WS API doesn't support headers)
-            // The proxy at /qwen-ws will forward to wss://dashscope.aliyuncs.com and move 'token' to 'Authorization' header.
+            // The proxy at /api/qwen-ws will forward to wss://dashscope.aliyuncs.com and move 'token' to 'Authorization' header.
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/qwen-ws/v1/realtime?token=${apiKey}`;
+            const wsUrl = `${protocol}//${window.location.host}/api/qwen-ws/v1/realtime?token=${apiKey}`;
+
+            console.log(`[Qwen TTS] Connecting to WS URL: ${wsUrl}`);
+
             const ws = new WebSocket(wsUrl);
             const taskId = generateUUID();
             const audioChunks: Uint8Array[] = [];
 
             ws.onopen = () => {
-                console.log("[Qwen WS] Connected");
+                console.log("[Qwen WS] Connected successfully.");
                 const payload = {
                     header: {
                         action: "run-task",
@@ -167,19 +173,14 @@ export const generateSpeech = async (
                         },
                         parameters: {
                             voice: options?.voice, // "vd-..."
-                            format: "wav", // Request WAV to get header in binary or direct PCM? 
-                            // Ideally 'pcm' is safer for raw stitching, but 'wav' might wrap each chunk? 
-                            // Let's stick to 'pcm' and wrap in WAV container if needed, or 'wav' and hope server sends one header.
-                            // Actually, for simple playback, getting a full file is easier. 
-                            // But realtime streams chunks. 
-                            // Let's try 'wav' - DashScope usually sends header in first chunk or creates a valid stream.
+                            format: "wav",
                             sample_rate: options?.sampleRate || 24000,
                             volume: options?.volume ?? 50,
                             speech_rate: options?.speechRate ?? 1.0,
-                            // Pitch not supported for this model
                         }
                     }
                 };
+                console.log("[Qwen WS] Sending payload:", JSON.stringify(payload, null, 2));
                 ws.send(JSON.stringify(payload));
             };
 
@@ -190,6 +191,7 @@ export const generateSpeech = async (
                 }
 
                 if (data instanceof ArrayBuffer) {
+                    // console.log(`[Qwen WS] Received Binary Chunk: ${data.byteLength} bytes`);
                     audioChunks.push(new Uint8Array(data));
                     return;
                 }
@@ -197,18 +199,19 @@ export const generateSpeech = async (
                 // Text frame
                 try {
                     const msg = JSON.parse(data);
+                    console.log("[Qwen WS] Received Message:", msg.header?.event || "Unknown", msg);
+
                     if (msg.header.event === "task-failed") {
+                        console.error("[Qwen WS] Task Failed:", msg.header.error_message);
                         ws.close();
-                        reject(new Error(msg.header.error_message));
+                        reject(new Error(`TTS Failed: ${msg.header.error_message}`));
                         return;
                     }
 
                     if (msg.header.event === "task-finished") {
-                        console.log("[Qwen WS] Task Finished");
+                        console.log("[Qwen WS] Task Finished. Compiling audio...");
                         ws.close();
 
-                        // Combine chunks if necessary, or just use the array.
-                        // Ideally we concatenate them.
                         const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
                         const combined = new Uint8Array(totalLength);
                         let offset = 0;
@@ -217,9 +220,9 @@ export const generateSpeech = async (
                             offset += chunk.length;
                         }
 
-                        // Fix lint error: cast to explicitly satisfy BlobPart
                         const blob = new Blob([combined], { type: 'audio/wav' });
                         const audioUrl = URL.createObjectURL(blob);
+                        console.log("[Qwen WS] Audio URL created:", audioUrl);
 
                         resolve({
                             audioUrl,
@@ -228,9 +231,7 @@ export const generateSpeech = async (
                         return;
                     }
 
-                    // Handle "result-generated" if it contains base64 audio (fallback)
                     if (msg.header.event === "result-generated" && msg.payload?.output?.audio) {
-                        // Some endpoints return base64 in JSON instead of binary frames
                         try {
                             const binStr = atob(msg.payload.output.audio);
                             const len = binStr.length;
@@ -249,9 +250,16 @@ export const generateSpeech = async (
                 }
             };
 
+            ws.onclose = (e) => {
+                console.log(`[Qwen WS] Closed. Code: ${e.code}, Reason: ${e.reason}, WasClean: ${e.wasClean}`);
+                if (e.code !== 1000 && e.code !== 1005) {
+                    reject(new Error(`WebSocket closed unexpectedly. Code: ${e.code}. Check console details.`));
+                }
+            };
+
             ws.onerror = (e) => {
-                console.error("WS Error", e);
-                reject(new Error("WebSocket connection error"));
+                console.error("[Qwen WS] Error Event:", e);
+                reject(new Error("WebSocket connection error (Check Proxy/Network)"));
             };
         });
     }
