@@ -48,9 +48,9 @@ export const generateSpeech = async (
         parameters: {
             format: options?.format || "wav",
             sample_rate: options?.sampleRate || 24000,
-            volume: options?.volume || 50,
-            speech_rate: options?.speechRate || 0,
-            pitch: options?.pitch || 0,
+            volume: options?.volume ?? 50,
+            speech_rate: options?.speechRate ?? 1.0, // 0.5 to 2.0 multiplier
+            pitch: options?.pitch ?? 1.0,           // 0.5 to 2.0 multiplier
         },
     };
 
