@@ -160,27 +160,23 @@ export const generateSpeech = async (
             const taskId = generateUUID();
             const audioChunks: Uint8Array[] = [];
 
-            let sentText = false;
-            let commitSent = false;
             let resolved = false;
-            let readyTimer: number | undefined;
-            let sessionCreatedModel = "";
             let sessionUpdated = false;
-
-            const clearReadyTimer = () => {
-                if (readyTimer !== undefined) {
-                    window.clearTimeout(readyTimer);
-                    readyTimer = undefined;
-                }
-            };
+            let sessionFinished = false;
+            let commitSent = false;
+            let finishSent = false;
+            let responseDone = false;
+            let audioDone = false;
+            let sessionCreatedModel = "";
+            let sessionUpdatedModel = "";
+            let sessionUpdateTimer: number | undefined;
 
             const sendJson = (payload: any) => {
+                if (ws.readyState !== WebSocket.OPEN) return;
                 ws.send(JSON.stringify(payload));
             };
 
             const sendTextPayloads = () => {
-                if (sentText) return;
-                sentText = true;
                 const appendPayload = {
                     event_id: generateUUID(),
                     type: "input_text_buffer.append",
@@ -196,6 +192,14 @@ export const generateSpeech = async (
                 console.log("[Qwen WS] Sending input_text_buffer.commit");
                 sendJson(commitPayload);
                 commitSent = true;
+
+                const finishPayload = {
+                    event_id: generateUUID(),
+                    type: "session.finish",
+                };
+                console.log("[Qwen WS] Sending session.finish");
+                sendJson(finishPayload);
+                finishSent = true;
             };
 
             ws.onopen = () => {
@@ -215,13 +219,12 @@ export const generateSpeech = async (
                 console.log("[Qwen WS] Sending session.update:", JSON.stringify(payload, null, 2));
                 sendJson(payload);
 
-                // Fallback: if we never receive session.updated, send text shortly after session.created.
-                readyTimer = window.setTimeout(() => {
-                    if (!sentText) {
-                        console.warn("[Qwen WS] session.updated not received; sending text anyway.");
-                        sendTextPayloads();
+                sessionUpdateTimer = window.setTimeout(() => {
+                    if (!sessionUpdated && !resolved) {
+                        reject(new Error("Qwen WS session.updated not received within timeout."));
+                        ws.close();
                     }
-                }, 500);
+                }, 5000);
             };
 
             ws.onmessage = async (event) => {
@@ -252,18 +255,30 @@ export const generateSpeech = async (
 
                     if (type === "session.created") {
                         sessionCreatedModel = msg?.session?.model || "";
-                        if (sessionCreatedModel && sessionCreatedModel !== model) {
-                            console.warn(
-                                `[Qwen WS] Model mismatch. requested=${model}, server=${sessionCreatedModel}`
-                            );
-                        }
                         return;
                     }
 
                     if (type === "session.updated") {
-                        clearReadyTimer();
+                        if (sessionUpdateTimer !== undefined) {
+                            window.clearTimeout(sessionUpdateTimer);
+                            sessionUpdateTimer = undefined;
+                        }
                         sessionUpdated = true;
+                        sessionUpdatedModel = msg?.session?.model || "";
+                        if (sessionUpdatedModel && sessionUpdatedModel !== model) {
+                            ws.close();
+                            reject(
+                                new Error(
+                                    `Qwen WS session.updated model mismatch: requested=${model}, server=${sessionUpdatedModel}`
+                                )
+                            );
+                            return;
+                        }
                         sendTextPayloads();
+                        return;
+                    }
+
+                    if (type === "input_text_buffer.committed") {
                         return;
                     }
 
@@ -276,17 +291,36 @@ export const generateSpeech = async (
                                 bytes[i] = binStr.charCodeAt(i);
                             }
                             audioChunks.push(bytes);
+                            return;
                         } catch (e) {
                             console.warn("Failed to decode base64 audio", e);
                         }
+                    }
+
+                    if (type === "response.audio.done") {
+                        audioDone = true;
                         return;
                     }
 
-                    if (type === "response.audio.done" || type === "response.done" || type === "session.finished") {
-                        console.log("[Qwen WS] Audio complete. Compiling audio...");
+                    if (type === "response.done") {
+                        responseDone = true;
+                        return;
+                    }
+
+                    if (type === "session.finished") {
+                        sessionFinished = true;
+                    }
+
+                    if (sessionFinished) {
+                        console.log("[Qwen WS] Session finished. Compiling audio...");
                         ws.close();
 
                         const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                        if (totalLength === 0) {
+                            reject(new Error("Qwen WS finished without audio chunks."));
+                            return;
+                        }
+
                         const combined = new Uint8Array(totalLength);
                         let offset = 0;
                         for (const chunk of audioChunks) {
@@ -326,7 +360,13 @@ export const generateSpeech = async (
                         resolved = true;
                         resolve({
                             audioUrl,
-                            raw: { taskId, type, commitSent }
+                            raw: {
+                                taskId,
+                                commitSent,
+                                finishSent,
+                                responseDone,
+                                audioDone,
+                            },
                         });
                         return;
                     }
@@ -338,7 +378,7 @@ export const generateSpeech = async (
             ws.onclose = (e) => {
                 console.log(`[Qwen WS] Closed. Code: ${e.code}, Reason: ${e.reason}, WasClean: ${e.wasClean}`);
                 if (!resolved && audioChunks.length === 0) {
-                    const summary = `model=${model}, sessionModel=${sessionCreatedModel || "unknown"}, sessionUpdated=${sessionUpdated}, commitSent=${commitSent}`;
+                    const summary = `model=${model}, sessionCreatedModel=${sessionCreatedModel || "unknown"}, sessionUpdated=${sessionUpdated}, sessionUpdatedModel=${sessionUpdatedModel || "unknown"}, commitSent=${commitSent}, finishSent=${finishSent}`;
                     reject(new Error(`WebSocket closed before receiving audio. ${summary}`));
                     return;
                 }
