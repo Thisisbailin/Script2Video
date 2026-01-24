@@ -157,10 +157,39 @@ export const generateSpeech = async (
             const audioChunks: Uint8Array[] = [];
 
             let sentText = false;
+            let commitSent = false;
             let resolved = false;
+            let readyTimer: number | undefined;
+
+            const clearReadyTimer = () => {
+                if (readyTimer !== undefined) {
+                    window.clearTimeout(readyTimer);
+                    readyTimer = undefined;
+                }
+            };
 
             const sendJson = (payload: any) => {
                 ws.send(JSON.stringify(payload));
+            };
+
+            const sendTextPayloads = () => {
+                if (sentText) return;
+                sentText = true;
+                const appendPayload = {
+                    event_id: generateUUID(),
+                    type: "input_text_buffer.append",
+                    text,
+                };
+                console.log("[Qwen WS] Sending input_text_buffer.append");
+                sendJson(appendPayload);
+
+                const commitPayload = {
+                    event_id: generateUUID(),
+                    type: "input_text_buffer.commit",
+                };
+                console.log("[Qwen WS] Sending input_text_buffer.commit");
+                sendJson(commitPayload);
+                commitSent = true;
             };
 
             ws.onopen = () => {
@@ -171,13 +200,22 @@ export const generateSpeech = async (
                     session: {
                         model,
                         voice: options?.voice,
-                        mode: "server_commit",
+                        mode: "commit",
+                        language_type: "Chinese",
                         response_format: "pcm",
                         sample_rate: options?.sampleRate || 24000,
                     },
                 };
                 console.log("[Qwen WS] Sending session.update:", JSON.stringify(payload, null, 2));
                 sendJson(payload);
+
+                // Fallback: if we never receive session.updated, send text shortly after session.created.
+                readyTimer = window.setTimeout(() => {
+                    if (!sentText) {
+                        console.warn("[Qwen WS] session.updated not received; sending text anyway.");
+                        sendTextPayloads();
+                    }
+                }, 500);
             };
 
             ws.onmessage = async (event) => {
@@ -206,22 +244,14 @@ export const generateSpeech = async (
                         return;
                     }
 
-                    if ((type === "session.created" || type === "session.updated") && !sentText) {
-                        sentText = true;
-                        const appendPayload = {
-                            event_id: generateUUID(),
-                            type: "input_text_buffer.append",
-                            text,
-                        };
-                        console.log("[Qwen WS] Sending input_text_buffer.append");
-                        sendJson(appendPayload);
+                    if (type === "session.updated") {
+                        clearReadyTimer();
+                        sendTextPayloads();
+                        return;
+                    }
 
-                        const finishPayload = {
-                            event_id: generateUUID(),
-                            type: "session.finish",
-                        };
-                        console.log("[Qwen WS] Sending session.finish");
-                        sendJson(finishPayload);
+                    if (type === "session.created") {
+                        // Some servers send created before updated; wait briefly.
                         return;
                     }
 
@@ -284,7 +314,7 @@ export const generateSpeech = async (
                         resolved = true;
                         resolve({
                             audioUrl,
-                            raw: { taskId, type }
+                            raw: { taskId, type, commitSent }
                         });
                         return;
                     }
