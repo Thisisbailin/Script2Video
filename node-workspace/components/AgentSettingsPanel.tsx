@@ -292,6 +292,12 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [qwenChatModels]);
 
   useEffect(() => {
+    if (!qwenChatModels.length && config.textConfig.qwenModels?.length) {
+      setQwenChatModels(config.textConfig.qwenModels as QwenModel[]);
+    }
+  }, [config.textConfig.qwenModels, qwenChatModels.length]);
+
+  useEffect(() => {
     if (config.textConfig.provider === "deyunai" && Array.isArray(config.textConfig.deyunModels)) {
       const mapped = config.textConfig.deyunModels.map((m) => ({
         id: m.id,
@@ -475,12 +481,33 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         type: "success",
         text: models.length ? `获取成功，${models.length} 个模型` : "获取成功，但返回为空",
       });
-      if (models.length && !models.find((m) => m.id === config.textConfig.model)) {
-        setConfig((prev) => ({
-          ...prev,
-          textConfig: { ...prev.textConfig, model: models[0].id },
-        }));
-      }
+      setConfig((prev) => {
+        const nextText = {
+          ...prev.textConfig,
+          qwenModels: models,
+        };
+        if (models.length) {
+          const audioIds = models
+            .map((m) => m.id)
+            .filter(Boolean)
+            .filter((id) => {
+              const lower = id.toLowerCase();
+              return lower.includes("tts") || lower.includes("audio") || lower.includes("speech");
+            });
+          const designDefault = audioIds.find((id) => id.toLowerCase().includes("tts-vd")) || audioIds[0];
+          const dubbingDefault = audioIds.find((id) => id.toLowerCase().includes("tts-vc")) || audioIds[0];
+          if (!nextText.model || !models.find((m) => m.id === nextText.model)) {
+            nextText.model = models[0].id;
+          }
+          if (designDefault && (!nextText.voiceDesignModel || !audioIds.includes(nextText.voiceDesignModel))) {
+            nextText.voiceDesignModel = designDefault;
+          }
+          if (dubbingDefault && (!nextText.voiceDubbingModel || !audioIds.includes(nextText.voiceDubbingModel))) {
+            nextText.voiceDubbingModel = dubbingDefault;
+          }
+        }
+        return { ...prev, textConfig: nextText };
+      });
     } catch (e: any) {
       setQwenChatFetchMessage({ type: "error", text: e.message || "拉取失败" });
       setQwenModelsRaw("");

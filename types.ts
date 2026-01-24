@@ -114,6 +114,10 @@ export interface CharacterForm {
   designRationale?: string;
   styleRef?: string;
   genPrompts?: string;
+  // Voice Design
+  voiceId?: string;
+  voicePrompt?: string;
+  previewAudioUrl?: string;
 }
 
 export interface Character {
@@ -128,6 +132,10 @@ export interface Character {
   archetype?: string;
   episodeUsage?: string; // 出现的集/场景标记
   tags?: string[]; // 角色标签/关键词
+  // Global Voice Design (if inherited by forms or default)
+  voiceId?: string;
+  voicePrompt?: string;
+  previewAudioUrl?: string;
 }
 
 export interface Location {
@@ -311,6 +319,9 @@ export interface TextServiceConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  qwenModels?: Array<Record<string, any>>;
+  voiceDesignModel?: string;
+  voiceDubbingModel?: string;
   // DeyunAI 专属可选项（其他 provider 忽略）
   reasoningEffort?: 'low' | 'medium' | 'high';
   verbosity?: 'low' | 'medium' | 'high';

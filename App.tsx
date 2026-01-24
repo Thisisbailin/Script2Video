@@ -1685,7 +1685,7 @@ const App: React.FC = () => {
   } else if (openLabModal === "projector") {
     labModalTitle = "放映机 (视听实验室)";
     labModalWidth = 1200;
-    labModalContent = <ProjectorModule />;
+    labModalContent = <ProjectorModule projectData={projectData} setProjectData={setProjectData} />;
   }
 
   return (

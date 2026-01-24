@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, MapPin, Users } from "lucide-react";
-import type { DesignAssetItem, ProjectData, Scene } from "../../types";
+import { AudioLines, ImagePlus, MapPin, Users, Play, Loader2, Sparkles } from "lucide-react";
+import type { DesignAssetItem, ProjectData, Scene, Character } from "../../types";
+import { createCustomVoice } from "../../services/qwenAudioService";
 
 type Props = {
   projectData: ProjectData;
@@ -62,7 +63,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
 }) => {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null);
+  const [isDesigningVoice, setIsDesigningVoice] = useState(false);
+  const [voicePromptDraft, setVoicePromptDraft] = useState("");
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const previewAudioRef = useRef<HTMLAudioElement>(null);
 
   const characters = useMemo(() => {
     const items = projectData.context.characters || [];
@@ -161,7 +165,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
       return;
     }
     if (selection.type === "character") {
-      if (!characters.some((char) => char.id === selection.key)) {
+      const char = characters.find((c) => c.id === selection.key);
+      if (char) {
+        setVoicePromptDraft(char.voicePrompt || "");
+      } else {
         if (characters.length) {
           setSelection({ type: "character", key: characters[0].id });
         } else if (sceneEntries.length) {
@@ -232,6 +239,34 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
     } finally {
       event.target.value = "";
       setUploadTarget(null);
+    }
+  };
+
+  const handleVoiceDesign = async (char: Character) => {
+    if (!voicePromptDraft.trim()) return;
+    setIsDesigningVoice(true);
+    try {
+      const result = await createCustomVoice({
+        voicePrompt: voicePromptDraft,
+        preferredName: char.name,
+        previewText: `大家好，我是${char.name}。很高兴见到各位。`
+      });
+
+      setProjectData(prev => ({
+        ...prev,
+        context: {
+          ...prev.context,
+          characters: prev.context.characters.map(c =>
+            c.id === char.id
+              ? { ...c, voiceId: result.voiceId, voicePrompt: voicePromptDraft, previewAudioUrl: result.previewAudioUrl }
+              : c
+          )
+        }
+      }));
+    } catch (err) {
+      alert("Voice Design Failed: " + (err as Error).message);
+    } finally {
+      setIsDesigningVoice(false);
     }
   };
 
@@ -319,11 +354,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                       key={char.id}
                       type="button"
                       onClick={() => setSelection({ type: "character", key: char.id })}
-                      className={`w-full text-left rounded-2xl border px-3 py-2 transition ${
-                        isActive
-                          ? "border-emerald-400/60 bg-emerald-500/10"
-                          : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)]"
-                      }`}
+                      className={`w-full text-left rounded-2xl border px-3 py-2 transition ${isActive
+                        ? "border-emerald-400/60 bg-emerald-500/10"
+                        : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)]"
+                        }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[12px] font-semibold truncate">
@@ -366,11 +400,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                       key={scene.key}
                       type="button"
                       onClick={() => setSelection({ type: "scene", key: scene.key })}
-                      className={`w-full text-left rounded-2xl border px-3 py-2 transition ${
-                        isActive
-                          ? "border-cyan-400/60 bg-cyan-500/10"
-                          : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)]"
-                      }`}
+                      className={`w-full text-left rounded-2xl border px-3 py-2 transition ${isActive
+                        ? "border-cyan-400/60 bg-cyan-500/10"
+                        : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)]"
+                        }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[12px] font-semibold truncate">{scene.title}</div>
@@ -418,6 +451,68 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                     {selectedCharacter.bio}
                   </div>
                 )}
+
+                {/* Voice Design Section */}
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[13px] font-semibold">
+                      <AudioLines size={16} className="text-violet-300" />
+                      Character Voice Design
+                    </div>
+                    {selectedCharacter.voiceId && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20">
+                        {selectedCharacter.voiceId}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-[11px] text-[var(--app-text-secondary)]">
+                      Describe the voice characteristics in natural language (e.g., "Deep magnetic male voice, calm and steady").
+                    </div>
+                    <div className="flex gap-2">
+                      <textarea
+                        value={voicePromptDraft || selectedCharacter.voicePrompt || ""}
+                        onChange={(e) => setVoicePromptDraft(e.target.value)}
+                        placeholder="Enter voice description..."
+                        className="flex-1 rounded-xl border border-[var(--app-border)] bg-black/20 p-3 text-[12px] focus:border-violet-400 focus:outline-none min-h-[80px]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={isDesigningVoice || !voicePromptDraft && !selectedCharacter.voicePrompt}
+                        onClick={() => handleVoiceDesign(selectedCharacter)}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl h-10 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-[12px] font-medium transition"
+                      >
+                        {isDesigningVoice ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Sparkles size={16} className="text-violet-200" />
+                        )}
+                        {selectedCharacter.voiceId ? "Re-design Voice" : "Create Character Voice"}
+                      </button>
+
+                      {selectedCharacter.previewAudioUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (previewAudioRef.current) {
+                              previewAudioRef.current.src = selectedCharacter.previewAudioUrl!;
+                              previewAudioRef.current.play();
+                            }
+                          }}
+                          className="flex items-center justify-center h-10 w-10 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 transition"
+                          title="Play Preview"
+                        >
+                          <Play size={18} />
+                        </button>
+                      )}
+                    </div>
+                    <audio ref={previewAudioRef} hidden />
+                  </div>
+                </div>
 
                 <div className="flex items-center justify-between">
                   <div className="text-[12px] font-semibold">Character Forms</div>
