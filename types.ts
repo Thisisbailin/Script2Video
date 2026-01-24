@@ -322,7 +322,6 @@ export interface TextServiceConfig {
   qwenModels?: Array<Record<string, any>>;
   voiceDesignModel?: string;
   voiceDubbingModel?: string;
-  ttsRegion?: "cn" | "intl";
   // DeyunAI 专属可选项（其他 provider 忽略）
   reasoningEffort?: 'low' | 'medium' | 'high';
   verbosity?: 'low' | 'medium' | 'high';

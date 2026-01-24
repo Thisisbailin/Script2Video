@@ -40,7 +40,6 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
     const [activeType, setActiveType] = useState<'visuals' | 'audio'>('audio');
     const [stage, setStage] = useState<LabStage>('design');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const ttsRegion = (config.textConfig.ttsRegion || "cn") as "cn" | "intl";
 
     const qwenModels = useMemo(
         () => (config.textConfig.qwenModels || []) as Array<{ id?: string; model?: string; name?: string }>,
@@ -136,8 +135,7 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                 const result = await QwenAudio.createCustomVoice({
                     voicePrompt: designPrompt,
                     previewText: currentText,
-                    language: 'zh',
-                    region: ttsRegion
+                    language: 'zh'
                 });
 
                 const newEntry = {
@@ -158,7 +156,6 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                 console.log("[ProjectorModule] Dubbing Start");
                 console.log("[ProjectorModule] Active Character:", activeCharacter);
                 console.log("[ProjectorModule] Voice ID:", activeCharacter?.voiceId);
-                console.log("[ProjectorModule] TTS Region:", ttsRegion);
 
                 if (!activeCharacter?.voiceId) {
                     throw new Error("请先选择一个拥有自定音色的角色。");
@@ -168,7 +165,6 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                     // Force the required model for VD voices
                     model: "qwen3-tts-vd-realtime-2025-12-16",
                     voice: activeCharacter.voiceId,
-                    region: ttsRegion,
                     // Atmosphere/Instruction is NOT supported for VD voices
                     speechRate: dubbingRate,
                     volume: dubbingVolume,
@@ -357,40 +353,14 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                                     </select>
                                                 </div>
                                             ) : (
-                                                <>
-                                                    <div className="col-span-2 space-y-2">
-                                                        <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                                                            Working Model
-                                                        </label>
-                                                        <div className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] opacity-70">
-                                                            qwen3-tts-vd-realtime-2025-12-16
-                                                        </div>
+                                                <div className="col-span-2 space-y-2">
+                                                    <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                                                        Working Model
+                                                    </label>
+                                                    <div className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] opacity-70">
+                                                        qwen3-tts-vd-realtime-2025-12-16
                                                     </div>
-                                                    <div className="col-span-2 space-y-2">
-                                                        <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                                                            TTS Region
-                                                        </label>
-                                                        <select
-                                                            value={ttsRegion}
-                                                            onChange={(e) =>
-                                                                setConfig((prev) => ({
-                                                                    ...prev,
-                                                                    textConfig: {
-                                                                        ...prev.textConfig,
-                                                                        ttsRegion: e.target.value as "cn" | "intl",
-                                                                    },
-                                                                }))
-                                                            }
-                                                            className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none"
-                                                        >
-                                                            <option value="cn">China (dashscope.aliyuncs.com)</option>
-                                                            <option value="intl">International (dashscope-intl.aliyuncs.com)</option>
-                                                        </select>
-                                                        <div className="text-[10px] text-[var(--app-text-muted)]">
-                                                            切换区域会影响音色 ID 的可用性，建议音色设计与配音保持一致。
-                                                        </div>
-                                                    </div>
-                                                </>
+                                                </div>
                                             )}
                                         </div>
                                     )}

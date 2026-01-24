@@ -68,7 +68,6 @@ export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   qwenModels: [],
   voiceDesignModel: "",
   voiceDubbingModel: "",
-  ttsRegion: "cn",
   qalamTools: DEFAULT_QALAM_TOOL_SETTINGS,
 };
 
