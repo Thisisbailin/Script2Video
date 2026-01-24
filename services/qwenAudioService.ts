@@ -28,6 +28,16 @@ const resolveApiKey = () => {
     return key;
 };
 
+const sanitizePreferredName = (name?: string): string | undefined => {
+    if (!name) return undefined;
+    // API rules: only alphanumeric and underscores, max 16 characters
+    let sanitized = name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_');
+    // If it started with numbers/etc but now empty or just underscores, handle fallback
+    sanitized = sanitized.replace(/^_+|_+$/g, '');
+    if (!sanitized) sanitized = "voice";
+    return sanitized.slice(0, 16);
+};
+
 /**
  * Voice Design: Create a unique, fixed voice ID for a character
  */
@@ -44,9 +54,9 @@ export const createCustomVoice = async (params: {
         input: {
             action: "create",
             target_model: "qwen3-tts-vd-realtime-2025-12-16", // Mandatory target model
-            voice_prompt: params.voicePrompt,
-            preview_text: params.previewText || "您好，这是为您定制的专属音色。",
-            preferred_name: params.preferredName,
+            voice_prompt: params.voicePrompt.slice(0, 2000), // Constraint: 2048
+            preview_text: (params.previewText || "您好，这是为您定制的专属音色。").slice(0, 1000), // Constraint: 1024
+            preferred_name: sanitizePreferredName(params.preferredName),
             language: params.language || "zh"
         },
         parameters: {
