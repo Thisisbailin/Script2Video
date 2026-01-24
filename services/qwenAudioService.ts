@@ -156,33 +156,28 @@ export const generateSpeech = async (
             const taskId = generateUUID();
             const audioChunks: Uint8Array[] = [];
 
+            let sentText = false;
+            let resolved = false;
+
+            const sendJson = (payload: any) => {
+                ws.send(JSON.stringify(payload));
+            };
+
             ws.onopen = () => {
                 console.log("[Qwen WS] Connected successfully.");
                 const payload = {
-                    header: {
-                        action: "run-task",
-                        task_id: taskId,
-                        streaming: "duplex"
+                    event_id: taskId,
+                    type: "session.update",
+                    session: {
+                        model,
+                        voice: options?.voice,
+                        mode: "server_commit",
+                        response_format: "pcm",
+                        sample_rate: options?.sampleRate || 24000,
                     },
-                    payload: {
-                        task_group: "audio",
-                        task: "tts",
-                        function: "SpeechSynthesizer",
-                        model: model,
-                        input: {
-                            text: text
-                        },
-                        parameters: {
-                            voice: options?.voice, // "vd-..."
-                            format: "wav",
-                            sample_rate: options?.sampleRate || 24000,
-                            volume: options?.volume ?? 50,
-                            speech_rate: options?.speechRate ?? 1.0,
-                        }
-                    }
                 };
-                console.log("[Qwen WS] Sending payload:", JSON.stringify(payload, null, 2));
-                ws.send(JSON.stringify(payload));
+                console.log("[Qwen WS] Sending session.update:", JSON.stringify(payload, null, 2));
+                sendJson(payload);
             };
 
             ws.onmessage = async (event) => {
@@ -197,20 +192,56 @@ export const generateSpeech = async (
                     return;
                 }
 
-                // Text frame
+                // Text frame (Realtime protocol)
                 try {
                     const msg = JSON.parse(data);
-                    console.log("[Qwen WS] Received Message:", msg.header?.event || "Unknown", msg);
+                    const type = msg?.type || "unknown";
+                    console.log("[Qwen WS] Received Message:", type, msg);
 
-                    if (msg.header.event === "task-failed") {
-                        console.error("[Qwen WS] Task Failed:", msg.header.error_message);
+                    if (type === "error" || type === "response.error") {
+                        const errMsg = msg?.error?.message || msg?.message || "Unknown error";
+                        console.error("[Qwen WS] Error:", errMsg);
                         ws.close();
-                        reject(new Error(`TTS Failed: ${msg.header.error_message}`));
+                        reject(new Error(`TTS Failed: ${errMsg}`));
                         return;
                     }
 
-                    if (msg.header.event === "task-finished") {
-                        console.log("[Qwen WS] Task Finished. Compiling audio...");
+                    if ((type === "session.created" || type === "session.updated") && !sentText) {
+                        sentText = true;
+                        const appendPayload = {
+                            event_id: generateUUID(),
+                            type: "input_text_buffer.append",
+                            text,
+                        };
+                        console.log("[Qwen WS] Sending input_text_buffer.append");
+                        sendJson(appendPayload);
+
+                        const finishPayload = {
+                            event_id: generateUUID(),
+                            type: "session.finish",
+                        };
+                        console.log("[Qwen WS] Sending session.finish");
+                        sendJson(finishPayload);
+                        return;
+                    }
+
+                    if (type === "response.audio.delta" && msg?.delta) {
+                        try {
+                            const binStr = atob(msg.delta);
+                            const len = binStr.length;
+                            const bytes = new Uint8Array(len);
+                            for (let i = 0; i < len; i++) {
+                                bytes[i] = binStr.charCodeAt(i);
+                            }
+                            audioChunks.push(bytes);
+                        } catch (e) {
+                            console.warn("Failed to decode base64 audio", e);
+                        }
+                        return;
+                    }
+
+                    if (type === "response.audio.done" || type === "response.done" || type === "session.finished") {
+                        console.log("[Qwen WS] Audio complete. Compiling audio...");
                         ws.close();
 
                         const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
@@ -221,31 +252,42 @@ export const generateSpeech = async (
                             offset += chunk.length;
                         }
 
-                        const blob = new Blob([combined], { type: 'audio/wav' });
+                        const sampleRate = options?.sampleRate || 24000;
+                        const wavBuffer = new ArrayBuffer(44 + combined.length);
+                        const view = new DataView(wavBuffer);
+
+                        const writeString = (offset: number, value: string) => {
+                            for (let i = 0; i < value.length; i++) {
+                                view.setUint8(offset + i, value.charCodeAt(i));
+                            }
+                        };
+
+                        writeString(0, "RIFF");
+                        view.setUint32(4, 36 + combined.length, true);
+                        writeString(8, "WAVE");
+                        writeString(12, "fmt ");
+                        view.setUint32(16, 16, true);
+                        view.setUint16(20, 1, true); // PCM
+                        view.setUint16(22, 1, true); // mono
+                        view.setUint32(24, sampleRate, true);
+                        view.setUint32(28, sampleRate * 2, true); // byte rate
+                        view.setUint16(32, 2, true); // block align
+                        view.setUint16(34, 16, true); // bits per sample
+                        writeString(36, "data");
+                        view.setUint32(40, combined.length, true);
+                        new Uint8Array(wavBuffer, 44).set(combined);
+
+                        const blob = new Blob([wavBuffer], { type: "audio/wav" });
                         const audioUrl = URL.createObjectURL(blob);
                         console.log("[Qwen WS] Audio URL created:", audioUrl);
 
+                        resolved = true;
                         resolve({
                             audioUrl,
-                            raw: { taskId }
+                            raw: { taskId, type }
                         });
                         return;
                     }
-
-                    if (msg.header.event === "result-generated" && msg.payload?.output?.audio) {
-                        try {
-                            const binStr = atob(msg.payload.output.audio);
-                            const len = binStr.length;
-                            const bytes = new Uint8Array(len);
-                            for (let i = 0; i < len; i++) {
-                                bytes[i] = binStr.charCodeAt(i);
-                            }
-                            audioChunks.push(bytes);
-                        } catch (e) {
-                            console.warn("Failed to decode base64 audio", e);
-                        }
-                    }
-
                 } catch (e) {
                     console.warn("WebSocket parse error", e);
                 }
@@ -253,6 +295,10 @@ export const generateSpeech = async (
 
             ws.onclose = (e) => {
                 console.log(`[Qwen WS] Closed. Code: ${e.code}, Reason: ${e.reason}, WasClean: ${e.wasClean}`);
+                if (!resolved && audioChunks.length === 0) {
+                    reject(new Error("WebSocket closed before receiving audio. Check protocol/model."));
+                    return;
+                }
                 if (e.code !== 1000 && e.code !== 1005) {
                     reject(new Error(`WebSocket closed unexpectedly. Code: ${e.code}. Check console details.`));
                 }
