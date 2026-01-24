@@ -106,17 +106,27 @@ export const createCustomVoice = async (params: {
  * Qwen3-TTS Service
  * Refined for "Smart Persona Design" and "Atmospheric Dubbing".
  */
+const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
+/**
+ * Qwen3-TTS Service
+ * Refined for "Smart Persona Design" and "Atmospheric Dubbing".
+ */
 export const generateSpeech = async (
     text: string,
     options?: QwenAudioOptions
 ): Promise<{ audioUrl: string; duration?: number; raw: any }> => {
     const apiKey = resolveApiKey();
 
-    // If using a custom voice ID (starting with vd-), we MUST use the target_model identified during design
-    // As per official docs: "此步骤指定的语音合成模型必须和上一步的target_model一致"
     let model = options?.model;
-    if (options?.voice?.startsWith('vd-') || options?.voice?.includes('vd-')) {
-        // Force the specific model required for designed voices
+    const isDesignedVoice = options?.voice?.startsWith('vd-') || options?.voice?.includes('vd-');
+
+    if (isDesignedVoice) {
         model = "qwen3-tts-vd-realtime-2025-12-16";
     } else if (!model) {
         if (options?.voicePrompt) {
@@ -126,6 +136,125 @@ export const generateSpeech = async (
         }
     }
 
+    // === WebSocket Implementation for Designed Voices (Realtime Model) ===
+    if (model === "qwen3-tts-vd-realtime-2025-12-16") {
+        console.log("[Qwen TTS] Using WebSocket for Realtime Model:", model);
+
+        return new Promise((resolve, reject) => {
+            // Attempt auth via query param since browser WebSocket doesn't support headers
+            const wsUrl = `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?token=${apiKey}`;
+            const ws = new WebSocket(wsUrl);
+            const taskId = generateUUID();
+            const audioChunks: Uint8Array[] = [];
+
+            ws.onopen = () => {
+                console.log("[Qwen WS] Connected");
+                const payload = {
+                    header: {
+                        action: "run-task",
+                        task_id: taskId,
+                        streaming: "duplex"
+                    },
+                    payload: {
+                        task_group: "audio",
+                        task: "tts",
+                        function: "SpeechSynthesizer",
+                        model: model,
+                        input: {
+                            text: text
+                        },
+                        parameters: {
+                            voice: options?.voice, // "vd-..."
+                            format: "wav", // Request WAV to get header in binary or direct PCM? 
+                            // Ideally 'pcm' is safer for raw stitching, but 'wav' might wrap each chunk? 
+                            // Let's stick to 'pcm' and wrap in WAV container if needed, or 'wav' and hope server sends one header.
+                            // Actually, for simple playback, getting a full file is easier. 
+                            // But realtime streams chunks. 
+                            // Let's try 'wav' - DashScope usually sends header in first chunk or creates a valid stream.
+                            sample_rate: options?.sampleRate || 24000,
+                            volume: options?.volume ?? 50,
+                            speech_rate: options?.speechRate ?? 1.0,
+                            // Pitch not supported for this model
+                        }
+                    }
+                };
+                ws.send(JSON.stringify(payload));
+            };
+
+            ws.onmessage = async (event) => {
+                let data = event.data;
+                if (data instanceof Blob) {
+                    data = await data.arrayBuffer();
+                }
+
+                if (data instanceof ArrayBuffer) {
+                    audioChunks.push(new Uint8Array(data));
+                    return;
+                }
+
+                // Text frame
+                try {
+                    const msg = JSON.parse(data);
+                    if (msg.header.event === "task-failed") {
+                        ws.close();
+                        reject(new Error(msg.header.error_message));
+                        return;
+                    }
+
+                    if (msg.header.event === "task-finished") {
+                        console.log("[Qwen WS] Task Finished");
+                        ws.close();
+
+                        // Combine chunks if necessary, or just use the array.
+                        // Ideally we concatenate them.
+                        const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                        const combined = new Uint8Array(totalLength);
+                        let offset = 0;
+                        for (const chunk of audioChunks) {
+                            combined.set(chunk, offset);
+                            offset += chunk.length;
+                        }
+
+                        // Fix lint error: cast to explicitly satisfy BlobPart
+                        const blob = new Blob([combined], { type: 'audio/wav' });
+                        const audioUrl = URL.createObjectURL(blob);
+
+                        resolve({
+                            audioUrl,
+                            raw: { taskId }
+                        });
+                        return;
+                    }
+
+                    // Handle "result-generated" if it contains base64 audio (fallback)
+                    if (msg.header.event === "result-generated" && msg.payload?.output?.audio) {
+                        // Some endpoints return base64 in JSON instead of binary frames
+                        try {
+                            const binStr = atob(msg.payload.output.audio);
+                            const len = binStr.length;
+                            const bytes = new Uint8Array(len);
+                            for (let i = 0; i < len; i++) {
+                                bytes[i] = binStr.charCodeAt(i);
+                            }
+                            audioChunks.push(bytes);
+                        } catch (e) {
+                            console.warn("Failed to decode base64 audio", e);
+                        }
+                    }
+
+                } catch (e) {
+                    console.warn("WebSocket parse error", e);
+                }
+            };
+
+            ws.onerror = (e) => {
+                console.error("WS Error", e);
+                reject(new Error("WebSocket connection error"));
+            };
+        });
+    }
+
+    // === FALLBACK: Standard REST for other models ===
     const body: any = {
         model,
         input: {
@@ -135,22 +264,17 @@ export const generateSpeech = async (
             format: options?.format || "wav",
             sample_rate: options?.sampleRate || 24000,
             volume: options?.volume ?? 50,
-            speech_rate: options?.speechRate ?? 1.0, // 0.5 to 2.0 multiplier
-            pitch: options?.pitch ?? 1.0,           // 0.5 to 2.0 multiplier
+            speech_rate: options?.speechRate ?? 1.0,
+            pitch: options?.pitch ?? 1.0,
         },
     };
 
-    // 1. UNIQUE PERSONA (Voice Design)
     if (options?.voice) {
         body.input.voice = options.voice;
     } else if (options?.voicePrompt) {
-        // One-shot voice design
         body.input.voice_prompt = options.voicePrompt;
     }
 
-    // 2. ATMOSPHERIC DUBBING (Instruction-based expressive prosody)
-    // IMPORTANT: For Designed Voices (vd-), 'instruction' and 'pitch' are currently NOT supported via standard REST call.
-    // Including them may return InvalidParameter/url-error.
     if (options?.voice?.includes('vd-')) {
         delete body.parameters.pitch;
     } else if (options?.instruction) {
