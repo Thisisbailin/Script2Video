@@ -87,7 +87,7 @@ export interface Episode {
   soraGenUsage?: TokenUsage;
 }
 
-export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'lab' | 'stats';
+export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'lab' | 'stats' | 'projector';
 
 // --- NEW DEEP UNDERSTANDING TYPES ---
 

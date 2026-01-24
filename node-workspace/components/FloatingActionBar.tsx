@@ -167,6 +167,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     { key: "scenes" as ModuleKey, label: "Scenes", desc: "Scene Library", Icon: MapPin, tone: "text-cyan-200", surface: "bg-cyan-500/10" },
     { key: "understanding" as ModuleKey, label: "理解", desc: "理解快照", Icon: BookOpen, tone: "text-yellow-200", surface: "bg-yellow-500/10" },
     { key: "materials" as ModuleKey, label: "素材", desc: "生成素材库", Icon: Sparkles, tone: "text-blue-200", surface: "bg-blue-500/10" },
+    { key: "projector" as ModuleKey, label: "放映机", desc: "视听实验室", Icon: Projector, tone: "text-rose-300", surface: "bg-rose-500/10" },
   ];
 
   const accountLoaded = accountInfo?.isLoaded ?? true;
@@ -535,11 +536,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                           closeMenus();
                         }}
                         disabled={disabled}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${
-                          disabled
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${disabled
                             ? "bg-transparent text-[var(--app-text-muted)] cursor-not-allowed"
                             : "hover:bg-[var(--app-panel-muted)] text-[var(--app-text-primary)]"
-                        }`}
+                          }`}
                       >
                         <span
                           className="h-9 w-9 rounded-xl flex items-center justify-center border border-[var(--app-border)] ring-1 ring-black/20"
@@ -588,11 +588,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => scriptInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <FileText size={14} className="text-blue-300" />
                         剧本
@@ -608,11 +607,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => csvInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <List size={14} className="text-emerald-300" />
                         Shots CSV
@@ -628,11 +626,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => understandingInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <BookOpen size={14} className="text-amber-300" />
                         Understanding
@@ -653,11 +650,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => globalStyleInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <Palette size={14} className="text-purple-300" />
                         Style
@@ -673,11 +669,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => shotGuideInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <FileCode size={14} className="text-yellow-300" />
                         Shot
@@ -693,11 +688,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => soraGuideInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <Sparkles size={14} className="text-pink-300" />
                         Sora
@@ -713,11 +707,10 @@ export const FloatingActionBar: React.FC<Props> = ({
                         type="button"
                         onClick={() => dramaGuideInputRef.current?.click()}
                         disabled={!onAssetLoad}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${
-                          onAssetLoad
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
                             ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
                             : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         <FileCode size={14} className="text-indigo-300" />
                         Drama

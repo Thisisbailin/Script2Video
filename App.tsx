@@ -42,6 +42,7 @@ import { MaterialsPanel } from './node-workspace/components/MaterialsPanel';
 import { UnderstandingPanel } from './node-workspace/components/UnderstandingPanel';
 import { SyncPanel } from './node-workspace/components/SyncPanel';
 import { InfoPanel } from './node-workspace/components/InfoPanel';
+import { ProjectorModule } from './components/ProjectorModule';
 import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
@@ -1587,11 +1588,11 @@ const App: React.FC = () => {
       case 'lab':
         return (
           <div className="h-full">
-              <NodeLab
-                projectData={projectData}
-                setProjectData={setProjectData}
-                onAssetLoad={handleAssetLoad}
-                onOpenModule={handleOpenLabModule}
+            <NodeLab
+              projectData={projectData}
+              setProjectData={setProjectData}
+              onAssetLoad={handleAssetLoad}
+              onOpenModule={handleOpenLabModule}
               syncIndicator={syncIndicator}
               onExportCsv={handleExportCsv}
               onExportXls={handleExportXls}
@@ -1681,6 +1682,10 @@ const App: React.FC = () => {
     labModalTitle = "素材";
     labModalWidth = 980;
     labModalContent = <MaterialsPanel />;
+  } else if (openLabModal === "projector") {
+    labModalTitle = "放映机 (视听实验室)";
+    labModalWidth = 1200;
+    labModalContent = <ProjectorModule />;
   }
 
   return (
