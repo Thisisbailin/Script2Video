@@ -20,7 +20,9 @@ import {
     Layers,
     Save,
     RotateCcw,
-    AlertTriangle
+    AlertTriangle,
+    X,
+    Check
 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import * as QwenAudio from '../services/qwenAudioService';
@@ -108,8 +110,9 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
 
     // --- Common Logic ---
     const [isGenerating, setIsGenerating] = useState(false);
-    const [audioResult, setAudioResult] = useState<{ url: string; prompt: string; text: string; time: number; type: LabStage } | null>(null);
-    const [history, setHistory] = useState<Array<{ url: string; prompt: string; text: string; time: number; type: LabStage }>>([]);
+    const [audioResult, setAudioResult] = useState<{ url: string; prompt: string; text: string; time: number; type: LabStage; voiceId?: string } | null>(null);
+    const [history, setHistory] = useState<Array<{ url: string; prompt: string; text: string; time: number; type: LabStage; voiceId?: string }>>([]);
+    const [showSaveDialog, setShowSaveDialog] = useState(false);
 
     const audioRef = useRef<HTMLAudioElement>(null);
     const formatErrorMessage = (error: any) => {
@@ -127,35 +130,81 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
         setIsGenerating(true);
         setErrorMessage(null);
         try {
-            const model = stage === 'design' ? activeDesignModel : activeDubbingModel;
-            const result = await QwenAudio.generateSpeech(currentText, {
-                model: model || undefined,
-                voice: (stage === 'dubbing' && activeCharacter) ? activeCharacter.voiceId : undefined,
-                voicePrompt: stage === 'design' ? designPrompt || undefined : undefined,
-                instruction: stage === 'dubbing' ? atmosphere : undefined,
-                speechRate: stage === 'design' ? designRate : dubbingRate,
-                volume: stage === 'design' ? designVolume : dubbingVolume,
-                pitch: stage === 'design' ? designPitch : 1.0
-            });
-            if (!result.audioUrl) {
-                throw new Error("Qwen TTS 未返回音频地址，请更换模型后重试。");
+            if (stage === 'design') {
+                // Stage 1: Design Persona -> Use CreateCustomVoice to get a voiceId
+                const result = await QwenAudio.createCustomVoice({
+                    voicePrompt: designPrompt,
+                    previewText: currentText,
+                    language: 'zh'
+                });
+
+                const newEntry = {
+                    url: result.previewAudioUrl,
+                    prompt: designPrompt,
+                    text: currentText,
+                    time: Date.now(),
+                    type: stage,
+                    voiceId: result.voiceId
+                };
+
+                setAudioResult(newEntry);
+                setHistory(prev => [newEntry, ...prev]);
+
+            } else {
+                // Stage 2: Dubbing -> Use GenerateSpeech with the specific Voice ID
+                if (!activeCharacter?.voiceId) {
+                    throw new Error("请先选择一个拥有自定音色的角色。");
+                }
+
+                const result = await QwenAudio.generateSpeech(currentText, {
+                    // Force the required model for VD voices
+                    model: "qwen3-tts-vd-realtime-2025-12-16",
+                    voice: activeCharacter.voiceId,
+                    // Atmosphere/Instruction is NOT supported for VD voices
+                    speechRate: dubbingRate,
+                    volume: dubbingVolume,
+                    // Pitch is NOT supported for VD voices
+                });
+
+                if (!result.audioUrl) {
+                    throw new Error("Qwen TTS 未返回音频地址，请重试。");
+                }
+
+                const newEntry = {
+                    url: result.audioUrl,
+                    prompt: "Designed Voice Dubbing",
+                    text: currentText,
+                    time: Date.now(),
+                    type: stage,
+                    voiceId: activeCharacter.voiceId
+                };
+
+                setAudioResult(newEntry);
+                setHistory(prev => [newEntry, ...prev]);
             }
-
-            const newEntry = {
-                url: result.audioUrl,
-                prompt: stage === 'design' ? designPrompt : atmosphere,
-                text: currentText,
-                time: Date.now(),
-                type: stage
-            };
-
-            setAudioResult(newEntry);
-            setHistory(prev => [newEntry, ...prev]);
         } catch (e: any) {
             setErrorMessage(formatErrorMessage(e));
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const handleSaveVoice = (characterId: string) => {
+        if (!audioResult?.voiceId || !setProjectData) return;
+
+        setProjectData(prev => ({
+            ...prev,
+            context: {
+                ...prev.context,
+                characters: prev.context.characters.map(char =>
+                    char.id === characterId
+                        ? { ...char, voiceId: audioResult.voiceId! }
+                        : char
+                )
+            }
+        }));
+        setShowSaveDialog(false);
+        alert("音色已保存至角色！"); // Simple feedback
     };
 
     const clearHistory = () => {
@@ -276,58 +325,38 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                                                    音色设计模型
-                                                </label>
-                                                <select
-                                                    value={activeDesignModel}
-                                                    onChange={(e) =>
-                                                        setConfig((prev) => ({
-                                                            ...prev,
-                                                            textConfig: { ...prev.textConfig, voiceDesignModel: e.target.value },
-                                                        }))
-                                                    }
-                                                    className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none"
-                                                >
-                                                    {designModelOptions.map((id) => (
-                                                        <option key={`design-${id}`} value={id}>
-                                                            {id}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {voiceDesignModelIds.length === 0 && (
-                                                    <div className="text-[10px] text-[var(--app-text-muted)]">
-                                                        未检测到带 <span className="font-semibold">tts-vd</span> 的模型，已展示全部音频模型。
+                                            {stage === 'design' ? (
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                                                        音色设计模型
+                                                    </label>
+                                                    <select
+                                                        value={activeDesignModel}
+                                                        onChange={(e) =>
+                                                            setConfig((prev) => ({
+                                                                ...prev,
+                                                                textConfig: { ...prev.textConfig, voiceDesignModel: e.target.value },
+                                                            }))
+                                                        }
+                                                        className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none"
+                                                    >
+                                                        {designModelOptions.map((id) => (
+                                                            <option key={`design-${id}`} value={id}>
+                                                                {id}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ) : (
+                                                <div className="col-span-2 space-y-2">
+                                                    <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                                                        Working Model
+                                                    </label>
+                                                    <div className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] opacity-70">
+                                                        qwen3-tts-vd-realtime-2025-12-16
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                                                    精细配音模型
-                                                </label>
-                                                <select
-                                                    value={activeDubbingModel}
-                                                    onChange={(e) =>
-                                                        setConfig((prev) => ({
-                                                            ...prev,
-                                                            textConfig: { ...prev.textConfig, voiceDubbingModel: e.target.value },
-                                                        }))
-                                                    }
-                                                    className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none"
-                                                >
-                                                    {dubbingModelOptions.map((id) => (
-                                                        <option key={`dubbing-${id}`} value={id}>
-                                                            {id}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                {voiceDubbingModelIds.length === 0 && (
-                                                    <div className="text-[10px] text-[var(--app-text-muted)]">
-                                                        未检测到独立配音模型，已展示全部音频模型。
-                                                    </div>
-                                                )}
-                                            </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </section>
@@ -400,6 +429,7 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                                 value={previewText}
                                                 onChange={(e) => setPreviewText(e.target.value)}
                                                 className="w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-2xl px-4 py-3 text-[13px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none transition-all"
+                                                placeholder="请输入用于测试音色的文本..."
                                             />
                                         </section>
                                     </>
@@ -485,26 +515,6 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
 
                                         <section className="space-y-4">
                                             <label className="text-[10px] font-semibold uppercase tracking-widest text-[var(--app-text-muted)] flex items-center gap-2">
-                                                <Activity size={14} className="text-[var(--app-accent-strong)]" />
-                                                Atmosphere Instruction (表演/情绪指示)
-                                            </label>
-                                            <input
-                                                value={atmosphere}
-                                                onChange={(e) => setAtmosphere(e.target.value)}
-                                                disabled={!!selectedCharId}
-                                                placeholder={selectedCharId ? "自定义音色暂不支持情绪指示" : "例如：'激动万分，语速逐渐加快，最后略带哽咽'..."}
-                                                className={`w-full bg-[var(--app-panel-soft)] border border-[var(--app-border)] rounded-2xl px-4 py-3 text-[13px] text-[var(--app-text-primary)] focus:ring-1 focus:ring-[var(--app-accent-soft)] focus:outline-none transition-all ${selectedCharId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            />
-                                            {selectedCharId && (
-                                                <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
-                                                    <AlertTriangle size={10} />
-                                                    Qwen3-TTS 专属音色目前由独立模型驱动，暂不支持额外的“情绪/指示”参数。
-                                                </p>
-                                            )}
-                                        </section>
-
-                                        <section className="space-y-4">
-                                            <label className="text-[10px] font-semibold uppercase tracking-widest text-[var(--app-text-muted)] flex items-center gap-2">
                                                 <Settings size={14} className="text-[var(--app-accent-strong)]" />
                                                 Acoustic Fine Tuning (精细声学调节)
                                             </label>
@@ -516,21 +526,12 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                                     </div>
                                                     <input type="range" min="0.5" max="2.0" step="0.1" value={dubbingRate} onChange={(e) => setDubbingRate(parseFloat(e.target.value))} className="w-full h-1.5 bg-[var(--app-border)] rounded-lg appearance-none cursor-pointer accent-[var(--app-accent)]" />
                                                 </div>
-                                                <div className="space-y-4">
+                                                <div className="space-y-4 opacity-50 pointer-events-none grayscale">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-[11px] text-[var(--app-text-secondary)]">Pitch (音调)</span>
-                                                        <span className="text-[11px] font-mono text-[var(--app-accent-strong)]">{activeCharacter ? "1.0 (锁定)" : designPitch.toFixed(1) + "x"}</span>
+                                                        <span className="text-[11px] font-mono text-[var(--app-accent-strong)]">Locked</span>
                                                     </div>
-                                                    <input
-                                                        type="range"
-                                                        min="0.5"
-                                                        max="2.0"
-                                                        step="0.1"
-                                                        value={activeCharacter ? 1.0 : designPitch}
-                                                        onChange={(e) => setDesignPitch(parseFloat(e.target.value))}
-                                                        disabled={!!activeCharacter}
-                                                        className={`w-full h-1.5 bg-[var(--app-border)] rounded-lg appearance-none cursor-pointer accent-[var(--app-accent)] ${activeCharacter ? 'opacity-30' : ''}`}
-                                                    />
+                                                    <input type="range" disabled value={1.0} className="w-full h-1.5 bg-[var(--app-border)] rounded-lg appearance-none cursor-not-allowed" />
                                                 </div>
                                                 <div className="space-y-4">
                                                     <div className="flex items-center justify-between">
@@ -607,10 +608,49 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                                 >
                                     <Download size={14} className="text-[var(--app-accent-strong)]" /> Export Audio
                                 </a>
-                                <button className="h-9 w-9 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)] transition-all text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]" title="Save Persona">
+                                <button
+                                    className={`h-9 w-9 rounded-xl border transition-all flex items-center justify-center ${audioResult.voiceId
+                                        ? "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-accent-strong)] text-[var(--app-text-secondary)] hover:text-[var(--app-accent-strong)]"
+                                        : "border-transparent bg-transparent opacity-30 cursor-not-allowed"
+                                        }`}
+                                    title="Save Persona to Character"
+                                    onClick={() => audioResult.voiceId && setShowSaveDialog(true)}
+                                    disabled={!audioResult.voiceId}
+                                >
                                     <Save size={16} />
                                 </button>
                             </div>
+
+                            {showSaveDialog && (
+                                <div className="absolute inset-0 bg-[var(--app-bg)]/90 backdrop-blur-sm z-50 flex flex-col p-4 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="text-[12px] font-bold">Save Voice To...</div>
+                                        <button onClick={() => setShowSaveDialog(false)} className="text-[var(--app-text-muted)] hover:text-[var(--app-text-primary)]">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+                                        {projectData?.context.characters.map(char => (
+                                            <button
+                                                key={char.id}
+                                                onClick={() => handleSaveVoice(char.id)}
+                                                className="w-full flex items-center gap-3 p-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-accent-strong)] transition-all text-left"
+                                            >
+                                                <div className="h-8 w-8 rounded-lg bg-[var(--app-panel-muted)] flex items-center justify-center text-[var(--app-text-secondary)]">
+                                                    <UserCircle size={18} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-[11px] font-bold truncate">{char.name}</div>
+                                                    <div className="text-[9px] text-[var(--app-text-muted)] truncate">ID: {char.id}</div>
+                                                </div>
+                                                {char.voiceId === audioResult.voiceId && (
+                                                    <Check size={14} className="ml-auto text-emerald-400" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="h-40 rounded-2xl border border-dashed border-[var(--app-border)] flex flex-col items-center justify-center text-[var(--app-text-muted)] p-6 text-center">
@@ -672,7 +712,7 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
