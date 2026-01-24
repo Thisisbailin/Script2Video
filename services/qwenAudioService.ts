@@ -12,8 +12,11 @@ export type QwenAudioOptions = {
     pitch?: number;
 };
 
-const CUSTOMIZE_BASE = "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization";
-const GENERATE_BASE = "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/generation";
+const TTS_BASE =
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_BASE) ||
+    "https://dashscope.aliyuncs.com";
+const CUSTOMIZE_BASE = `${TTS_BASE}/api/v1/services/audio/tts/customization`;
+const GENERATE_BASE = `${TTS_BASE}/api/v1/services/audio/tts/generation`;
 
 const resolveApiKey = () => {
     const envKey =
@@ -148,7 +151,10 @@ export const generateSpeech = async (
             // Use local proxy to inject Authorization header (browser WS API doesn't support headers)
             // The proxy at /api/qwen-ws will forward to wss://dashscope.aliyuncs.com and move 'token' to 'Authorization' header.
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/qwen-ws/v1/realtime?token=${apiKey}`;
+            const ttsRegion =
+                (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_REGION) || "";
+            const regionParam = ttsRegion ? `&region=${encodeURIComponent(ttsRegion)}` : "";
+            const wsUrl = `${protocol}//${window.location.host}/api/qwen-ws/v1/realtime?token=${apiKey}${regionParam}`;
 
             console.log(`[Qwen TTS] Connecting to WS URL: ${wsUrl}`);
 

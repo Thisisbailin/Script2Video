@@ -23,8 +23,13 @@ export const onRequest = async ({ request }) => {
 
     // Rewrite target URL (api/qwen-ws/v1/realtime -> api-ws/v1/realtime)
     const targetPath = url.pathname.replace('/api/qwen-ws', '/api-ws');
+    const region = (url.searchParams.get('region') || '').toLowerCase();
+    const host = region === 'intl' ? 'dashscope-intl.aliyuncs.com' : 'dashscope.aliyuncs.com';
+    const forwardParams = new URLSearchParams(url.searchParams);
+    forwardParams.delete('region');
+    const forwardSearch = forwardParams.toString();
     // Workers/Pages fetch only supports http/https; websocket is upgraded via headers.
-    const dashscopeUrl = new URL(`https://dashscope.aliyuncs.com${targetPath}${url.search}`);
+    const dashscopeUrl = new URL(`https://${host}${targetPath}${forwardSearch ? `?${forwardSearch}` : ""}`);
 
     console.log(`[Qwen Proxy] Handshaking with DashScope: ${dashscopeUrl.toString()}`);
 
