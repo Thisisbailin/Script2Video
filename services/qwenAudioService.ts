@@ -98,6 +98,7 @@ export const createCustomVoice = async (params: {
     return {
         voiceId,
         previewAudioUrl,
+        previewAudioBase64: base64Audio, // Keep the raw data for persistence/download
         raw: result
     };
 };

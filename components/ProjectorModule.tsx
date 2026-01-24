@@ -588,14 +588,26 @@ export const ProjectorModule: React.FC<ProjectorProps> = ({ projectData, setProj
 
                     {audioResult ? (
                         <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                            <div className="rounded-2xl bg-[var(--app-panel-soft)] p-4 flex flex-col items-center justify-center border border-[var(--app-border)]">
-                                <button
-                                    type="button"
-                                    className="h-14 w-14 rounded-full bg-[var(--app-accent)] text-white flex items-center justify-center hover:bg-[var(--app-accent-strong)] transition"
-                                    onClick={() => audioRef.current?.play()}
-                                >
-                                    <Volume2 size={26} />
-                                </button>
+                            <div className="rounded-2xl bg-[var(--app-panel-soft)] p-4 flex flex-col items-center justify-center border border-[var(--app-border)] relative group">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        type="button"
+                                        className="h-14 w-14 rounded-full bg-[var(--app-accent)] text-white flex items-center justify-center hover:bg-[var(--app-accent-strong)] transition shadow-lg shadow-[var(--app-accent-soft)]"
+                                        onClick={() => audioRef.current?.play()}
+                                    >
+                                        <Volume2 size={26} />
+                                    </button>
+
+                                    <a
+                                        href={audioResult.url}
+                                        download={`persona_${activeCharacter?.name || 'voice'}_${Date.now()}.wav`}
+                                        className="h-10 w-10 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] flex items-center justify-center hover:bg-[var(--app-panel-strong)] hover:text-[var(--app-text-primary)] transition"
+                                        title="下载预览音频"
+                                    >
+                                        <Download size={18} />
+                                    </a>
+                                </div>
+
                                 <audio ref={audioRef} src={audioResult.url} autoPlay />
                                 <div className="mt-3 text-center">
                                     <div className="text-[11px] font-semibold text-[var(--app-text-primary)]">试听就绪</div>

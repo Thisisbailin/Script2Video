@@ -3,80 +3,73 @@ export const onRequest = async ({ request }) => {
     const url = new URL(request.url);
     const token = url.searchParams.get('token');
 
-    console.log(`[Qwen Proxy] Incoming request: ${url.pathname}`);
+    // Diagnostic mode: If request is NOT a WebSocket upgrade, return environment info
+    if (request.headers.get('Upgrade') !== 'websocket') {
+        return new Response(JSON.stringify({
+            status: 'Proxy Active',
+            info: 'This endpoint is for WebSocket proxying. Please use a WebSocket client.',
+            pathname: url.pathname,
+            hasToken: !!token,
+            timestamp: new Date().toISOString()
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 
     if (!token) {
-        return new Response('Missing token', { status: 400 });
+        return new Response('Missing DashScope token in query string', { status: 400 });
     }
 
-    // Handle WebSocket upgrade check
-    const upgradeHeader = request.headers.get('Upgrade');
-    if (!upgradeHeader || upgradeHeader.toLowerCase() !== 'websocket') {
-        return new Response('Expected Upgrade: websocket', { status: 426 });
-    }
-
-    // Calculate the target path
-    // If the request is /api/qwen-ws/v1/realtime, we change it to /api-ws/v1/realtime
+    // Rewrite target URL (api/qwen-ws/v1/realtime -> api-ws/v1/realtime)
     const targetPath = url.pathname.replace('/api/qwen-ws', '/api-ws');
     const dashscopeUrl = new URL(`wss://dashscope.aliyuncs.com${targetPath}${url.search}`);
 
-    console.log(`[Qwen Proxy] Rewriting to DashScope: ${dashscopeUrl.toString()}`);
+    console.log(`[Qwen Proxy] Handshaking with DashScope: ${dashscopeUrl.toString()}`);
 
     try {
-        // Explicitly set headers for outbound WS connection
-        const headers = new Headers();
-        headers.set('Upgrade', 'websocket');
-        headers.set('Connection', 'Upgrade');
-        headers.set('Authorization', `Bearer ${token}`);
+        // Cloudflare Workers - Initiating an outbound WebSocket connection
+        const resp = await fetch(dashscopeUrl.toString(), {
+            headers: {
+                'Upgrade': 'websocket',
+                'Authorization': `Bearer ${token}`,
+            },
+        });
 
-        const response = await fetch(dashscopeUrl.toString(), {
-            headers,
-            webSocket: true as any,
-        } as any);
-
-        const dsWS = response.webSocket;
-        if (!dsWS) {
-            console.error('[Qwen Proxy] DashScope did not return a WebSocket');
-            return new Response('Failed to establish WebSocket connection to DashScope', { status: 502 });
+        if (resp.status !== 101) {
+            const errorText = await resp.text();
+            console.error(`[Qwen Proxy] DashScope rejected handshake: ${resp.status} ${errorText}`);
+            return new Response(`DashScope Handshake Failed: ${resp.status} - ${errorText}`, { status: 502 });
         }
 
-        // Pair the client and server WebSockets for CF Worker lifecycle
-        const [client, server] = new WebSocketPair();
-        (server as any).accept();
-        dsWS.accept();
+        const serverWS = resp.webSocket;
+        if (!serverWS) {
+            return new Response('Fatal: DashScope response did not include a WebSocket object', { status: 500 });
+        }
 
-        // Bidirectional message relay
-        server.addEventListener('message', event => {
-            dsWS.send(event.data);
-        });
-        dsWS.addEventListener('message', event => {
-            server.send(event.data);
-        });
+        // Accept the client upgrade and pair it with the server connection
+        const pair = new WebSocketPair();
+        const [client, server] = Object.values(pair);
 
-        server.addEventListener('close', () => {
-            dsWS.close();
-            server.close();
-        });
-        dsWS.addEventListener('close', () => {
-            server.close();
-            dsWS.close();
-        });
+        server.accept();
+        serverWS.accept();
 
-        server.addEventListener('error', e => {
-            console.error('[Qwen Proxy] Client WebSocket error:', e);
-            dsWS.close();
-        });
-        dsWS.addEventListener('error', e => {
-            console.error('[Qwen Proxy] DashScope WebSocket error:', e);
-            server.close();
-        });
+        // Standard relay pattern for CF Workers
+        server.addEventListener('message', ev => serverWS.send(ev.data));
+        serverWS.addEventListener('message', ev => server.send(ev.data));
+
+        server.addEventListener('close', () => serverWS.close());
+        serverWS.addEventListener('close', () => server.close());
+
+        server.addEventListener('error', () => serverWS.close());
+        serverWS.addEventListener('error', () => server.close());
 
         return new Response(null, {
             status: 101,
             webSocket: client,
         });
     } catch (err: any) {
-        console.error(`[Qwen Proxy] Exception: ${err.message}`);
-        return new Response(`WebSocket Proxy Error: ${err.message}`, { status: 500 });
+        console.error(`[Qwen Proxy] Connection Error: ${err.message}`);
+        return new Response(`Edge Proxy Exception: ${err.message}`, { status: 500 });
     }
 };
