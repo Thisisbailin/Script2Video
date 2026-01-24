@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, ImagePlus, MapPin, Users, Play, Loader2, Sparkles } from "lucide-react";
 import type { DesignAssetItem, ProjectData, Scene, Character } from "../../types";
+import { useConfig } from "../../hooks/useConfig";
 import { createCustomVoice } from "../../services/qwenAudioService";
 
 type Props = {
@@ -61,6 +62,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
   projectData,
   setProjectData,
 }) => {
+  const { config } = useConfig("script2video_config_v1");
   const [selection, setSelection] = useState<Selection | null>(null);
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null);
   const [isDesigningVoice, setIsDesigningVoice] = useState(false);
@@ -249,7 +251,8 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
       const result = await createCustomVoice({
         voicePrompt: voicePromptDraft,
         preferredName: char.name,
-        previewText: `大家好，我是${char.name}。很高兴见到各位。`
+        previewText: `大家好，我是${char.name}。很高兴见到各位。`,
+        region: config.textConfig.ttsRegion || "cn"
       });
 
       setProjectData(prev => ({

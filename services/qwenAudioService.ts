@@ -10,13 +10,21 @@ export type QwenAudioOptions = {
     volume?: number;
     speechRate?: number;
     pitch?: number;
+    region?: 'cn' | 'intl';
 };
 
-const TTS_BASE =
-    (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_BASE) ||
-    "https://dashscope.aliyuncs.com";
-const CUSTOMIZE_BASE = `${TTS_BASE}/api/v1/services/audio/tts/customization`;
-const GENERATE_BASE = `${TTS_BASE}/api/v1/services/audio/tts/generation`;
+const resolveTtsBase = (region?: string) => {
+    const envBase =
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_BASE) || "";
+    if (envBase) return envBase.replace(/\/+$/, "");
+    const envRegion =
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_REGION) || "";
+    const finalRegion = (region || envRegion || "").toLowerCase();
+    return finalRegion === "intl" ? "https://dashscope-intl.aliyuncs.com" : "https://dashscope.aliyuncs.com";
+};
+
+const buildCustomizeEndpoint = (region?: string) => `${resolveTtsBase(region)}/api/v1/services/audio/tts/customization`;
+const buildGenerateEndpoint = (region?: string) => `${resolveTtsBase(region)}/api/v1/services/audio/tts/generation`;
 
 const resolveApiKey = () => {
     const envKey =
@@ -49,8 +57,12 @@ export const createCustomVoice = async (params: {
     previewText?: string;
     preferredName?: string;
     language?: 'zh' | 'en' | 'ja' | 'ko' | 'vi';
+    region?: 'cn' | 'intl';
 }) => {
     const apiKey = resolveApiKey();
+    const base = resolveTtsBase(params.region);
+    const regionLabel = (params.region || (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_REGION) || "cn").toLowerCase();
+    console.log(`[Qwen Voice Design] Region: ${regionLabel} | Base: ${base}`);
 
     const body = {
         model: "qwen-voice-design",
@@ -68,7 +80,7 @@ export const createCustomVoice = async (params: {
         }
     };
 
-    const res = await fetch(wrapWithProxy(CUSTOMIZE_BASE), {
+    const res = await fetch(wrapWithProxy(buildCustomizeEndpoint(params.region)), {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -126,6 +138,10 @@ export const generateSpeech = async (
     options?: QwenAudioOptions
 ): Promise<{ audioUrl: string; duration?: number; raw: any }> => {
     const apiKey = resolveApiKey();
+    const ttsRegion = ((options?.region ||
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_REGION) ||
+        "cn") as string).toLowerCase();
+    const ttsBase = resolveTtsBase(ttsRegion);
 
     let model = options?.model;
     const isDesignedVoice = options?.voice?.startsWith('vd-') || options?.voice?.includes('vd-');
@@ -140,6 +156,8 @@ export const generateSpeech = async (
         }
     }
 
+    console.log(`[Qwen TTS] Region: ${ttsRegion || "cn"} | Base: ${ttsBase}`);
+
     // === WebSocket Implementation for Designed Voices (Realtime Model) ===
     if (model === "qwen3-tts-vd-realtime-2025-12-16") {
         console.log("[Qwen TTS] Starting WebSocket flow...");
@@ -151,9 +169,7 @@ export const generateSpeech = async (
             // Use local proxy to inject Authorization header (browser WS API doesn't support headers)
             // The proxy at /api/qwen-ws will forward to wss://dashscope.aliyuncs.com and move 'token' to 'Authorization' header.
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ttsRegion =
-                (typeof import.meta !== "undefined" && import.meta.env?.VITE_QWEN_TTS_REGION) || "";
-            const regionParam = ttsRegion ? `&region=${encodeURIComponent(ttsRegion)}` : "";
+            const regionParam = `&region=${encodeURIComponent(ttsRegion || "cn")}`;
             const wsUrl = `${protocol}//${window.location.host}/api/qwen-ws/v1/realtime?token=${apiKey}${regionParam}`;
 
             console.log(`[Qwen TTS] Connecting to WS URL: ${wsUrl}`);
@@ -166,6 +182,8 @@ export const generateSpeech = async (
             let commitSent = false;
             let resolved = false;
             let readyTimer: number | undefined;
+            let sessionCreatedModel = "";
+            let sessionUpdated = false;
 
             const clearReadyTimer = () => {
                 if (readyTimer !== undefined) {
@@ -250,14 +268,20 @@ export const generateSpeech = async (
                         return;
                     }
 
-                    if (type === "session.updated") {
-                        clearReadyTimer();
-                        sendTextPayloads();
+                    if (type === "session.created") {
+                        sessionCreatedModel = msg?.session?.model || "";
+                        if (sessionCreatedModel && sessionCreatedModel !== model) {
+                            console.warn(
+                                `[Qwen WS] Model mismatch. requested=${model}, server=${sessionCreatedModel}`
+                            );
+                        }
                         return;
                     }
 
-                    if (type === "session.created") {
-                        // Some servers send created before updated; wait briefly.
+                    if (type === "session.updated") {
+                        clearReadyTimer();
+                        sessionUpdated = true;
+                        sendTextPayloads();
                         return;
                     }
 
@@ -332,7 +356,8 @@ export const generateSpeech = async (
             ws.onclose = (e) => {
                 console.log(`[Qwen WS] Closed. Code: ${e.code}, Reason: ${e.reason}, WasClean: ${e.wasClean}`);
                 if (!resolved && audioChunks.length === 0) {
-                    reject(new Error("WebSocket closed before receiving audio. Check protocol/model."));
+                    const summary = `model=${model}, sessionModel=${sessionCreatedModel || "unknown"}, region=${ttsRegion || "cn"}, sessionUpdated=${sessionUpdated}, commitSent=${commitSent}`;
+                    reject(new Error(`WebSocket closed before receiving audio. ${summary}`));
                     return;
                 }
                 if (e.code !== 1000 && e.code !== 1005) {
@@ -376,7 +401,7 @@ export const generateSpeech = async (
 
     console.log("[Qwen TTS] Request Body:", JSON.stringify(body));
 
-    const res = await fetch(wrapWithProxy(GENERATE_BASE), {
+    const res = await fetch(wrapWithProxy(buildGenerateEndpoint(ttsRegion)), {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

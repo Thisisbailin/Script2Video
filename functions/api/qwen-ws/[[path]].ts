@@ -31,6 +31,7 @@ export const onRequest = async ({ request }) => {
     // Workers/Pages fetch only supports http/https; websocket is upgraded via headers.
     const dashscopeUrl = new URL(`https://${host}${targetPath}${forwardSearch ? `?${forwardSearch}` : ""}`);
 
+    console.log(`[Qwen Proxy] Region=${region || "cn"} Host=${host}`);
     console.log(`[Qwen Proxy] Handshaking with DashScope: ${dashscopeUrl.toString()}`);
 
     try {
