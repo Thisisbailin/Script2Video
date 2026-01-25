@@ -1,4 +1,3 @@
-
 export const onRequest = async ({ request }) => {
     const url = new URL(request.url);
     const token = url.searchParams.get('token');
@@ -7,7 +6,7 @@ export const onRequest = async ({ request }) => {
     if (request.headers.get('Upgrade') !== 'websocket') {
         return new Response(JSON.stringify({
             status: 'Proxy Active',
-            info: 'This endpoint is for WebSocket proxying. Please use a WebSocket client.',
+            info: 'This endpoint is for Qwen TTS Realtime WebSocket proxying.',
             pathname: url.pathname,
             hasToken: !!token,
             timestamp: new Date().toISOString()
@@ -21,14 +20,14 @@ export const onRequest = async ({ request }) => {
         return new Response('Missing DashScope token in query string', { status: 400 });
     }
 
-    // Rewrite target URL (api/qwen-ws/v1/realtime -> api-ws/v1/realtime)
-    const targetPath = url.pathname.replace('/api/qwen-ws', '/api-ws');
+    // Rewrite target URL (api/qwen-tts-ws/v1/realtime -> api-ws/v1/realtime)
+    const targetPath = url.pathname.replace('/api/qwen-tts-ws', '/api-ws');
     // Remove token from query string before forwarding upstream.
     url.searchParams.delete('token');
     // Workers/Pages fetch only supports http/https; websocket is upgraded via headers.
     const dashscopeUrl = new URL(`https://dashscope.aliyuncs.com${targetPath}`);
     dashscopeUrl.search = url.searchParams.toString();
-    console.log(`[Qwen Proxy] Handshaking with DashScope: ${dashscopeUrl.toString()}`);
+    console.log(`[Qwen TTS Proxy] Handshaking with DashScope: ${dashscopeUrl.toString()}`);
 
     try {
         // Cloudflare Workers - Initiating an outbound WebSocket connection
@@ -41,7 +40,7 @@ export const onRequest = async ({ request }) => {
 
         if (resp.status !== 101) {
             const errorText = await resp.text();
-            console.error(`[Qwen Proxy] DashScope rejected handshake: ${resp.status} ${errorText}`);
+            console.error(`[Qwen TTS Proxy] DashScope rejected handshake: ${resp.status} ${errorText}`);
             return new Response(`DashScope Handshake Failed: ${resp.status} - ${errorText}`, { status: 502 });
         }
 
@@ -72,7 +71,7 @@ export const onRequest = async ({ request }) => {
             webSocket: client,
         });
     } catch (err: any) {
-        console.error(`[Qwen Proxy] Connection Error: ${err.message}`);
+        console.error(`[Qwen TTS Proxy] Connection Error: ${err.message}`);
         return new Response(`Edge Proxy Exception: ${err.message}`, { status: 500 });
     }
 };

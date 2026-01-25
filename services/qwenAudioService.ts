@@ -150,9 +150,11 @@ export const generateSpeech = async (
 
         return new Promise((resolve, reject) => {
             // Use local proxy to inject Authorization header (browser WS API doesn't support headers)
-            // The proxy at /api/qwen-ws will forward to wss://dashscope.aliyuncs.com and move 'token' to 'Authorization' header.
+            // The proxy at /api/qwen-tts-ws forwards to DashScope TTS realtime and moves `token` into `Authorization`.
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/qwen-ws/v1/realtime?token=${apiKey}`;
+            const wsUrl = `${protocol}//${window.location.host}/api/qwen-tts-ws/v1/realtime?model=${encodeURIComponent(
+                model
+            )}&token=${encodeURIComponent(apiKey)}`;
 
             console.log(`[Qwen TTS] Connecting to WS URL: ${wsUrl}`);
 
@@ -208,7 +210,6 @@ export const generateSpeech = async (
                     event_id: taskId,
                     type: "session.update",
                     session: {
-                        model,
                         voice: options?.voice,
                         mode: "commit",
                         language_type: "Chinese",
