@@ -77,7 +77,15 @@ interface NodeLabProps {
   projectData: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   onAssetLoad?: (
-    type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson",
+    type:
+      | "script"
+      | "globalStyleGuide"
+      | "shotGuide"
+      | "soraGuide"
+      | "storyboardGuide"
+      | "dramaGuide"
+      | "csvShots"
+      | "understandingJson",
     content: string,
     fileName?: string
   ) => void;
@@ -415,11 +423,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   }, [projectData.globalStyleGuide, setGlobalStyleGuide]);
 
   useEffect(() => {
-    setLabContext({
+  setLabContext({
       rawScript: projectData.rawScript || "",
       globalStyleGuide: projectData.globalStyleGuide || "",
       shotGuide: projectData.shotGuide || "",
       soraGuide: projectData.soraGuide || "",
+      storyboardGuide: projectData.storyboardGuide || "",
       dramaGuide: projectData.dramaGuide || "",
       context: projectData.context,
     });

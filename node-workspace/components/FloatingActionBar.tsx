@@ -81,7 +81,15 @@ type Props = {
   onTryMe?: () => void;
   onToggleWorkflow?: (anchorRect?: DOMRect) => void;
   onAssetLoad?: (
-    type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson",
+    type:
+      | "script"
+      | "globalStyleGuide"
+      | "shotGuide"
+      | "soraGuide"
+      | "storyboardGuide"
+      | "dramaGuide"
+      | "csvShots"
+      | "understandingJson",
     content: string,
     fileName?: string
   ) => void;
@@ -133,6 +141,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   const globalStyleInputRef = useRef<HTMLInputElement>(null);
   const shotGuideInputRef = useRef<HTMLInputElement>(null);
   const soraGuideInputRef = useRef<HTMLInputElement>(null);
+  const storyboardGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const workflowButtonRef = useRef<HTMLButtonElement>(null);
   const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
@@ -186,7 +195,15 @@ export const FloatingActionBar: React.FC<Props> = ({
 
   const handleAssetFileChange = (
     event: React.ChangeEvent<HTMLInputElement>,
-    type: "script" | "globalStyleGuide" | "shotGuide" | "soraGuide" | "dramaGuide" | "csvShots" | "understandingJson"
+    type:
+      | "script"
+      | "globalStyleGuide"
+      | "shotGuide"
+      | "soraGuide"
+      | "storyboardGuide"
+      | "dramaGuide"
+      | "csvShots"
+      | "understandingJson"
   ) => {
     const file = event.target.files?.[0];
     if (!file || !onAssetLoad) return;
@@ -695,6 +712,25 @@ export const FloatingActionBar: React.FC<Props> = ({
                       >
                         <Sparkles size={14} className="text-pink-300" />
                         Sora
+                      </button>
+                      <input
+                        ref={storyboardGuideInputRef}
+                        type="file"
+                        accept=".md,.txt"
+                        className="hidden"
+                        onChange={(e) => handleAssetFileChange(e, "storyboardGuide")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => storyboardGuideInputRef.current?.click()}
+                        disabled={!onAssetLoad}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-full border transition ${onAssetLoad
+                            ? "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                            : "border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-muted)] cursor-not-allowed"
+                          }`}
+                      >
+                        <ImageIcon size={14} className="text-amber-300" />
+                        Storyboard
                       </button>
                       <input
                         ref={dramaGuideInputRef}

@@ -506,6 +506,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
           globalStyleGuide: false,
           shotGuide: false,
           soraGuide: false,
+          storyboardGuide: false,
           dramaGuide: false,
           projectSummary: false,
           episodeSummaries: false,
@@ -605,6 +606,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     globalStyleGuide: "",
     shotGuide: "",
     soraGuide: "",
+    storyboardGuide: "",
     dramaGuide: "",
     context: {
       projectSummary: "",

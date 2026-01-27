@@ -179,6 +179,9 @@ export const useLabExecutor = () => {
     if (selection.soraGuide && labContext.soraGuide) {
       contextParts.push(`[Sora Guide]\n${labContext.soraGuide.slice(0, 6000)}`);
     }
+    if (selection.storyboardGuide && labContext.storyboardGuide) {
+      contextParts.push(`[Storyboard Guide]\n${labContext.storyboardGuide.slice(0, 6000)}`);
+    }
     if (selection.dramaGuide && labContext.dramaGuide) {
       contextParts.push(`[Drama Guide]\n${labContext.dramaGuide.slice(0, 6000)}`);
     }

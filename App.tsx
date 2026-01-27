@@ -28,6 +28,7 @@ import { useWorkflowEngine } from './hooks/useWorkflowEngine';
 import { useSecretsSync } from './hooks/useSecretsSync';
 import { useShotGeneration } from './hooks/useShotGeneration';
 import { useSoraGeneration } from './hooks/useSoraGeneration';
+import { useStoryboardGeneration } from './hooks/useStoryboardGeneration';
 import { AppShell } from './components/layout/AppShell';
 import { Header, WorkflowCard } from './components/layout/Header';
 import { ConflictModal } from './components/ConflictModal';
@@ -49,6 +50,10 @@ import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShe
 import * as GeminiService from './services/geminiService';
 import * as SoraService from './services/soraService';
 import { useWorkflowStore } from './node-workspace/store/workflowStore';
+import defaultShotGuide from './guides/ShotGuide.md?raw';
+import defaultSoraGuide from './guides/PromptGuide.md?raw';
+import defaultDramaGuide from './guides/DramaGuide.md?raw';
+import defaultStoryboardGuide from './guides/Storyboard Guide.md?raw';
 
 // --- Helpers: Character stats derived from parsed episodes ---
 const buildCharacterStats = (episodes: Episode[]) => {
@@ -513,43 +518,28 @@ const App: React.FC = () => {
 
   // Load default guides on mount (only if not already loaded)
   useEffect(() => {
-    if (!projectData.shotGuide || !projectData.soraGuide || !projectData.dramaGuide) {
-      const loadDefaultGuides = async () => {
-        try {
-          const [shotRes, soraRes, dramaRes] = await Promise.all([
-            fetch('guides/ShotGuide.md'),
-            fetch('guides/PromptGuide.md'),
-            fetch('guides/DramaGuide.md')
-          ]);
-
-          if (shotRes.ok && soraRes.ok && dramaRes.ok) {
-            const [shotText, soraText, dramaText] = await Promise.all([
-              shotRes.text(),
-              soraRes.text(),
-              dramaRes.text()
-            ]);
-            setProjectData(prev => ({
-              ...prev,
-              shotGuide: prev.shotGuide || shotText,
-              soraGuide: prev.soraGuide || soraText,
-              dramaGuide: prev.dramaGuide || dramaText
-            }));
-          }
-        } catch (e) {
-          console.error("Error loading default guides:", e);
-        }
-      };
-      loadDefaultGuides();
+    if (!projectData.shotGuide || !projectData.soraGuide || !projectData.dramaGuide || !projectData.storyboardGuide) {
+      setProjectData(prev => ({
+        ...prev,
+        shotGuide: prev.shotGuide || defaultShotGuide,
+        soraGuide: prev.soraGuide || defaultSoraGuide,
+        dramaGuide: prev.dramaGuide || defaultDramaGuide,
+        storyboardGuide: prev.storyboardGuide || defaultStoryboardGuide
+      }));
     }
   }, []);
 
   // --- Helper: Stats Updater ---
-  const updateStats = (phase: 'context' | 'shotGen' | 'soraGen', success: boolean) => {
+  const updateStats = (phase: 'context' | 'shotGen' | 'soraGen' | 'storyboardGen', success: boolean) => {
     setProjectData(prev => {
       const stats = { ...prev.stats };
-      stats[phase].total += 1;
-      if (success) stats[phase].success += 1;
-      else stats[phase].error += 1;
+      const current = stats[phase] || { total: 0, success: 0, error: 0 };
+      const next = {
+        total: current.total + 1,
+        success: current.success + (success ? 1 : 0),
+        error: current.error + (success ? 0 : 1)
+      };
+      stats[phase] = next;
       return { ...prev, stats };
     });
   };
@@ -639,7 +629,15 @@ const App: React.FC = () => {
   };
 
   const handleAssetLoad = (
-    type: 'script' | 'globalStyleGuide' | 'shotGuide' | 'soraGuide' | 'dramaGuide' | 'csvShots' | 'understandingJson',
+    type:
+      | 'script'
+      | 'globalStyleGuide'
+      | 'shotGuide'
+      | 'soraGuide'
+      | 'storyboardGuide'
+      | 'dramaGuide'
+      | 'csvShots'
+      | 'understandingJson',
     content: string,
     fileName?: string
   ) => {
@@ -749,6 +747,8 @@ const App: React.FC = () => {
       setProjectData(prev => ({ ...prev, shotGuide: content }));
     } else if (type === 'soraGuide') {
       setProjectData(prev => ({ ...prev, soraGuide: content }));
+    } else if (type === 'storyboardGuide') {
+      setProjectData(prev => ({ ...prev, storyboardGuide: content }));
     } else if (type === 'dramaGuide') {
       setProjectData(prev => ({ ...prev, dramaGuide: content }));
     }
@@ -758,18 +758,7 @@ const App: React.FC = () => {
     setProcessing(true, "Concocting a hilarious script with AI...");
 
     try {
-      let dramaGuideText = projectData.dramaGuide;
-      if (!dramaGuideText) {
-        try {
-          const res = await fetch('guides/DramaGuide.md');
-          if (res.ok) {
-            dramaGuideText = await res.text();
-          }
-        } catch (err) {
-          console.warn('Load drama guide failed, fallback to prompt defaults', err);
-          dramaGuideText = '';
-        }
-      }
+      const dramaGuideText = projectData.dramaGuide || defaultDramaGuide;
 
       const result = await GeminiService.generateDemoScript(config.textConfig, dramaGuideText);
 
@@ -1235,6 +1224,20 @@ const App: React.FC = () => {
     currentEpIndex
   });
 
+  const { startPhase4, continueNextEpisodeStoryboard, retryCurrentEpisodeStoryboard } = useStoryboardGeneration({
+    projectDataRef,
+    setProjectData,
+    config,
+    setStep,
+    setCurrentEpIndex,
+    setProcessing,
+    setStatus,
+    setActiveTab,
+    updateStats,
+    isProcessing,
+    currentEpIndex
+  });
+
   // === PHASE 5: VIDEO GENERATION ===
   const handleGenerateVideo = async (episodeId: number, shotId: string, customPrompt: string, params: VideoParams) => {
     if (!config.videoConfig.apiKey || !config.videoConfig.baseUrl) {
@@ -1272,6 +1275,7 @@ const App: React.FC = () => {
         description: 'Ad-hoc generation',
         dialogue: '',
         soraPrompt: customPrompt,
+        storyboardPrompt: '',
         finalVideoPrompt: customPrompt,
         videoStatus: 'queued',
         videoParams: params,
@@ -1572,6 +1576,13 @@ const App: React.FC = () => {
     return { left, bottom };
   }, [workflowAnchor]);
 
+  const hasStoryboardPrompts = useMemo(
+    () => projectData.episodes.some((ep) => ep.shots.some((shot) => (shot.storyboardPrompt || "").trim().length > 0)),
+    [projectData.episodes]
+  );
+
+  const showStoryboard = step >= WorkflowStep.GENERATE_STORYBOARD || hasStoryboardPrompts;
+
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
       case 'assets':
@@ -1583,6 +1594,7 @@ const App: React.FC = () => {
           <ShotsModule
             shots={projectData.episodes[currentEpIndex]?.shots || []}
             showSora={step >= WorkflowStep.GENERATE_SORA}
+            showStoryboard={showStoryboard}
           />
         );
       case 'lab':
@@ -1660,7 +1672,11 @@ const App: React.FC = () => {
     labModalTitle = "Shots";
     labModalWidth = 1100;
     labModalContent = (
-      <ShotsModule shots={projectData.episodes[currentEpIndex]?.shots || []} showSora={step >= WorkflowStep.GENERATE_SORA} />
+      <ShotsModule
+        shots={projectData.episodes[currentEpIndex]?.shots || []}
+        showSora={step >= WorkflowStep.GENERATE_SORA}
+        showStoryboard={showStoryboard}
+      />
     );
   } else if (openLabModal === "characters") {
     labModalTitle = "Characters & Scenes";
@@ -1790,6 +1806,9 @@ const App: React.FC = () => {
                 onStartPhase3: startPhase3,
                 onRetryEpisodeSora: retryCurrentEpisodeSora,
                 onContinueNextEpisodeSora: continueNextEpisodeSora,
+                onStartPhase4: startPhase4,
+                onRetryEpisodeStoryboard: retryCurrentEpisodeStoryboard,
+                onContinueNextEpisodeStoryboard: continueNextEpisodeStoryboard,
               }}
               onClose={() => setShowWorkflow(false)}
             />

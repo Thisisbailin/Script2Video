@@ -128,6 +128,8 @@ const EPISODE_STATUS_ORDER: Episode["status"][] = [
   "generating",
   "review_shots",
   "confirmed_shots",
+  "generating_storyboard",
+  "review_storyboard",
   "generating_sora",
   "review_sora",
   "completed",
@@ -221,7 +223,8 @@ const mergePhase1Usage = (remote?: Phase1Usage, local?: Phase1Usage): Phase1Usag
 const mergePerformanceMetrics = (remote?: PerformanceMetrics, local?: PerformanceMetrics): PerformanceMetrics => ({
   context: mergeRequestStats(remote?.context, local?.context),
   shotGen: mergeRequestStats(remote?.shotGen, local?.shotGen),
-  soraGen: mergeRequestStats(remote?.soraGen, local?.soraGen)
+  soraGen: mergeRequestStats(remote?.soraGen, local?.soraGen),
+  storyboardGen: mergeRequestStats(remote?.storyboardGen, local?.storyboardGen)
 });
 
 const mergeArrayByKey = <T>(
@@ -299,6 +302,7 @@ const mergeShots = (remote: Shot[], local: Shot[], path: string): MergeResult<Sh
         description: mergeString(remoteShot.description, localShot.description, `${itemPath}.description`, conflicts, "keep-both"),
         dialogue: mergeString(remoteShot.dialogue, localShot.dialogue, `${itemPath}.dialogue`, conflicts, "keep-both"),
         soraPrompt: mergeString(remoteShot.soraPrompt, localShot.soraPrompt, `${itemPath}.soraPrompt`, conflicts, "keep-both"),
+        storyboardPrompt: mergeString(remoteShot.storyboardPrompt, localShot.storyboardPrompt, `${itemPath}.storyboardPrompt`, conflicts, "keep-both"),
         difficulty: mergeOptionalNumberPreferRemote(remoteShot.difficulty, localShot.difficulty, `${itemPath}.difficulty`, conflicts),
         finalVideoPrompt: mergeOptionalString(remoteShot.finalVideoPrompt, localShot.finalVideoPrompt, `${itemPath}.finalVideoPrompt`, conflicts, "keep-both"),
         videoParams: mergeVideoParams(remoteShot.videoParams, localShot.videoParams, `${itemPath}.videoParams`, conflicts),
@@ -335,7 +339,8 @@ const mergeEpisodes = (remote: Episode[], local: Episode[], path: string): Merge
         status: mergeStatusByOrder(remoteEp.status, localEp.status, EPISODE_STATUS_ORDER, `${itemPath}.status`, conflicts) || remoteEp.status,
         errorMsg: remoteEp.errorMsg ?? localEp.errorMsg,
         shotGenUsage: mergeTokenUsage(remoteEp.shotGenUsage, localEp.shotGenUsage),
-        soraGenUsage: mergeTokenUsage(remoteEp.soraGenUsage, localEp.soraGenUsage)
+        soraGenUsage: mergeTokenUsage(remoteEp.soraGenUsage, localEp.soraGenUsage),
+        storyboardGenUsage: mergeTokenUsage(remoteEp.storyboardGenUsage, localEp.storyboardGenUsage)
       };
       return { merged, conflicts };
     },
@@ -504,6 +509,7 @@ export const mergeProjectData = (remote: ProjectData, local: ProjectData): Merge
     phase5Usage: mergeTokenUsage(remote.phase5Usage, local.phase5Usage),
     shotGuide: mergeString(remote.shotGuide, local.shotGuide, "shotGuide", conflicts, "keep-both"),
     soraGuide: mergeString(remote.soraGuide, local.soraGuide, "soraGuide", conflicts, "keep-both"),
+    storyboardGuide: mergeString(remote.storyboardGuide, local.storyboardGuide, "storyboardGuide", conflicts, "keep-both"),
     dramaGuide: mergeOptionalString(remote.dramaGuide, local.dramaGuide, "dramaGuide", conflicts, "keep-both"),
     globalStyleGuide: mergeOptionalString(remote.globalStyleGuide, local.globalStyleGuide, "globalStyleGuide", conflicts, "keep-both"),
     stats: mergePerformanceMetrics(remote.stats, local.stats)

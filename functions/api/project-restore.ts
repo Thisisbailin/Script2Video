@@ -58,6 +58,7 @@ type ProjectMeta = {
   rawScript: string;
   shotGuide: string;
   soraGuide: string;
+  storyboardGuide: string;
   dramaGuide: string;
   globalStyleGuide: string;
   designAssets: Array<Record<string, unknown>>;
@@ -75,11 +76,18 @@ type ProjectMeta = {
 };
 
 const emptyTokenUsage = { promptTokens: 0, responseTokens: 0, totalTokens: 0 };
+const emptyStats = {
+  context: { total: 0, success: 0, error: 0 },
+  shotGen: { total: 0, success: 0, error: 0 },
+  soraGen: { total: 0, success: 0, error: 0 },
+  storyboardGen: { total: 0, success: 0, error: 0 },
+};
 const DEFAULT_META: ProjectMeta = {
   fileName: "",
   rawScript: "",
   shotGuide: "",
   soraGuide: "",
+  storyboardGuide: "",
   dramaGuide: "",
   globalStyleGuide: "",
   designAssets: [],
@@ -93,7 +101,7 @@ const DEFAULT_META: ProjectMeta = {
   phase1Usage: {},
   phase4Usage: emptyTokenUsage,
   phase5Usage: emptyTokenUsage,
-  stats: {}
+  stats: emptyStats
 };
 
 const safeJsonParse = <T>(value: unknown, fallback: T): T => {
@@ -110,6 +118,7 @@ const buildMetaFromProject = (projectData: any): ProjectMeta => ({
   rawScript: typeof projectData?.rawScript === "string" ? projectData.rawScript : "",
   shotGuide: typeof projectData?.shotGuide === "string" ? projectData.shotGuide : "",
   soraGuide: typeof projectData?.soraGuide === "string" ? projectData.soraGuide : "",
+  storyboardGuide: typeof projectData?.storyboardGuide === "string" ? projectData.storyboardGuide : "",
   dramaGuide: typeof projectData?.dramaGuide === "string" ? projectData.dramaGuide : "",
   globalStyleGuide: typeof projectData?.globalStyleGuide === "string" ? projectData.globalStyleGuide : "",
   designAssets: Array.isArray(projectData?.designAssets) ? projectData.designAssets : [],
@@ -123,7 +132,7 @@ const buildMetaFromProject = (projectData: any): ProjectMeta => ({
   phase1Usage: projectData?.phase1Usage || {},
   phase4Usage: projectData?.phase4Usage || emptyTokenUsage,
   phase5Usage: projectData?.phase5Usage || emptyTokenUsage,
-  stats: projectData?.stats || {}
+  stats: { ...emptyStats, ...(projectData?.stats || {}) }
 });
 
 const collectProjectParts = (projectData: any) => {
@@ -155,7 +164,8 @@ const collectProjectParts = (projectData: any) => {
     status: episode.status,
     errorMsg: episode.errorMsg,
     shotGenUsage: episode.shotGenUsage,
-    soraGenUsage: episode.soraGenUsage
+    soraGenUsage: episode.soraGenUsage,
+    storyboardGenUsage: episode.storyboardGenUsage
   }));
 
   return {
@@ -294,6 +304,7 @@ const loadCurrentProjectSnapshot = async (env: Env, userId: string) => {
       errorMsg: epData.errorMsg,
       shotGenUsage: epData.shotGenUsage,
       soraGenUsage: epData.soraGenUsage,
+      storyboardGenUsage: epData.storyboardGenUsage,
       scenes: [],
       shots: []
     });
@@ -354,6 +365,7 @@ const loadCurrentProjectSnapshot = async (env: Env, userId: string) => {
     },
     shotGuide: meta.shotGuide || "",
     soraGuide: meta.soraGuide || "",
+    storyboardGuide: meta.storyboardGuide || "",
     dramaGuide: meta.dramaGuide || "",
     globalStyleGuide: meta.globalStyleGuide || "",
     designAssets: Array.isArray(meta.designAssets) ? meta.designAssets : [],
@@ -361,7 +373,7 @@ const loadCurrentProjectSnapshot = async (env: Env, userId: string) => {
     phase1Usage: meta.phase1Usage || {},
     phase4Usage: meta.phase4Usage || emptyTokenUsage,
     phase5Usage: meta.phase5Usage || emptyTokenUsage,
-    stats: meta.stats || {}
+    stats: { ...emptyStats, ...(meta.stats || {}) }
   };
 
   return { projectData, updatedAt: metaRow.updated_at };

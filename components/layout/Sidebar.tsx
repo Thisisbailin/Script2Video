@@ -1,7 +1,7 @@
 import React from "react";
 import { PanelLeftOpen, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, BarChart2, Layers, Film, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { WorkflowStep, AnalysisSubStep, Episode } from "../../types";
-import { isEpisodeSoraComplete } from "../../utils/episodes";
+import { isEpisodeSoraComplete, isEpisodeStoryboardComplete } from "../../utils/episodes";
 
 type SidebarProps = {
   isSidebarCollapsed: boolean;
@@ -28,6 +28,9 @@ type SidebarProps = {
   onStartPhase3: () => void;
   onRetryEpisodeSora: () => void;
   onContinueNextEpisodeSora: () => void;
+  onStartPhase4: () => void;
+  onRetryEpisodeStoryboard: () => void;
+  onContinueNextEpisodeStoryboard: () => void;
   isEpListExpanded: boolean;
   setIsEpListExpanded: (v: boolean) => void;
 };
@@ -57,6 +60,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onStartPhase3,
   onRetryEpisodeSora,
   onContinueNextEpisodeSora,
+  onStartPhase4,
+  onRetryEpisodeStoryboard,
+  onContinueNextEpisodeStoryboard,
   isEpListExpanded,
   setIsEpListExpanded
 }) => {
@@ -80,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const completedSora = episodes.filter(isEpisodeSoraComplete).length;
+  const completedStoryboard = episodes.filter(isEpisodeStoryboardComplete).length;
 
   if (isSidebarCollapsed) {
     return (
@@ -199,7 +206,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {(analysisStep === AnalysisSubStep.COMPLETE || step === WorkflowStep.GENERATE_SHOTS) && step !== WorkflowStep.GENERATE_SORA && step !== WorkflowStep.COMPLETED && (
+        {(analysisStep === AnalysisSubStep.COMPLETE || step === WorkflowStep.GENERATE_SHOTS) &&
+          step !== WorkflowStep.GENERATE_SORA &&
+          step !== WorkflowStep.GENERATE_STORYBOARD &&
+          step !== WorkflowStep.COMPLETED && (
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 2: Shot Lists</h3>
             {step !== WorkflowStep.GENERATE_SHOTS ? (
@@ -262,6 +272,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       onClick={onContinueNextEpisodeSora}
                       className="w-full py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:hover:bg-indigo-800/60 dark:text-indigo-200 rounded text-[11px] font-semibold transition-colors"
+                    >
+                      Continue Next Episode
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === WorkflowStep.GENERATE_STORYBOARD && (
+          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Phase 4: Storyboard Prompts</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>Progress</span>
+                <span>{episodes.length ? completedStoryboard : 0} / {episodes.length}</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-amber-500 h-full transition-all duration-500"
+                  style={{ width: `${episodes.length ? (completedStoryboard / episodes.length) * 100 : 0}%` }}
+                ></div>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                当前集：{episodes[currentEpIndex]?.title || `Episode ${currentEpIndex + 1}`}
+              </div>
+              {isProcessing ? (
+                <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
+                  <Loader2 className="animate-spin" size={12} /> Writing Storyboards...
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={onStartPhase4}
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-500 rounded text-xs font-bold text-white transition-colors"
+                  >
+                    Generate / Resume Current Episode
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={onRetryEpisodeStoryboard}
+                      className="w-full py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-[11px] font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+                    >
+                      Retry This Episode
+                    </button>
+                    <button
+                      onClick={onContinueNextEpisodeStoryboard}
+                      className="w-full py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/40 dark:hover:bg-amber-800/60 dark:text-amber-200 rounded text-[11px] font-semibold transition-colors"
                     >
                       Continue Next Episode
                     </button>

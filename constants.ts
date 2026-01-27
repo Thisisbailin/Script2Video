@@ -14,6 +14,7 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
   designAssets: [],
   shotGuide: '',
   soraGuide: '',
+  storyboardGuide: '',
   dramaGuide: '',
   globalStyleGuide: '', // Initialize as empty
 
@@ -32,7 +33,8 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
   stats: {
     context: { total: 0, success: 0, error: 0 },
     shotGen: { total: 0, success: 0, error: 0 },
-    soraGen: { total: 0, success: 0, error: 0 }
+    soraGen: { total: 0, success: 0, error: 0 },
+    storyboardGen: { total: 0, success: 0, error: 0 }
   }
 };
 

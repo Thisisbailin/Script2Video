@@ -312,6 +312,7 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
   if (selected.style && projectData.globalStyleGuide) parts.push(`[Style Guide]\n${projectData.globalStyleGuide.slice(0, 2000)}`);
   if (selected.guides && projectData.shotGuide) parts.push(`[Shot Guide]\n${projectData.shotGuide.slice(0, 2000)}`);
   if (selected.guides && projectData.soraGuide) parts.push(`[Sora Guide]\n${projectData.soraGuide.slice(0, 2000)}`);
+  if (selected.guides && projectData.storyboardGuide) parts.push(`[Storyboard Guide]\n${projectData.storyboardGuide.slice(0, 2000)}`);
   if (selected.guides && projectData.dramaGuide) parts.push(`[Drama Guide]\n${projectData.dramaGuide.slice(0, 2000)}`);
   if (selected.summary && projectData.context?.projectSummary) parts.push(`[Project Summary]\n${projectData.context.projectSummary.slice(0, 2000)}`);
   return parts.join("\n\n");

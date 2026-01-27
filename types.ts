@@ -44,6 +44,7 @@ export interface Shot {
   description: string;
   dialogue: string;
   soraPrompt: string;
+  storyboardPrompt: string; // Phase 4: GPT-4o-style storyboard prompt (Chinese)
 
   // Phase 5: Video Gen Fields
   videoStatus?: 'idle' | 'queued' | 'generating' | 'completed' | 'error'; // Added 'queued'
@@ -81,10 +82,21 @@ export interface Episode {
   characters?: string[]; // Parsed character list for this episode (optional)
   summary?: string; // Generated summary
   shots: Shot[];
-  status: 'pending' | 'generating' | 'review_shots' | 'confirmed_shots' | 'generating_sora' | 'review_sora' | 'completed' | 'error';
+  status:
+    | 'pending'
+    | 'generating'
+    | 'review_shots'
+    | 'confirmed_shots'
+    | 'generating_storyboard'
+    | 'review_storyboard'
+    | 'generating_sora'
+    | 'review_sora'
+    | 'completed'
+    | 'error';
   errorMsg?: string;
   shotGenUsage?: TokenUsage;
   soraGenUsage?: TokenUsage;
+  storyboardGenUsage?: TokenUsage;
 }
 
 export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'lab' | 'stats' | 'projector';
@@ -200,6 +212,7 @@ export interface PerformanceMetrics {
   context: RequestStats;
   shotGen: RequestStats;
   soraGen: RequestStats;
+  storyboardGen: RequestStats;
 }
 
 export interface ProjectData {
@@ -218,6 +231,7 @@ export interface ProjectData {
   // Standard Operating Procedures (SOPs) - Loaded from files
   shotGuide: string;
   soraGuide: string;
+  storyboardGuide: string;
   dramaGuide?: string;
 
   // Project-Specific Assets (User Uploaded)
@@ -374,6 +388,7 @@ export enum WorkflowStep {
   SETUP_CONTEXT, // Phase 1 (Now Multi-step)
   GENERATE_SHOTS, // Phase 2
   GENERATE_SORA, // Phase 3
+  GENERATE_STORYBOARD, // Phase 4 (Storyboard prompts)
   GENERATE_VIDEO, // Phase 5 (New)
   COMPLETED
 }

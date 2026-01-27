@@ -13,7 +13,7 @@ type ShotGenParams = {
   setProcessing: (processing: boolean, status?: string) => void;
   setStatus: (status: string) => void;
   setActiveTab: (tab: ActiveTab) => void;
-  updateStats: (phase: 'context' | 'shotGen' | 'soraGen', success: boolean) => void;
+  updateStats: (phase: 'context' | 'shotGen' | 'soraGen' | 'storyboardGen', success: boolean) => void;
   currentEpIndex: number;
 };
 
@@ -34,7 +34,7 @@ export const useShotGeneration = ({
 
     if (index >= episodes.length) {
       setStep(WorkflowStep.GENERATE_SORA);
-      alert("All episodes converted to Shot Lists! Ready for Sora Phase.");
+      alert("All episodes converted to Shot Lists! Ready for Phase 3 (Sora) or Phase 4 (Storyboard).");
       setCurrentEpIndex(0);
       setProcessing(false);
       return;
@@ -109,7 +109,7 @@ export const useShotGeneration = ({
       if (!autoNext) {
         // Just stop for manual retry
       } else {
-        alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
+        alert("Phase 2 Complete! You can proceed to Phase 3 (Sora) or Phase 4 (Storyboard).");
         setStep(WorkflowStep.GENERATE_SORA);
         setCurrentEpIndex(0);
       }
@@ -176,7 +176,7 @@ export const useShotGeneration = ({
       setCurrentEpIndex(nextIndex);
       generateCurrentEpisodeShots(nextIndex, true);
     } else if (autoNext) {
-      alert("Phase 2 Complete! Please upload Sora Guide to proceed.");
+      alert("Phase 2 Complete! You can proceed to Phase 3 (Sora) or Phase 4 (Storyboard).");
       setStep(WorkflowStep.GENERATE_SORA);
       setCurrentEpIndex(0);
     }

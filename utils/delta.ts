@@ -10,6 +10,7 @@ export type ProjectMetaDelta = {
   rawScript: string;
   shotGuide: string;
   soraGuide: string;
+  storyboardGuide: string;
   dramaGuide: string;
   globalStyleGuide: string;
   designAssets: ProjectData["designAssets"];
@@ -55,6 +56,7 @@ const buildMeta = (data: ProjectData): ProjectMetaDelta => ({
   rawScript: data.rawScript,
   shotGuide: data.shotGuide,
   soraGuide: data.soraGuide,
+  storyboardGuide: data.storyboardGuide,
   dramaGuide: data.dramaGuide,
   globalStyleGuide: data.globalStyleGuide,
   designAssets: data.designAssets,
@@ -79,7 +81,8 @@ const toEpisodeDelta = (episode: Episode): EpisodeDelta => ({
   status: episode.status,
   errorMsg: episode.errorMsg,
   shotGenUsage: episode.shotGenUsage,
-  soraGenUsage: episode.soraGenUsage
+  soraGenUsage: episode.soraGenUsage,
+  storyboardGenUsage: episode.storyboardGenUsage
 });
 
 const toSceneDelta = (episodeId: number, scene: Scene): SceneDelta => ({
@@ -174,7 +177,9 @@ export const computeProjectDelta = (current: ProjectData, base: ProjectData | nu
   currentShotsMap.forEach((shot, key) => {
     const baseShot = baseShotsMap.get(key);
     if (!baseShot || stableStringify(shot) !== stableStringify(baseShot)) {
-      console.warn(`[Delta] Shot Change Detected: id=${shot.id}, hasSora=${!!shot.soraPrompt}`);
+      console.warn(
+        `[Delta] Shot Change Detected: id=${shot.id}, hasSora=${!!shot.soraPrompt}, hasStoryboard=${!!shot.storyboardPrompt}`
+      );
       shotUpserts.push(shot);
     }
   });

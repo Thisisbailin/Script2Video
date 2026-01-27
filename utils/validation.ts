@@ -71,6 +71,9 @@ export const validateProjectData = (data: unknown): ValidationResult => {
           return { ok: false, error: `episodes[${i}].shots[${j}].${key} is not a string` };
         }
       }
+      if (shot.storyboardPrompt !== undefined && !isString(shot.storyboardPrompt)) {
+        return { ok: false, error: `episodes[${i}].shots[${j}].storyboardPrompt is not a string` };
+      }
       if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
         return { ok: false, error: `episodes[${i}].shots[${j}].difficulty is not a number` };
       }

@@ -30,7 +30,8 @@ const emptyPhase1Usage = {
 const emptyStats = {
   context: { total: 0, success: 0, error: 0 },
   shotGen: { total: 0, success: 0, error: 0 },
-  soraGen: { total: 0, success: 0, error: 0 }
+  soraGen: { total: 0, success: 0, error: 0 },
+  storyboardGen: { total: 0, success: 0, error: 0 }
 };
 
 type ProjectMeta = {
@@ -38,6 +39,7 @@ type ProjectMeta = {
   rawScript: string;
   shotGuide: string;
   soraGuide: string;
+  storyboardGuide: string;
   dramaGuide: string;
   globalStyleGuide: string;
   designAssets: Array<Record<string, unknown>>;
@@ -59,6 +61,7 @@ const DEFAULT_META: ProjectMeta = {
   rawScript: "",
   shotGuide: "",
   soraGuide: "",
+  storyboardGuide: "",
   dramaGuide: "",
   globalStyleGuide: "",
   designAssets: [],
@@ -186,6 +189,7 @@ const buildMetaFromProject = (projectData: any): ProjectMeta => ({
   rawScript: typeof projectData?.rawScript === "string" ? projectData.rawScript : "",
   shotGuide: typeof projectData?.shotGuide === "string" ? projectData.shotGuide : "",
   soraGuide: typeof projectData?.soraGuide === "string" ? projectData.soraGuide : "",
+  storyboardGuide: typeof projectData?.storyboardGuide === "string" ? projectData.storyboardGuide : "",
   dramaGuide: typeof projectData?.dramaGuide === "string" ? projectData.dramaGuide : "",
   globalStyleGuide: typeof projectData?.globalStyleGuide === "string" ? projectData.globalStyleGuide : "",
   designAssets: Array.isArray(projectData?.designAssets) ? projectData.designAssets : [],
@@ -199,7 +203,7 @@ const buildMetaFromProject = (projectData: any): ProjectMeta => ({
   phase1Usage: projectData?.phase1Usage || emptyPhase1Usage,
   phase4Usage: projectData?.phase4Usage || emptyTokenUsage,
   phase5Usage: projectData?.phase5Usage || emptyTokenUsage,
-  stats: projectData?.stats || emptyStats
+  stats: { ...emptyStats, ...(projectData?.stats || {}) }
 });
 
 const collectProjectParts = (projectData: any) => {
@@ -231,7 +235,8 @@ const collectProjectParts = (projectData: any) => {
     status: episode.status,
     errorMsg: episode.errorMsg,
     shotGenUsage: episode.shotGenUsage,
-    soraGenUsage: episode.soraGenUsage
+    soraGenUsage: episode.soraGenUsage,
+    storyboardGenUsage: episode.storyboardGenUsage
   }));
 
   return {
@@ -311,6 +316,7 @@ const loadProjectData = async (env: Env, userId: string) => {
       errorMsg: epData.errorMsg,
       shotGenUsage: epData.shotGenUsage,
       soraGenUsage: epData.soraGenUsage,
+      storyboardGenUsage: epData.storyboardGenUsage,
       scenes: [],
       shots: []
     });
@@ -334,7 +340,9 @@ const loadProjectData = async (env: Env, userId: string) => {
 
     // Diagnostic Log
     if (episode.shots.length === 0) {
-      console.warn(`[Backend] Loading First Shot ${row.shot_id} for Ep ${row.episode_id}, hasSora=${!!(rest as any).soraPrompt}`);
+      console.warn(
+        `[Backend] Loading First Shot ${row.shot_id} for Ep ${row.episode_id}, hasSora=${!!(rest as any).soraPrompt}, hasStoryboard=${!!(rest as any).storyboardPrompt}`
+      );
     }
 
     episode.shots.push({
@@ -370,6 +378,7 @@ const loadProjectData = async (env: Env, userId: string) => {
     },
     shotGuide: meta.shotGuide || "",
     soraGuide: meta.soraGuide || "",
+    storyboardGuide: meta.storyboardGuide || "",
     dramaGuide: meta.dramaGuide || "",
     globalStyleGuide: meta.globalStyleGuide || "",
     designAssets: Array.isArray(meta.designAssets) ? meta.designAssets : [],
@@ -377,7 +386,7 @@ const loadProjectData = async (env: Env, userId: string) => {
     phase1Usage: meta.phase1Usage || emptyPhase1Usage,
     phase4Usage: meta.phase4Usage || emptyTokenUsage,
     phase5Usage: meta.phase5Usage || emptyTokenUsage,
-    stats: meta.stats || emptyStats
+    stats: { ...emptyStats, ...(meta.stats || {}) }
   };
 
   const updatedAt =
@@ -733,7 +742,9 @@ export const onRequestPut = async (context: {
 
       for (const shot of shots) {
         const { episodeId: _episodeId, ...shotData } = shot as Record<string, unknown>;
-        console.warn(`[Backend] PUT Delta Shot Update: ep=${(shot as any).episodeId}, id=${(shot as any).id}, hasSora=${!!(shot as any).soraPrompt}`);
+        console.warn(
+          `[Backend] PUT Delta Shot Update: ep=${(shot as any).episodeId}, id=${(shot as any).id}, hasSora=${!!(shot as any).soraPrompt}, hasStoryboard=${!!(shot as any).storyboardPrompt}`
+        );
         await context.env.DB.prepare(
           "INSERT INTO user_project_shots (user_id, episode_id, shot_id, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(user_id, episode_id, shot_id) DO UPDATE SET data=?4, updated_at=?5"
         )
@@ -847,7 +858,9 @@ export const onRequestPut = async (context: {
       }
 
       for (const shot of parts.shots) {
-        console.warn(`[Backend] PUT Full Shot Insert: ep=${shot.episodeId}, id=${shot.shot.id}, hasSora=${!!shot.shot.soraPrompt}`);
+        console.warn(
+          `[Backend] PUT Full Shot Insert: ep=${shot.episodeId}, id=${shot.shot.id}, hasSora=${!!shot.shot.soraPrompt}, hasStoryboard=${!!shot.shot.storyboardPrompt}`
+        );
         await context.env.DB.prepare(
           "INSERT INTO user_project_shots (user_id, episode_id, shot_id, data, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)"
         )

@@ -177,6 +177,7 @@ export interface LLMGenerateNodeData extends BaseNodeData {
     globalStyleGuide?: boolean;
     shotGuide?: boolean;
     soraGuide?: boolean;
+    storyboardGuide?: boolean;
     dramaGuide?: boolean;
     projectSummary?: boolean;
     episodeSummaries?: boolean;
@@ -215,6 +216,7 @@ export interface ShotNodeData extends BaseNodeData {
   difficulty?: number;
   dialogue?: string;
   soraPrompt?: string;
+  storyboardPrompt?: string;
 }
 
 export type WorkflowNodeData =
@@ -256,6 +258,7 @@ export type LabContextSnapshot = {
   globalStyleGuide: string;
   shotGuide: string;
   soraGuide: string;
+  storyboardGuide: string;
   dramaGuide: string;
   context: ProjectContext;
 };

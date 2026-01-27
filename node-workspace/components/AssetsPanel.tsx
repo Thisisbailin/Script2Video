@@ -85,6 +85,7 @@ export const AssetsPanel: React.FC<Props> = ({
       { key: "globalStyleGuide", title: "Style Guide", text: projectData.globalStyleGuide || "" },
       { key: "shotGuide", title: "Shot Guide", text: projectData.shotGuide || "" },
       { key: "soraGuide", title: "Sora Guide", text: projectData.soraGuide || "" },
+      { key: "storyboardGuide", title: "Storyboard Guide", text: projectData.storyboardGuide || "" },
       { key: "dramaGuide", title: "Drama Guide", text: projectData.dramaGuide || "" },
     ];
     return items.filter((item) => item.text.trim().length > 0);
@@ -92,6 +93,7 @@ export const AssetsPanel: React.FC<Props> = ({
     projectData.globalStyleGuide,
     projectData.shotGuide,
     projectData.soraGuide,
+    projectData.storyboardGuide,
     projectData.dramaGuide,
   ]);
 

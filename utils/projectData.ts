@@ -56,6 +56,7 @@ const normalizeShot = (shot: any): Shot => {
     description: toSafeString(shot.description),
     dialogue: toSafeString(shot.dialogue),
     soraPrompt: toSafeString(shot.soraPrompt),
+    storyboardPrompt: toSafeString(shot.storyboardPrompt),
     difficulty: typeof shot.difficulty === "number" ? shot.difficulty : undefined,
     finalVideoPrompt: toOptionalString(shot.finalVideoPrompt),
     videoStatus: toSafeString(shot.videoStatus),
@@ -271,6 +272,7 @@ export const normalizeProjectData = (data: any): ProjectData => {
   base.designAssets = remapDesignAssets(base.designAssets as DesignAssetItem[], base.context);
   base.shotGuide = data?.shotGuide || INITIAL_PROJECT_DATA.shotGuide;
   base.soraGuide = data?.soraGuide || INITIAL_PROJECT_DATA.soraGuide;
+  base.storyboardGuide = data?.storyboardGuide || INITIAL_PROJECT_DATA.storyboardGuide;
   base.globalStyleGuide = data?.globalStyleGuide || INITIAL_PROJECT_DATA.globalStyleGuide;
   base.rawScript = typeof data?.rawScript === "string" ? data.rawScript : "";
   base.fileName = typeof data?.fileName === "string" ? data.fileName : "";

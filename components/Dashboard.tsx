@@ -48,25 +48,37 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
   // 3. Prepare Token Data (Cost Tracking)
   const contextTokens = data.contextUsage?.totalTokens || 0;
   
-  // Phase 2 & 3
+  // Phase 2, 3, and Storyboard prompts
   const episodeTokenData = data.episodes.map(ep => ({
     name: `Ep ${ep.id}`,
     // Shot Generation
     shotTotal: ep.shotGenUsage?.totalTokens || 0,
     // Sora Generation
     soraTotal: ep.soraGenUsage?.totalTokens || 0,
+    // Storyboard Prompt Generation
+    storyboardTotal: ep.storyboardGenUsage?.totalTokens || 0,
     // Total for this episode (for reference)
-    total: (ep.shotGenUsage?.totalTokens || 0) + (ep.soraGenUsage?.totalTokens || 0)
+    total:
+      (ep.shotGenUsage?.totalTokens || 0) +
+      (ep.soraGenUsage?.totalTokens || 0) +
+      (ep.storyboardGenUsage?.totalTokens || 0)
   }));
 
   const totalShotGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.shotTotal, 0);
   const totalSoraGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.soraTotal, 0);
+  const totalStoryboardGenTokens = episodeTokenData.reduce((acc, curr) => acc + curr.storyboardTotal, 0);
   
-  // Phase 4 & 5 (Accumulated globals)
+  // Visual & Video (Accumulated globals)
   const totalPhase4Tokens = data.phase4Usage?.totalTokens || 0;
   const totalPhase5Tokens = data.phase5Usage?.totalTokens || 0;
 
-  const grandTotalTokens = contextTokens + totalShotGenTokens + totalSoraGenTokens + totalPhase4Tokens + totalPhase5Tokens;
+  const grandTotalTokens =
+    contextTokens +
+    totalShotGenTokens +
+    totalSoraGenTokens +
+    totalStoryboardGenTokens +
+    totalPhase4Tokens +
+    totalPhase5Tokens;
 
   // Phase 1 Breakdown Data
   const p1 = data.phase1Usage;
@@ -84,11 +96,12 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
     { name: 'Phase 1 & General', value: contextTokens },
     { name: 'Phase 2: Shot Gen', value: totalShotGenTokens },
     { name: 'Phase 3: Sora Gen', value: totalSoraGenTokens },
-    { name: 'Phase 4: Visuals', value: totalPhase4Tokens },
+    { name: 'Phase 4: Storyboard Prompts', value: totalStoryboardGenTokens },
+    { name: 'Phase 4b: Visuals', value: totalPhase4Tokens },
     { name: 'Phase 5: Video', value: totalPhase5Tokens }
   ].filter(d => d.value > 0);
 
-  const PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'];
+  const PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#6366f1'];
   
   const chartAxisColor = isDarkMode ? '#9ca3af' : '#6b7280';
   const chartGridColor = isDarkMode ? '#374151' : '#e5e7eb';
@@ -138,7 +151,7 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
         <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2 mb-6">
             🛠 System Health & Performance
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
                 <ProgressBar stats={data.stats.context} color="bg-emerald-500" label="Context Analysis" />
             </div>
@@ -147,6 +160,9 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
             </div>
             <div>
                 <ProgressBar stats={data.stats.soraGen} color="bg-indigo-500" label="Sora Prompt Writing" />
+            </div>
+            <div>
+                <ProgressBar stats={data.stats.storyboardGen} color="bg-amber-500" label="Storyboard Prompt Writing" />
             </div>
         </div>
       </div>
@@ -218,10 +234,10 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
                </div>
             </div>
 
-            {/* Phase 2 & 3: Cost Per Episode (RESTORED) */}
+            {/* Phase 2-4: Cost Per Episode */}
             <div className="bg-[var(--bg-panel)]/90 p-6 rounded-xl border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] flex flex-col h-[400px]">
-               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Phase 2 & 3: Generation Cost</h3>
-               <p className="text-sm text-[var(--text-secondary)] mb-6">Token usage per episode for Shot & Sora generation</p>
+               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Phase 2-4: Generation Cost</h3>
+               <p className="text-sm text-[var(--text-secondary)] mb-6">Token usage per episode for Shot, Sora, and Storyboard generation</p>
                <div className="flex-1 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={episodeTokenData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -235,6 +251,7 @@ export const Dashboard: React.FC<Props> = ({ data, isDarkMode = true }) => {
                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
                      <Bar dataKey="shotTotal" name="Shot Gen" stackId="a" fill="#3b82f6" />
                      <Bar dataKey="soraTotal" name="Sora Gen" stackId="a" fill="#8b5cf6" />
+                     <Bar dataKey="storyboardTotal" name="Storyboard Gen" stackId="a" fill="#f59e0b" />
                    </BarChart>
                  </ResponsiveContainer>
                </div>

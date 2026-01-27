@@ -16,6 +16,7 @@ const PROJECT_PATCH_KEYS = [
   "phase5Usage",
   "shotGuide",
   "soraGuide",
+  "storyboardGuide",
   "dramaGuide",
   "globalStyleGuide",
   "stats"

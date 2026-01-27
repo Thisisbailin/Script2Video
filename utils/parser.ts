@@ -292,7 +292,7 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
 
 // 1. CSV EXPORT (Robust, Best Compatibility)
 export const exportToCSV = (episodes: Episode[]) => {
-  const headers = ['Episode', 'Shot ID', 'Duration', 'Type', 'Movement', 'Difficulty', 'Description', 'Dialogue', 'Sora Prompt'];
+  const headers = ['Episode', 'Shot ID', 'Duration', 'Type', 'Movement', 'Difficulty', 'Description', 'Dialogue', 'Sora Prompt', 'Storyboard Prompt'];
   
   // Add Byte Order Mark (BOM) so Excel recognizes formatting as UTF-8 automatically
   let csvContent = '\ufeff' + headers.map(h => `"${h}"`).join(',') + '\n';
@@ -308,7 +308,8 @@ export const exportToCSV = (episodes: Episode[]) => {
         shot.difficulty ?? '',
         shot.description,
         shot.dialogue,
-        shot.soraPrompt
+        shot.soraPrompt,
+        shot.storyboardPrompt
       ];
       
       // Escape logic: 
@@ -369,6 +370,7 @@ export const exportToXLS = (episodes: Episode[]) => {
   .col-desc { width: 350px; }
   .col-dial { width: 200px; }
   .col-sora { width: 450px; background-color: #f0fdf4; } /* Slight green tint for prompt */
+  .col-storyboard { width: 450px; background-color: #fef9c3; } /* Light yellow tint for storyboard */
 </style>
 </head>
 <body>
@@ -383,6 +385,7 @@ export const exportToXLS = (episodes: Episode[]) => {
     <th class="col-desc">Description</th>
     <th class="col-dial">Dialogue</th>
     <th class="col-sora">Sora Prompt</th>
+    <th class="col-storyboard">Storyboard Prompt</th>
   </tr>`;
 
   episodes.forEach(ep => {
@@ -397,6 +400,7 @@ export const exportToXLS = (episodes: Episode[]) => {
         <td>${shot.description}</td>
         <td>${shot.dialogue}</td>
         <td>${shot.soraPrompt}</td>
+        <td>${shot.storyboardPrompt}</td>
       </tr>`;
     });
   });
@@ -460,6 +464,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
   const descIdx = headers.indexOf('Description');
   const dialIdx = headers.indexOf('Dialogue');
   const soraIdx = headers.indexOf('Sora Prompt');
+  const storyboardIdx = headers.indexOf('Storyboard Prompt');
 
   if (epIdx === -1 || idIdx === -1) {
     throw new Error("Invalid CSV Format: Missing 'Episode' or 'Shot ID' headers.");
@@ -470,7 +475,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
     if (!line) continue;
     
     const cols = parseCSVLine(line);
-    if (cols.length < headers.length) continue; // Skip malformed lines
+    while (cols.length < headers.length) cols.push('');
 
     const episodeTitle = cols[epIdx];
     const shot: Shot = {
@@ -481,7 +486,8 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
       difficulty: diffIdx >= 0 ? Number(cols[diffIdx] || 0) : undefined,
       description: cols[descIdx] || '',
       dialogue: cols[dialIdx] || '',
-      soraPrompt: cols[soraIdx] || ''
+      soraPrompt: soraIdx >= 0 ? (cols[soraIdx] || '') : '',
+      storyboardPrompt: storyboardIdx >= 0 ? (cols[storyboardIdx] || '') : ''
     };
 
     if (!shotMap.has(episodeTitle)) {

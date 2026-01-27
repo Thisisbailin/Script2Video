@@ -1,14 +1,15 @@
 
 import React from 'react';
 import { Shot } from '../types';
-import { Film, Timer, MoveRight, MessageSquare, Wand2, Star } from 'lucide-react';
+import { Film, Timer, MoveRight, MessageSquare, Wand2, Star, Image } from 'lucide-react';
 
 interface Props {
   shots: Shot[];
   showSora: boolean;
+  showStoryboard: boolean;
 }
 
-export const ShotTable: React.FC<Props> = ({ shots, showSora }) => {
+export const ShotTable: React.FC<Props> = ({ shots, showSora, showStoryboard }) => {
   if (shots.length === 0) {
     return (
       <div className="h-full flex items-start justify-center text-[var(--text-secondary)] italic bg-transparent px-6 pt-24 pb-10">
@@ -67,6 +68,13 @@ export const ShotTable: React.FC<Props> = ({ shots, showSora }) => {
                 <div className="text-sm italic text-[var(--text-primary)] bg-white/8 border border-[var(--border-subtle)]/70 rounded-xl px-3 py-2 flex items-start gap-2 relative z-10">
                   <MessageSquare size={14} className="mt-0.5" />
                   <span>{shot.dialogue}</span>
+                </div>
+              )}
+
+              {showStoryboard && (
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-amber-50/10 text-[var(--text-primary)] px-3 py-2 text-sm flex items-start gap-2 relative z-10">
+                  <Image size={14} className="mt-0.5" />
+                  <span>{shot.storyboardPrompt || <span className="opacity-60">Storyboard prompt pending...</span>}</span>
                 </div>
               )}
 

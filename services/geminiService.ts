@@ -923,8 +923,9 @@ export const generateEpisodeShots = async (
             description: { type: Type.STRING, description: "详细的画面视觉描述 (中文)" },
             dialogue: { type: Type.STRING, description: "台词或OS，无台词留空" },
             soraPrompt: { type: Type.STRING, description: "留空字符串" },
+            storyboardPrompt: { type: Type.STRING, description: "留空字符串" },
           },
-          required: ["id", "duration", "shotType", "movement", "difficulty", "description", "dialogue", "soraPrompt"],
+          required: ["id", "duration", "shotType", "movement", "difficulty", "description", "dialogue", "soraPrompt", "storyboardPrompt"],
         },
       },
     },
@@ -979,6 +980,7 @@ export const generateEpisodeShots = async (
        -  ✅ 允许: "特写。侧逆光勾勒出他脸部的轮廓，他在阴影中低语，背景是虚化的雨夜街道。"
     4. **Difficulty**: 为每个镜头给出 1-10 的制作难度整数评分（10 最难，1 最易），综合考虑拍摄/动画复杂度、人数、景别与运动、特效等。
     5. **soraPrompt**：字段请务必保持为空字符串。
+    6. **storyboardPrompt**：字段请务必保持为空字符串。
   `;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
@@ -986,7 +988,8 @@ export const generateEpisodeShots = async (
   const shots = Array.isArray(parsed?.shots)
     ? parsed.shots.map((shot) => ({
       ...shot,
-      soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : ""
+      soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : "",
+      storyboardPrompt: typeof shot.storyboardPrompt === "string" ? shot.storyboardPrompt : ""
     }))
     : [];
   return {
@@ -1066,5 +1069,90 @@ export const generateSoraPrompts = async (
   return {
     partialShots: resultObj.prompts,
     usage
+  };
+};
+
+// 4. Generate Storyboard Prompts (for multimodal models like GPT-4o)
+export const generateStoryboardPrompts = async (
+  config: TextServiceConfig,
+  shots: Shot[],
+  context: ProjectContext,
+  storyboardGuide?: string,
+  styleGuide?: string
+): Promise<{ partialShots: { id: string; storyboardPrompt: string }[]; usage: TokenUsage }> => {
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      prompts: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            storyboardPrompt: {
+              type: Type.STRING,
+              description: "用于多模态模型（如 GPT-4o）生成手绘分镜草图的中文提示词",
+            },
+          },
+          required: ["id", "storyboardPrompt"],
+        },
+      },
+    },
+  };
+
+  const charContextStr = formatCharContext(context);
+  const locContextStr = context.locations
+    ? context.locations.filter((l) => l.type === "core").map((l) => `- ${l.name}: ${l.visuals}`).join("\n")
+    : "";
+
+  const batchContext = shots.map((s) => ({
+    id: s.id,
+    shotType: s.shotType,
+    movement: s.movement,
+    description: s.description,
+    dialogue: s.dialogue,
+  }));
+
+  const systemInstruction =
+    "角色设定：你是一位擅长为多模态模型（如 GPT-4o）撰写分镜板提示词的导演型分镜师。";
+
+  const prompt = `
+    任务：
+    请为以下 **${shots.length}** 个分镜撰写「分镜板（storyboard）草图提示词」。
+    这些提示词将交给 GPT-4o 这类更偏“理解+创作”的多模态模型来生图，
+    目标是得到 **清晰的手绘分镜草图（线稿/素描感）**，而不是写给传统扩散模型的堆砌关键词。
+
+    【项目上下文】：
+    - 项目简介：${context.projectSummary}
+    - 角色设定：${charContextStr}
+    - 核心场景设定：${locContextStr}
+    ${styleGuide ? `- 项目特定美术风格：${styleGuide}` : ""}
+
+    ${storyboardGuide ? `【Storyboard 提示词规范】：\n${storyboardGuide}` : ""}
+
+    【当前批次分镜数据】：
+    ${JSON.stringify(batchContext)}
+
+    【输出要求（非常重要）】：
+    1. 语言：中文。
+    2. 格式：返回一个 JSON 对象，包含 "prompts" 数组。
+    3. 每条 storyboardPrompt 应：
+       - 明确镜头主体、关键动作与叙事意图（这一镜头要表达什么）。
+       - 给出构图与镜头语言（景别/机位/前中后景关系/视线引导）。
+       - 强调“分镜草图”的表达方式：手绘、线稿、素描、结构清晰、便于导演/摄影/动画理解。
+       - 避免参数化/模型私有语法（如 --ar、权重符号等）。
+       - 允许模型在理解剧情的前提下进行合理的视觉创作，但不得偏离剧情事实。
+  `;
+
+  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const resultObj = JSON.parse(text) as { prompts: { id: string; storyboardPrompt: string }[] };
+
+  if (!resultObj.prompts && Array.isArray(resultObj)) {
+    return { partialShots: resultObj, usage };
+  }
+
+  return {
+    partialShots: resultObj.prompts,
+    usage,
   };
 };

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film, X } from "lucide-react";
 import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep, SyncState, SyncStatus } from "../../types";
-import { isEpisodeSoraComplete } from "../../utils/episodes";
+import { isEpisodeSoraComplete, isEpisodeStoryboardComplete } from "../../utils/episodes";
 
 const PixelSheepIcon: React.FC<{ size?: number }> = ({ size = 32 }) => {
   const outline = "#1a1a1a";
@@ -135,6 +135,9 @@ type WorkflowProps = {
   onStartPhase3: () => void;
   onRetryEpisodeSora: () => void;
   onContinueNextEpisodeSora: () => void;
+  onStartPhase4: () => void;
+  onRetryEpisodeStoryboard: () => void;
+  onContinueNextEpisodeStoryboard: () => void;
 };
 
 type HeaderProps = {
@@ -267,9 +270,12 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
     onStartPhase3,
     onRetryEpisodeSora,
     onContinueNextEpisodeSora,
+    onStartPhase4,
+    onRetryEpisodeStoryboard,
+    onContinueNextEpisodeStoryboard,
   } = workflow;
 
-  const [activePhase, setActivePhase] = useState<1 | 2 | 3>(1);
+  const [activePhase, setActivePhase] = useState<1 | 2 | 3 | 4>(1);
 
   const hasAnalysisError = analysisError?.step === analysisStep;
   const currentEpisode = episodes[currentEpIndex];
@@ -278,6 +284,10 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
 
   const completedSora = useMemo(
     () => episodes.filter(isEpisodeSoraComplete).length,
+    [episodes]
+  );
+  const completedStoryboard = useMemo(
+    () => episodes.filter(isEpisodeStoryboardComplete).length,
     [episodes]
   );
   const completedShots = useMemo(
@@ -294,6 +304,10 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
   );
   const phase3Errors = useMemo(
     () => episodes.filter((ep) => ep.status === "error" && !isEpisodeSoraComplete(ep)).length,
+    [episodes]
+  );
+  const phase4Errors = useMemo(
+    () => episodes.filter((ep) => ep.status === "error" && !isEpisodeStoryboardComplete(ep)).length,
     [episodes]
   );
 
@@ -410,6 +424,13 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
     return "pending";
   };
 
+  const getPhase4ItemStatus = (episode: Episode, index: number): ItemStatus => {
+    if (episode.status === "error") return "error";
+    if (isEpisodeStoryboardComplete(episode)) return "done";
+    if (step === WorkflowStep.GENERATE_STORYBOARD && index === currentEpIndex) return "active";
+    return "pending";
+  };
+
   const phase1Status: PhaseStatus = analysisError
     ? "error"
     : analysisStep === AnalysisSubStep.COMPLETE
@@ -440,8 +461,20 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
             ? "partial"
             : "pending";
 
+  const phase4Status: PhaseStatus =
+    totalEpisodes === 0
+      ? "pending"
+      : phase4Errors > 0
+        ? "error"
+        : completedStoryboard === totalEpisodes
+          ? "done"
+          : step === WorkflowStep.GENERATE_STORYBOARD || completedStoryboard > 0
+            ? "partial"
+            : "pending";
+
   const phase2Progress = totalEpisodes ? `${completedShots}/${totalEpisodes}` : "0/0";
   const phase3Progress = totalEpisodes ? `${completedSora}/${totalEpisodes}` : "0/0";
+  const phase4Progress = totalEpisodes ? `${completedStoryboard}/${totalEpisodes}` : "0/0";
 
   const analysisConfirmHandlers: Partial<Record<AnalysisSubStep, () => void>> = {
     [AnalysisSubStep.PROJECT_SUMMARY]: onConfirmSummaryNext,
@@ -546,6 +579,25 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
       disabled: isProcessing,
       tone: "secondary",
     });
+  } else if (step === WorkflowStep.GENERATE_STORYBOARD) {
+    actionButtons.push({
+      label: "生成/继续当前集",
+      onClick: onStartPhase4,
+      disabled: isProcessing,
+      tone: "primary",
+    });
+    actionButtons.push({
+      label: "继续下一集",
+      onClick: onContinueNextEpisodeStoryboard,
+      disabled: isProcessing,
+      tone: "ghost",
+    });
+    actionButtons.push({
+      label: "重试当前集",
+      onClick: onRetryEpisodeStoryboard,
+      disabled: isProcessing,
+      tone: "secondary",
+    });
   }
 
   const focusLabel = (() => {
@@ -561,6 +613,10 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
     if (step === WorkflowStep.GENERATE_SORA) {
       if (!currentEpisode) return "Phase 3 · 暂无剧集";
       return `Phase 3 · ${currentEpisode.title || `第${currentEpisode.id}集`}`;
+    }
+    if (step === WorkflowStep.GENERATE_STORYBOARD) {
+      if (!currentEpisode) return "Phase 4 · 暂无剧集";
+      return `Phase 4 · ${currentEpisode.title || `第${currentEpisode.id}集`}`;
     }
     if (step === WorkflowStep.COMPLETED) return "流程完成";
     if (analysisStep === AnalysisSubStep.COMPLETE) return "Phase 1 完成，待开始 Phase 2";
@@ -583,6 +639,8 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
       setActivePhase(2);
     } else if (step === WorkflowStep.GENERATE_SORA) {
       setActivePhase(3);
+    } else if (step === WorkflowStep.GENERATE_STORYBOARD) {
+      setActivePhase(4);
     } else {
       setActivePhase(1);
     }
@@ -615,6 +673,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
           { key: 1 as const, label: "Phase 1", meta: phase1Progress },
           { key: 2 as const, label: "Phase 2", meta: phase2Progress },
           { key: 3 as const, label: "Phase 3", meta: phase3Progress },
+          { key: 4 as const, label: "Phase 4", meta: phase4Progress },
         ].map((tab) => {
           const active = activePhase === tab.key;
           return (
@@ -781,6 +840,59 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
               })}
             </div>
             {currentEpisodeError && step === WorkflowStep.GENERATE_SORA && (
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
+                当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activePhase === 4 && (
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase4Status).dot}`} />
+                Phase 4 · Storyboard Prompts
+              </div>
+              <span className={`text-[10px] ${phaseTone(phase4Status).tag}`}>{phaseTone(phase4Status).text}</span>
+            </div>
+            <div className="max-h-56 overflow-auto pr-1 space-y-2">
+              {episodes.length === 0 && (
+                <div className="text-[11px] text-[var(--app-text-muted)] px-2 py-2">暂无剧集，先完成 Phase 2。</div>
+              )}
+              {episodes.map((episode, index) => {
+                const status = getPhase4ItemStatus(episode, index);
+                const tone = itemTone(status);
+                const meta =
+                  status === "error"
+                    ? episode.errorMsg || "生成失败"
+                    : episode.shots.length === 0
+                      ? "未生成镜头"
+                      : `镜头 ${episode.shots.length}`;
+                return (
+                  <button
+                    key={episode.id}
+                    onClick={() => {
+                      if (isProcessing) return;
+                      setStep(WorkflowStep.GENERATE_STORYBOARD);
+                      setCurrentEpIndex(index);
+                    }}
+                    disabled={isProcessing}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
+                      <div className="truncate font-medium">{episode.title || `第${episode.id}集`}</div>
+                      <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[140px]">{meta}</span>
+                    </div>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {currentEpisodeError && step === WorkflowStep.GENERATE_STORYBOARD && (
               <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
                 当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
               </div>

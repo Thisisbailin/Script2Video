@@ -15,7 +15,7 @@ type SoraGenParams = {
   setProcessing: (processing: boolean, status?: string) => void;
   setStatus: (status: string) => void;
   setActiveTab: (tab: ActiveTab) => void;
-  updateStats: (phase: 'context' | 'shotGen' | 'soraGen', success: boolean) => void;
+  updateStats: (phase: 'context' | 'shotGen' | 'soraGen' | 'storyboardGen', success: boolean) => void;
   isProcessing: boolean;
   currentEpIndex: number;
 };

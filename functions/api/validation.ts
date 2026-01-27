@@ -19,6 +19,7 @@ const PROJECT_PATCH_KEYS = new Set([
   "phase5Usage",
   "shotGuide",
   "soraGuide",
+  "storyboardGuide",
   "dramaGuide",
   "globalStyleGuide",
   "designAssets",
@@ -55,6 +56,9 @@ export const validateProjectPayload = (data: unknown): ValidationResult => {
           return { ok: false, error: `episodes[${i}].shots[${j}].${key} is not a string` };
         }
       }
+      if (shot.storyboardPrompt !== undefined && !isString(shot.storyboardPrompt)) {
+        return { ok: false, error: `episodes[${i}].shots[${j}].storyboardPrompt is not a string` };
+      }
       if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
         return { ok: false, error: `episodes[${i}].shots[${j}].difficulty is not a number` };
       }
@@ -82,7 +86,7 @@ export const validateProjectDelta = (delta: unknown): ValidationResult => {
   if (delta.meta !== undefined) {
     if (!isRecord(delta.meta)) return { ok: false, error: "delta.meta is not an object" };
     const meta = delta.meta as Record<string, unknown>;
-    const stringKeys = ["fileName", "rawScript", "shotGuide", "soraGuide", "dramaGuide", "globalStyleGuide"];
+    const stringKeys = ["fileName", "rawScript", "shotGuide", "soraGuide", "storyboardGuide", "dramaGuide", "globalStyleGuide"];
     for (const key of stringKeys) {
       if (meta[key] !== undefined && !isString(meta[key])) {
         return { ok: false, error: `delta.meta.${key} is not a string` };
@@ -143,6 +147,9 @@ export const validateProjectDelta = (delta: unknown): ValidationResult => {
         if (!isString(shot[key])) {
           return { ok: false, error: `delta.shots[${i}].${key} is not a string` };
         }
+      }
+      if (shot.storyboardPrompt !== undefined && !isString(shot.storyboardPrompt)) {
+        return { ok: false, error: `delta.shots[${i}].storyboardPrompt is not a string` };
       }
       if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
         return { ok: false, error: `delta.shots[${i}].difficulty is not a number` };
