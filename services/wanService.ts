@@ -142,8 +142,12 @@ export const submitWanImageTask = async (
   const endpoint = config.baseUrl || QWEN_WAN_IMAGE_ENDPOINT;
   const images = options?.inputImages || (options?.inputImageUrl ? [options.inputImageUrl] : []);
   const hasImages = images.length > 0;
-  const enableInterleave =
-    typeof options?.enableInterleave === "boolean" ? options.enableInterleave : !hasImages;
+  // DashScope WAN image endpoint currently rejects stream=false synchronous calls.
+  // We therefore always create async tasks and poll for results.
+  // Also: when no reference images are provided, force interleave mode to allow text-to-image.
+  const enableInterleave = !hasImages
+    ? true
+    : (typeof options?.enableInterleave === "boolean" ? options.enableInterleave : false);
   let finalImages = images.slice();
   if (enableInterleave && finalImages.length > 1) {
     finalImages = finalImages.slice(0, 1);
@@ -187,7 +191,8 @@ export const submitWanImageTask = async (
     },
   };
 
-  return requestWanTask(endpoint, apiKey, payload, { async: false });
+  // Use async mode to avoid stream=false validation errors upstream.
+  return requestWanTask(endpoint, apiKey, payload, { async: true });
 };
 
 export const submitWanVideoTask = async (

@@ -795,23 +795,62 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     const newEdges: WorkflowEdge[] = [];
     const origin = getTemplateOrigin();
     const groupId = `group-episode-${episodeId}-${Date.now()}`;
-    const perShotSpacing = 520;
+    const topPadding = 120;
+    const bottomPadding = 180;
+    const shotGap = 160;
+    const promptGap = 100;
+    const groupWidth = 1720;
+
+    const estimateTextNodeHeight = (text: string) => {
+      const safe = (text || "").trim();
+      // Heuristic: text nodes auto-grow, so we over-estimate to avoid overlap.
+      const charsPerLine = 36;
+      const lineHeight = 22;
+      const baseHeight = 220;
+      const lines = Math.max(3, Math.ceil(safe.length / charsPerLine));
+      return baseHeight + lines * lineHeight;
+    };
+
+    const estimatedShotHeight = 340;
+    const estimatedWanHeight = 560;
+
+    let yCursor = topPadding;
+    const layouts = episode.shots.map((shot) => {
+      const soraHeight = estimateTextNodeHeight(shot.soraPrompt || shot.description || "");
+      const storyboardHeight = estimateTextNodeHeight(shot.storyboardPrompt || shot.description || "");
+      const promptBlockHeight = soraHeight + promptGap + storyboardHeight;
+      const wanBlockHeight = estimatedWanHeight * 2 + promptGap;
+      const blockHeight = Math.max(estimatedShotHeight, promptBlockHeight, wanBlockHeight);
+      const layout = {
+        y: yCursor,
+        soraHeight,
+        storyboardHeight,
+        blockHeight,
+      };
+      yCursor += blockHeight + shotGap;
+      return layout;
+    });
+
+    const groupHeight = yCursor + bottomPadding;
 
     newNodes.push({
       id: groupId,
       type: 'group',
       position: { x: origin.x, y: origin.y },
       data: { title: `EPISODE ${episode.id}: ${episode.title.toUpperCase()}` } as GroupNodeData,
-      style: { width: 1500, height: 240 + (episode.shots.length * perShotSpacing) },
+      style: { width: groupWidth, height: groupHeight },
     });
 
     episode.shots.forEach((shot, idx) => {
+      const layout = layouts[idx];
       const shotNodeId = `shot-${episodeId}-${shot.id}-${Date.now()}`;
       const soraPromptNodeId = `text-sora-${episodeId}-${shot.id}-${Date.now()}`;
       const storyboardPromptNodeId = `text-storyboard-${episodeId}-${shot.id}-${Date.now()}`;
       const wanVideoNodeId = `wan-video-${episodeId}-${shot.id}-${Date.now()}`;
       const wanImageNodeId = `wan-image-${episodeId}-${shot.id}-${Date.now()}`;
-      const yPos = 120 + (idx * perShotSpacing);
+      const yPos = layout?.y ?? (topPadding + idx * (estimatedShotHeight + shotGap));
+      const soraY = yPos;
+      const storyboardY = yPos + (layout?.soraHeight ?? estimateTextNodeHeight(shot.soraPrompt || "")) + promptGap;
 
       newNodes.push({
         id: shotNodeId,
@@ -835,7 +874,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       newNodes.push({
         id: soraPromptNodeId,
         type: 'text',
-        position: { x: 420, y: yPos },
+        position: { x: 420, y: soraY },
         parentId: groupId,
         extent: 'parent',
         data: {
@@ -849,7 +888,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       newNodes.push({
         id: storyboardPromptNodeId,
         type: 'text',
-        position: { x: 420, y: yPos + 170 },
+        position: { x: 420, y: storyboardY },
         parentId: groupId,
         extent: 'parent',
         data: {
@@ -863,7 +902,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       newNodes.push({
         id: wanVideoNodeId,
         type: 'wanVideoGen',
-        position: { x: 860, y: yPos },
+        position: { x: 940, y: soraY },
         parentId: groupId,
         extent: 'parent',
         data: {
@@ -879,7 +918,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       newNodes.push({
         id: wanImageNodeId,
         type: 'wanImageGen',
-        position: { x: 860, y: yPos + 170 },
+        position: { x: 940, y: storyboardY },
         parentId: groupId,
         extent: 'parent',
         data: {
