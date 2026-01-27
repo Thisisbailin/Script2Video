@@ -574,7 +574,15 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         description: "",
         duration: "3s",
         shotType: "Medium Shot",
+        focalLength: "",
         movement: "Static",
+        composition: "",
+        blocking: "",
+        sound: "",
+        lightingVfx: "",
+        editingNotes: "",
+        notes: "",
+        viewMode: "card",
       } as ShotNodeData;
     case "output":
       return {

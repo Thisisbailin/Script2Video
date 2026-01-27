@@ -38,11 +38,18 @@ export interface VideoParams {
 export interface Shot {
   id: string; // e.g., "1-1-01" (SceneID-ShotNumber)
   duration: string;
-  shotType: string; // e.g., Close-up, Wide
-  movement: string; // e.g., Pan, Tilt, Static
+  shotType: string; // 景别 (Shot Size)
+  focalLength: string; // 焦段建议
+  movement: string; // 运镜
+  composition: string; // 机位/构图
+  blocking: string; // 演员调度/动作表演
   difficulty?: number; // 0-10 scale for production complexity
-  description: string;
-  dialogue: string;
+  description: string; // legacy/combined summary for downstream prompts
+  dialogue: string; // 台词/OS
+  sound: string; // 声音
+  lightingVfx: string; // 光色/VFX
+  editingNotes: string; // 剪辑维度
+  notes: string; // 备注（氛围/情绪）
   soraPrompt: string;
   storyboardPrompt: string; // Phase 4: GPT-4o-style storyboard prompt (Chinese)
 

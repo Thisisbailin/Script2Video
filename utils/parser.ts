@@ -292,7 +292,24 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
 
 // 1. CSV EXPORT (Robust, Best Compatibility)
 export const exportToCSV = (episodes: Episode[]) => {
-  const headers = ['Episode', 'Shot ID', 'Duration', 'Type', 'Movement', 'Difficulty', 'Description', 'Dialogue', 'Sora Prompt', 'Storyboard Prompt'];
+  const headers = [
+    'Episode',
+    'Shot ID',
+    'Duration',
+    'Shot Size',
+    'Focal Length',
+    'Movement',
+    'Composition',
+    'Blocking',
+    'Dialogue',
+    'Sound',
+    'Lighting/VFX',
+    'Editing Notes',
+    'Notes',
+    'Difficulty',
+    'Sora Prompt',
+    'Storyboard Prompt'
+  ];
   
   // Add Byte Order Mark (BOM) so Excel recognizes formatting as UTF-8 automatically
   let csvContent = '\ufeff' + headers.map(h => `"${h}"`).join(',') + '\n';
@@ -304,10 +321,16 @@ export const exportToCSV = (episodes: Episode[]) => {
         shot.id,
         shot.duration,
         shot.shotType,
+        shot.focalLength || '',
         shot.movement,
-        shot.difficulty ?? '',
-        shot.description,
+        shot.composition || '',
+        shot.blocking || '',
         shot.dialogue,
+        shot.sound || '',
+        shot.lightingVfx || '',
+        shot.editingNotes || '',
+        shot.notes || '',
+        shot.difficulty ?? '',
         shot.soraPrompt,
         shot.storyboardPrompt
       ];
@@ -364,11 +387,17 @@ export const exportToXLS = (episodes: Episode[]) => {
   /* Column widths */
   .col-id { width: 80px; }
   .col-dur { width: 60px; }
-  .col-type { width: 80px; }
+  .col-type { width: 90px; }
+  .col-lens { width: 110px; }
   .col-move { width: 80px; }
   .col-diff { width: 70px; }
-  .col-desc { width: 350px; }
+  .col-comp { width: 260px; }
+  .col-block { width: 260px; }
   .col-dial { width: 200px; }
+  .col-sound { width: 220px; }
+  .col-light { width: 240px; }
+  .col-edit { width: 180px; }
+  .col-notes { width: 220px; }
   .col-sora { width: 450px; background-color: #f0fdf4; } /* Slight green tint for prompt */
   .col-storyboard { width: 450px; background-color: #fef9c3; } /* Light yellow tint for storyboard */
 </style>
@@ -379,11 +408,17 @@ export const exportToXLS = (episodes: Episode[]) => {
     <th>Episode</th>
     <th class="col-id">Shot ID</th>
     <th class="col-dur">Duration</th>
-    <th class="col-type">Type</th>
+    <th class="col-type">Shot Size</th>
+    <th class="col-lens">Focal Length</th>
     <th class="col-move">Movement</th>
-    <th class="col-diff">Difficulty</th>
-    <th class="col-desc">Description</th>
+    <th class="col-comp">Composition</th>
+    <th class="col-block">Blocking</th>
     <th class="col-dial">Dialogue</th>
+    <th class="col-sound">Sound</th>
+    <th class="col-light">Lighting/VFX</th>
+    <th class="col-edit">Editing Notes</th>
+    <th class="col-notes">Notes</th>
+    <th class="col-diff">Difficulty</th>
     <th class="col-sora">Sora Prompt</th>
     <th class="col-storyboard">Storyboard Prompt</th>
   </tr>`;
@@ -395,10 +430,16 @@ export const exportToXLS = (episodes: Episode[]) => {
         <td>${shot.id}</td>
         <td>${shot.duration}</td>
         <td>${shot.shotType}</td>
+        <td>${shot.focalLength || ''}</td>
         <td>${shot.movement}</td>
-        <td>${shot.difficulty ?? ''}</td>
-        <td>${shot.description}</td>
+        <td>${shot.composition || ''}</td>
+        <td>${shot.blocking || ''}</td>
         <td>${shot.dialogue}</td>
+        <td>${shot.sound || ''}</td>
+        <td>${shot.lightingVfx || ''}</td>
+        <td>${shot.editingNotes || ''}</td>
+        <td>${shot.notes || ''}</td>
+        <td>${shot.difficulty ?? ''}</td>
         <td>${shot.soraPrompt}</td>
         <td>${shot.storyboardPrompt}</td>
       </tr>`;
@@ -455,16 +496,33 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
 
   // Identify headers to ensure correct column mapping
   const headers = parseCSVLine(lines[0]);
-  const epIdx = headers.indexOf('Episode');
-  const idIdx = headers.indexOf('Shot ID');
-  const durIdx = headers.indexOf('Duration');
-  const typeIdx = headers.indexOf('Type');
-  const moveIdx = headers.indexOf('Movement');
-  const diffIdx = headers.indexOf('Difficulty');
-  const descIdx = headers.indexOf('Description');
-  const dialIdx = headers.indexOf('Dialogue');
-  const soraIdx = headers.indexOf('Sora Prompt');
-  const storyboardIdx = headers.indexOf('Storyboard Prompt');
+  const normalizeHeader = (value: string) => (value || "").trim().toLowerCase();
+  const findHeaderIndex = (candidates: string[]) => {
+    const normalized = headers.map(normalizeHeader);
+    for (const candidate of candidates) {
+      const idx = normalized.indexOf(normalizeHeader(candidate));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const epIdx = findHeaderIndex(["Episode", "集数", "剧集"]);
+  const idIdx = findHeaderIndex(["Shot ID", "镜号"]);
+  const durIdx = findHeaderIndex(["Duration", "时长"]);
+  const typeIdx = findHeaderIndex(["Shot Size", "Type", "景别"]);
+  const lensIdx = findHeaderIndex(["Focal Length", "焦段建议", "焦段"]);
+  const moveIdx = findHeaderIndex(["Movement", "运镜"]);
+  const compIdx = findHeaderIndex(["Composition", "机位/构图", "机位", "构图"]);
+  const blockIdx = findHeaderIndex(["Blocking", "演员调度/动作表演", "演员调度", "动作表演"]);
+  const dialIdx = findHeaderIndex(["Dialogue", "台词/OS", "台词"]);
+  const soundIdx = findHeaderIndex(["Sound", "声音"]);
+  const lightIdx = findHeaderIndex(["Lighting/VFX", "光色/VFX", "光色", "VFX"]);
+  const editIdx = findHeaderIndex(["Editing Notes", "剪辑维度", "剪辑"]);
+  const notesIdx = findHeaderIndex(["Notes", "备注", "备注（氛围/情绪）"]);
+  const diffIdx = findHeaderIndex(["Difficulty", "难度"]);
+  const descIdx = findHeaderIndex(["Description", "画面描述"]);
+  const soraIdx = findHeaderIndex(["Sora Prompt", "Sora提示词"]);
+  const storyboardIdx = findHeaderIndex(["Storyboard Prompt", "Storyboard提示词"]);
 
   if (epIdx === -1 || idIdx === -1) {
     throw new Error("Invalid CSV Format: Missing 'Episode' or 'Shot ID' headers.");
@@ -482,13 +540,26 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
       id: cols[idIdx],
       duration: cols[durIdx] || '',
       shotType: cols[typeIdx] || '',
+      focalLength: lensIdx >= 0 ? (cols[lensIdx] || '') : '',
       movement: cols[moveIdx] || '',
+      composition: compIdx >= 0 ? (cols[compIdx] || '') : '',
+      blocking: blockIdx >= 0 ? (cols[blockIdx] || '') : '',
       difficulty: diffIdx >= 0 ? Number(cols[diffIdx] || 0) : undefined,
-      description: cols[descIdx] || '',
+      description: descIdx >= 0 ? (cols[descIdx] || '') : '',
       dialogue: cols[dialIdx] || '',
+      sound: soundIdx >= 0 ? (cols[soundIdx] || '') : '',
+      lightingVfx: lightIdx >= 0 ? (cols[lightIdx] || '') : '',
+      editingNotes: editIdx >= 0 ? (cols[editIdx] || '') : '',
+      notes: notesIdx >= 0 ? (cols[notesIdx] || '') : '',
       soraPrompt: soraIdx >= 0 ? (cols[soraIdx] || '') : '',
       storyboardPrompt: storyboardIdx >= 0 ? (cols[storyboardIdx] || '') : ''
     };
+
+    if (!shot.description) {
+      shot.description = [shot.composition, shot.blocking, shot.lightingVfx, shot.sound, shot.notes]
+        .filter(Boolean)
+        .join("；");
+    }
 
     if (!shotMap.has(episodeTitle)) {
       shotMap.set(episodeTitle, []);

@@ -1162,15 +1162,35 @@ export const generateEpisodeShots = async (
           properties: {
             id: { type: Type.STRING, description: "镜号，严格格式: 场景号-镜号 (如 1-1-01)" },
             duration: { type: Type.STRING, description: "预估时长，例如 3s" },
-            shotType: { type: Type.STRING, description: "景别，例如 特写" },
-            movement: { type: Type.STRING, description: "运镜，例如 推镜头" },
-            difficulty: { type: Type.INTEGER, description: "难度评分，1-10 分整数，10 为最难" },
-            description: { type: Type.STRING, description: "详细的画面视觉描述 (中文)" },
+            shotType: { type: Type.STRING, description: "景别，例如 MCU / CU / WS / OTS" },
+            focalLength: { type: Type.STRING, description: "焦段建议，如 24–28mm / 50mm / 85–100mm Macro" },
+            movement: { type: Type.STRING, description: "运镜，例如 Dolly In / Pan L→R / Static" },
+            composition: { type: Type.STRING, description: "机位/构图：角度/方位；FG/MG/BG；主体位置" },
+            blocking: { type: Type.STRING, description: "演员调度/动作表演：起始状态→关键动作→落点" },
             dialogue: { type: Type.STRING, description: "台词或OS，无台词留空" },
+            sound: { type: Type.STRING, description: "声音设计：AMB/SFX/MUSIC 等" },
+            lightingVfx: { type: Type.STRING, description: "光色/VFX：Key/Fill/Rim/色温/特效" },
+            editingNotes: { type: Type.STRING, description: "剪辑维度：1-3 个标签，用分号分隔" },
+            notes: { type: Type.STRING, description: "备注（氛围/情绪）" },
             soraPrompt: { type: Type.STRING, description: "留空字符串" },
             storyboardPrompt: { type: Type.STRING, description: "留空字符串" },
           },
-          required: ["id", "duration", "shotType", "movement", "difficulty", "description", "dialogue", "soraPrompt", "storyboardPrompt"],
+          required: [
+            "id",
+            "duration",
+            "shotType",
+            "focalLength",
+            "movement",
+            "composition",
+            "blocking",
+            "dialogue",
+            "sound",
+            "lightingVfx",
+            "editingNotes",
+            "notes",
+            "soraPrompt",
+            "storyboardPrompt"
+          ],
         },
       },
     },
@@ -1187,8 +1207,8 @@ export const generateEpisodeShots = async (
     : '无（本集为起始章节）';
 
   const systemInstruction = `角色设定：你是一位好莱坞顶级的分镜师（Storyboard Artist）和摄影指导（DP）。
-  核心职责：将剧本文字转化为极具画面感、电影感和镜头张力的专业分镜脚本。
-  最重要的规则：拒绝平庸。你的每一个分镜描述都必须包含具体的【摄影运镜】、【光影氛围】和【构图细节】。`;
+  核心职责：将剧本文字转化为可直接执行的分镜表（Production-ready）。
+  最重要的规则：拒绝平庸。每一镜都要包含具体的【摄影运镜】、【光影氛围】和【构图细节】。`;
 
   const prompt = `
     任务：
@@ -1218,24 +1238,44 @@ export const generateEpisodeShots = async (
     【输出要求 (CRITICAL)】：
     1. **语言**：除专有名词（如 Dutch Angle, Rim Light）外，全流程使用**中文**。
     2. **格式**：分镜号格式必须为：**场景号-本场镜号**。例如：第12集第2场的第1个镜头，ID应为 **"12-2-01"**。
-    3. **Description 字段标准**：
-       -  必须包含至少一处摄影/光影术语 (如 "侧光", "浅景深", "仰视")。
-       -  必须描述画面中的物理细节/材质/氛围。
-       -  ❌ 禁止: "拍他在说话"
-       -  ✅ 允许: "特写。侧逆光勾勒出他脸部的轮廓，他在阴影中低语，背景是虚化的雨夜街道。"
-    4. **Difficulty**: 为每个镜头给出 1-10 的制作难度整数评分（10 最难，1 最易），综合考虑拍摄/动画复杂度、人数、景别与运动、特效等。
-    5. **soraPrompt**：字段请务必保持为空字符串。
-    6. **storyboardPrompt**：字段请务必保持为空字符串。
+    3. **表格列严格对齐**：必须按以下字段输出（对应表头）：
+       - 镜号(id)｜时长(duration)｜景别(shotType)｜焦段建议(focalLength)｜运镜(movement)
+       - 机位/构图(composition)｜演员调度/动作表演(blocking)｜台词/OS(dialogue)
+       - 声音(sound)｜光色/VFX(lightingVfx)｜剪辑维度(editingNotes)｜备注(notes)
+    4. **每列“可执行”**：避免散文化，尽量用专业术语 + 动作动词开头；多条信息用中文分号 “；” 分隔。
+    5. **soraPrompt/storyboardPrompt**：字段请务必保持为空字符串。
   `;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = JSON.parse(text) as { shots?: Shot[] };
   const shots = Array.isArray(parsed?.shots)
-    ? parsed.shots.map((shot) => ({
-      ...shot,
-      soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : "",
-      storyboardPrompt: typeof shot.storyboardPrompt === "string" ? shot.storyboardPrompt : ""
-    }))
+    ? parsed.shots.map((shot) => {
+      const description =
+        typeof shot.description === "string" && shot.description.trim()
+          ? shot.description
+          : [
+            shot.composition,
+            shot.blocking,
+            shot.lightingVfx,
+            shot.sound,
+            shot.notes,
+          ]
+            .filter(Boolean)
+            .join("；");
+      return {
+        ...shot,
+        focalLength: typeof shot.focalLength === "string" ? shot.focalLength : "",
+        composition: typeof shot.composition === "string" ? shot.composition : "",
+        blocking: typeof shot.blocking === "string" ? shot.blocking : "",
+        sound: typeof shot.sound === "string" ? shot.sound : "",
+        lightingVfx: typeof shot.lightingVfx === "string" ? shot.lightingVfx : "",
+        editingNotes: typeof shot.editingNotes === "string" ? shot.editingNotes : "",
+        notes: typeof shot.notes === "string" ? shot.notes : "",
+        description: description || "",
+        soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : "",
+        storyboardPrompt: typeof shot.storyboardPrompt === "string" ? shot.storyboardPrompt : ""
+      };
+    })
     : [];
   return {
     shots,
@@ -1275,8 +1315,16 @@ export const generateSoraPrompts = async (
 
   const batchContext = shots.map(s => ({
     id: s.id,
-    type: s.shotType,
-    move: s.movement,
+    shotType: s.shotType,
+    focalLength: s.focalLength,
+    movement: s.movement,
+    composition: s.composition,
+    blocking: s.blocking,
+    dialogue: s.dialogue,
+    sound: s.sound,
+    lightingVfx: s.lightingVfx,
+    editingNotes: s.editingNotes,
+    notes: s.notes,
     desc: s.description
   }));
 
@@ -1353,7 +1401,14 @@ export const generateStoryboardPrompts = async (
   const batchContext = shots.map((s) => ({
     id: s.id,
     shotType: s.shotType,
+    focalLength: s.focalLength,
     movement: s.movement,
+    composition: s.composition,
+    blocking: s.blocking,
+    sound: s.sound,
+    lightingVfx: s.lightingVfx,
+    editingNotes: s.editingNotes,
+    notes: s.notes,
     description: s.description,
     dialogue: s.dialogue,
   }));
@@ -1365,7 +1420,7 @@ export const generateStoryboardPrompts = async (
     任务：
     请为以下 **${shots.length}** 个分镜撰写「分镜板（storyboard）草图提示词」。
     这些提示词将交给 GPT-4o 这类更偏“理解+创作”的多模态模型来生图，
-    目标是得到 **清晰的手绘分镜草图（线稿/素描感）**，而不是写给传统扩散模型的堆砌关键词。
+    目标是得到 **清晰的手绘分镜草图（线稿/漫画感）**，而不是写给传统扩散模型的堆砌关键词。
 
     【项目上下文】：
     - 项目简介：${context.projectSummary}

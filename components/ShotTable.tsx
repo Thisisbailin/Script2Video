@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Shot } from '../types';
-import { Film, Timer, MoveRight, MessageSquare, Wand2, Star, Image } from 'lucide-react';
+import { Film, Timer, MoveRight, MessageSquare, Wand2, Star, Image, Aperture, Mic, Sun, Scissors } from 'lucide-react';
 
 interface Props {
   shots: Shot[];
@@ -53,6 +53,11 @@ export const ShotTable: React.FC<Props> = ({ shots, showSora, showStoryboard }) 
                     <span className="px-2 py-1 rounded-full bg-white/8 border border-[var(--border-subtle)] text-[11px] text-[var(--text-primary)]">
                       {shot.shotType}
                     </span>
+                    {shot.focalLength && (
+                      <span className="px-2 py-1 rounded-full bg-white/5 text-[11px] text-[var(--text-secondary)] border border-[var(--border-subtle)]/70 inline-flex items-center gap-1">
+                        <Aperture size={12} /> {shot.focalLength}
+                      </span>
+                    )}
                     <span className="px-2 py-1 rounded-full bg-white/5 text-[11px] text-[var(--text-secondary)] border border-[var(--border-subtle)]/70 inline-flex items-center gap-1">
                       <MoveRight size={12} /> {shot.movement || 'Static'}
                     </span>
@@ -60,14 +65,52 @@ export const ShotTable: React.FC<Props> = ({ shots, showSora, showStoryboard }) 
                 </div>
               </div>
 
-              <div className="text-base text-[var(--text-primary)] leading-relaxed relative z-10">
-                {shot.description}
-              </div>
+              {shot.composition && (
+                <div className="text-sm text-[var(--text-primary)] leading-relaxed relative z-10">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)] mr-2">机位/构图</span>
+                  {shot.composition}
+                </div>
+              )}
+
+              {shot.blocking && (
+                <div className="text-sm text-[var(--text-primary)] leading-relaxed relative z-10">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)] mr-2">调度/动作</span>
+                  {shot.blocking}
+                </div>
+              )}
 
               {shot.dialogue && (
                 <div className="text-sm italic text-[var(--text-primary)] bg-white/8 border border-[var(--border-subtle)]/70 rounded-xl px-3 py-2 flex items-start gap-2 relative z-10">
                   <MessageSquare size={14} className="mt-0.5" />
                   <span>{shot.dialogue}</span>
+                </div>
+              )}
+
+              {shot.sound && (
+                <div className="text-sm text-[var(--text-primary)] bg-white/5 border border-[var(--border-subtle)]/50 rounded-xl px-3 py-2 flex items-start gap-2 relative z-10">
+                  <Mic size={14} className="mt-0.5 text-[var(--text-secondary)]" />
+                  <span>{shot.sound}</span>
+                </div>
+              )}
+
+              {shot.lightingVfx && (
+                <div className="text-sm text-[var(--text-primary)] bg-white/5 border border-[var(--border-subtle)]/50 rounded-xl px-3 py-2 flex items-start gap-2 relative z-10">
+                  <Sun size={14} className="mt-0.5 text-[var(--text-secondary)]" />
+                  <span>{shot.lightingVfx}</span>
+                </div>
+              )}
+
+              {shot.editingNotes && (
+                <div className="text-sm text-[var(--text-primary)] bg-white/5 border border-[var(--border-subtle)]/50 rounded-xl px-3 py-2 flex items-start gap-2 relative z-10">
+                  <Scissors size={14} className="mt-0.5 text-[var(--text-secondary)]" />
+                  <span>{shot.editingNotes}</span>
+                </div>
+              )}
+
+              {shot.notes && (
+                <div className="text-sm text-[var(--text-primary)] bg-white/5 border border-[var(--border-subtle)]/50 rounded-xl px-3 py-2 relative z-10">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)] mr-2">备注</span>
+                  {shot.notes}
                 </div>
               )}
 
