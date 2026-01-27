@@ -912,6 +912,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           status: 'idle',
           error: null,
           aspectRatio: '16:9',
+          promptExtend: false,
         } as VideoGenNodeData,
       });
 
@@ -929,6 +930,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           status: 'idle',
           error: null,
           aspectRatio: '16:9',
+          promptExtend: false,
         } as ImageGenNodeData,
       });
 

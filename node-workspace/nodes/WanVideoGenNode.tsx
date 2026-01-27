@@ -18,6 +18,7 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
   const [progress, setProgress] = useState(0);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const ensureSeed = () => Math.floor(Math.random() * 1_000_000_000);
 
   const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
@@ -81,6 +82,12 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
     }, 500);
     return () => clearInterval(timer);
   }, [isLoading]);
+
+  useEffect(() => {
+    if (!Number.isFinite(data.seed)) {
+      updateNodeData(id, { seed: ensureSeed() });
+    }
+  }, [data.seed, id, updateNodeData]);
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -334,6 +341,10 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           <div className="node-surface relative overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
             <video
               controls
+              playsInline
+              disablePictureInPicture
+              disableRemotePlayback
+              controlsList="nodownload noplaybackrate noremoteplayback"
               className="w-full aspect-video transition-transform duration-700 bg-black/40 nodrag"
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}

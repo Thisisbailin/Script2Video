@@ -489,7 +489,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         aspectRatio: "1:1",
         model: "wan2.6-image",
         enableInterleave: false,
-        promptExtend: true,
+        promptExtend: false,
         watermark: false,
         outputCount: 1,
       } as ImageGenNodeData;
@@ -538,7 +538,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         quality: "standard",
         resolution: "720P",
         shotType: "multi",
-        promptExtend: true,
+        promptExtend: false,
         watermark: false,
         audioEnabled: false,
         audioUrl: "",

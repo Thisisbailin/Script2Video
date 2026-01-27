@@ -16,6 +16,7 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
   const { runImageGen } = useLabExecutor();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [progress, setProgress] = useState(0);
+  const ensureSeed = () => Math.floor(Math.random() * 1_000_000_000);
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -47,6 +48,12 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
     }, 400);
     return () => clearInterval(timer);
   }, [isLoading]);
+
+  useEffect(() => {
+    if (!Number.isFinite(data.seed)) {
+      updateNodeData(id, { seed: ensureSeed() });
+    }
+  }, [data.seed, id, updateNodeData]);
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
