@@ -693,6 +693,7 @@ export const generateCharacterRosterBriefs = async (
           type: Type.OBJECT,
           properties: {
             name: { type: Type.STRING },
+            isCore: { type: Type.BOOLEAN, description: "是否为核心角色（剧情主线/关键弧光/持续推动叙事）" },
             role: { type: Type.STRING, description: "角色的身份定位/叙事功能（抽象描述）" },
             bio: { type: Type.STRING, description: "角色抽象描述：身份、性格、动机、关系（中文 2-4 句）" },
             archetype: { type: Type.STRING },
@@ -717,7 +718,7 @@ export const generateCharacterRosterBriefs = async (
               }
             }
           },
-          required: ["name", "bio"]
+          required: ["name", "isCore", "bio"]
         }
       }
     },
@@ -729,11 +730,15 @@ export const generateCharacterRosterBriefs = async (
     重要前提：
     - 下面这份【角色清单】已经由代码解析器产出，是权威输入。
     - 你不得新增角色、不得删除角色、不得改名。
-    - 路人/一次性角色已经被过滤，不需要再做主次筛选。
+    - 这份清单已过滤掉出现次数=1的路人角色；清单中的角色都是“出现次数>1”的候选角色。
 
     任务：
-    1) 为每个角色写“角色描述（抽象层）”：身份定位、性格气质、核心动机与关系张力。
-    2) 为每个角色的每个形态写“形态描述（具象层）”：视觉特征关键词与状态说明。
+    1) 基于“剧本原文的深入阅读”，判断哪些角色是核心角色，并用 isCore=true 标记。
+       - 核心角色的判定依据是剧情主线地位、关键弧光、持续推动叙事的能力，而不是单纯出现次数。
+       - appearanceCount 可以作为信号，但不能作为唯一标准。
+       - 核心角色应当是一个相对克制的小集合。
+    2) 为每个角色写“角色描述（抽象层）”：身份定位、性格气质、核心动机与关系张力。
+    3) 为每个角色的每个形态写“形态描述（具象层）”：视觉特征关键词与状态说明。
 
     角色清单（含形态占位）：
     ${JSON.stringify(seeds)}
@@ -749,8 +754,9 @@ export const generateCharacterRosterBriefs = async (
 
     输出要求：
     - 使用中文 JSON。
+    - 必须返回 isCore 字段。
     - 角色描述（bio）偏抽象；形态描述（forms[].visualTags）偏具象。
-    - 若某角色只有一个默认形态（如 Standard），请保留并补全描述，不要删掉。
+    - 若某角色只有一个默认形态（形如 “角色名-默认”），请保留并补全描述，不要删掉。
   `;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
@@ -759,7 +765,8 @@ export const generateCharacterRosterBriefs = async (
     id: c.name,
     name: c.name,
     role: c.role || "",
-    isMain: true,
+    isMain: !!c.isCore,
+    isCore: !!c.isCore,
     bio: c.bio || "",
     forms: (c.forms ?? []).map((f: any) => ({
       ...f,
@@ -805,7 +812,7 @@ export const analyzeCharacterDepth = async (
         items: {
           type: Type.OBJECT,
           properties: {
-            formName: { type: Type.STRING, description: "e.g. 'Childhood', 'Awakened State', 'Standard'" },
+            formName: { type: Type.STRING, description: "e.g. 'Childhood', 'Awakened State', '角色名-默认'" },
             episodeRange: { type: Type.STRING, description: "e.g. 'Ep 1-4' or 'Whole Series'" },
             description: { type: Type.STRING, description: "Personality and state of mind in this form" },
             visualTags: { type: Type.STRING, description: "Comma-separated visual keywords" },
@@ -866,7 +873,7 @@ export const analyzeCharacterDepth = async (
 
     注意：
     - 你不得删除或改名既有形态；可以在其基础上补全字段，或新增确有必要的形态。
-    - 如果角色外观变化很少，至少产出 1 个 form（Standard）。
+    - 如果角色外观变化很少，至少产出 1 个 form（形如 “角色名-默认”）。
     - episodeRange 请明确形态出现的集数/桥段。
 
     [Script Context]:
@@ -961,6 +968,7 @@ export const generateLocationRosterBriefs = async (
   seeds: Array<{
     name: string;
     episodeUsage?: string;
+    appearanceCount?: number;
     zones?: Array<{ name: string; episodeRange: string }>;
   }>,
   script: string,
@@ -1005,11 +1013,16 @@ export const generateLocationRosterBriefs = async (
     重要前提：
     - 下面这份【场景清单】已经由代码解析器产出，是权威输入。
     - 你不得新增场景、不得删除场景、不得改名。
+    - 这份清单已过滤掉出现次数=1的路人场景；清单中的场景都是“出现次数>1”的候选场景。
     - zones 是解析得到的分区/子区域清单，不得改名或删除，可补充 kind/episodeRange。
 
     任务：
-    1) 为每个场景写“场景描述（抽象层）”：它在世界观/叙事中的功能定位与情绪基调。
-    2) 保留并完善分区清单（zones），但不要改名或删掉。
+    1) 基于“剧本原文的深入阅读”，判断哪些场景是核心场景，并通过 type=core 标记。
+       - 核心场景的判定依据是剧情主线地位、关键事件承载、反复出现的叙事支点，而不是单纯出现次数。
+       - appearanceCount 可以作为信号，但不能作为唯一标准。
+       - 核心场景应当是一个相对克制的小集合。
+    2) 为每个场景写“场景描述（抽象层）”：它在世界观/叙事中的功能定位与情绪基调。
+    3) 保留并完善分区清单（zones），但不要改名或删掉。
 
     场景清单（含分区占位）：
     ${JSON.stringify(seeds)}
@@ -1026,6 +1039,7 @@ export const generateLocationRosterBriefs = async (
     输出要求：
     - 使用中文 JSON。
     - description 偏抽象；zones 只是结构化清单与轻度补全。
+    - 若只有默认分区（形如 “场景名-默认”），请保留并补全，不要删掉。
   `;
 
   const { text, usage } = await generateText(config, prompt, schema, systemInstruction);

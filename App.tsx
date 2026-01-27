@@ -94,10 +94,11 @@ const normalizeZonesWithIds = (zones: any[]) =>
 const ensureCharacterDefaultForms = (
   characterName: string,
   forms: any[],
-  episodeUsage?: string
+  episodeUsage?: string,
+  ensureDefault: boolean = true
 ) => {
   const normalized = normalizeFormsWithIds(forms || []).map((form) => {
-    const baseName = (form.formName || "Standard").trim() || "Standard";
+    const baseName = (form.formName || "默认").trim() || "默认";
     const prefixed = baseName.startsWith(`${characterName}-`) ? baseName : `${characterName}-${baseName}`;
     return {
       ...form,
@@ -110,10 +111,12 @@ const ensureCharacterDefaultForms = (
 
   if (normalized.length > 0) return normalized;
 
+  if (!ensureDefault) return [];
+
   return [
     {
       id: ensureStableId(undefined, "form"),
-      formName: `${characterName}-Standard`,
+      formName: `${characterName}-默认`,
       episodeRange: episodeUsage || "Whole Series",
       description: "",
       visualTags: "",
@@ -121,14 +124,21 @@ const ensureCharacterDefaultForms = (
   ];
 };
 
-const mergeCharacterFormsByName = (characterName: string, currentForms: any[], incomingForms: any[], episodeUsage?: string) => {
+const mergeCharacterFormsByName = (
+  characterName: string,
+  currentForms: any[],
+  incomingForms: any[],
+  episodeUsage?: string,
+  options?: { ensureDefault?: boolean }
+) => {
+  const ensureDefault = options?.ensureDefault ?? true;
   const normalizeName = (name: string) => {
-    const trimmed = (name || "Standard").trim() || "Standard";
+    const trimmed = (name || "默认").trim() || "默认";
     return trimmed.startsWith(`${characterName}-`) ? trimmed : `${characterName}-${trimmed}`;
   };
 
-  const current = ensureCharacterDefaultForms(characterName, currentForms, episodeUsage);
-  const incoming = ensureCharacterDefaultForms(characterName, incomingForms, episodeUsage);
+  const current = ensureCharacterDefaultForms(characterName, currentForms, episodeUsage, ensureDefault);
+  const incoming = ensureCharacterDefaultForms(characterName, incomingForms, episodeUsage, ensureDefault);
 
   const map = new Map<string, any>();
   current.forEach((form) => {
@@ -166,6 +176,7 @@ const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: an
       name: string;
       episodeIds: Set<number>;
       partitions: Map<string, Set<number>>;
+      count: number;
     }
   >();
 
@@ -173,15 +184,18 @@ const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: an
     (ep.scenes || []).forEach((scene) => {
       const sceneName = (scene.title || scene.metadata?.rawTitle || "").trim();
       if (!sceneName) return;
-      const partitionName = (scene.partition || "Main Zone").trim() || "Main Zone";
+      const defaultPartition = `${sceneName}-默认`;
+      const partitionName = (scene.partition || defaultPartition).trim() || defaultPartition;
       if (!map.has(sceneName)) {
         map.set(sceneName, {
           name: sceneName,
           episodeIds: new Set<number>(),
           partitions: new Map<string, Set<number>>(),
+          count: 0,
         });
       }
       const entry = map.get(sceneName)!;
+      entry.count += 1;
       entry.episodeIds.add(ep.id);
       if (!entry.partitions.has(partitionName)) {
         entry.partitions.set(partitionName, new Set<number>());
@@ -192,6 +206,7 @@ const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: an
 
   const seeds = Array.from(map.values()).map((entry) => {
     const episodeUsage = formatEpisodeUsage(entry.episodeIds);
+    const defaultZoneName = `${entry.name}-默认`;
     const parsedZones = Array.from(entry.partitions.entries()).map(([name, epIds]) => ({
       id: ensureStableId(undefined, "zone"),
       name,
@@ -208,7 +223,7 @@ const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: an
       : [
           {
             id: ensureStableId(undefined, "zone"),
-            name: "Main Zone",
+            name: defaultZoneName,
             kind: "unspecified" as const,
             episodeRange: episodeUsage || "Whole Series",
             layoutNotes: "",
@@ -219,10 +234,11 @@ const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: an
         ];
 
     const existing = existingByName.get(entry.name);
-    const existingZones = normalizeZonesWithIds(existing?.zones || []);
+    const existingZones = ensureLocationDefaultZones(entry.name, existing?.zones || [], existing?.episodeUsage || episodeUsage, true);
     const zoneMap = new Map<string, any>();
     [...existingZones, ...baseZones].forEach((zone) => {
-      zoneMap.set((zone.name || "Main Zone").toLowerCase(), zone);
+      const zoneName = (zone.name || defaultZoneName).trim() || defaultZoneName;
+      zoneMap.set(zoneName.toLowerCase(), { ...zone, name: zoneName });
     });
 
     return {
@@ -232,24 +248,37 @@ const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: an
       description: existing?.description || "",
       visuals: existing?.visuals || "",
       assetPriority: existing?.assetPriority,
+      appearanceCount: existing?.appearanceCount ?? entry.count,
       episodeUsage: existing?.episodeUsage || episodeUsage,
       zones: Array.from(zoneMap.values()),
     };
   });
 
-  // Preserve existing core locations that might not be present in parsed scenes.
+  // Preserve any existing locations that might not be present in parsed scenes.
   const seedNames = new Set(seeds.map((s) => s.name));
   const preservedExisting = (existingLocations || []).filter(
-    (loc) => loc?.name && !seedNames.has(loc.name) && loc.type === "core"
-  );
+    (loc) => loc?.name && !seedNames.has(loc.name)
+  ).map((loc) => ({
+    ...loc,
+    id: loc.id || loc.name,
+    episodeUsage: loc.episodeUsage || "Whole Series",
+    appearanceCount: loc.appearanceCount,
+    zones: ensureLocationDefaultZones(loc.name, loc.zones || [], loc.episodeUsage, true),
+  }));
 
   return [...seeds, ...preservedExisting];
 };
 
-const ensureLocationDefaultZones = (zones: any[], episodeUsage?: string) => {
+const ensureLocationDefaultZones = (
+  locationName: string,
+  zones: any[],
+  episodeUsage?: string,
+  ensureDefault: boolean = true
+) => {
+  const defaultZoneName = `${locationName}-默认`;
   const normalized = normalizeZonesWithIds(zones || []).map((zone) => ({
     ...zone,
-    name: (zone.name || "Main Zone").trim() || "Main Zone",
+    name: (zone.name || defaultZoneName).trim() || defaultZoneName,
     kind: zone.kind || "unspecified",
     episodeRange: zone.episodeRange || episodeUsage || "Whole Series",
     layoutNotes: zone.layoutNotes || "",
@@ -259,11 +288,12 @@ const ensureLocationDefaultZones = (zones: any[], episodeUsage?: string) => {
   }));
 
   if (normalized.length > 0) return normalized;
+  if (!ensureDefault) return [];
 
   return [
     {
       id: ensureStableId(undefined, "zone"),
-      name: "Main Zone",
+      name: defaultZoneName,
       kind: "unspecified" as const,
       episodeRange: episodeUsage || "Whole Series",
       layoutNotes: "",
@@ -274,23 +304,33 @@ const ensureLocationDefaultZones = (zones: any[], episodeUsage?: string) => {
   ];
 };
 
-const mergeLocationZonesByName = (currentZones: any[], incomingZones: any[], episodeUsage?: string) => {
-  const current = ensureLocationDefaultZones(currentZones, episodeUsage);
-  const incoming = ensureLocationDefaultZones(incomingZones, episodeUsage);
+const mergeLocationZonesByName = (
+  locationName: string,
+  currentZones: any[],
+  incomingZones: any[],
+  episodeUsage?: string,
+  options?: { ensureDefault?: boolean }
+) => {
+  const ensureDefault = options?.ensureDefault ?? true;
+  const defaultZoneName = `${locationName}-默认`;
+  const current = ensureLocationDefaultZones(locationName, currentZones, episodeUsage, ensureDefault);
+  const incoming = ensureLocationDefaultZones(locationName, incomingZones, episodeUsage, ensureDefault);
   const map = new Map<string, any>();
 
   current.forEach((zone) => {
-    map.set((zone.name || "Main Zone").toLowerCase(), zone);
+    const zoneName = (zone.name || defaultZoneName).trim() || defaultZoneName;
+    map.set(zoneName.toLowerCase(), { ...zone, name: zoneName });
   });
 
   incoming.forEach((zone) => {
-    const key = (zone.name || "Main Zone").toLowerCase();
+    const zoneName = (zone.name || defaultZoneName).trim() || defaultZoneName;
+    const key = zoneName.toLowerCase();
     const prev = map.get(key);
     map.set(key, {
       ...(prev || {}),
       ...zone,
       id: prev?.id || ensureStableId(zone?.id, "zone"),
-      name: zone.name || prev?.name || "Main Zone",
+      name: zoneName,
       kind: zone.kind || prev?.kind || "unspecified",
       episodeRange: zone.episodeRange || prev?.episodeRange || episodeUsage || "Whole Series",
       layoutNotes: zone.layoutNotes || prev?.layoutNotes || "",
@@ -870,7 +910,7 @@ const App: React.FC = () => {
             ...c,
             appearanceCount,
             episodeUsage,
-            isMain: appearanceCount > 1 || c.isMain,
+            isMain: c.isMain,
             assetPriority: (c.assetPriority || (appearanceCount > 1 ? "medium" : "low")) as "low" | "medium" | "high",
           };
         });
@@ -883,7 +923,7 @@ const App: React.FC = () => {
             id: `char-script-${Date.now()}-${counter++}`,
             name,
             role: "",
-            isMain: stat.count > 1,
+            isMain: false,
             bio: "",
             forms: [],
             appearanceCount: stat.count,
@@ -1124,25 +1164,24 @@ const App: React.FC = () => {
       const existing = projectData.context.characters || [];
       const existingByName = new Map(existing.map((c) => [c.name, c]));
 
-      // 路人角色忽略：只保留出现次数 > 1 的解析角色，或已经标记为主角的角色
-      const parsedMainEntries = Array.from(stats.entries()).filter(
-        ([, stat]) => (stat.count || 0) > 1
-      );
+      const statNames = new Set(stats.keys());
+      let counter = 0;
 
-      const seedCharacters: Character[] = parsedMainEntries.map(([name, stat]) => {
+      // 1) Build a complete roster without deleting any existing characters.
+      const fromStats: Character[] = Array.from(stats.entries()).map(([name, stat]) => {
         const existingChar = existingByName.get(name);
-        const episodeUsage = existingChar?.episodeUsage || formatEpisodeUsage(stat.episodeIds);
-        const baseForms = existingChar?.forms || [];
+        const appearanceCount = stat?.count ?? existingChar?.appearanceCount ?? 0;
+        const episodeUsage = formatEpisodeUsage(stat.episodeIds) || existingChar?.episodeUsage || "";
         return {
-          id: existingChar?.id || `char-script-${Date.now()}-${name}`,
+          id: existingChar?.id || `char-script-${Date.now()}-${counter++}`,
           name,
           role: existingChar?.role || "",
-          isMain: existingChar?.isMain ?? true,
+          isMain: existingChar?.isMain ?? false,
           bio: existingChar?.bio || "",
-          forms: ensureCharacterDefaultForms(name, baseForms, episodeUsage),
-          appearanceCount: stat.count,
+          forms: ensureCharacterDefaultForms(name, existingChar?.forms || [], episodeUsage, true),
+          appearanceCount,
           episodeUsage,
-          assetPriority: existingChar?.assetPriority || "medium",
+          assetPriority: (existingChar?.assetPriority || (appearanceCount > 1 ? "medium" : "low")) as "low" | "medium" | "high",
           archetype: existingChar?.archetype,
           tags: existingChar?.tags,
           voiceId: existingChar?.voiceId,
@@ -1151,63 +1190,103 @@ const App: React.FC = () => {
         };
       });
 
-      // 保留已有主角，即便解析统计中出现次数较少
-      const preservedExistingMains = existing.filter(
-        (c) => c.isMain && !seedCharacters.find((s) => s.name === c.name)
-      );
+      const fromExistingOnly: Character[] = existing
+        .filter((c) => c?.name && !statNames.has(c.name))
+        .map((c) => ({
+          ...c,
+          id: c.id || `char-existing-${Date.now()}-${c.name}`,
+          forms: ensureCharacterDefaultForms(c.name, c.forms || [], c.episodeUsage, true),
+        }));
 
-      const mergedSeeds = [...seedCharacters, ...preservedExistingMains].map((char) => {
+      const baseCharacters = [...fromStats, ...fromExistingOnly];
+
+      // 2) Normalize counts/usages and decide passersby vs candidates.
+      const countInfo = new Map<
+        string,
+        { count: number; countKnown: boolean; isPasserby: boolean; isCandidate: boolean }
+      >();
+
+      const normalizedCharacters = baseCharacters.map((char) => {
         const stat = stats.get(char.name);
-        const episodeUsage = char.episodeUsage || (stat ? formatEpisodeUsage(stat.episodeIds) : "");
+        const statCount = typeof stat?.count === "number" ? stat.count : undefined;
+        const appearanceCount = typeof statCount === "number" ? statCount : (char.appearanceCount ?? 0);
+        const episodeUsage = (stat ? formatEpisodeUsage(stat.episodeIds) : "") || char.episodeUsage || "";
+        const countKnown = typeof statCount === "number" || typeof char.appearanceCount === "number";
+        const isPasserby = countKnown && appearanceCount <= 1;
+        const isCandidate = appearanceCount > 1;
+        countInfo.set(char.name, { count: appearanceCount, countKnown, isPasserby, isCandidate });
         return {
           ...char,
-          appearanceCount: stat?.count ?? char.appearanceCount,
+          appearanceCount,
           episodeUsage,
-          forms: ensureCharacterDefaultForms(char.name, char.forms || [], episodeUsage),
-          isMain: true,
+          forms: ensureCharacterDefaultForms(char.name, char.forms || [], episodeUsage, true),
+          isCore: false,
+          isMain: isPasserby ? false : (isCandidate ? false : char.isMain),
         };
       });
 
-      if (mergedSeeds.length === 0) {
-        setProcessing(false);
-        setAnalysisError({
-          step: AnalysisSubStep.CHAR_IDENTIFICATION,
-          message: "解析结果未发现需要处理的主要角色（路人角色已忽略）。",
-        });
-        return;
+      // 3) Only send non-passerby candidates (count > 1) to AI for core classification + field filling.
+      const aiCandidates = normalizedCharacters.filter((c) => countInfo.get(c.name)?.isCandidate);
+
+      let briefResult: { characters: Character[]; usage: any } | null = null;
+      let briefMap = new Map<string, any>();
+
+      if (aiCandidates.length > 0) {
+        const seedsForAI = aiCandidates.map((c) => ({
+          name: c.name,
+          role: c.role,
+          episodeUsage: c.episodeUsage,
+          appearanceCount: c.appearanceCount,
+          forms: (c.forms || []).map((f) => ({
+            formName: f.formName,
+            episodeRange: f.episodeRange,
+          })),
+        }));
+
+        briefResult = await GeminiService.generateCharacterRosterBriefs(
+          config.textConfig,
+          seedsForAI,
+          projectData.rawScript,
+          projectData.context.projectSummary,
+          projectData.globalStyleGuide
+        );
+        briefMap = new Map<string, any>((briefResult.characters || []).map((c) => [c.name, c]));
       }
 
-      const seedsForAI = mergedSeeds.map((c) => ({
-        name: c.name,
-        role: c.role,
-        episodeUsage: c.episodeUsage,
-        appearanceCount: c.appearanceCount,
-        forms: (c.forms || []).map((f) => ({
-          formName: f.formName,
-          episodeRange: f.episodeRange,
-        })),
-      }));
-
-      const briefResult = await GeminiService.generateCharacterRosterBriefs(
-        config.textConfig,
-        seedsForAI,
-        projectData.rawScript,
-        projectData.context.projectSummary,
-        projectData.globalStyleGuide
-      );
-
-      const briefMap = new Map<string, any>((briefResult.characters || []).map((c) => [c.name, c]));
-
-      const normalizedCharacters = mergedSeeds.map((seed) => {
+      const aiTouched = new Set(aiCandidates.map((c) => c.name));
+      const finalCharacters = normalizedCharacters.map((seed) => {
+        const info = countInfo.get(seed.name);
+        if (!info) return seed;
+        if (info.isPasserby) {
+          return {
+            ...seed,
+            isMain: false,
+          };
+        }
+        if (!aiTouched.has(seed.name)) return seed;
         const brief = briefMap.get(seed.name);
+        const isCore = !!brief?.isCore;
+
+        // Step 3 only classifies core, but does not fill core details.
+        if (isCore) {
+          return {
+            ...seed,
+            isMain: true,
+            isCore: true,
+          };
+        }
+
         const mergedForms = mergeCharacterFormsByName(
           seed.name,
           seed.forms || [],
           brief?.forms || [],
-          seed.episodeUsage
+          seed.episodeUsage,
+          { ensureDefault: true }
         );
         return {
           ...seed,
+          isMain: false,
+          isCore: false,
           role: brief?.role || seed.role,
           bio: brief?.bio || seed.bio,
           archetype: brief?.archetype || seed.archetype,
@@ -1220,11 +1299,11 @@ const App: React.FC = () => {
 
       setProjectData(prev => ({
         ...prev,
-        context: { ...prev.context, characters: normalizedCharacters },
-        contextUsage: GeminiService.addUsage(prev.contextUsage!, briefResult.usage),
+        context: { ...prev.context, characters: finalCharacters },
+        contextUsage: briefResult?.usage ? GeminiService.addUsage(prev.contextUsage!, briefResult.usage) : prev.contextUsage,
         phase1Usage: {
           ...prev.phase1Usage,
-          charList: GeminiService.addUsage(prev.phase1Usage.charList, briefResult.usage)
+          charList: briefResult?.usage ? GeminiService.addUsage(prev.phase1Usage.charList, briefResult.usage) : prev.phase1Usage.charList
         }
       }));
       setProcessing(false);
@@ -1346,42 +1425,98 @@ const App: React.FC = () => {
         });
         return;
       }
-      const seedsForAI = seeds.map((loc) => ({
-        name: loc.name,
-        episodeUsage: loc.episodeUsage,
-        zones: ensureLocationDefaultZones(loc.zones || [], loc.episodeUsage).map((zone) => ({
-          name: zone.name,
-          episodeRange: zone.episodeRange,
-        })),
-      }));
+      const countInfo = new Map<
+        string,
+        { count: number; countKnown: boolean; isPasserby: boolean; isCandidate: boolean }
+      >();
 
-      const result = await GeminiService.generateLocationRosterBriefs(
-        config.textConfig,
-        seedsForAI,
-        projectData.rawScript,
-        projectData.context.projectSummary,
-        projectData.globalStyleGuide
-      );
+      const normalizedSeeds = seeds.map((loc) => {
+        const countKnown = typeof loc.appearanceCount === "number";
+        const count = loc.appearanceCount ?? 0;
+        const isPasserby = countKnown && count <= 1;
+        const isCandidate = count > 1;
+        countInfo.set(loc.name, { count, countKnown, isPasserby, isCandidate });
+        const zones = ensureLocationDefaultZones(loc.name, loc.zones || [], loc.episodeUsage, true);
+        return {
+          ...loc,
+          zones,
+          type: isPasserby ? "secondary" : (isCandidate ? "secondary" : loc.type),
+        };
+      });
 
-      const briefMap = new Map((result.locations || []).map((loc) => [loc.name, loc]));
-      const normalizedLocations = seeds.map((seed) => {
+      const aiCandidates = normalizedSeeds.filter((loc) => countInfo.get(loc.name)?.isCandidate);
+
+      let result: { locations: any[]; usage: any } | null = null;
+      let briefMap = new Map<string, any>();
+
+      if (aiCandidates.length > 0) {
+        const seedsForAI = aiCandidates.map((loc) => ({
+          name: loc.name,
+          episodeUsage: loc.episodeUsage,
+          appearanceCount: loc.appearanceCount,
+          zones: ensureLocationDefaultZones(loc.name, loc.zones || [], loc.episodeUsage, true).map((zone) => ({
+            name: zone.name,
+            episodeRange: zone.episodeRange,
+          })),
+        }));
+
+        result = await GeminiService.generateLocationRosterBriefs(
+          config.textConfig,
+          seedsForAI,
+          projectData.rawScript,
+          projectData.context.projectSummary,
+          projectData.globalStyleGuide
+        );
+        briefMap = new Map((result.locations || []).map((loc) => [loc.name, loc]));
+      }
+
+      const finalLocations = normalizedSeeds.map((seed) => {
+        const info = countInfo.get(seed.name);
+        if (!info) return seed;
+        if (info.isPasserby) {
+          return {
+            ...seed,
+            type: "secondary",
+          };
+        }
+        if (!info.isCandidate) return seed;
         const brief = briefMap.get(seed.name);
+        const isCore = brief?.type === "core";
+
+        // Step 5 only classifies core, but does not fill core details.
+        if (isCore) {
+          return {
+            ...seed,
+            type: "core",
+          };
+        }
+
         const episodeUsage = seed.episodeUsage || brief?.episodeUsage;
-        const mergedZones = mergeLocationZonesByName(seed.zones || [], brief?.zones || [], episodeUsage);
+        const mergedZones = mergeLocationZonesByName(
+          seed.name,
+          seed.zones || [],
+          brief?.zones || [],
+          episodeUsage,
+          { ensureDefault: true }
+        );
         return {
           ...seed,
-          type: brief?.type || seed.type || "secondary",
+          type: "secondary",
           description: brief?.description || seed.description || "",
           assetPriority: brief?.assetPriority || seed.assetPriority,
           episodeUsage,
           zones: mergedZones,
         };
       });
+
       setProjectData(prev => ({
         ...prev,
-        context: { ...prev.context, locations: normalizedLocations },
-        contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-        phase1Usage: { ...prev.phase1Usage, locList: GeminiService.addUsage(prev.phase1Usage.locList, result.usage) }
+        context: { ...prev.context, locations: finalLocations },
+        contextUsage: result?.usage ? GeminiService.addUsage(prev.contextUsage!, result.usage) : prev.contextUsage,
+        phase1Usage: {
+          ...prev.phase1Usage,
+          locList: result?.usage ? GeminiService.addUsage(prev.phase1Usage.locList, result.usage) : prev.phase1Usage.locList
+        }
       }));
       setProcessing(false);
       setAnalysisError(null);
@@ -1443,7 +1578,13 @@ const App: React.FC = () => {
             ? {
               ...l,
               visuals: result.visuals || l.visuals,
-              zones: mergeLocationZonesByName(l.zones || [], result.zones || [], l.episodeUsage),
+              zones: mergeLocationZonesByName(
+                l.name,
+                l.zones || [],
+                result.zones || [],
+                l.episodeUsage,
+                { ensureDefault: true }
+              ),
             }
             : l
         );

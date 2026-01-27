@@ -137,6 +137,7 @@ export interface Character {
   name: string;
   role: string; // e.g. Protagonist, Antagonist
   isMain: boolean; // Determines if we do deep analysis
+  isCore?: boolean; // AI判定的核心角色标记（辅助字段）
   bio: string; // General bio
   forms: CharacterForm[]; // Specific visual/personality stages
   appearanceCount?: number; // 解析出现次数
@@ -156,6 +157,7 @@ export interface Location {
   type: 'core' | 'secondary';
   description: string; // General description
   visuals: string; // Lighting, atmosphere, texture details
+  appearanceCount?: number; // 场景出现次数（解析统计）
   assetPriority?: "high" | "medium" | "low";
   episodeUsage?: string; // 出现的集/桥段
   zones?: LocationZone[]; // 分区/内外景

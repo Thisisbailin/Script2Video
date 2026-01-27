@@ -84,7 +84,8 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
         if (!scene) return;
         const title = normalizeLabel(scene.title || scene.metadata?.rawTitle || "Untitled Scene");
         const key = title || scene.id || `scene-${episode.id}`;
-        const partitionName = normalizeLabel(scene.partition || "Main Zone");
+        const defaultPartition = `${title}-默认`;
+        const partitionName = normalizeLabel(scene.partition || defaultPartition);
         const partitionKey = `${key}::${partitionName}`;
         const refId = `scene:${key}|${partitionName}`;
         const entry = map.get(key);

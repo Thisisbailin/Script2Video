@@ -25,7 +25,7 @@ const mergeCharacterForms = (
   if (mode === "replace") {
     const next = normalizedIncoming.map((form) => ({
       id: form.id,
-      formName: form.formName || "Standard",
+      formName: form.formName || "默认",
       episodeRange: form.episodeRange || "",
       description: form.description || "",
       visualTags: form.visualTags || "",
@@ -83,7 +83,7 @@ const mergeCharacterForms = (
     }
     additions.push({
       id: incoming.id,
-      formName: incoming.formName || "Standard",
+      formName: incoming.formName || "默认",
       episodeRange: incoming.episodeRange || "",
       description: incoming.description || "",
       visualTags: incoming.visualTags || "",
@@ -129,7 +129,7 @@ const mergeLocationZones = (
   if (mode === "replace") {
     const next = normalizedIncoming.map((zone) => ({
       id: zone.id,
-      name: zone.name || "主分区",
+      name: zone.name || "默认",
       kind: zone.kind || "unspecified",
       episodeRange: zone.episodeRange || "",
       layoutNotes: zone.layoutNotes || "",
@@ -167,7 +167,7 @@ const mergeLocationZones = (
     }
     additions.push({
       id: incoming.id,
-      name: incoming.name || "主分区",
+      name: incoming.name || "默认",
       kind: incoming.kind || "unspecified",
       episodeRange: incoming.episodeRange || "",
       layoutNotes: incoming.layoutNotes || "",

@@ -795,19 +795,23 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     const newEdges: WorkflowEdge[] = [];
     const origin = getTemplateOrigin();
     const groupId = `group-episode-${episodeId}-${Date.now()}`;
+    const perShotSpacing = 520;
 
     newNodes.push({
       id: groupId,
       type: 'group',
       position: { x: origin.x, y: origin.y },
       data: { title: `EPISODE ${episode.id}: ${episode.title.toUpperCase()}` } as GroupNodeData,
-      style: { width: 1000, height: 200 + (episode.shots.length * 400) },
+      style: { width: 1500, height: 240 + (episode.shots.length * perShotSpacing) },
     });
 
     episode.shots.forEach((shot, idx) => {
       const shotNodeId = `shot-${episodeId}-${shot.id}-${Date.now()}`;
-      const promptNodeId = `text-prompt-${episodeId}-${shot.id}-${Date.now()}`;
-      const yPos = 120 + (idx * 400);
+      const soraPromptNodeId = `text-sora-${episodeId}-${shot.id}-${Date.now()}`;
+      const storyboardPromptNodeId = `text-storyboard-${episodeId}-${shot.id}-${Date.now()}`;
+      const wanVideoNodeId = `wan-video-${episodeId}-${shot.id}-${Date.now()}`;
+      const wanImageNodeId = `wan-image-${episodeId}-${shot.id}-${Date.now()}`;
+      const yPos = 120 + (idx * perShotSpacing);
 
       newNodes.push({
         id: shotNodeId,
@@ -823,24 +827,78 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           movement: shot.movement,
           difficulty: shot.difficulty,
           dialogue: shot.dialogue,
+          soraPrompt: shot.soraPrompt,
+          storyboardPrompt: shot.storyboardPrompt,
         } as ShotNodeData,
       });
 
       newNodes.push({
-        id: promptNodeId,
+        id: soraPromptNodeId,
         type: 'text',
-        position: { x: 520, y: yPos + 20 },
+        position: { x: 420, y: yPos },
         parentId: groupId,
         extent: 'parent',
         data: {
-          title: `Prompt: ${shot.id}`,
+          title: `Sora Prompt: ${shot.id}`,
           text: shot.soraPrompt || "",
           category: 'episode',
           refId: `${episodeId}|${shot.id}`
         } as TextNodeData,
       });
 
-      newEdges.push({ id: `edge-shot-prompt-${shot.id}`, source: shotNodeId, target: promptNodeId, sourceHandle: 'text', targetHandle: 'text' });
+      newNodes.push({
+        id: storyboardPromptNodeId,
+        type: 'text',
+        position: { x: 420, y: yPos + 170 },
+        parentId: groupId,
+        extent: 'parent',
+        data: {
+          title: `Storyboard Prompt: ${shot.id}`,
+          text: shot.storyboardPrompt || "",
+          category: 'episode',
+          refId: `${episodeId}|${shot.id}`
+        } as TextNodeData,
+      });
+
+      newNodes.push({
+        id: wanVideoNodeId,
+        type: 'wanVideoGen',
+        position: { x: 860, y: yPos },
+        parentId: groupId,
+        extent: 'parent',
+        data: {
+          title: `WAN Vid: ${shot.id}`,
+          inputImages: [],
+          inputPrompt: shot.soraPrompt || null,
+          status: 'idle',
+          error: null,
+          aspectRatio: '16:9',
+        } as VideoGenNodeData,
+      });
+
+      newNodes.push({
+        id: wanImageNodeId,
+        type: 'wanImageGen',
+        position: { x: 860, y: yPos + 170 },
+        parentId: groupId,
+        extent: 'parent',
+        data: {
+          title: `WAN Img: ${shot.id}`,
+          inputImages: [],
+          inputPrompt: shot.storyboardPrompt || null,
+          outputImage: null,
+          status: 'idle',
+          error: null,
+          aspectRatio: '16:9',
+        } as ImageGenNodeData,
+      });
+
+      newEdges.push(
+        { id: `edge-shot-sora-${shot.id}`, source: shotNodeId, target: soraPromptNodeId, sourceHandle: 'text', targetHandle: 'text' },
+        { id: `edge-shot-storyboard-${shot.id}`, source: shotNodeId, target: storyboardPromptNodeId, sourceHandle: 'text', targetHandle: 'text' },
+        { id: `edge-sora-wanvid-${shot.id}`, source: soraPromptNodeId, target: wanVideoNodeId, sourceHandle: 'text', targetHandle: 'text' },
+        { id: `edge-storyboard-wanimg-${shot.id}`, source: storyboardPromptNodeId, target: wanImageNodeId, sourceHandle: 'text', targetHandle: 'text' },
+      );
     });
 
     addNodesAndEdges(newNodes, newEdges);
