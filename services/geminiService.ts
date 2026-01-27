@@ -670,10 +670,122 @@ export const generateCharacterBriefs = async (
   return { characters, usage };
 };
 
+// 1.3.2 Character Roster Briefs (parser-seeded, non-identification)
+export const generateCharacterRosterBriefs = async (
+  config: TextServiceConfig,
+  seeds: Array<{
+    name: string;
+    role?: string;
+    episodeUsage?: string;
+    appearanceCount?: number;
+    forms?: Array<{ formName: string; episodeRange: string }>;
+  }>,
+  script: string,
+  projectSummary: string,
+  styleGuide?: string
+): Promise<{ characters: Character[]; usage: TokenUsage }> => {
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      characters: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            role: { type: Type.STRING, description: "角色的身份定位/叙事功能（抽象描述）" },
+            bio: { type: Type.STRING, description: "角色抽象描述：身份、性格、动机、关系（中文 2-4 句）" },
+            archetype: { type: Type.STRING },
+            assetPriority: { type: Type.STRING, enum: ["high", "medium", "low"] },
+            episodeUsage: { type: Type.STRING },
+            tags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            forms: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  formName: { type: Type.STRING },
+                  episodeRange: { type: Type.STRING },
+                  description: { type: Type.STRING, description: "该形态在剧情中的状态/气质（抽象+过渡）" },
+                  visualTags: { type: Type.STRING, description: "该形态的视觉关键词（具象）" },
+                  identityOrState: { type: Type.STRING }
+                },
+                required: ["formName", "episodeRange", "description", "visualTags"]
+              }
+            }
+          },
+          required: ["name", "bio"]
+        }
+      }
+    },
+    required: ["characters"]
+  };
+
+  const systemInstruction = "Role: Showrunner + Character Director. 你不会再做角色识别，只做角色与形态描述。";
+  const prompt = `
+    重要前提：
+    - 下面这份【角色清单】已经由代码解析器产出，是权威输入。
+    - 你不得新增角色、不得删除角色、不得改名。
+    - 路人/一次性角色已经被过滤，不需要再做主次筛选。
+
+    任务：
+    1) 为每个角色写“角色描述（抽象层）”：身份定位、性格气质、核心动机与关系张力。
+    2) 为每个角色的每个形态写“形态描述（具象层）”：视觉特征关键词与状态说明。
+
+    角色清单（含形态占位）：
+    ${JSON.stringify(seeds)}
+
+    项目摘要：
+    ${projectSummary}
+
+    风格指导：
+    ${styleGuide || "Standard Cinematic"}
+
+    剧本原文（节选）：
+    ${script.slice(0, 70000)}
+
+    输出要求：
+    - 使用中文 JSON。
+    - 角色描述（bio）偏抽象；形态描述（forms[].visualTags）偏具象。
+    - 若某角色只有一个默认形态（如 Standard），请保留并补全描述，不要删掉。
+  `;
+
+  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const raw = JSON.parse(text).characters || [];
+  const characters: Character[] = raw.map((c: any) => ({
+    id: c.name,
+    name: c.name,
+    role: c.role || "",
+    isMain: true,
+    bio: c.bio || "",
+    forms: (c.forms ?? []).map((f: any) => ({
+      ...f,
+      id: ensureStableId(f?.id, "form"),
+    })),
+    assetPriority: c.assetPriority || "medium",
+    archetype: c.archetype,
+    episodeUsage: c.episodeUsage,
+    tags: c.tags
+  }));
+
+  return { characters, usage };
+};
+
 // 1.4 Character Deep Dive
 export const analyzeCharacterDepth = async (
   config: TextServiceConfig,
-  characterName: string,
+  character: {
+    name: string;
+    role?: string;
+    episodeUsage?: string;
+    forms?: CharacterForm[];
+    bio?: string;
+    archetype?: string;
+    tags?: string[];
+  },
   script: string,
   projectSummary: string,
   styleGuide?: string
@@ -722,8 +834,20 @@ export const analyzeCharacterDepth = async (
   };
 
   const systemInstruction = "Role: Character Designer & Asset Supervisor.";
+  const existingForms = (character.forms || []).map((f) => ({
+    formName: f.formName,
+    episodeRange: f.episodeRange,
+    identityOrState: f.identityOrState,
+    description: f.description,
+    visualTags: f.visualTags
+  }));
   const prompt = `
-    目标角色: ${characterName}
+    目标角色: ${character.name}
+    角色定位（抽象层）: ${character.role || "未提供"}
+    角色既有描述: ${character.bio || "未提供"}
+    角色标签: ${(character.tags || []).join(" / ") || "未提供"}
+    既有形态清单（来自解析器/现有数据，禁止删改名，可补充/扩展）:
+    ${JSON.stringify(existingForms)}
     项目摘要: ${projectSummary}
     风格指导: ${styleGuide || "Standard Cinematic"}
 
@@ -741,6 +865,7 @@ export const analyzeCharacterDepth = async (
       - genPrompts: 便于 AIGC 生成的提示（中文）
 
     注意：
+    - 你不得删除或改名既有形态；可以在其基础上补全字段，或新增确有必要的形态。
     - 如果角色外观变化很少，至少产出 1 个 form（Standard）。
     - episodeRange 请明确形态出现的集数/桥段。
 
@@ -830,10 +955,107 @@ export const identifyLocations = async (
   return { locations, usage };
 };
 
+// 1.5.1 Location Roster Briefs (parser-seeded, non-identification)
+export const generateLocationRosterBriefs = async (
+  config: TextServiceConfig,
+  seeds: Array<{
+    name: string;
+    episodeUsage?: string;
+    zones?: Array<{ name: string; episodeRange: string }>;
+  }>,
+  script: string,
+  projectSummary: string,
+  styleGuide?: string
+): Promise<{ locations: Location[]; usage: TokenUsage }> => {
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      locations: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ["core", "secondary"] },
+            description: { type: Type.STRING, description: "场景在世界观/叙事中的抽象定位描述" },
+            assetPriority: { type: Type.STRING, enum: ["high", "medium", "low"] },
+            episodeUsage: { type: Type.STRING },
+            zones: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  kind: { type: Type.STRING, enum: ["interior", "exterior", "transition", "unspecified"] },
+                  episodeRange: { type: Type.STRING }
+                },
+                required: ["name", "episodeRange"]
+              }
+            }
+          },
+          required: ["name", "description"]
+        }
+      }
+    },
+    required: ["locations"]
+  };
+
+  const systemInstruction = "Role: Production Designer / World Builder. 你不会再做场景识别，只做场景与分区描述。";
+  const prompt = `
+    重要前提：
+    - 下面这份【场景清单】已经由代码解析器产出，是权威输入。
+    - 你不得新增场景、不得删除场景、不得改名。
+    - zones 是解析得到的分区/子区域清单，不得改名或删除，可补充 kind/episodeRange。
+
+    任务：
+    1) 为每个场景写“场景描述（抽象层）”：它在世界观/叙事中的功能定位与情绪基调。
+    2) 保留并完善分区清单（zones），但不要改名或删掉。
+
+    场景清单（含分区占位）：
+    ${JSON.stringify(seeds)}
+
+    项目摘要：
+    ${projectSummary}
+
+    风格指导：
+    ${styleGuide || "Standard"}
+
+    剧本原文（节选）：
+    ${script.slice(0, 70000)}
+
+    输出要求：
+    - 使用中文 JSON。
+    - description 偏抽象；zones 只是结构化清单与轻度补全。
+  `;
+
+  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const rawLocs = JSON.parse(text).locations || [];
+  const locations: Location[] = rawLocs.map((l: any) => ({
+    id: l.name,
+    name: l.name,
+    type: l.type || "secondary",
+    description: l.description || "",
+    visuals: "",
+    assetPriority: l.assetPriority,
+    episodeUsage: l.episodeUsage,
+    zones: (l.zones ?? []).map((z: any) => ({
+      ...z,
+      id: ensureStableId(z?.id, "zone")
+    }))
+  }));
+
+  return { locations, usage };
+};
+
 // 1.6 Location Deep Dive
 export const analyzeLocationDepth = async (
   config: TextServiceConfig,
-  locationName: string,
+  location: {
+    name: string;
+    description?: string;
+    episodeUsage?: string;
+    zones?: LocationZone[];
+  },
   script: string,
   styleGuide?: string
 ): Promise<{ visuals: string; zones?: LocationZone[]; usage: TokenUsage }> => {
@@ -865,8 +1087,17 @@ export const analyzeLocationDepth = async (
   };
 
   const systemInstruction = "Role: Art Director / Concept Artist.";
+  const existingZones = (location.zones || []).map((z) => ({
+    name: z.name,
+    kind: z.kind,
+    episodeRange: z.episodeRange
+  }));
   const prompt = `
-    目标场景: ${locationName}
+    目标场景: ${location.name}
+    场景定位（抽象层）: ${location.description || "未提供"}
+    场景出现范围: ${location.episodeUsage || "未提供"}
+    既有分区清单（来自解析器/现有数据，禁止删改名，可补充/扩展）:
+    ${JSON.stringify(existingZones)}
     风格指导: ${styleGuide || "Standard"}
 
     任务: 生成场景定模美术资产清单（含子区域/内外景）。

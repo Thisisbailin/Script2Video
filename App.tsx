@@ -91,6 +91,218 @@ const normalizeFormsWithIds = (forms: any[]) =>
 const normalizeZonesWithIds = (zones: any[]) =>
   (zones || []).map((zone) => ({ ...zone, id: ensureStableId(zone?.id, "zone") }));
 
+const ensureCharacterDefaultForms = (
+  characterName: string,
+  forms: any[],
+  episodeUsage?: string
+) => {
+  const normalized = normalizeFormsWithIds(forms || []).map((form) => {
+    const baseName = (form.formName || "Standard").trim() || "Standard";
+    const prefixed = baseName.startsWith(`${characterName}-`) ? baseName : `${characterName}-${baseName}`;
+    return {
+      ...form,
+      formName: prefixed,
+      episodeRange: form.episodeRange || episodeUsage || "Whole Series",
+      description: form.description || "",
+      visualTags: form.visualTags || "",
+    };
+  });
+
+  if (normalized.length > 0) return normalized;
+
+  return [
+    {
+      id: ensureStableId(undefined, "form"),
+      formName: `${characterName}-Standard`,
+      episodeRange: episodeUsage || "Whole Series",
+      description: "",
+      visualTags: "",
+    },
+  ];
+};
+
+const mergeCharacterFormsByName = (characterName: string, currentForms: any[], incomingForms: any[], episodeUsage?: string) => {
+  const normalizeName = (name: string) => {
+    const trimmed = (name || "Standard").trim() || "Standard";
+    return trimmed.startsWith(`${characterName}-`) ? trimmed : `${characterName}-${trimmed}`;
+  };
+
+  const current = ensureCharacterDefaultForms(characterName, currentForms, episodeUsage);
+  const incoming = ensureCharacterDefaultForms(characterName, incomingForms, episodeUsage);
+
+  const map = new Map<string, any>();
+  current.forEach((form) => {
+    map.set(normalizeName(form.formName).toLowerCase(), {
+      ...form,
+      formName: normalizeName(form.formName),
+    });
+  });
+
+  incoming.forEach((form) => {
+    const key = normalizeName(form.formName).toLowerCase();
+    const prev = map.get(key);
+    map.set(key, {
+      ...(prev || {}),
+      ...form,
+      id: prev?.id || ensureStableId(form?.id, "form"),
+      formName: normalizeName(form.formName),
+      episodeRange: form.episodeRange || prev?.episodeRange || episodeUsage || "Whole Series",
+      description: form.description || prev?.description || "",
+      visualTags: form.visualTags || prev?.visualTags || "",
+    });
+  });
+
+  return Array.from(map.values());
+};
+
+const buildLocationSeedsFromScenes = (episodes: Episode[], existingLocations: any[] = []) => {
+  const existingByName = new Map<string, any>(
+    (existingLocations || []).map((loc) => [loc.name, loc])
+  );
+
+  const map = new Map<
+    string,
+    {
+      name: string;
+      episodeIds: Set<number>;
+      partitions: Map<string, Set<number>>;
+    }
+  >();
+
+  episodes.forEach((ep) => {
+    (ep.scenes || []).forEach((scene) => {
+      const sceneName = (scene.title || scene.metadata?.rawTitle || "").trim();
+      if (!sceneName) return;
+      const partitionName = (scene.partition || "Main Zone").trim() || "Main Zone";
+      if (!map.has(sceneName)) {
+        map.set(sceneName, {
+          name: sceneName,
+          episodeIds: new Set<number>(),
+          partitions: new Map<string, Set<number>>(),
+        });
+      }
+      const entry = map.get(sceneName)!;
+      entry.episodeIds.add(ep.id);
+      if (!entry.partitions.has(partitionName)) {
+        entry.partitions.set(partitionName, new Set<number>());
+      }
+      entry.partitions.get(partitionName)!.add(ep.id);
+    });
+  });
+
+  const seeds = Array.from(map.values()).map((entry) => {
+    const episodeUsage = formatEpisodeUsage(entry.episodeIds);
+    const parsedZones = Array.from(entry.partitions.entries()).map(([name, epIds]) => ({
+      id: ensureStableId(undefined, "zone"),
+      name,
+      kind: "unspecified" as const,
+      episodeRange: formatEpisodeUsage(epIds) || episodeUsage || "Whole Series",
+      layoutNotes: "",
+      keyProps: "",
+      lightingWeather: "",
+      materialPalette: "",
+    }));
+
+    const baseZones = parsedZones.length
+      ? parsedZones
+      : [
+          {
+            id: ensureStableId(undefined, "zone"),
+            name: "Main Zone",
+            kind: "unspecified" as const,
+            episodeRange: episodeUsage || "Whole Series",
+            layoutNotes: "",
+            keyProps: "",
+            lightingWeather: "",
+            materialPalette: "",
+          },
+        ];
+
+    const existing = existingByName.get(entry.name);
+    const existingZones = normalizeZonesWithIds(existing?.zones || []);
+    const zoneMap = new Map<string, any>();
+    [...existingZones, ...baseZones].forEach((zone) => {
+      zoneMap.set((zone.name || "Main Zone").toLowerCase(), zone);
+    });
+
+    return {
+      id: existing?.id || entry.name,
+      name: entry.name,
+      type: existing?.type || "secondary",
+      description: existing?.description || "",
+      visuals: existing?.visuals || "",
+      assetPriority: existing?.assetPriority,
+      episodeUsage: existing?.episodeUsage || episodeUsage,
+      zones: Array.from(zoneMap.values()),
+    };
+  });
+
+  // Preserve existing core locations that might not be present in parsed scenes.
+  const seedNames = new Set(seeds.map((s) => s.name));
+  const preservedExisting = (existingLocations || []).filter(
+    (loc) => loc?.name && !seedNames.has(loc.name) && loc.type === "core"
+  );
+
+  return [...seeds, ...preservedExisting];
+};
+
+const ensureLocationDefaultZones = (zones: any[], episodeUsage?: string) => {
+  const normalized = normalizeZonesWithIds(zones || []).map((zone) => ({
+    ...zone,
+    name: (zone.name || "Main Zone").trim() || "Main Zone",
+    kind: zone.kind || "unspecified",
+    episodeRange: zone.episodeRange || episodeUsage || "Whole Series",
+    layoutNotes: zone.layoutNotes || "",
+    keyProps: zone.keyProps || "",
+    lightingWeather: zone.lightingWeather || "",
+    materialPalette: zone.materialPalette || "",
+  }));
+
+  if (normalized.length > 0) return normalized;
+
+  return [
+    {
+      id: ensureStableId(undefined, "zone"),
+      name: "Main Zone",
+      kind: "unspecified" as const,
+      episodeRange: episodeUsage || "Whole Series",
+      layoutNotes: "",
+      keyProps: "",
+      lightingWeather: "",
+      materialPalette: "",
+    },
+  ];
+};
+
+const mergeLocationZonesByName = (currentZones: any[], incomingZones: any[], episodeUsage?: string) => {
+  const current = ensureLocationDefaultZones(currentZones, episodeUsage);
+  const incoming = ensureLocationDefaultZones(incomingZones, episodeUsage);
+  const map = new Map<string, any>();
+
+  current.forEach((zone) => {
+    map.set((zone.name || "Main Zone").toLowerCase(), zone);
+  });
+
+  incoming.forEach((zone) => {
+    const key = (zone.name || "Main Zone").toLowerCase();
+    const prev = map.get(key);
+    map.set(key, {
+      ...(prev || {}),
+      ...zone,
+      id: prev?.id || ensureStableId(zone?.id, "zone"),
+      name: zone.name || prev?.name || "Main Zone",
+      kind: zone.kind || prev?.kind || "unspecified",
+      episodeRange: zone.episodeRange || prev?.episodeRange || episodeUsage || "Whole Series",
+      layoutNotes: zone.layoutNotes || prev?.layoutNotes || "",
+      keyProps: zone.keyProps || prev?.keyProps || "",
+      lightingWeather: zone.lightingWeather || prev?.lightingWeather || "",
+      materialPalette: zone.materialPalette || prev?.materialPalette || "",
+    });
+  });
+
+  return Array.from(map.values());
+};
+
 const PROJECT_STORAGE_KEY = 'script2video_project_v1';
 const CONFIG_STORAGE_KEY = 'script2video_config_v1';
 const UI_STATE_STORAGE_KEY = 'script2video_ui_state_v1';
@@ -906,85 +1118,113 @@ const App: React.FC = () => {
   // Step 3: Character List
   const processCharacterList = async () => {
     setAnalysisError(null);
-    setProcessing(true, "Step 3/6: Identifying Character Roster...");
+    setProcessing(true, "Step 3/6: Building Character Roster from Parsed Script...");
     try {
-      // 基于解析结果先标注出现次数 & 主次角色
       const stats = buildCharacterStats(projectData.episodes);
-      const mergedCharacters = (() => {
-        const existing = projectData.context.characters || [];
-        const existingNames = new Set(existing.map((c) => c.name));
-        const updatedExisting = existing.map((c) => {
-          const stat = stats.get(c.name);
-          if (!stat) return c;
-          const appearanceCount = stat.count;
-          return {
-            ...c,
-            appearanceCount,
-            episodeUsage: c.episodeUsage || formatEpisodeUsage(stat.episodeIds),
-            isMain: appearanceCount > 1,
-            assetPriority: c.assetPriority || (appearanceCount > 1 ? "medium" : "low"),
-          };
-        });
-        const newOnes = Array.from(stats.entries())
-          .filter(([name]) => name && !existingNames.has(name))
-          .map(([name, stat]) => ({
-            id: `char-script-${Date.now()}-${name}`,
-            name,
-            role: "",
-            isMain: stat.count > 1,
-            bio: "",
-            forms: [],
-            appearanceCount: stat.count,
-            episodeUsage: formatEpisodeUsage(stat.episodeIds),
-            assetPriority: stat.count > 1 ? "medium" : "low",
-          }));
-        return [...updatedExisting, ...newOnes];
-      })() as Character[];
+      const existing = projectData.context.characters || [];
+      const existingByName = new Map(existing.map((c) => [c.name, c]));
 
-      const minorNames = mergedCharacters
-        .filter((c) => (c.appearanceCount ?? 0) <= 1)
-        .map((c) => c.name);
-
-      let briefResult: { characters: any[]; usage: TokenUsage } | null = null;
-      if (minorNames.length) {
-        briefResult = await GeminiService.generateCharacterBriefs(
-          config.textConfig,
-          minorNames,
-          projectData.rawScript,
-          projectData.context.projectSummary
-        );
-      }
-
-      const briefMap = new Map<string, any>(
-        (briefResult?.characters || []).map((c) => [c.name, c])
+      // 路人角色忽略：只保留出现次数 > 1 的解析角色，或已经标记为主角的角色
+      const parsedMainEntries = Array.from(stats.entries()).filter(
+        ([, stat]) => (stat.count || 0) > 1
       );
 
-      const updatedCharacters = mergedCharacters.map((c) => {
-        const brief = briefMap.get(c.name);
+      const seedCharacters: Character[] = parsedMainEntries.map(([name, stat]) => {
+        const existingChar = existingByName.get(name);
+        const episodeUsage = existingChar?.episodeUsage || formatEpisodeUsage(stat.episodeIds);
+        const baseForms = existingChar?.forms || [];
         return {
-          ...c,
-          role: brief?.role || c.role,
-          bio: brief?.bio || c.bio,
-          archetype: brief?.archetype || c.archetype,
-          assetPriority: brief?.assetPriority || c.assetPriority || (c.isMain ? "medium" : "low"),
-          episodeUsage: c.episodeUsage || brief?.episodeUsage,
-          tags: brief?.tags || c.tags,
+          id: existingChar?.id || `char-script-${Date.now()}-${name}`,
+          name,
+          role: existingChar?.role || "",
+          isMain: existingChar?.isMain ?? true,
+          bio: existingChar?.bio || "",
+          forms: ensureCharacterDefaultForms(name, baseForms, episodeUsage),
+          appearanceCount: stat.count,
+          episodeUsage,
+          assetPriority: existingChar?.assetPriority || "medium",
+          archetype: existingChar?.archetype,
+          tags: existingChar?.tags,
+          voiceId: existingChar?.voiceId,
+          voicePrompt: existingChar?.voicePrompt,
+          previewAudioUrl: existingChar?.previewAudioUrl,
         };
       });
-      const normalizedCharacters = updatedCharacters.map((c) => ({
-        ...c,
-        forms: normalizeFormsWithIds(c.forms || []),
+
+      // 保留已有主角，即便解析统计中出现次数较少
+      const preservedExistingMains = existing.filter(
+        (c) => c.isMain && !seedCharacters.find((s) => s.name === c.name)
+      );
+
+      const mergedSeeds = [...seedCharacters, ...preservedExistingMains].map((char) => {
+        const stat = stats.get(char.name);
+        const episodeUsage = char.episodeUsage || (stat ? formatEpisodeUsage(stat.episodeIds) : "");
+        return {
+          ...char,
+          appearanceCount: stat?.count ?? char.appearanceCount,
+          episodeUsage,
+          forms: ensureCharacterDefaultForms(char.name, char.forms || [], episodeUsage),
+          isMain: true,
+        };
+      });
+
+      if (mergedSeeds.length === 0) {
+        setProcessing(false);
+        setAnalysisError({
+          step: AnalysisSubStep.CHAR_IDENTIFICATION,
+          message: "解析结果未发现需要处理的主要角色（路人角色已忽略）。",
+        });
+        return;
+      }
+
+      const seedsForAI = mergedSeeds.map((c) => ({
+        name: c.name,
+        role: c.role,
+        episodeUsage: c.episodeUsage,
+        appearanceCount: c.appearanceCount,
+        forms: (c.forms || []).map((f) => ({
+          formName: f.formName,
+          episodeRange: f.episodeRange,
+        })),
       }));
+
+      const briefResult = await GeminiService.generateCharacterRosterBriefs(
+        config.textConfig,
+        seedsForAI,
+        projectData.rawScript,
+        projectData.context.projectSummary,
+        projectData.globalStyleGuide
+      );
+
+      const briefMap = new Map<string, any>((briefResult.characters || []).map((c) => [c.name, c]));
+
+      const normalizedCharacters = mergedSeeds.map((seed) => {
+        const brief = briefMap.get(seed.name);
+        const mergedForms = mergeCharacterFormsByName(
+          seed.name,
+          seed.forms || [],
+          brief?.forms || [],
+          seed.episodeUsage
+        );
+        return {
+          ...seed,
+          role: brief?.role || seed.role,
+          bio: brief?.bio || seed.bio,
+          archetype: brief?.archetype || seed.archetype,
+          assetPriority: brief?.assetPriority || seed.assetPriority || "medium",
+          episodeUsage: seed.episodeUsage || brief?.episodeUsage,
+          tags: brief?.tags || seed.tags,
+          forms: mergedForms,
+        };
+      });
 
       setProjectData(prev => ({
         ...prev,
         context: { ...prev.context, characters: normalizedCharacters },
-        contextUsage: briefResult ? GeminiService.addUsage(prev.contextUsage!, briefResult.usage) : prev.contextUsage!,
+        contextUsage: GeminiService.addUsage(prev.contextUsage!, briefResult.usage),
         phase1Usage: {
           ...prev.phase1Usage,
-          charList: briefResult
-            ? GeminiService.addUsage(prev.phase1Usage.charList, briefResult.usage)
-            : prev.phase1Usage.charList
+          charList: GeminiService.addUsage(prev.phase1Usage.charList, briefResult.usage)
         }
       }));
       setProcessing(false);
@@ -1019,25 +1259,39 @@ const App: React.FC = () => {
     setProcessing(true, `Step 4/6: Deep Analysis for '${charName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
 
     try {
+      const targetCharacter = projectData.context.characters.find((c) => c.name === charName);
+      if (!targetCharacter) {
+        shiftQueue();
+        setProcessing(false);
+        return;
+      }
       const result = await GeminiService.analyzeCharacterDepth(
         config.textConfig,
-        charName,
+        {
+          name: targetCharacter.name,
+          role: targetCharacter.role,
+          episodeUsage: targetCharacter.episodeUsage,
+          forms: targetCharacter.forms,
+          bio: targetCharacter.bio,
+          archetype: targetCharacter.archetype,
+          tags: targetCharacter.tags,
+        },
         projectData.rawScript,
         projectData.context.projectSummary,
         projectData.globalStyleGuide
       );
 
       setProjectData(prev => {
-        const normalizedForms = (result.forms || []).map((f) => {
-          const base = f.formName || "Standard";
-          const prefix = base.startsWith(`${charName}-`) ? base : `${charName}-${base}`;
-          return { ...f, id: ensureStableId(f?.id, "form"), formName: prefix };
-        });
         const updatedChars = prev.context.characters.map(c =>
           c.name === charName
             ? {
               ...c,
-              forms: normalizedForms,
+              forms: mergeCharacterFormsByName(
+                c.name,
+                c.forms || [],
+                result.forms || [],
+                c.episodeUsage
+              ),
               bio: result.bio || c.bio,
               archetype: result.archetype || c.archetype,
               episodeUsage: result.episodeUsage || c.episodeUsage,
@@ -1081,13 +1335,48 @@ const App: React.FC = () => {
   // Step 5: Location List
   const processLocationList = async () => {
     setAnalysisError(null);
-    setProcessing(true, "Step 5/6: Mapping Locations...");
+    setProcessing(true, "Step 5/6: Building Locations from Parsed Scenes...");
     try {
-      const result = await GeminiService.identifyLocations(config.textConfig, projectData.rawScript, projectData.context.projectSummary);
-      const normalizedLocations = (result.locations || []).map((loc) => ({
-        ...loc,
-        zones: normalizeZonesWithIds(loc.zones || []),
+      const seeds = buildLocationSeedsFromScenes(projectData.episodes, projectData.context.locations || []);
+      if (seeds.length === 0) {
+        setProcessing(false);
+        setAnalysisError({
+          step: AnalysisSubStep.LOC_IDENTIFICATION,
+          message: "解析结果未发现可用的场景/分区清单。",
+        });
+        return;
+      }
+      const seedsForAI = seeds.map((loc) => ({
+        name: loc.name,
+        episodeUsage: loc.episodeUsage,
+        zones: ensureLocationDefaultZones(loc.zones || [], loc.episodeUsage).map((zone) => ({
+          name: zone.name,
+          episodeRange: zone.episodeRange,
+        })),
       }));
+
+      const result = await GeminiService.generateLocationRosterBriefs(
+        config.textConfig,
+        seedsForAI,
+        projectData.rawScript,
+        projectData.context.projectSummary,
+        projectData.globalStyleGuide
+      );
+
+      const briefMap = new Map((result.locations || []).map((loc) => [loc.name, loc]));
+      const normalizedLocations = seeds.map((seed) => {
+        const brief = briefMap.get(seed.name);
+        const episodeUsage = seed.episodeUsage || brief?.episodeUsage;
+        const mergedZones = mergeLocationZonesByName(seed.zones || [], brief?.zones || [], episodeUsage);
+        return {
+          ...seed,
+          type: brief?.type || seed.type || "secondary",
+          description: brief?.description || seed.description || "",
+          assetPriority: brief?.assetPriority || seed.assetPriority,
+          episodeUsage,
+          zones: mergedZones,
+        };
+      });
       setProjectData(prev => ({
         ...prev,
         context: { ...prev.context, locations: normalizedLocations },
@@ -1108,7 +1397,12 @@ const App: React.FC = () => {
   const confirmLocListAndNext = () => {
     setAnalysisError(null);
     const coreLocs = projectData.context.locations.filter(l => l.type === 'core').map(l => l.name);
-    setQueue(coreLocs, coreLocs.length);
+    const priorityLocs = projectData.context.locations
+      .filter((l) => l.assetPriority === "high" || l.assetPriority === "medium")
+      .map((l) => l.name);
+    const fallbackLocs = projectData.context.locations.map((l) => l.name);
+    const queue = coreLocs.length ? coreLocs : (priorityLocs.length ? priorityLocs : fallbackLocs);
+    setQueue(queue, queue.length);
     setAnalysisStep(AnalysisSubStep.LOC_DEEP_DIVE);
   };
 
@@ -1125,17 +1419,33 @@ const App: React.FC = () => {
     setProcessing(true, `Step 6/6: Visualizing '${locName}' (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
 
     try {
+      const targetLocation = projectData.context.locations.find((l) => l.name === locName);
+      if (!targetLocation) {
+        shiftQueue();
+        setProcessing(false);
+        return;
+      }
       const result = await GeminiService.analyzeLocationDepth(
         config.textConfig,
-        locName,
+        {
+          name: targetLocation.name,
+          description: targetLocation.description,
+          episodeUsage: targetLocation.episodeUsage,
+          zones: targetLocation.zones,
+        },
         projectData.rawScript,
         projectData.globalStyleGuide
       );
 
       setProjectData(prev => {
-        const normalizedZones = normalizeZonesWithIds(result.zones || []);
         const updatedLocs = prev.context.locations.map(l =>
-          l.name === locName ? { ...l, visuals: result.visuals, zones: normalizedZones.length ? normalizedZones : l.zones } : l
+          l.name === locName
+            ? {
+              ...l,
+              visuals: result.visuals || l.visuals,
+              zones: mergeLocationZonesByName(l.zones || [], result.zones || [], l.episodeUsage),
+            }
+            : l
         );
         return {
           ...prev,
