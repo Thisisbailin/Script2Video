@@ -23,9 +23,10 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
     await runImageGen(id);
   };
 
-  const { text: connectedText } = getConnectedInputs(id);
+  const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
   const enableInterleave = data.enableInterleave ?? false;
+  const effectiveInterleave = enableInterleave || connectedImages.length === 0;
   const outputCount = Math.max(1, Math.min(4, data.outputCount ?? 1));
   const isLoading = data.status === "loading";
 
@@ -112,7 +113,7 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
             <span>模式</span>
             <span className="text-[8px] uppercase tracking-widest opacity-70">
-              {enableInterleave ? "图文理解/混排" : "图像编辑"}
+              {effectiveInterleave ? "图文理解/混排（含纯文本）" : "图像编辑"}
             </span>
             <button
               className={`h-5 w-9 rounded-full border transition-all ${enableInterleave ? "bg-emerald-500/20 border-emerald-400/40" : "bg-white/5 border-white/10"}`}
@@ -122,8 +123,13 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
             </button>
           </div>
           <div className="text-[8px] text-[var(--node-text-secondary)]/70">
-            图文理解/混排：0-1 张图 · 图像编辑：1-4 张图
+            {effectiveInterleave ? "支持纯文本或 0-1 张图" : "需要 1-4 张参考图"}
           </div>
+          {!enableInterleave && connectedImages.length === 0 && (
+            <div className="text-[8px] text-amber-300/80">
+              当前无参考图，系统将按“图文理解/混排（文生图）”处理。
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[8px] uppercase tracking-widest text-[var(--node-text-secondary)]">输出张数</label>

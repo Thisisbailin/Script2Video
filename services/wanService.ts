@@ -114,6 +114,67 @@ const requestWanTask = async (
   return { id: taskId, url };
 };
 
+const requestWanTaskStream = async (
+  endpoint: string,
+  apiKey: string,
+  payload: Record<string, any>
+): Promise<WanTaskSubmissionResult> => {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    "X-DashScope-Sse": "enable",
+    Accept: "text/event-stream",
+  };
+
+  const response = await fetch(wrapWithProxy(endpoint), {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Wan API Error ${response.status}: ${text}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const text = await response.text();
+    return { url: extractUrl(text) };
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let lastUrl: string | undefined;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const data = trimmed.slice(5).trim();
+      if (!data || data === "[DONE]") continue;
+      try {
+        const parsed = JSON.parse(data);
+        const url = extractUrl(parsed);
+        if (url) lastUrl = url;
+      } catch {
+        // ignore partial JSON chunks
+      }
+    }
+  }
+
+  if (!lastUrl) {
+    throw new Error("Wan 图文混排返回无有效图片 URL。");
+  }
+  return { url: lastUrl };
+};
+
 export const submitWanImageTask = async (
   prompt: string,
   config: MultimodalConfig,
@@ -142,9 +203,7 @@ export const submitWanImageTask = async (
   const endpoint = config.baseUrl || QWEN_WAN_IMAGE_ENDPOINT;
   const images = options?.inputImages || (options?.inputImageUrl ? [options.inputImageUrl] : []);
   const hasImages = images.length > 0;
-  // DashScope WAN image endpoint currently rejects stream=false synchronous calls.
-  // We therefore always create async tasks and poll for results.
-  // Also: when no reference images are provided, force interleave mode to allow text-to-image.
+  // When no reference images are provided, force interleave mode to allow text-to-image.
   const enableInterleave = !hasImages
     ? true
     : (typeof options?.enableInterleave === "boolean" ? options.enableInterleave : false);
@@ -168,7 +227,7 @@ export const submitWanImageTask = async (
     if (image) content.push({ image });
   });
 
-  const outputCount = Math.max(1, Math.min(4, options?.outputCount ?? 1));
+  const outputCount = enableInterleave ? 1 : Math.max(1, Math.min(4, options?.outputCount ?? 1));
   const payload: Record<string, any> = {
     model: config.model,
     input: {
@@ -191,8 +250,13 @@ export const submitWanImageTask = async (
     },
   };
 
-  // Use async mode to avoid stream=false validation errors upstream.
-  return requestWanTask(endpoint, apiKey, payload, { async: true });
+  if (enableInterleave) {
+    payload.parameters.stream = true;
+    return requestWanTaskStream(endpoint, apiKey, payload);
+  }
+
+  // Sync call for image editing (requires 1-4 images).
+  return requestWanTask(endpoint, apiKey, payload);
 };
 
 export const submitWanVideoTask = async (
