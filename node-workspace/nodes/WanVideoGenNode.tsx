@@ -163,6 +163,103 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
       selected={selected}
     >
       <div className="space-y-4 flex-1 flex flex-col">
+        {data.videoUrl ? (
+          <div className="node-surface relative overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
+            <video
+              controls
+              playsInline
+              disablePictureInPicture
+              disableRemotePlayback
+              controlsList="nodownload noplaybackrate noremoteplayback"
+              className="w-full aspect-video transition-transform duration-700 bg-black/40 nodrag"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <source src={data.videoUrl} />
+            </video>
+          </div>
+        ) : (
+          <div
+            onClick={handleGenerate}
+            className={`node-surface node-surface--dashed w-full aspect-video rounded-[20px] flex flex-col items-center justify-center transition-all duration-500 ${data.status === "loading"
+              ? "border-amber-500/40 bg-amber-500/[0.02]"
+              : "hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]"
+              }`}
+          >
+          {data.status === "loading" ? (
+            <div className="flex flex-col items-center gap-3">
+              <RefreshCw size={24} className="text-[var(--node-accent)] animate-spin" />
+              <span className="text-[10px] opacity-50 uppercase tracking-[0.2em] font-black">Generating...</span>
+              <div className="w-full max-w-[180px] space-y-2">
+                <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="text-[9px] font-semibold text-amber-300/80 text-center">{progress}%</div>
+              </div>
+            </div>
+          ) : (
+              <>
+                <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4 transition-all duration-500 shadow-inner">
+                  <Film className="text-[var(--node-text-secondary)]" size={28} />
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black transition-all duration-500 text-white">GENERATE</span>
+                  <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold transition-all duration-500">Click to run flow</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {data.videoUrl && (
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-[var(--node-text-secondary)] bg-white/5 hover:bg-white/10 transition"
+            >
+              <Download size={12} />
+              下载
+            </button>
+            <div className="flex-1" />
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-[9px] font-semibold text-amber-300/90">
+                <div className="h-1 w-24 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <span>{progress}%</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-white bg-emerald-500/80 hover:bg-emerald-500 transition"
+                title="Regenerate"
+              >
+                <RefreshCw size={12} />
+                重试
+              </button>
+            )}
+          </div>
+        )}
+
+        {showPromptInput && (
+          <div className="group/prompt relative nodrag">
+            <textarea
+              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
+              placeholder="Enter prompt..."
+              value={data.inputPrompt || ""}
+              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
+              onKeyDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+
+        {hasConnectedImages && (
+          <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/70">
+            {connectedImages.length} image reference{connectedImages.length > 1 ? "s" : ""} connected
+          </div>
+        )}
+
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -317,103 +414,6 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
             </div>
           )}
         </div>
-
-        {showPromptInput && (
-          <div className="group/prompt relative nodrag">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
-
-        {hasConnectedImages && (
-          <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/70">
-            {connectedImages.length} image reference{connectedImages.length > 1 ? "s" : ""} connected
-          </div>
-        )}
-
-        {data.videoUrl ? (
-          <div className="node-surface relative overflow-hidden rounded-[20px] shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
-            <video
-              controls
-              playsInline
-              disablePictureInPicture
-              disableRemotePlayback
-              controlsList="nodownload noplaybackrate noremoteplayback"
-              className="w-full aspect-video transition-transform duration-700 bg-black/40 nodrag"
-              onMouseDown={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <source src={data.videoUrl} />
-            </video>
-          </div>
-        ) : (
-          <div
-            onClick={handleGenerate}
-            className={`node-surface node-surface--dashed w-full aspect-video rounded-[20px] flex flex-col items-center justify-center transition-all duration-500 ${data.status === "loading"
-              ? "border-amber-500/40 bg-amber-500/[0.02]"
-              : "hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]"
-              }`}
-          >
-          {data.status === "loading" ? (
-            <div className="flex flex-col items-center gap-3">
-              <RefreshCw size={24} className="text-[var(--node-accent)] animate-spin" />
-              <span className="text-[10px] opacity-50 uppercase tracking-[0.2em] font-black">Generating...</span>
-              <div className="w-full max-w-[180px] space-y-2">
-                <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
-                </div>
-                <div className="text-[9px] font-semibold text-amber-300/80 text-center">{progress}%</div>
-              </div>
-            </div>
-          ) : (
-              <>
-                <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4 transition-all duration-500 shadow-inner">
-                  <Film className="text-[var(--node-text-secondary)]" size={28} />
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black transition-all duration-500 text-white">GENERATE</span>
-                  <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold transition-all duration-500">Click to run flow</span>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {data.videoUrl && (
-          <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-[var(--node-text-secondary)] bg-white/5 hover:bg-white/10 transition"
-            >
-              <Download size={12} />
-              下载
-            </button>
-            <div className="flex-1" />
-            {isLoading ? (
-              <div className="flex items-center gap-2 text-[9px] font-semibold text-amber-300/90">
-                <div className="h-1 w-24 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
-                </div>
-                <span>{progress}%</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleGenerate}
-                className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-white bg-emerald-500/80 hover:bg-emerald-500 transition"
-                title="Regenerate"
-              >
-                <RefreshCw size={12} />
-                重试
-              </button>
-            )}
-          </div>
-        )}
 
         {data.error && (
           <div className="node-alert p-3 flex gap-2 items-start animate-in fade-in slide-in-from-top-2">

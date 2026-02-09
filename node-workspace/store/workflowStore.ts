@@ -16,13 +16,10 @@ import {
   AnnotationNodeData,
   TextNodeData,
   ImageGenNodeData,
-  LLMGenerateNodeData,
-  OutputNodeData,
   WorkflowNodeData,
   WorkflowFile,
   VideoGenNodeData,
   GroupNodeData,
-  NoteNodeData,
   ShotNodeData,
   GlobalAssetHistoryItem,
   GlobalAssetType,
@@ -493,27 +490,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         watermark: false,
         outputCount: 1,
       } as ImageGenNodeData;
-    case "llmGenerate":
-      return {
-        inputPrompt: null,
-        outputText: null,
-        temperature: 0.7,
-        maxTokens: 1024,
-        status: "idle",
-        error: null,
-        contextSelection: {
-          script: false,
-          globalStyleGuide: false,
-          shotGuide: false,
-          soraGuide: false,
-          storyboardGuide: false,
-          dramaGuide: false,
-          projectSummary: false,
-          episodeSummaries: false,
-          characters: false,
-          locations: false,
-        },
-      } as LLMGenerateNodeData;
     case "soraVideoGen":
       return {
         inputImages: [],
@@ -564,10 +540,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         title: "Node Group",
         isExpanded: true,
       } as GroupNodeData;
-    case "note":
-      return {
-        text: "",
-      } as NoteNodeData;
     case "shot":
       return {
         shotId: "S-1",
@@ -584,11 +556,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         notes: "",
         viewMode: "card",
       } as ShotNodeData;
-    case "output":
-      return {
-        image: null,
-        text: null,
-      } as OutputNodeData;
   }
 };
 
@@ -834,9 +801,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
                 if (!mentions.find((x) => x?.name === m.name)) mentions.push(m);
               });
             }
-          } else if (sourceNode.type === "llmGenerate") {
-            const value = (sourceNode.data as LLMGenerateNodeData).outputText;
-            if (value && value.trim()) texts.push(value.trim());
           }
         }
       });
@@ -875,12 +839,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         if (!imageConnected && !hasManualImage) {
           errors.push(`Annotation node "${node.id}" missing image input`);
         }
-      });
-    nodes
-      .filter((n) => n.type === "output")
-      .forEach((node) => {
-        const imageConnected = edges.some((e) => e.target === node.id);
-        if (!imageConnected) errors.push(`Output node "${node.id}" missing image input`);
       });
     return { valid: errors.length === 0, errors };
   },

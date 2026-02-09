@@ -12,11 +12,8 @@ export type NodeType =
   | "soraVideoGen"
   | "wanVideoGen"
   | "viduVideoGen"
-  | "llmGenerate"
   | "group"
-  | "note"
-  | "shot"
-  | "output";
+  | "shot";
 
 export type NodeStatus = "idle" | "loading" | "complete" | "error";
 
@@ -234,11 +231,8 @@ export type WorkflowNodeData =
   | ImageGenNodeData
   | VideoGenNodeData
   | ViduVideoGenNodeData
-  | LLMGenerateNodeData
   | GroupNodeData
-  | NoteNodeData
-  | ShotNodeData
-  | OutputNodeData;
+  | ShotNodeData;
 
 export type WorkflowNode = Node<WorkflowNodeData, NodeType>;
 

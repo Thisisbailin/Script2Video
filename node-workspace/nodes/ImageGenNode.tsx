@@ -74,87 +74,6 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
       selected={selected}
     >
       <div className="space-y-4 flex-1 flex flex-col">
-        {/* Controls Header */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`h-1.5 w-1.5 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-[var(--node-text-secondary)] opacity-30'}`} />
-              <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status || 'idle'}</span>
-            </div>
-
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className={`p-1 rounded-full node-control hover:bg-white/10 transition-colors ${showAdvanced ? 'text-[var(--node-accent)] bg-white/5' : 'text-[var(--node-text-secondary)]'}`}
-            >
-              <Settings2 size={12} />
-            </button>
-          </div>
-
-          <div className="node-control node-control--tight w-full px-2 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
-            {currentModel}
-          </div>
-
-          <div className="grid grid-cols-1 gap-1.5">
-            {/* Aspect Ratio */}
-            <select
-              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
-              value={data.aspectRatio || "1:1"}
-              onChange={(e) => updateNodeData(id, { aspectRatio: e.target.value })}
-            >
-              <option value="1:1">1:1 Square</option>
-              <option value="16:9">16:9 Landscape</option>
-              <option value="9:16">9:16 Portrait</option>
-              <option value="4:3">4:3 Standard</option>
-              <option value="21:9">21:9 Ultrawide</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Advanced Controls (Collapsible) */}
-        {showAdvanced && (
-          <div className="node-panel space-y-3 p-3 animate-in fade-in slide-in-from-top-1">
-            {/* Model Selector */}
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model Override</label>
-              <select
-                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
-                value={data.model || ""}
-                onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
-              >
-                <option value="">Use Default</option>
-                {availableImageModels.map(m => (
-                  <option key={m} value={m}>{m.split('/').pop()}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
-              <select
-                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
-                value={data.formTag || ""}
-                onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
-              >
-                <option value="">未指定</option>
-                {forms.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {showPromptInput && (
-          <div className="group/prompt relative">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
-
         <div className={`relative group/img cursor-pointer ${data.outputImage ? "" : "h-[180px]"}`}>
           {data.outputImage ? (
             <div
@@ -233,6 +152,87 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
                 重试
               </button>
             )}
+          </div>
+        )}
+
+        {showPromptInput && (
+          <div className="group/prompt relative">
+            <textarea
+              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
+              placeholder="Enter prompt..."
+              value={data.inputPrompt || ""}
+              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+
+        {/* Controls Header */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`h-1.5 w-1.5 rounded-full ${data.status === 'complete' ? 'bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]' : data.status === 'loading' ? 'bg-amber-500 animate-pulse' : 'bg-[var(--node-text-secondary)] opacity-30'}`} />
+              <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status || 'idle'}</span>
+            </div>
+
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className={`p-1 rounded-full node-control hover:bg-white/10 transition-colors ${showAdvanced ? 'text-[var(--node-accent)] bg-white/5' : 'text-[var(--node-text-secondary)]'}`}
+            >
+              <Settings2 size={12} />
+            </button>
+          </div>
+
+          <div className="node-control node-control--tight w-full px-2 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
+            {currentModel}
+          </div>
+
+          <div className="grid grid-cols-1 gap-1.5">
+            {/* Aspect Ratio */}
+            <select
+              className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full"
+              value={data.aspectRatio || "1:1"}
+              onChange={(e) => updateNodeData(id, { aspectRatio: e.target.value })}
+            >
+              <option value="1:1">1:1 Square</option>
+              <option value="16:9">16:9 Landscape</option>
+              <option value="9:16">9:16 Portrait</option>
+              <option value="4:3">4:3 Standard</option>
+              <option value="21:9">21:9 Ultrawide</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Advanced Controls (Collapsible) */}
+        {showAdvanced && (
+          <div className="node-panel space-y-3 p-3 animate-in fade-in slide-in-from-top-1">
+            {/* Model Selector */}
+            <div className="space-y-1">
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">Model Override</label>
+              <select
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                value={data.model || ""}
+                onChange={(e) => updateNodeData(id, { model: e.target.value || undefined })}
+              >
+                <option value="">Use Default</option>
+                {availableImageModels.map(m => (
+                  <option key={m} value={m}>{m.split('/').pop()}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
+              <select
+                className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+                value={data.formTag || ""}
+                onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
+              >
+                <option value="">未指定</option>
+                {forms.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

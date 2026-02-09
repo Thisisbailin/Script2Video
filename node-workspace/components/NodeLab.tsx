@@ -19,15 +19,12 @@ import { WorkflowFile, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, Group
 import { EditableEdge } from "../edges/EditableEdge";
 import {
   ImageInputNode, AnnotationNode, TextNode,
-  NoteNode,
   GroupNode,
   ImageGenNode,
   WanImageGenNode,
   SoraVideoGenNode,
   WanVideoGenNode,
   ViduVideoGenNode,
-  LLMGenerateNode,
-  OutputNode,
   ShotNode,
 } from "../nodes";
 import { useLabExecutor } from "../store/useLabExecutor";
@@ -48,16 +45,13 @@ const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
   annotation: AnnotationNode,
   text: TextNode,
-  note: NoteNode,
   group: GroupNode,
   imageGen: ImageGenNode,
   wanImageGen: WanImageGenNode,
   soraVideoGen: SoraVideoGenNode,
   wanVideoGen: WanVideoGenNode,
   viduVideoGen: ViduVideoGenNode,
-  llmGenerate: LLMGenerateNode,
   shot: ShotNode,
-  output: OutputNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -385,7 +379,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   } = useWorkflowStore();
   const { setViewport, screenToFlowPosition, getViewport, fitView } = useReactFlow();
   const { show: showToast } = useToast();
-  const { runLLM, runImageGen, runVideoGen } = useLabExecutor();
+  const { runImageGen, runVideoGen } = useLabExecutor();
 
   const minZoom = 0.25;
   const maxZoom = 4;
@@ -734,7 +728,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
   const runAll = async () => {
     for (const n of nodes) {
-      if (n.type === "llmGenerate") await runLLM(n.id);
       if (n.type === "imageGen" || n.type === "wanImageGen") await runImageGen(n.id);
       if (n.type === "soraVideoGen" || n.type === "wanVideoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
     }
@@ -1176,14 +1169,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
-            onAddLLM={() => handleAddNode("llmGenerate", { x: 300, y: 100 })}
             onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
             onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
             onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
             onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
-            onAddOutput={() => handleAddNode("output", { x: 600, y: 100 })}
             onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
-            onAddNote={() => handleAddNode("note", { x: 100, y: 100 })}
             onImport={() => fileInputRef.current?.click()}
             onExport={() => saveWorkflow()}
             onRun={runAll}

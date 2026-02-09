@@ -78,6 +78,125 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
       selected={selected}
     >
       <div className="space-y-4 flex-1 flex flex-col">
+        <div className={`relative group/img cursor-pointer ${data.outputImage ? "" : "h-[180px]"}`}>
+          {data.outputImage ? (
+            <div
+              className="node-surface node-media-frame relative overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] group-hover/img:border-white/30 transition-all"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPreviewOpen(true);
+              }}
+            >
+              <img
+                src={data.outputImage}
+                alt="generated"
+                className="node-media-preview bg-black/40"
+              />
+            </div>
+          ) : (
+            <div
+              onClick={handleGenerate}
+              className={`node-surface node-surface--dashed w-full h-[180px] rounded-[24px] flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative ${data.status === "loading"
+                ? "border-amber-500/40 bg-amber-500/[0.02]"
+                : "hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]"
+                }`}
+            >
+              {data.status === "loading" ? (
+                <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-2 border-amber-500/10 border-t-amber-500 animate-spin" />
+                    <Sparkles className="absolute inset-0 m-auto text-amber-500 animate-pulse" size={24} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/80">Imaging...</span>
+                  <div className="w-full max-w-[180px] space-y-2">
+                    <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="text-[9px] font-semibold text-amber-300/80 text-center">{progress}%</div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4 group-hover/img:scale-110 group-hover/img:bg-emerald-500/10 group-hover/img:border-emerald-500/20 transition-all duration-500 shadow-inner">
+                    <Sparkles className="text-[var(--node-text-secondary)] group-hover/img:text-emerald-500 transition-colors" size={28} />
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black group-hover/img:opacity-100 transition-all duration-500 translate-y-2 group-hover/img:translate-y-0 text-white">GENERATE</span>
+                    <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold group-hover/img:opacity-40 transition-all duration-500">Click to run flow</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {data.outputImage && (
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-[var(--node-text-secondary)] bg-white/5 hover:bg-white/10 transition"
+            >
+              <Download size={12} />
+              下载
+            </button>
+            <div className="flex-1" />
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-[9px] font-semibold text-amber-300/90">
+                <div className="h-1 w-24 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <span>{progress}%</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-white bg-emerald-500/80 hover:bg-emerald-500 transition"
+              >
+                <RefreshCw size={12} />
+                重试
+              </button>
+            )}
+          </div>
+        )}
+
+        {showPromptInput && (
+          <div className="group/prompt relative">
+            <textarea
+              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
+              placeholder="Enter prompt..."
+              value={data.inputPrompt || ""}
+              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+
+        <div className="group/prompt relative">
+          <textarea
+            className="node-textarea w-full text-[10px] leading-relaxed outline-none transition-all resize-none min-h-[48px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
+            placeholder="Negative prompt (可选)..."
+            value={data.negativePrompt || ""}
+            onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </div>
+
+        {forms.length > 0 && (
+          <div className="node-panel space-y-2 p-3">
+            <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
+            <select
+              className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
+              value={data.formTag || ""}
+              onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
+            >
+              <option value="">未指定</option>
+              {forms.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -175,125 +294,6 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
             </button>
           </div>
         </div>
-
-        {showPromptInput && (
-          <div className="group/prompt relative">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
-
-        <div className="group/prompt relative">
-          <textarea
-            className="node-textarea w-full text-[10px] leading-relaxed outline-none transition-all resize-none min-h-[48px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
-            placeholder="Negative prompt (可选)..."
-            value={data.negativePrompt || ""}
-            onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
-        </div>
-
-        {forms.length > 0 && (
-          <div className="node-panel space-y-2 p-3">
-            <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
-            <select
-              className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
-              value={data.formTag || ""}
-              onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
-            >
-              <option value="">未指定</option>
-              {forms.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className={`relative group/img cursor-pointer ${data.outputImage ? "" : "h-[180px]"}`}>
-          {data.outputImage ? (
-            <div
-              className="node-surface node-media-frame relative overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] group-hover/img:border-white/30 transition-all"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsPreviewOpen(true);
-              }}
-            >
-              <img
-                src={data.outputImage}
-                alt="generated"
-                className="node-media-preview bg-black/40"
-              />
-            </div>
-          ) : (
-            <div
-              onClick={handleGenerate}
-              className={`node-surface node-surface--dashed w-full h-[180px] rounded-[24px] flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative ${data.status === "loading"
-                ? "border-amber-500/40 bg-amber-500/[0.02]"
-                : "hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]"
-                }`}
-            >
-              {data.status === "loading" ? (
-                <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
-                  <div className="relative">
-                    <div className="h-16 w-16 rounded-full border-2 border-amber-500/10 border-t-amber-500 animate-spin" />
-                    <Sparkles className="absolute inset-0 m-auto text-amber-500 animate-pulse" size={24} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/80">Imaging...</span>
-                  <div className="w-full max-w-[180px] space-y-2">
-                    <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                      <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
-                    </div>
-                    <div className="text-[9px] font-semibold text-amber-300/80 text-center">{progress}%</div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4 group-hover/img:scale-110 group-hover/img:bg-emerald-500/10 group-hover/img:border-emerald-500/20 transition-all duration-500 shadow-inner">
-                    <Sparkles className="text-[var(--node-text-secondary)] group-hover/img:text-emerald-500 transition-colors" size={28} />
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black group-hover/img:opacity-100 transition-all duration-500 translate-y-2 group-hover/img:translate-y-0 text-white">GENERATE</span>
-                    <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold group-hover/img:opacity-40 transition-all duration-500">Click to run flow</span>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {data.outputImage && (
-          <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-[var(--node-text-secondary)] bg-white/5 hover:bg-white/10 transition"
-            >
-              <Download size={12} />
-              下载
-            </button>
-            <div className="flex-1" />
-            {isLoading ? (
-              <div className="flex items-center gap-2 text-[9px] font-semibold text-amber-300/90">
-                <div className="h-1 w-24 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
-                </div>
-                <span>{progress}%</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleGenerate}
-                className="flex items-center gap-2 px-3 py-2 rounded-full text-[10px] font-semibold uppercase tracking-widest text-white bg-emerald-500/80 hover:bg-emerald-500 transition"
-              >
-                <RefreshCw size={12} />
-                重试
-              </button>
-            )}
-          </div>
-        )}
 
         {data.error && (
           <div className="node-alert p-3 flex gap-2 items-start animate-in fade-in slide-in-from-top-2">

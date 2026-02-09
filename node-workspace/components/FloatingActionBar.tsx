@@ -6,11 +6,9 @@ import {
   Projector,
   MessageSquare,
   Image as ImageIcon,
-  Bot,
   Sparkles,
   Video,
   SquareStack,
-  StickyNote,
   BoxSelect,
   Library,
   ChevronRight,
@@ -49,14 +47,11 @@ type AccountInfo = {
 type Props = {
   onAddText: () => void;
   onAddImage: () => void;
-  onAddLLM: () => void;
   onAddImageGen: () => void;
   onAddWanImageGen: () => void;
   onAddVideoGen: () => void;
   onAddWanVideoGen: () => void;
-  onAddOutput: () => void;
   onAddGroup: () => void;
-  onAddNote: () => void;
   onImport: () => void;
   onExport: () => void;
   onExportCsv?: () => void;
@@ -98,14 +93,11 @@ type Props = {
 export const FloatingActionBar: React.FC<Props> = ({
   onAddText,
   onAddImage,
-  onAddLLM,
   onAddImageGen,
   onAddWanImageGen,
   onAddVideoGen,
   onAddWanVideoGen,
-  onAddOutput,
   onAddGroup,
-  onAddNote,
   onImport,
   onExport,
   onExportCsv,
@@ -158,15 +150,12 @@ export const FloatingActionBar: React.FC<Props> = ({
 
   const nodeActions = [
     { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
-    { label: "Note", hint: "Stick a note", onClick: onAddNote, Icon: StickyNote },
     { label: "Group", hint: "Organize nodes", onClick: onAddGroup, Icon: BoxSelect },
     { label: "Image", hint: "Add an input image", onClick: onAddImage, Icon: ImageIcon },
-    { label: "LLM", hint: "Generate text", onClick: onAddLLM, Icon: Bot },
     { label: "Img Gen", hint: "Create images", onClick: onAddImageGen, Icon: Sparkles },
     { label: "WAN Img", hint: "Wan 2.6 image", onClick: onAddWanImageGen, Icon: Sparkles },
     { label: "Sora Video", hint: "Generate Sora clips", onClick: onAddVideoGen, Icon: Video },
     { label: "WAN Vid", hint: "Wan 2.6 video", onClick: onAddWanVideoGen, Icon: Video },
-    { label: "Output", hint: "Final results", onClick: onAddOutput, Icon: SquareStack },
   ];
   const projectModules = [
     { key: "assets" as ModuleKey, label: "Assets", desc: "资产与设定", Icon: FolderOpen, tone: "text-emerald-300", surface: "bg-emerald-500/10" },

@@ -14,10 +14,6 @@ export const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: s
       return { inputs: ["image", "text"], outputs: [] };
     case "wanVideoGen":
       return { inputs: ["image", "text"], outputs: [] };
-    case "llmGenerate":
-      return { inputs: ["text"], outputs: ["text"] };
-    case "output":
-      return { inputs: ["image"], outputs: [] };
     default:
       return { inputs: [], outputs: [] };
   }

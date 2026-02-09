@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { MessageSquare, Image as ImageIcon, Bot, Sparkles, Video, SquareStack, PenTool } from "lucide-react";
+import { MessageSquare, Image as ImageIcon, Sparkles, Video, PenTool } from "lucide-react";
 import { NodeType } from "../types";
 
 type Props = {
@@ -13,12 +13,10 @@ export const ConnectionDropMenu: React.FC<Props> = ({ position, onCreate, onClos
   const options: { label: string; hint: string; type: NodeType; Icon: React.ComponentType<{ size?: number }> }[] = [
     { label: "Text", hint: "Text or notes", type: "text", Icon: MessageSquare },
     { label: "Image Input", hint: "Upload an image", type: "imageInput", Icon: ImageIcon },
-    { label: "LLM", hint: "Generate or refine text", type: "llmGenerate", Icon: Bot },
     { label: "Image Gen", hint: "Create images", type: "imageGen", Icon: Sparkles },
     { label: "WAN Img", hint: "Wan 2.6 image", type: "wanImageGen", Icon: Sparkles },
     { label: "Sora Video", hint: "Generate Sora clips", type: "soraVideoGen", Icon: Video },
     { label: "WAN Vid", hint: "Wan 2.6 video", type: "wanVideoGen", Icon: Video },
-    { label: "Output", hint: "Final outputs", type: "output", Icon: SquareStack },
     { label: "Annotation", hint: "Markup image", type: "annotation", Icon: PenTool },
   ];
 

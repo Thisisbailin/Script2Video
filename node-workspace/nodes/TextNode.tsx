@@ -95,50 +95,6 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
             selected={selected}
         >
             <div className="space-y-4 flex-1 flex flex-col">
-                {/* Tags Layout */}
-                <div className="flex flex-wrap items-center gap-2 min-h-[24px]">
-                    {/* Primary Category - Capsule Style */}
-                    <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
-                        <input
-                            className="bg-transparent text-[9px] font-black uppercase tracking-[0.2em] text-[var(--node-accent)] outline-none border-none text-center appearance-none"
-                            value={data.category || ""}
-                            onChange={(e) => updateNodeData(id, { category: e.target.value as any })}
-                            placeholder="CATEGORY"
-                            style={{ width: Math.max(data.category?.length || 4, 4) + 'ch' }}
-                        />
-                    </div>
-
-                    {/* Additional Tags - Capsule Style */}
-                    {data.tags?.map((tag, idx) => (
-                        <div
-                            key={idx}
-                            className="node-pill inline-flex items-center gap-1.5 px-3 py-1 hover:bg-white/10 transition-colors group/tag"
-                        >
-                            <input
-                                className="bg-transparent text-[9px] font-bold uppercase tracking-widest text-[var(--node-text-secondary)] outline-none border-none appearance-none"
-                                value={tag}
-                                onChange={(e) => handleUpdateTag(idx, e.target.value)}
-                                style={{ width: Math.max(tag.length, 4) + 'ch' }}
-                            />
-                            <button
-                                onClick={() => handleRemoveTag(idx)}
-                                className="opacity-0 group-hover/tag:opacity-100 transition-opacity text-[var(--node-text-secondary)] hover:text-red-500"
-                            >
-                                <X size={10} />
-                            </button>
-                        </div>
-                    ))}
-
-                    {/* Add Tag Button */}
-                    <button
-                        onClick={handleAddTag}
-                        className="node-pill node-pill--dashed h-6 w-6 flex items-center justify-center text-[var(--node-text-secondary)] hover:border-[var(--node-accent)]/30 hover:text-[var(--node-accent)] transition-all active:scale-90"
-                        title="Add Tag"
-                    >
-                        <Plus size={12} />
-                    </button>
-                </div>
-
                 {/* Text Area - Auto Height */}
                 <textarea
                     ref={textareaRef}
@@ -195,7 +151,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                                 {m.status === 'missing' && <Info size={10} className="opacity-70" />}
                             </span>
                         ))}
-                    </div>
+                        </div>
                 )}
 
                 {showMentionPicker && forms.length > 0 && (
@@ -242,6 +198,50 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         </div>
                     </div>
                 )}
+
+                {/* Tags Layout */}
+                <div className="flex flex-wrap items-center gap-2 min-h-[24px]">
+                    {/* Primary Category - Capsule Style */}
+                    <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
+                        <input
+                            className="bg-transparent text-[9px] font-black uppercase tracking-[0.2em] text-[var(--node-accent)] outline-none border-none text-center appearance-none"
+                            value={data.category || ""}
+                            onChange={(e) => updateNodeData(id, { category: e.target.value as any })}
+                            placeholder="CATEGORY"
+                            style={{ width: Math.max(data.category?.length || 4, 4) + 'ch' }}
+                        />
+                    </div>
+
+                    {/* Additional Tags - Capsule Style */}
+                    {data.tags?.map((tag, idx) => (
+                        <div
+                            key={idx}
+                            className="node-pill inline-flex items-center gap-1.5 px-3 py-1 hover:bg-white/10 transition-colors group/tag"
+                        >
+                            <input
+                                className="bg-transparent text-[9px] font-bold uppercase tracking-widest text-[var(--node-text-secondary)] outline-none border-none appearance-none"
+                                value={tag}
+                                onChange={(e) => handleUpdateTag(idx, e.target.value)}
+                                style={{ width: Math.max(tag.length, 4) + 'ch' }}
+                            />
+                            <button
+                                onClick={() => handleRemoveTag(idx)}
+                                className="opacity-0 group-hover/tag:opacity-100 transition-opacity text-[var(--node-text-secondary)] hover:text-red-500"
+                            >
+                                <X size={10} />
+                            </button>
+                        </div>
+                    ))}
+
+                    {/* Add Tag Button */}
+                    <button
+                        onClick={handleAddTag}
+                        className="node-pill node-pill--dashed h-6 w-6 flex items-center justify-center text-[var(--node-text-secondary)] hover:border-[var(--node-accent)]/30 hover:text-[var(--node-accent)] transition-all active:scale-90"
+                        title="Add Tag"
+                    >
+                        <Plus size={12} />
+                    </button>
+                </div>
             </div>
         </BaseNode>
     );
