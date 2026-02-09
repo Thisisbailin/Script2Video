@@ -89,15 +89,19 @@ export interface TextNodeData extends BaseNodeData {
   title: string;
   text: string;
   category?: 'project' | 'episode' | 'script' | 'guide' | 'character' | 'scene' | 'location' | 'form' | 'zone';
-  tags?: string[];
   refId?: string;
   atMentions?: {
     name: string;
     status: 'match' | 'missing';
+    kind?: 'form' | 'zone' | 'character' | 'unknown';
     characterId?: string;
     formName?: string;
     summary?: string;
     image?: string;
+    detail?: string;
+    locationId?: string;
+    locationName?: string;
+    zoneId?: string;
   }[];
 }
 

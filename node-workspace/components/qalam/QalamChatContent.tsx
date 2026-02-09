@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Globe } from "lucide-react";
-import type { ChatMessage, Message, ToolMessage, ToolStatus } from "./types";
+import type { ChatMessage, Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { isToolMessage } from "./types";
 
 type Props = {
@@ -364,24 +364,251 @@ const renderMarkdownLite = (text: string) => {
   return <div className="space-y-2">{blocks}</div>;
 };
 
-const renderToolCard = (message: ToolMessage) => {
-  const kindLabel = message.kind === "tool_result" ? "Tool Result" : "Tool Call";
-  return (
-    <div className="max-w-[85%] rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 space-y-2">
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
-        <span>{kindLabel}</span>
-        <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
+const renderToolOutput = (tool: ToolPayload) => {
+  if (!tool.output) return null;
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(tool.output);
+  } catch {
+    parsed = tool.output;
+  }
+
+  if (!parsed || typeof parsed === "string") {
+    return (
+      <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+        {String(parsed || "")}
       </div>
-      <div className="text-[13px] font-semibold text-[var(--app-text-primary)]">{message.tool.name}</div>
-      {message.tool.summary ? (
-        <div className="text-[12px] text-[var(--app-text-secondary)]">{message.tool.summary}</div>
-      ) : null}
-      {message.tool.evidence && message.tool.evidence.length > 0 ? (
-        <div className="text-[11px] text-[var(--app-text-secondary)]">
-          证据：{message.tool.evidence.join(", ")}
-        </div>
-      ) : null}
+    );
+  }
+
+  const data = parsed.data || {};
+  const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
+  const matches = Array.isArray(data.matches) ? data.matches : [];
+  const sceneList = Array.isArray(data.sceneList) ? data.sceneList : [];
+  const episodeCharacters = Array.isArray(data.episodeCharacters) ? data.episodeCharacters : [];
+  const episodeSummaries = Array.isArray(data.episodeSummaries) ? data.episodeSummaries : [];
+  const characterList = Array.isArray(data.characters) ? data.characters : [];
+  const locationList = Array.isArray(data.locations) ? data.locations : [];
+
+  const renderSection = (title: string, content: React.ReactNode) => (
+    <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 space-y-1">
+      <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">{title}</div>
+      {content}
     </div>
+  );
+
+  const blocks: React.ReactNode[] = [];
+
+  if (warnings.length > 0) {
+    blocks.push(
+      renderSection(
+        "Warnings",
+        <ul className="text-[11px] text-[var(--app-text-secondary)] list-disc pl-4 space-y-1">
+          {warnings.map((w: string, idx: number) => (
+            <li key={`${idx}-${w}`}>{w}</li>
+          ))}
+        </ul>
+      )
+    );
+  }
+
+  if (matches.length > 0) {
+    blocks.push(
+      renderSection(
+        "Matches",
+        <ul className="text-[12px] text-[var(--app-text-secondary)] space-y-2">
+          {matches.map((m: any, idx: number) => (
+            <li key={`${idx}-${m.sceneId || m.episodeId || "m"}`} className="space-y-1">
+              <div className="text-[11px] text-[var(--app-text-muted)]">
+                {m.episodeId ? `Ep ${m.episodeId}` : ""}
+                {m.episodeTitle ? ` · ${m.episodeTitle}` : ""}
+                {m.sceneId ? ` · Scene ${m.sceneId}` : ""}
+                {m.sceneTitle ? ` · ${m.sceneTitle}` : ""}
+                {m.characterName ? ` · ${m.characterName}` : ""}
+                {m.locationName ? ` · ${m.locationName}` : ""}
+                {m.scope ? ` · ${m.scope}` : ""}
+              </div>
+              {m.snippet ? (
+                <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">{m.snippet}</div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )
+    );
+  }
+
+  if (data.sceneContent) {
+    blocks.push(
+      renderSection(
+        "Scene Content",
+        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">{data.sceneContent}</div>
+      )
+    );
+  }
+  if (data.episodeContent) {
+    blocks.push(
+      renderSection(
+        "Episode Content",
+        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">{data.episodeContent}</div>
+      )
+    );
+  }
+  if (data.projectSummary) {
+    blocks.push(
+      renderSection(
+        "Project Summary",
+        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">{data.projectSummary}</div>
+      )
+    );
+  }
+  if (data.episodeSummary) {
+    blocks.push(
+      renderSection(
+        "Episode Summary",
+        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">{data.episodeSummary}</div>
+      )
+    );
+  }
+  if (episodeSummaries.length > 0) {
+    blocks.push(
+      renderSection(
+        "Episode Summaries",
+        <ul className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          {episodeSummaries.map((s: any, idx: number) => (
+            <li key={`${idx}-${s.episodeId}`}>
+              <span className="text-[11px] text-[var(--app-text-muted)]">Ep {s.episodeId}: </span>
+              {s.summary}
+            </li>
+          ))}
+        </ul>
+      )
+    );
+  }
+  if (episodeCharacters.length > 0) {
+    blocks.push(
+      renderSection(
+        "Episode Characters",
+        <div className="text-[12px] text-[var(--app-text-secondary)]">{episodeCharacters.join(", ")}</div>
+      )
+    );
+  }
+  if (sceneList.length > 0) {
+    blocks.push(
+      renderSection(
+        "Scene List",
+        <ul className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          {sceneList.map((sc: any) => (
+            <li key={`${sc.id}-${sc.title}`}>
+              <span className="text-[11px] text-[var(--app-text-muted)]">{sc.id}</span> {sc.title}
+            </li>
+          ))}
+        </ul>
+      )
+    );
+  }
+  if (characterList.length > 0) {
+    blocks.push(
+      renderSection(
+        "Characters",
+        <ul className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          {characterList.map((c: any) => (
+            <li key={`${c.id || c.name}-${c.name}`}>
+              <span className="text-[11px] text-[var(--app-text-muted)]">{c.name}</span>
+              {c.role ? ` · ${c.role}` : ""}
+              {typeof c.isMain === "boolean" ? ` · ${c.isMain ? "Main" : "Side"}` : ""}
+            </li>
+          ))}
+        </ul>
+      )
+    );
+  }
+  if (locationList.length > 0) {
+    blocks.push(
+      renderSection(
+        "Locations",
+        <ul className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          {locationList.map((loc: any) => (
+            <li key={`${loc.id || loc.name}-${loc.name}`}>
+              <span className="text-[11px] text-[var(--app-text-muted)]">{loc.name}</span>
+              {loc.type ? ` · ${loc.type}` : ""}
+            </li>
+          ))}
+        </ul>
+      )
+    );
+  }
+  if (data.character) {
+    const c = data.character;
+    blocks.push(
+      renderSection(
+        "Character",
+        <div className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          <div className="font-semibold text-[var(--app-text-primary)]">{c.name}</div>
+          {c.role ? <div>Role: {c.role}</div> : null}
+          {typeof c.isMain === "boolean" ? <div>Main: {c.isMain ? "Yes" : "No"}</div> : null}
+          {c.tags?.length ? <div>Tags: {c.tags.join(", ")}</div> : null}
+          {c.bio ? <div className="whitespace-pre-wrap">{c.bio}</div> : null}
+          {Array.isArray(c.forms) && c.forms.length > 0 ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">Forms: {c.forms.length}</div>
+          ) : null}
+        </div>
+      )
+    );
+  }
+  if (data.location) {
+    const loc = data.location;
+    blocks.push(
+      renderSection(
+        "Location",
+        <div className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          <div className="font-semibold text-[var(--app-text-primary)]">{loc.name}</div>
+          {loc.type ? <div>Type: {loc.type}</div> : null}
+          {loc.description ? <div className="whitespace-pre-wrap">{loc.description}</div> : null}
+          {Array.isArray(loc.zones) && loc.zones.length > 0 ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">Zones: {loc.zones.length}</div>
+          ) : null}
+        </div>
+      )
+    );
+  }
+
+  if (blocks.length === 0) {
+    return (
+      <pre className="text-[11px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+        {JSON.stringify(parsed, null, 2)}
+      </pre>
+    );
+  }
+
+  return <div className="space-y-2">{blocks}</div>;
+};
+
+const renderToolCard = (message: ToolMessage) => {
+  const isResult = message.kind === "tool_result";
+  const summaryText = message.tool.summary || message.tool.name;
+  const isLookup = message.tool.name.includes("read_") || message.tool.name.includes("search_");
+  const label = isLookup ? (isResult ? "查阅结果" : "查阅请求") : (isResult ? "工具结果" : "工具调用");
+  return (
+    <details className="max-w-[85%]">
+      <summary className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+        <span>{label}</span>
+        <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
+        <span className="text-[var(--app-text-primary)] normal-case text-[12px]">{summaryText}</span>
+      </summary>
+      <div className="mt-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2 space-y-2">
+        <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">{message.tool.name}</div>
+        {message.tool.summary ? (
+          <div className="text-[12px] text-[var(--app-text-secondary)]">{message.tool.summary}</div>
+        ) : null}
+        {message.tool.evidence && message.tool.evidence.length > 0 ? (
+          <div className="text-[11px] text-[var(--app-text-secondary)]">
+            证据：{message.tool.evidence.join(", ")}
+          </div>
+        ) : null}
+        {isResult ? renderToolOutput(message.tool) : null}
+      </div>
+    </details>
   );
 };
 

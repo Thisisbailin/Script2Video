@@ -149,7 +149,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     "inline-flex items-center justify-center h-9 px-3 rounded-full bg-emerald-500 text-white text-[12px] font-semibold hover:bg-emerald-400 transition";
 
   const nodeActions = [
-    { label: "Text", hint: "Text or notes", onClick: onAddText, Icon: MessageSquare },
+    { label: "Text", hint: "Input text", onClick: onAddText, Icon: MessageSquare },
     { label: "Group", hint: "Organize nodes", onClick: onAddGroup, Icon: BoxSelect },
     { label: "Image", hint: "Add an input image", onClick: onAddImage, Icon: ImageIcon },
     { label: "Img Gen", hint: "Create images", onClick: onAddImageGen, Icon: Sparkles },

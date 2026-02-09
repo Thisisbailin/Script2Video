@@ -491,7 +491,8 @@ export const useLabExecutor = () => {
         (c.forms || []).map((f) => ({ form: f, characterId: c.id }))
       );
 
-    const mentions = atMentions?.length ? atMentions.map(m => m.name) : parseAtMentions(prompt);
+    const formMentions = (atMentions || []).filter((m) => !m.kind || m.kind === "form");
+    const mentions = formMentions.length ? formMentions.map((m) => m.name) : parseAtMentions(prompt);
 
     const formImageMap = new Map<string, string[]>();
     (imageRefs || []).forEach((ref) => {

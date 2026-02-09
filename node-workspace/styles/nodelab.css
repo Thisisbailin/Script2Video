@@ -426,6 +426,18 @@ body.qalam-resizing * {
   box-shadow: var(--node-shadow-strong);
 }
 
+.node-card-base[data-variant="text"] .node-card-body {
+  padding: 0;
+  gap: 0;
+}
+
+.node-card-base[data-variant="text"] .node-textarea {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 18px;
+}
+
 .node-media-frame {
   width: 100%;
   max-width: 100%;

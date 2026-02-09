@@ -11,7 +11,7 @@ type Props = {
 export const ConnectionDropMenu: React.FC<Props> = ({ position, onCreate, onClose }) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const options: { label: string; hint: string; type: NodeType; Icon: React.ComponentType<{ size?: number }> }[] = [
-    { label: "Text", hint: "Text or notes", type: "text", Icon: MessageSquare },
+    { label: "Text", hint: "Input text", type: "text", Icon: MessageSquare },
     { label: "Image Input", hint: "Upload an image", type: "imageInput", Icon: ImageIcon },
     { label: "Image Gen", hint: "Create images", type: "imageGen", Icon: Sparkles },
     { label: "WAN Img", hint: "Wan 2.6 image", type: "wanImageGen", Icon: Sparkles },

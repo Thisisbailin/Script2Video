@@ -20,20 +20,24 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
   const showPromptInput = !connectedText;
   const isLoading = data.status === "loading";
+  const formMentions = useMemo(
+    () => (atMentions || []).filter((m) => !m.kind || m.kind === "form"),
+    [atMentions]
+  );
 
   const derivedSubjects = useMemo(() => {
     if (data.subjects && data.subjects.length) return data.subjects.map(s => ({ name: s.id || "subject", status: 'manual', images: s.images?.length || 0 }));
-    if (data.useCharacters !== false && atMentions && atMentions.length) {
-      return atMentions.map((m, idx) => ({
+    if (data.useCharacters !== false && formMentions.length) {
+      return formMentions.map((m, idx) => ({
         name: m.formName || m.name,
         status: m.status,
         images: (imageRefs || []).filter((r) => r.formTag && r.formTag.toLowerCase() === (m.formName || m.name).toLowerCase()).length
-          || (connectedImages.length ? Math.ceil(connectedImages.length / atMentions.length) : 0),
+          || (connectedImages.length ? Math.ceil(connectedImages.length / formMentions.length) : 0),
         order: idx + 1,
       }));
     }
     return [];
-  }, [data.subjects, data.useCharacters, atMentions, connectedImages.length, imageRefs]);
+  }, [data.subjects, data.useCharacters, formMentions, connectedImages.length, imageRefs]);
 
   useEffect(() => {
     if (!isLoading) {

@@ -3,7 +3,7 @@ import type { DeyunAIToolCall } from "../../../services/deyunaiService";
 import type { ProjectData } from "../../../types";
 import type { Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { buildToolMessages, buildToolCallMeta, buildToolSummary, normalizeQalamToolSettings } from "./tooling";
-import { readScriptData, upsertCharacter, upsertLocation } from "./toolActions";
+import { readProjectData, searchScriptData, upsertCharacter, upsertLocation } from "./toolActions";
 
 type Options = {
   setMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
@@ -64,10 +64,18 @@ export const useQalamTooling = ({
         });
         return result;
       }
-      if (call.name === "read_script_data") {
+      if (call.name === "read_project_data" || call.name === "read_script_data") {
         let result: any = null;
         setProjectData((prev) => {
-          result = readScriptData(prev, args).result;
+          result = readProjectData(prev, args).result;
+          return prev;
+        });
+        return result;
+      }
+      if (call.name === "search_script_data") {
+        let result: any = null;
+        setProjectData((prev) => {
+          result = searchScriptData(prev, args).result;
           return prev;
         });
         return result;
@@ -88,7 +96,13 @@ export const useQalamTooling = ({
       for (const { tc, args, callId } of toolMeta) {
         updateToolStatus(callId, "running");
         try {
-          if (tc.name !== "upsert_character" && tc.name !== "upsert_location" && tc.name !== "read_script_data") {
+          if (
+            tc.name !== "upsert_character" &&
+            tc.name !== "upsert_location" &&
+            tc.name !== "read_project_data" &&
+            tc.name !== "read_script_data" &&
+            tc.name !== "search_script_data"
+          ) {
             updateToolStatus(callId, "success");
             appendToolResult({
               name: tc.name || "tool",
@@ -112,21 +126,33 @@ export const useQalamTooling = ({
               : result?.kind === "location"
               ? `已${result.action === "created" ? "创建" : "更新"}场景 ${result.name}（分区 ${result.zonesCount ?? 0} 个）`
               : buildToolSummary(tc.name, args);
-          appendToolResult({
-            name: tc.name || "tool",
-            status: "success",
-            summary,
-            evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
-            callId,
-          });
-          if (tc.name === "read_script_data") {
+          if (
+            tc.name === "read_project_data" ||
+            tc.name === "read_script_data" ||
+            tc.name === "search_script_data"
+          ) {
             const output = JSON.stringify(result || {});
             outputs.push({ name: tc.name || "tool", callId, output });
+            appendToolResult({
+              name: tc.name || "tool",
+              status: "success",
+              summary,
+              evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
+              callId,
+              output,
+            });
           } else {
             outputs.push({
               name: tc.name || "tool",
               callId,
               output: JSON.stringify({ status: "success", summary }),
+            });
+            appendToolResult({
+              name: tc.name || "tool",
+              status: "success",
+              summary,
+              evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
+              callId,
             });
           }
         } catch (toolErr: any) {

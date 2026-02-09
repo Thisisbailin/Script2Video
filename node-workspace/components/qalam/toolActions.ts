@@ -341,6 +341,86 @@ const buildSnippet = (text: string, query: string, radius = 120) => {
   return `${prefix}${text.slice(start, end)}${suffix}`;
 };
 
+export const searchScriptData = (data: ProjectData, args: any): ReadResult => {
+  const episodes = data.episodes || [];
+  const query = typeof args?.query === "string" ? args.query.trim() : "";
+  const episodeId = toNumber(args?.episodeId ?? args?.episode ?? args?.episodeNumber);
+  const episodeTitle = typeof args?.episodeTitle === "string" ? args.episodeTitle.trim() : "";
+  const maxMatches = Math.max(1, Math.min(50, toNumber(args?.maxMatches) || 8));
+  const maxSnippetChars = Math.max(80, Math.min(600, toNumber(args?.maxSnippetChars) || 200));
+  const snippetRadius = Math.floor(maxSnippetChars / 2);
+
+  let episode = episodeId ? episodes.find((ep) => ep.id === episodeId) : undefined;
+  if (!episode && episodeTitle) {
+    episode = pickEpisodeByTitle(episodes, episodeTitle);
+  }
+
+  const result: any = {
+    request: {
+      query: query || null,
+      episodeId: episodeId ?? null,
+      episodeTitle: episodeTitle || null,
+    },
+    resolved: {
+      episode: episode ? { id: episode.id, title: episode.title } : null,
+    },
+    data: {
+      matches: [] as any[],
+    },
+    warnings: [] as string[],
+  };
+
+  if (!query) {
+    result.warnings.push("missing_query");
+    return { result };
+  }
+
+  const lowerQuery = toLower(query);
+  const targetEpisodes = episode ? [episode] : episodes;
+  const matches: any[] = [];
+
+  for (const ep of targetEpisodes) {
+    if (matches.length >= maxMatches) break;
+    const epContent = ep.content || "";
+    if (epContent && toLower(epContent).includes(lowerQuery)) {
+      matches.push({
+        scope: "episode",
+        episodeId: ep.id,
+        episodeTitle: ep.title,
+        snippet: buildSnippet(epContent, query, snippetRadius),
+      });
+      if (matches.length >= maxMatches) break;
+    }
+    for (const sc of ep.scenes || []) {
+      if (matches.length >= maxMatches) break;
+      const scContent = sc.content || "";
+      const scTitle = sc.title || "";
+      if (
+        (scContent && toLower(scContent).includes(lowerQuery)) ||
+        (scTitle && toLower(scTitle).includes(lowerQuery))
+      ) {
+        matches.push({
+          scope: "scene",
+          episodeId: ep.id,
+          episodeTitle: ep.title,
+          sceneId: sc.id,
+          sceneTitle: sc.title,
+          snippet: buildSnippet(scContent || scTitle, query, snippetRadius),
+        });
+      }
+    }
+  }
+
+  if (!episode && (episodeId || episodeTitle)) {
+    result.warnings.push("episode_not_found");
+  }
+  if (!matches.length) {
+    result.warnings.push("no_matches");
+  }
+  result.data.matches = matches;
+  return { result };
+};
+
 const normalizeSceneId = (value: any, episodeId?: number) => {
   if (value === null || value === undefined) return undefined;
   const raw = String(value).trim();
@@ -357,8 +437,8 @@ const pickEpisodeByTitle = (episodes: any[], title: string) => {
   return episodes.find((ep) => (ep.title || "").toLowerCase().includes(normalized));
 };
 
-const summarizeCharacters = (characters: Character[], maxChars: number) =>
-  (characters || []).map((c) => ({
+const summarizeCharacters = (characters: Character[], maxChars: number, maxItems: number) =>
+  (characters || []).slice(0, maxItems).map((c) => ({
     id: c.id,
     name: c.name,
     role: c.role,
@@ -368,8 +448,8 @@ const summarizeCharacters = (characters: Character[], maxChars: number) =>
     tags: c.tags,
   }));
 
-const summarizeLocations = (locations: Location[], maxChars: number) =>
-  (locations || []).map((loc) => ({
+const summarizeLocations = (locations: Location[], maxChars: number, maxItems: number) =>
+  (locations || []).slice(0, maxItems).map((loc) => ({
     id: loc.id,
     name: loc.name,
     type: loc.type,
@@ -378,17 +458,101 @@ const summarizeLocations = (locations: Location[], maxChars: number) =>
     episodeUsage: loc.episodeUsage,
   }));
 
-export const readScriptData = (data: ProjectData, args: any): ReadResult => {
+const normalizeName = (value: string) => value.trim().toLowerCase();
+
+const findByName = <T extends { name: string }>(items: T[], name: string): T | undefined => {
+  const normalized = normalizeName(name);
+  if (!normalized) return undefined;
+  const exact = items.find((item) => normalizeName(item.name) === normalized);
+  if (exact) return exact;
+  const contains = items.find((item) => normalizeName(item.name).includes(normalized));
+  if (contains) return contains;
+  return items.find((item) => normalized.includes(normalizeName(item.name)));
+};
+
+const buildCharacterDetail = (character: Character, maxChars: number, maxItems: number) => ({
+  id: character.id,
+  name: character.name,
+  role: character.role,
+  isMain: character.isMain,
+  bio: clipText(character.bio || "", maxChars),
+  archetype: character.archetype,
+  episodeUsage: character.episodeUsage,
+  tags: character.tags,
+  assetPriority: character.assetPriority,
+  appearanceCount: character.appearanceCount,
+  forms: (character.forms || []).slice(0, maxItems).map((form) => ({
+    id: form.id,
+    formName: form.formName,
+    episodeRange: form.episodeRange,
+    description: clipText(form.description || "", Math.max(120, Math.min(maxChars, 500))),
+    visualTags: clipText(form.visualTags || "", Math.max(120, Math.min(maxChars, 500))),
+    identityOrState: form.identityOrState,
+    hair: clipText(form.hair || "", Math.max(120, Math.min(maxChars, 400))),
+    face: clipText(form.face || "", Math.max(120, Math.min(maxChars, 400))),
+    body: clipText(form.body || "", Math.max(120, Math.min(maxChars, 400))),
+    costume: clipText(form.costume || "", Math.max(120, Math.min(maxChars, 400))),
+    accessories: clipText(form.accessories || "", Math.max(120, Math.min(maxChars, 400))),
+    props: clipText(form.props || "", Math.max(120, Math.min(maxChars, 400))),
+    materialPalette: clipText(form.materialPalette || "", Math.max(120, Math.min(maxChars, 400))),
+    poses: clipText(form.poses || "", Math.max(120, Math.min(maxChars, 400))),
+    expressions: clipText(form.expressions || "", Math.max(120, Math.min(maxChars, 400))),
+    lightingOrPalette: clipText(form.lightingOrPalette || "", Math.max(120, Math.min(maxChars, 400))),
+    turnaroundNeeded: form.turnaroundNeeded,
+    deliverables: form.deliverables,
+    designRationale: form.designRationale,
+    styleRef: form.styleRef,
+    genPrompts: form.genPrompts,
+    voiceId: form.voiceId,
+    voicePrompt: form.voicePrompt,
+  })),
+});
+
+const buildLocationDetail = (location: Location, maxChars: number, maxItems: number) => ({
+  id: location.id,
+  name: location.name,
+  type: location.type,
+  description: clipText(location.description || "", maxChars),
+  visuals: clipText(location.visuals || "", maxChars),
+  episodeUsage: location.episodeUsage,
+  assetPriority: location.assetPriority,
+  appearanceCount: location.appearanceCount,
+  zones: (location.zones || []).slice(0, maxItems).map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+    kind: zone.kind,
+    episodeRange: zone.episodeRange,
+    layoutNotes: clipText(zone.layoutNotes || "", Math.max(120, Math.min(maxChars, 500))),
+    keyProps: clipText(zone.keyProps || "", Math.max(120, Math.min(maxChars, 500))),
+    lightingWeather: clipText(zone.lightingWeather || "", Math.max(120, Math.min(maxChars, 400))),
+    materialPalette: clipText(zone.materialPalette || "", Math.max(120, Math.min(maxChars, 400))),
+    designRationale: zone.designRationale,
+    deliverables: zone.deliverables,
+    genPrompts: zone.genPrompts,
+  })),
+});
+
+export const readProjectData = (data: ProjectData, args: any): ReadResult => {
   const episodes = data.episodes || [];
   const query = typeof args?.query === "string" ? args.query.trim() : "";
   const episodeId = toNumber(args?.episodeId ?? args?.episode ?? args?.episodeNumber);
   const episodeTitle = typeof args?.episodeTitle === "string" ? args.episodeTitle.trim() : "";
   const sceneIndex = toNumber(args?.sceneIndex ?? args?.sceneNumber);
   const sceneId = normalizeSceneId(args?.sceneId ?? args?.scene, episodeId);
+  const characterId = typeof args?.characterId === "string" ? args.characterId.trim() : "";
+  const characterName = typeof args?.characterName === "string" ? args.characterName.trim() : "";
+  const locationId = typeof args?.locationId === "string" ? args.locationId.trim() : "";
+  const locationName = typeof args?.locationName === "string" ? args.locationName.trim() : "";
   const maxChars = Math.max(200, Math.min(4000, toNumber(args?.maxChars) || 1200));
   const maxMatches = Math.max(1, Math.min(20, toNumber(args?.maxMatches) || 5));
+  const maxItems = Math.max(1, Math.min(50, toNumber(args?.maxItems) || 20));
   const includeList = Array.isArray(args?.include) ? args.include : [];
   const include = new Set(includeList.map((item: any) => String(item)));
+  const queryScopes = new Set(
+    (Array.isArray(args?.queryScopes) ? args.queryScopes : ["script", "characters", "locations", "understanding"]).map(
+      (item: any) => String(item)
+    )
+  );
 
   if (!include.size) {
     if (sceneId || sceneIndex) {
@@ -399,6 +563,10 @@ export const readScriptData = (data: ProjectData, args: any): ReadResult => {
       include.add("episodeContent");
       include.add("sceneList");
       include.add("episodeSummary");
+    } else if (characterId || characterName) {
+      include.add("character");
+    } else if (locationId || locationName) {
+      include.add("location");
     } else if (query) {
       include.add("matches");
       include.add("projectSummary");
@@ -434,17 +602,40 @@ export const readScriptData = (data: ProjectData, args: any): ReadResult => {
     }
   }
 
+  const characters = data.context?.characters || [];
+  const locations = data.context?.locations || [];
+  let character = undefined as Character | undefined;
+  let location = undefined as Location | undefined;
+  if (characterId) {
+    character = characters.find((c) => c.id === characterId);
+  }
+  if (!character && characterName) {
+    character = findByName(characters, characterName);
+  }
+  if (locationId) {
+    location = locations.find((l) => l.id === locationId);
+  }
+  if (!location && locationName) {
+    location = findByName(locations, locationName);
+  }
+
   const result: any = {
     request: {
       episodeId: episodeId ?? null,
       episodeTitle: episodeTitle || null,
       sceneId: sceneId ?? null,
       sceneIndex: sceneIndex ?? null,
+      characterId: characterId || null,
+      characterName: characterName || null,
+      locationId: locationId || null,
+      locationName: locationName || null,
       query: query || null,
     },
     resolved: {
       episode: episode ? { id: episode.id, title: episode.title } : null,
       scene: scene ? { id: scene.id, title: scene.title } : null,
+      character: character ? { id: character.id, name: character.name } : null,
+      location: location ? { id: location.id, name: location.name } : null,
     },
     data: {},
     warnings: [] as string[],
@@ -464,6 +655,9 @@ export const readScriptData = (data: ProjectData, args: any): ReadResult => {
       timeOfDay: sc.timeOfDay,
     }));
   }
+  if (include.has("episodeCharacters") && episode) {
+    result.data.episodeCharacters = (episode.characters || []).slice(0, maxItems);
+  }
 
   if (include.has("projectSummary") && data.context?.projectSummary) {
     result.data.projectSummary = clipText(data.context.projectSummary, maxChars);
@@ -474,12 +668,24 @@ export const readScriptData = (data: ProjectData, args: any): ReadResult => {
       result.data.episodeSummary = clipText(summary.summary, maxChars);
     }
   }
-
-  if (include.has("characters") && data.context?.characters) {
-    result.data.characters = summarizeCharacters(data.context.characters, maxChars);
+  if (include.has("episodeSummaries") && data.context?.episodeSummaries) {
+    result.data.episodeSummaries = data.context.episodeSummaries.slice(0, maxItems).map((s) => ({
+      episodeId: s.episodeId,
+      summary: clipText(s.summary || "", maxChars),
+    }));
   }
-  if (include.has("locations") && data.context?.locations) {
-    result.data.locations = summarizeLocations(data.context.locations, maxChars);
+
+  if (include.has("characters") && characters.length) {
+    result.data.characters = summarizeCharacters(characters, maxChars, maxItems);
+  }
+  if (include.has("locations") && locations.length) {
+    result.data.locations = summarizeLocations(locations, maxChars, maxItems);
+  }
+  if (include.has("character") && character) {
+    result.data.character = buildCharacterDetail(character, maxChars, maxItems);
+  }
+  if (include.has("location") && location) {
+    result.data.location = buildLocationDetail(location, maxChars, maxItems);
   }
   if (include.has("rawScript") && data.rawScript) {
     result.data.rawScript = clipText(data.rawScript, maxChars);
@@ -488,33 +694,89 @@ export const readScriptData = (data: ProjectData, args: any): ReadResult => {
   if (include.has("matches") && query) {
     const matches: any[] = [];
     const lowerQuery = toLower(query);
-    for (const ep of episodes) {
-      if (matches.length >= maxMatches) break;
-      const epContent = ep.content || "";
-      if (epContent && toLower(epContent).includes(lowerQuery)) {
-        matches.push({
-          scope: "episode",
-          episodeId: ep.id,
-          episodeTitle: ep.title,
-          snippet: buildSnippet(epContent, query),
-        });
+    const snippetRadius = Math.max(80, Math.min(240, Math.floor(maxChars / 4)));
+
+    if (queryScopes.has("script")) {
+      for (const ep of episodes) {
         if (matches.length >= maxMatches) break;
-      }
-      for (const sc of ep.scenes || []) {
-        if (matches.length >= maxMatches) break;
-        const scContent = sc.content || "";
-        const scTitle = sc.title || "";
-        if (
-          (scContent && toLower(scContent).includes(lowerQuery)) ||
-          (scTitle && toLower(scTitle).includes(lowerQuery))
-        ) {
+        const epContent = ep.content || "";
+        if (epContent && toLower(epContent).includes(lowerQuery)) {
           matches.push({
-            scope: "scene",
+            scope: "episode",
             episodeId: ep.id,
             episodeTitle: ep.title,
-            sceneId: sc.id,
-            sceneTitle: sc.title,
-            snippet: buildSnippet(scContent || scTitle, query),
+            snippet: buildSnippet(epContent, query, snippetRadius),
+          });
+          if (matches.length >= maxMatches) break;
+        }
+        for (const sc of ep.scenes || []) {
+          if (matches.length >= maxMatches) break;
+          const scContent = sc.content || "";
+          const scTitle = sc.title || "";
+          if (
+            (scContent && toLower(scContent).includes(lowerQuery)) ||
+            (scTitle && toLower(scTitle).includes(lowerQuery))
+          ) {
+            matches.push({
+              scope: "scene",
+              episodeId: ep.id,
+              episodeTitle: ep.title,
+              sceneId: sc.id,
+              sceneTitle: sc.title,
+              snippet: buildSnippet(scContent || scTitle, query, snippetRadius),
+            });
+          }
+        }
+      }
+    }
+
+    if (matches.length < maxMatches && queryScopes.has("understanding")) {
+      const projectSummary = data.context?.projectSummary || "";
+      if (projectSummary && toLower(projectSummary).includes(lowerQuery)) {
+        matches.push({
+          scope: "projectSummary",
+          snippet: buildSnippet(projectSummary, query, snippetRadius),
+        });
+      }
+      if (matches.length < maxMatches) {
+        for (const summary of data.context?.episodeSummaries || []) {
+          if (matches.length >= maxMatches) break;
+          if (summary.summary && toLower(summary.summary).includes(lowerQuery)) {
+            matches.push({
+              scope: "episodeSummary",
+              episodeId: summary.episodeId,
+              snippet: buildSnippet(summary.summary, query, snippetRadius),
+            });
+          }
+        }
+      }
+    }
+
+    if (matches.length < maxMatches && queryScopes.has("characters")) {
+      for (const c of characters) {
+        if (matches.length >= maxMatches) break;
+        const haystacks = [c.name, c.role, c.bio, c.episodeUsage, ...(c.tags || [])].filter(Boolean).join(" ");
+        if (haystacks && toLower(haystacks).includes(lowerQuery)) {
+          matches.push({
+            scope: "character",
+            characterId: c.id,
+            characterName: c.name,
+            snippet: buildSnippet(haystacks, query, snippetRadius),
+          });
+        }
+      }
+    }
+
+    if (matches.length < maxMatches && queryScopes.has("locations")) {
+      for (const loc of locations) {
+        if (matches.length >= maxMatches) break;
+        const haystacks = [loc.name, loc.description, loc.visuals, loc.episodeUsage].filter(Boolean).join(" ");
+        if (haystacks && toLower(haystacks).includes(lowerQuery)) {
+          matches.push({
+            scope: "location",
+            locationId: loc.id,
+            locationName: loc.name,
+            snippet: buildSnippet(haystacks, query, snippetRadius),
           });
         }
       }
@@ -522,18 +784,26 @@ export const readScriptData = (data: ProjectData, args: any): ReadResult => {
     result.data.matches = matches;
   }
 
+  if (!character && (characterId || characterName)) {
+    result.warnings.push("character_not_found");
+  }
+  if (!location && (locationId || locationName)) {
+    result.warnings.push("location_not_found");
+  }
   if (!episode && (episodeId || episodeTitle)) {
     result.warnings.push("episode_not_found");
   }
   if (episode && sceneId && !scene) {
     result.warnings.push("scene_not_found");
   }
-  if (!query && !episode && !scene) {
+  if (!query && !episode && !scene && !character && !location) {
     result.warnings.push("no_target_specified");
   }
 
   return { result };
 };
+
+export const readScriptData = readProjectData;
 
 export const upsertLocation = (prev: ProjectData, args: any): UpsertResult => {
   const input = args?.location || {};

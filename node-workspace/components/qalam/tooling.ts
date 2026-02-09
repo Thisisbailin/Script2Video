@@ -5,8 +5,8 @@ import type { QalamToolSettings } from "../../../types";
 export const TOOL_DEFS: DeyunAITool[] = [
   {
     type: "function",
-    name: "read_script_data",
-    description: "Read script data by episode/scene or search query. Returns episode content, scene content, or matches.",
+    name: "read_project_data",
+    description: "Read project data: script, understanding, characters, locations. Supports episode/scene lookup and search.",
     parameters: {
       type: "object",
       properties: {
@@ -14,7 +14,18 @@ export const TOOL_DEFS: DeyunAITool[] = [
         episodeTitle: { type: "string", description: "Episode title or label to match." },
         sceneId: { type: "string", description: "Scene id like 1-3." },
         sceneIndex: { type: "integer", description: "Scene index within episode (1-based)." },
+        characterId: { type: "string", description: "Character id." },
+        characterName: { type: "string", description: "Character name to match." },
+        locationId: { type: "string", description: "Location id." },
+        locationName: { type: "string", description: "Location name to match." },
         query: { type: "string", description: "Text to search within script." },
+        queryScopes: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["script", "understanding", "characters", "locations"],
+          },
+        },
         include: {
           type: "array",
           items: {
@@ -23,19 +34,40 @@ export const TOOL_DEFS: DeyunAITool[] = [
               "episodeContent",
               "sceneContent",
               "sceneList",
+              "episodeCharacters",
               "matches",
               "projectSummary",
               "episodeSummary",
+              "episodeSummaries",
               "characters",
+              "character",
               "locations",
+              "location",
               "rawScript",
             ],
           },
         },
         maxChars: { type: "integer", description: "Max chars per content field (default 1200)." },
         maxMatches: { type: "integer", description: "Max matches for search results (default 5)." },
+        maxItems: { type: "integer", description: "Max items for lists (default 20)." },
       },
       required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "search_script_data",
+    description: "Search parsed script data to locate relevant episodes/scenes.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query." },
+        episodeId: { type: "integer", description: "Limit search to a specific episode (1-based)." },
+        episodeTitle: { type: "string", description: "Limit search to an episode title." },
+        maxMatches: { type: "integer", description: "Max matches (default 8)." },
+        maxSnippetChars: { type: "integer", description: "Max snippet length per match (default 200)." },
+      },
+      required: ["query"],
     },
   },
   {
@@ -144,7 +176,9 @@ export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined)
 
 export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolSettings>) => {
   if (!settings.characterLocation.enabled) {
-    return TOOL_DEFS.filter((tool) => tool.type === "function" && tool.name === "read_script_data");
+    return TOOL_DEFS.filter(
+      (tool) => tool.type === "function" && (tool.name === "read_project_data" || tool.name === "search_script_data")
+    );
   }
   return TOOL_DEFS;
 };
@@ -159,15 +193,26 @@ export const parseToolArguments = (value: string) => {
 };
 
 export const buildToolSummary = (name: string, args: any) => {
-  if (name === "read_script_data") {
+  if (name === "read_project_data" || name === "read_script_data") {
     const ep = args?.episodeId || args?.episodeTitle || "";
     const sc = args?.sceneId || args?.sceneIndex || "";
+    const ch = args?.characterName || args?.characterId || "";
+    const loc = args?.locationName || args?.locationId || "";
     const q = args?.query || "";
     const parts = [];
     if (ep) parts.push(`集 ${ep}`);
     if (sc) parts.push(`场景 ${sc}`);
+    if (ch) parts.push(`角色 ${ch}`);
+    if (loc) parts.push(`场景库 ${loc}`);
     if (q) parts.push(`检索 "${String(q).slice(0, 24)}"`);
-    return parts.length ? `剧本读取：${parts.join(" · ")}` : "剧本读取";
+    return parts.length ? `资料查阅：${parts.join(" · ")}` : "资料查阅";
+  }
+  if (name === "search_script_data") {
+    const q = args?.query || "";
+    const ep = args?.episodeId || args?.episodeTitle || "";
+    return ep
+      ? `剧本搜索：${String(q).slice(0, 24)} · 集 ${ep}`
+      : `剧本搜索：${String(q).slice(0, 32)}`;
   }
   if (name === "upsert_character") {
     const target = args?.character?.name || args?.character?.id || "未命名角色";

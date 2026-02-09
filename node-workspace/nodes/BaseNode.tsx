@@ -9,9 +9,10 @@ type Props = {
   inputs?: HandleType[];
   outputs?: HandleType[];
   selected?: boolean;
+  variant?: "default" | "text";
 };
 
-export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [], selected }) => {
+export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [], selected, variant = "default" }) => {
   return (
     <>
       <NodeResizer
@@ -22,7 +23,11 @@ export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [],
         handleClassName="custom-node-handle"
         lineClassName="custom-node-line"
       />
-      <div className="node-card-base transition-shadow duration-300 overflow-visible text-xs flex flex-col" data-selected={!!selected}>
+      <div
+        className="node-card-base transition-shadow duration-300 overflow-visible text-xs flex flex-col"
+        data-selected={!!selected}
+        data-variant={variant}
+      >
         <div className="node-card-body relative px-5 py-4 space-y-4 flex-1 flex flex-col">{children}</div>
 
         {/* Handles */}

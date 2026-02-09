@@ -5,6 +5,7 @@ export type ToolPayload = {
   status: ToolStatus;
   summary?: string;
   evidence?: string[];
+  output?: string;
   callId?: string;
 };
 
