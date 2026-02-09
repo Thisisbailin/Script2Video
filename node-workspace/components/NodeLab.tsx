@@ -37,7 +37,7 @@ import { QalamAgent } from "./QalamAgent";
 import { ViewportControls } from "./ViewportControls";
 import { Toast, useToast } from "./Toast";
 import { AnnotationModal } from "./AnnotationModal";
-import { DesignAssetItem, ProjectData } from "../../types";
+import { ProjectData } from "../../types";
 import type { ModuleKey } from "./ModuleBar";
 import { FolderOpen, FileText, List } from "lucide-react";
 
@@ -389,17 +389,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [isLocked, setIsLocked] = useState(false);
   const [zoomValue, setZoomValue] = useState(() => getViewport().zoom ?? 1);
   const [liveViewport, setLiveViewport] = useState(() => getViewport());
-  const createDesignAssetId = useCallback(() => {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  }, []);
-  const buildDesignAssetKey = useCallback(
-    (asset: Pick<DesignAssetItem, "category" | "refId" | "url">) =>
-      `${asset.category}|${asset.refId}|${asset.url}`,
-    []
-  );
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -479,135 +468,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       });
     });
   }, [addToGlobalHistory, globalAssetHistory, nodes]);
-
-  useEffect(() => {
-    if (!edges.length || !nodes.length) return;
-    const existingAssets = projectData.designAssets || [];
-    const existingKeys = new Set(existingAssets.map(buildDesignAssetKey));
-    const nextAssets = [...existingAssets];
-    let changed = false;
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-
-    edges.forEach((edge) => {
-      const source = nodeById.get(edge.source);
-      const target = nodeById.get(edge.target);
-      if (!source || !target) return;
-      if (source.type !== "text" || (target.type !== "imageGen" && target.type !== "wanImageGen")) return;
-      if (edge.sourceHandle && edge.sourceHandle !== "text") return;
-      if (edge.targetHandle && edge.targetHandle !== "text") return;
-
-      const textData = source.data as TextNodeData;
-      if (textData.category !== "form" && textData.category !== "zone") return;
-      if (!textData.refId) return;
-
-      const imageData = target.data as ImageGenNodeData;
-      if (!imageData.outputImage) return;
-
-      const asset: DesignAssetItem = {
-        id: createDesignAssetId(),
-        category: textData.category,
-        refId: textData.refId,
-        url: imageData.outputImage,
-        createdAt: Date.now(),
-        label: textData.title,
-      };
-      const key = buildDesignAssetKey(asset);
-      if (existingKeys.has(key)) return;
-
-      existingKeys.add(key);
-      nextAssets.push(asset);
-      changed = true;
-    });
-
-    if (changed) {
-      setProjectData((prev) => ({
-        ...prev,
-        designAssets: nextAssets,
-      }));
-    }
-  }, [buildDesignAssetKey, createDesignAssetId, edges, nodes, projectData.designAssets, setProjectData]);
-
-  useEffect(() => {
-    if (!projectData.designAssets.length) return;
-    if (!nodes.length) return;
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const textNodeByRef = new Map<string, typeof nodes[number]>();
-    const connectedImagesByRef = new Map<string, typeof nodes[number][]>();
-
-    nodes.forEach((node) => {
-      if (node.type !== "text") return;
-      const data = node.data as TextNodeData;
-      if (data.category !== "form" && data.category !== "zone") return;
-      if (!data.refId) return;
-      textNodeByRef.set(`${data.category}|${data.refId}`, node);
-    });
-
-    edges.forEach((edge) => {
-      const source = nodeById.get(edge.source);
-      const target = nodeById.get(edge.target);
-      if (!source || !target) return;
-      if (source.type !== "text" || (target.type !== "imageGen" && target.type !== "wanImageGen")) return;
-      if (edge.sourceHandle && edge.sourceHandle !== "text") return;
-      if (edge.targetHandle && edge.targetHandle !== "text") return;
-      const data = source.data as TextNodeData;
-      if (data.category !== "form" && data.category !== "zone") return;
-      if (!data.refId) return;
-      const key = `${data.category}|${data.refId}`;
-      const list = connectedImagesByRef.get(key) || [];
-      list.push(target);
-      connectedImagesByRef.set(key, list);
-    });
-
-    projectData.designAssets.forEach((asset) => {
-      const key = `${asset.category}|${asset.refId}`;
-      const textNode = textNodeByRef.get(key);
-      if (!textNode) return;
-      const connectedImages = connectedImagesByRef.get(key) || [];
-      if (connectedImages.some((node) => (node.data as ImageGenNodeData).outputImage === asset.url)) {
-        return;
-      }
-
-      const emptyNode = connectedImages.find((node) => !(node.data as ImageGenNodeData).outputImage);
-      if (emptyNode) {
-        updateNodeData(emptyNode.id, {
-          outputImage: asset.url,
-          status: "complete",
-          error: null,
-          designCategory: asset.category,
-          designRefId: asset.refId,
-        });
-        return;
-      }
-
-      const offsetIndex = connectedImages.length;
-      const newId = addNode(
-        "imageGen",
-        {
-          x: textNode.position.x + 360 + offsetIndex * 260,
-          y: textNode.position.y,
-        },
-        textNode.parentId,
-        {
-          title: "Design Image",
-          inputImages: [],
-          inputPrompt: null,
-          outputImage: asset.url,
-          status: "complete",
-          error: null,
-          aspectRatio: "1:1",
-          designCategory: asset.category,
-          designRefId: asset.refId,
-        }
-      );
-
-      onConnect({
-        source: textNode.id,
-        sourceHandle: "text",
-        target: newId,
-        targetHandle: "text",
-      });
-    });
-  }, [addNode, nodes, edges, onConnect, projectData.designAssets, updateNodeData]);
 
   const handleConnectEnd: OnConnectEnd = useCallback(
     (event, connectionState) => {
@@ -767,12 +627,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   }, []);
 
   const handleInsertTextNode = useCallback(
-    (payload: { title: string; text: string; category?: TextNodeData["category"]; refId?: string }) => {
+    (payload: { title: string; text: string; refId?: string }) => {
       const origin = getTemplateOrigin();
       addNode("text", origin, undefined, {
         title: payload.title,
         text: payload.text,
-        category: payload.category,
         refId: payload.refId,
       } as Partial<TextNodeData>);
       focusTemplate(origin, 0.7);
@@ -881,7 +740,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         data: {
           title: `Sora Prompt: ${shot.id}`,
           text: shot.soraPrompt || "",
-          category: 'episode',
           refId: `${episodeId}|${shot.id}`
         } as TextNodeData,
       });
@@ -895,7 +753,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         data: {
           title: `Storyboard Prompt: ${shot.id}`,
           text: shot.storyboardPrompt || "",
-          category: 'episode',
           refId: `${episodeId}|${shot.id}`
         } as TextNodeData,
       });
