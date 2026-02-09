@@ -405,6 +405,7 @@ export const createReasoningResponse = async (
         detail?: "low" | "high" | "auto";
       };
     }>;
+    inputItems?: any[];
   },
   onDelta?: (text: string, raw: any) => void
 ): Promise<DeyunAIResponse> => {
@@ -420,12 +421,15 @@ export const createReasoningResponse = async (
   const toolChoice = options?.toolChoice ?? (hasTools ? "auto" : undefined);
   const body = {
     model: options?.model || "gpt-5-2025-08-07",
-    input: [
-      {
-        role: "user",
-        content,
-      },
-    ],
+    input:
+      options?.inputItems && Array.isArray(options.inputItems) && options.inputItems.length
+        ? options.inputItems
+        : [
+            {
+              role: "user",
+              content,
+            },
+          ],
     tools: options?.tools || [],
     tool_choice: toolChoice,
     parallel_tool_calls: hasTools ? options?.parallelToolCalls ?? true : undefined,

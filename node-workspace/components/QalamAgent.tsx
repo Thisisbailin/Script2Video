@@ -628,7 +628,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       const systemInstruction =
         "You are Qalam, a creative agent helping build this project. Keep responses concise. You can use Markdown. Do not include chain-of-thought or internal reasoning; respond with final answers only.";
       const toolHint = isDeyunai
-        ? "\n[Tooling]\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
+        ? "\n[Tooling]\n- 当用户提到具体剧集/场景/剧情片段时，先调用 read_script_data 获取对应内容再回答。\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
         : "";
       const memoryText = buildConversationMemory(messages);
       const memoryBlock = memoryText ? `[Conversation]\n${memoryText}\n\n` : "";
@@ -747,6 +747,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           });
         } catch {}
 
+        const needsFollowUp = toolCalls?.some((tc) => tc.name === "read_script_data");
         const summaryFromRaw = extractReasoningSummary(raw);
         const usedSearchFromRaw = extractSearchUsage(raw);
         const queriesFromRaw = extractSearchQueries(raw);
@@ -758,19 +759,55 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
         const extractedReasoning = extractReasoningSection(text || "");
         const parsed = parsePlanFromText(extractedReasoning.text || "");
-        if (useStream && assistantIndex !== -1) {
+        if (!needsFollowUp) {
+          if (useStream && assistantIndex !== -1) {
+            setMessages((prev) =>
+              prev.map((m, idx) => {
+                if (idx !== assistantIndex || isToolMessage(m)) return m;
+                return {
+                  ...m,
+                  text: parsed.text || m.text,
+                  meta: {
+                    ...m.meta,
+                    planItems: parsed.planItems,
+                    reasoningSummary:
+                      reasoningSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
+                    thinkingStatus: "done",
+                    searchEnabled,
+                    searchUsed,
+                    searchQueries,
+                  },
+                };
+              })
+            );
+          } else if (text && text.trim()) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                text: parsed.text || text,
+                kind: "chat",
+                meta: {
+                  planItems: parsed.planItems,
+                  reasoningSummary: reasoningSummary || undefined,
+                  thinkingStatus: "done",
+                  searchEnabled,
+                  searchUsed,
+                  searchQueries,
+                },
+              },
+            ]);
+          }
+        } else if (useStream && assistantIndex !== -1) {
           setMessages((prev) =>
             prev.map((m, idx) => {
               if (idx !== assistantIndex || isToolMessage(m)) return m;
               return {
                 ...m,
-                text: parsed.text || m.text,
+                text: "",
                 meta: {
                   ...m.meta,
-                  planItems: parsed.planItems,
-                  reasoningSummary:
-                    reasoningSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
-                  thinkingStatus: "done",
+                  thinkingStatus: "active",
                   searchEnabled,
                   searchUsed,
                   searchQueries,
@@ -778,27 +815,146 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
               };
             })
           );
-        } else if (text && text.trim()) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              text: parsed.text || text,
-              kind: "chat",
-              meta: {
-                planItems: parsed.planItems,
-                reasoningSummary: reasoningSummary || undefined,
-                thinkingStatus: "done",
-                searchEnabled,
-                searchUsed,
-                searchQueries,
-              },
-            },
-          ]);
         }
 
-        if (toolCalls?.length) {
-          await handleToolCalls(toolCalls);
+        const toolOutputs = toolCalls?.length ? await handleToolCalls(toolCalls) : [];
+
+        if (needsFollowUp && toolOutputs.length) {
+          const followInputContent = imageUrls.length
+            ? inputContent
+            : [{ type: "input_text" as const, text: prompt }];
+          const outputItems = toolOutputs.filter((item) => item.callId);
+          const inputItems = [
+            { role: "user", content: followInputContent },
+            ...outputItems.map((item) => ({
+              type: "function_call_output",
+              call_id: item.callId,
+              output: item.output,
+            })),
+          ];
+
+          let followSummary = "";
+          let followSearchUsed = false;
+          let followSearchQueries: string[] = [];
+
+          const followRes = await DeyunAIService.createReasoningResponse(
+            prompt,
+            { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
+            {
+              model: config.textConfig.model || "gpt-5.1",
+              reasoningEffort: config.textConfig.reasoningEffort || "medium",
+              verbosity: config.textConfig.verbosity || "medium",
+              stream: useStream,
+              store: config.textConfig.store ?? true,
+              tools: mergedTools,
+              toolChoice: "none",
+              inputItems,
+            },
+            useStream
+              ? (delta, rawDelta) => {
+                  if (delta) {
+                    setMessages((prev) => {
+                      if (assistantIndex === -1) assistantIndex = prev.length - 1;
+                      return prev.map((m, idx) => {
+                        if (idx !== assistantIndex || isToolMessage(m)) return m;
+                        return { ...m, text: (m.text || "") + delta };
+                      });
+                    });
+                  }
+                  const summary = extractReasoningSummary(rawDelta);
+                  const usedSearch = extractSearchUsage(rawDelta);
+                  const queries = extractSearchQueries(rawDelta);
+                  if (queries.length) {
+                    followSearchQueries = Array.from(new Set([...followSearchQueries, ...queries]));
+                    setMessages((prev) =>
+                      prev.map((m, idx) => {
+                        if (idx !== assistantIndex || isToolMessage(m)) return m;
+                        return { ...m, meta: { ...m.meta, searchQueries: followSearchQueries, searchEnabled } };
+                      })
+                    );
+                  }
+                  if (usedSearch && !followSearchUsed) {
+                    followSearchUsed = true;
+                    setMessages((prev) =>
+                      prev.map((m, idx) => {
+                        if (idx !== assistantIndex || isToolMessage(m)) return m;
+                        return { ...m, meta: { ...m.meta, searchUsed: true, searchEnabled } };
+                      })
+                    );
+                  }
+                  if (summary) {
+                    followSummary = `${followSummary}${summary}`;
+                    setMessages((prev) =>
+                      prev.map((m, idx) => {
+                        if (idx !== assistantIndex || isToolMessage(m)) return m;
+                        return {
+                          ...m,
+                          meta: {
+                            ...m.meta,
+                            reasoningSummary: followSummary,
+                            thinkingStatus: "active",
+                            searchEnabled,
+                            searchUsed: followSearchUsed,
+                            searchQueries: followSearchQueries,
+                          },
+                        };
+                      })
+                    );
+                  }
+                }
+              : undefined
+          );
+
+          const followSummaryFromRaw = extractReasoningSummary(followRes.raw);
+          const followUsedSearchFromRaw = extractSearchUsage(followRes.raw);
+          const followQueriesFromRaw = extractSearchQueries(followRes.raw);
+          if (followQueriesFromRaw.length) {
+            followSearchQueries = Array.from(new Set([...followSearchQueries, ...followQueriesFromRaw]));
+          }
+          if (followUsedSearchFromRaw) followSearchUsed = true;
+          if (followSummaryFromRaw) followSummary = followSummaryFromRaw;
+
+          const followExtracted = extractReasoningSection(followRes.text || "");
+          const followParsed = parsePlanFromText(followExtracted.text || "");
+
+          if (useStream && assistantIndex !== -1) {
+            setMessages((prev) =>
+              prev.map((m, idx) => {
+                if (idx !== assistantIndex || isToolMessage(m)) return m;
+                return {
+                  ...m,
+                  text: followParsed.text || m.text,
+                  meta: {
+                    ...m.meta,
+                    planItems: followParsed.planItems,
+                    reasoningSummary:
+                      followSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
+                    thinkingStatus: "done",
+                    searchEnabled,
+                    searchUsed: followSearchUsed,
+                    searchQueries: followSearchQueries,
+                  },
+                };
+              })
+            );
+          } else if (followRes.text && followRes.text.trim()) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                text: followParsed.text || followRes.text,
+                kind: "chat",
+                meta: {
+                  planItems: followParsed.planItems,
+                  reasoningSummary: followSummary || undefined,
+                  thinkingStatus: "done",
+                  searchEnabled,
+                  searchUsed: followSearchUsed,
+                  searchQueries: followSearchQueries,
+                },
+              },
+            ]);
+          }
         }
 
         setIsSending(false);

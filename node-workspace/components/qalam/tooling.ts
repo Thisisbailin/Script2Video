@@ -5,6 +5,41 @@ import type { QalamToolSettings } from "../../../types";
 export const TOOL_DEFS: DeyunAITool[] = [
   {
     type: "function",
+    name: "read_script_data",
+    description: "Read script data by episode/scene or search query. Returns episode content, scene content, or matches.",
+    parameters: {
+      type: "object",
+      properties: {
+        episodeId: { type: "integer", description: "Episode number (1-based)." },
+        episodeTitle: { type: "string", description: "Episode title or label to match." },
+        sceneId: { type: "string", description: "Scene id like 1-3." },
+        sceneIndex: { type: "integer", description: "Scene index within episode (1-based)." },
+        query: { type: "string", description: "Text to search within script." },
+        include: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "episodeContent",
+              "sceneContent",
+              "sceneList",
+              "matches",
+              "projectSummary",
+              "episodeSummary",
+              "characters",
+              "locations",
+              "rawScript",
+            ],
+          },
+        },
+        maxChars: { type: "integer", description: "Max chars per content field (default 1200)." },
+        maxMatches: { type: "integer", description: "Max matches for search results (default 5)." },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
     name: "upsert_character",
     description: "Create or update a character (with forms). Supports partial updates.",
     parameters: {
@@ -108,7 +143,9 @@ export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined)
 };
 
 export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolSettings>) => {
-  if (!settings.characterLocation.enabled) return [];
+  if (!settings.characterLocation.enabled) {
+    return TOOL_DEFS.filter((tool) => tool.type === "function" && tool.name === "read_script_data");
+  }
   return TOOL_DEFS;
 };
 
@@ -122,6 +159,16 @@ export const parseToolArguments = (value: string) => {
 };
 
 export const buildToolSummary = (name: string, args: any) => {
+  if (name === "read_script_data") {
+    const ep = args?.episodeId || args?.episodeTitle || "";
+    const sc = args?.sceneId || args?.sceneIndex || "";
+    const q = args?.query || "";
+    const parts = [];
+    if (ep) parts.push(`集 ${ep}`);
+    if (sc) parts.push(`场景 ${sc}`);
+    if (q) parts.push(`检索 "${String(q).slice(0, 24)}"`);
+    return parts.length ? `剧本读取：${parts.join(" · ")}` : "剧本读取";
+  }
   if (name === "upsert_character") {
     const target = args?.character?.name || args?.character?.id || "未命名角色";
     const formsCount = Array.isArray(args?.character?.forms) ? args.character.forms.length : 0;

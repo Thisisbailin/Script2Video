@@ -2,6 +2,7 @@ import type { Character, Location, ProjectData } from "../../../types";
 import { createStableId, ensureStableId } from "../../../utils/id";
 
 type UpsertResult = { next: ProjectData; result: any };
+type ReadResult = { result: any };
 
 const hasKey = (obj: any, key: string) => Object.prototype.hasOwnProperty.call(obj || {}, key);
 
@@ -306,6 +307,232 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
       formsCount: (next.forms || []).length,
     },
   };
+};
+
+const toNumber = (value: any): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  const match = raw.match(/\d+/);
+  if (!match) return undefined;
+  const parsed = Number.parseInt(match[0], 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const clipText = (text: string, maxChars: number) => {
+  if (!text) return "";
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}...`;
+};
+
+const toLower = (value: string) => value.toLowerCase();
+
+const buildSnippet = (text: string, query: string, radius = 120) => {
+  if (!text || !query) return clipText(text, radius * 2);
+  const lowerText = toLower(text);
+  const lowerQuery = toLower(query);
+  const idx = lowerText.indexOf(lowerQuery);
+  if (idx === -1) return clipText(text, radius * 2);
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(text.length, idx + query.length + radius);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < text.length ? "..." : "";
+  return `${prefix}${text.slice(start, end)}${suffix}`;
+};
+
+const normalizeSceneId = (value: any, episodeId?: number) => {
+  if (value === null || value === undefined) return undefined;
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  if (raw.includes("-")) return raw;
+  if (episodeId) return `${episodeId}-${raw}`;
+  return raw;
+};
+
+const pickEpisodeByTitle = (episodes: any[], title: string) => {
+  if (!title) return undefined;
+  const normalized = title.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return episodes.find((ep) => (ep.title || "").toLowerCase().includes(normalized));
+};
+
+const summarizeCharacters = (characters: Character[], maxChars: number) =>
+  (characters || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    role: c.role,
+    isMain: c.isMain,
+    bio: clipText(c.bio || "", Math.max(120, Math.min(maxChars, 400))),
+    episodeUsage: c.episodeUsage,
+    tags: c.tags,
+  }));
+
+const summarizeLocations = (locations: Location[], maxChars: number) =>
+  (locations || []).map((loc) => ({
+    id: loc.id,
+    name: loc.name,
+    type: loc.type,
+    description: clipText(loc.description || "", Math.max(120, Math.min(maxChars, 400))),
+    visuals: clipText(loc.visuals || "", Math.max(120, Math.min(maxChars, 400))),
+    episodeUsage: loc.episodeUsage,
+  }));
+
+export const readScriptData = (data: ProjectData, args: any): ReadResult => {
+  const episodes = data.episodes || [];
+  const query = typeof args?.query === "string" ? args.query.trim() : "";
+  const episodeId = toNumber(args?.episodeId ?? args?.episode ?? args?.episodeNumber);
+  const episodeTitle = typeof args?.episodeTitle === "string" ? args.episodeTitle.trim() : "";
+  const sceneIndex = toNumber(args?.sceneIndex ?? args?.sceneNumber);
+  const sceneId = normalizeSceneId(args?.sceneId ?? args?.scene, episodeId);
+  const maxChars = Math.max(200, Math.min(4000, toNumber(args?.maxChars) || 1200));
+  const maxMatches = Math.max(1, Math.min(20, toNumber(args?.maxMatches) || 5));
+  const includeList = Array.isArray(args?.include) ? args.include : [];
+  const include = new Set(includeList.map((item: any) => String(item)));
+
+  if (!include.size) {
+    if (sceneId || sceneIndex) {
+      include.add("sceneContent");
+      include.add("episodeSummary");
+      include.add("projectSummary");
+    } else if (episodeId || episodeTitle) {
+      include.add("episodeContent");
+      include.add("sceneList");
+      include.add("episodeSummary");
+    } else if (query) {
+      include.add("matches");
+      include.add("projectSummary");
+    } else {
+      include.add("projectSummary");
+    }
+  }
+
+  let episode = episodeId ? episodes.find((ep) => ep.id === episodeId) : undefined;
+  if (!episode && episodeTitle) {
+    episode = pickEpisodeByTitle(episodes, episodeTitle);
+  }
+
+  let scene = undefined;
+  if (episode) {
+    if (sceneId) {
+      scene = (episode.scenes || []).find((sc) => sc.id === sceneId);
+    }
+    if (!scene && sceneIndex) {
+      const idx = sceneIndex - 1;
+      if (idx >= 0 && idx < (episode.scenes || []).length) {
+        scene = episode.scenes[idx];
+      }
+    }
+  } else if (sceneId) {
+    for (const ep of episodes) {
+      const found = (ep.scenes || []).find((sc) => sc.id === sceneId);
+      if (found) {
+        episode = ep;
+        scene = found;
+        break;
+      }
+    }
+  }
+
+  const result: any = {
+    request: {
+      episodeId: episodeId ?? null,
+      episodeTitle: episodeTitle || null,
+      sceneId: sceneId ?? null,
+      sceneIndex: sceneIndex ?? null,
+      query: query || null,
+    },
+    resolved: {
+      episode: episode ? { id: episode.id, title: episode.title } : null,
+      scene: scene ? { id: scene.id, title: scene.title } : null,
+    },
+    data: {},
+    warnings: [] as string[],
+  };
+
+  if (include.has("episodeContent") && episode?.content) {
+    result.data.episodeContent = clipText(episode.content, maxChars);
+  }
+  if (include.has("sceneContent") && scene?.content) {
+    result.data.sceneContent = clipText(scene.content, maxChars);
+  }
+  if (include.has("sceneList") && episode) {
+    result.data.sceneList = (episode.scenes || []).map((sc) => ({
+      id: sc.id,
+      title: sc.title,
+      location: sc.location,
+      timeOfDay: sc.timeOfDay,
+    }));
+  }
+
+  if (include.has("projectSummary") && data.context?.projectSummary) {
+    result.data.projectSummary = clipText(data.context.projectSummary, maxChars);
+  }
+  if (include.has("episodeSummary") && episode && data.context?.episodeSummaries) {
+    const summary = data.context.episodeSummaries.find((s) => s.episodeId === episode.id);
+    if (summary?.summary) {
+      result.data.episodeSummary = clipText(summary.summary, maxChars);
+    }
+  }
+
+  if (include.has("characters") && data.context?.characters) {
+    result.data.characters = summarizeCharacters(data.context.characters, maxChars);
+  }
+  if (include.has("locations") && data.context?.locations) {
+    result.data.locations = summarizeLocations(data.context.locations, maxChars);
+  }
+  if (include.has("rawScript") && data.rawScript) {
+    result.data.rawScript = clipText(data.rawScript, maxChars);
+  }
+
+  if (include.has("matches") && query) {
+    const matches: any[] = [];
+    const lowerQuery = toLower(query);
+    for (const ep of episodes) {
+      if (matches.length >= maxMatches) break;
+      const epContent = ep.content || "";
+      if (epContent && toLower(epContent).includes(lowerQuery)) {
+        matches.push({
+          scope: "episode",
+          episodeId: ep.id,
+          episodeTitle: ep.title,
+          snippet: buildSnippet(epContent, query),
+        });
+        if (matches.length >= maxMatches) break;
+      }
+      for (const sc of ep.scenes || []) {
+        if (matches.length >= maxMatches) break;
+        const scContent = sc.content || "";
+        const scTitle = sc.title || "";
+        if (
+          (scContent && toLower(scContent).includes(lowerQuery)) ||
+          (scTitle && toLower(scTitle).includes(lowerQuery))
+        ) {
+          matches.push({
+            scope: "scene",
+            episodeId: ep.id,
+            episodeTitle: ep.title,
+            sceneId: sc.id,
+            sceneTitle: sc.title,
+            snippet: buildSnippet(scContent || scTitle, query),
+          });
+        }
+      }
+    }
+    result.data.matches = matches;
+  }
+
+  if (!episode && (episodeId || episodeTitle)) {
+    result.warnings.push("episode_not_found");
+  }
+  if (episode && sceneId && !scene) {
+    result.warnings.push("scene_not_found");
+  }
+  if (!query && !episode && !scene) {
+    result.warnings.push("no_target_specified");
+  }
+
+  return { result };
 };
 
 export const upsertLocation = (prev: ProjectData, args: any): UpsertResult => {

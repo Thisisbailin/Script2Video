@@ -3,12 +3,18 @@ import type { DeyunAIToolCall } from "../../../services/deyunaiService";
 import type { ProjectData } from "../../../types";
 import type { Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { buildToolMessages, buildToolCallMeta, buildToolSummary, normalizeQalamToolSettings } from "./tooling";
-import { upsertCharacter, upsertLocation } from "./toolActions";
+import { readScriptData, upsertCharacter, upsertLocation } from "./toolActions";
 
 type Options = {
   setMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   toolSettings?: Parameters<typeof normalizeQalamToolSettings>[0];
+};
+
+type ToolOutput = {
+  name: string;
+  callId: string;
+  output: string;
 };
 
 export const useQalamTooling = ({
@@ -58,22 +64,31 @@ export const useQalamTooling = ({
         });
         return result;
       }
+      if (call.name === "read_script_data") {
+        let result: any = null;
+        setProjectData((prev) => {
+          result = readScriptData(prev, args).result;
+          return prev;
+        });
+        return result;
+      }
       throw new Error(`未知工具: ${call.name || "unknown"}`);
     },
-    [setProjectData, upsertCharacter, upsertLocation]
+    [setProjectData]
   );
 
   const handleToolCalls = useCallback(
     async (toolCalls: DeyunAIToolCall[]) => {
-      if (!toolCalls?.length) return;
+      if (!toolCalls?.length) return [] as ToolOutput[];
       const toolMeta = buildToolCallMeta(toolCalls, settings);
       const toolMessages: ToolMessage[] = buildToolMessages(toolMeta);
       setMessages((prev) => [...prev, ...toolMessages]);
+      const outputs: ToolOutput[] = [];
 
       for (const { tc, args, callId } of toolMeta) {
         updateToolStatus(callId, "running");
         try {
-          if (tc.name !== "upsert_character" && tc.name !== "upsert_location") {
+          if (tc.name !== "upsert_character" && tc.name !== "upsert_location" && tc.name !== "read_script_data") {
             updateToolStatus(callId, "success");
             appendToolResult({
               name: tc.name || "tool",
@@ -81,6 +96,11 @@ export const useQalamTooling = ({
               summary: "系统工具已执行",
               evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
               callId,
+            });
+            outputs.push({
+              name: tc.name || "tool",
+              callId,
+              output: JSON.stringify({ status: "success" }),
             });
             continue;
           }
@@ -99,6 +119,16 @@ export const useQalamTooling = ({
             evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
             callId,
           });
+          if (tc.name === "read_script_data") {
+            const output = JSON.stringify(result || {});
+            outputs.push({ name: tc.name || "tool", callId, output });
+          } else {
+            outputs.push({
+              name: tc.name || "tool",
+              callId,
+              output: JSON.stringify({ status: "success", summary }),
+            });
+          }
         } catch (toolErr: any) {
           updateToolStatus(callId, "error");
           appendToolResult({
@@ -108,8 +138,14 @@ export const useQalamTooling = ({
             evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
             callId,
           });
+          outputs.push({
+            name: tc.name || "tool",
+            callId,
+            output: JSON.stringify({ error: toolErr?.message || "工具执行失败" }),
+          });
         }
       }
+      return outputs;
     },
     [appendToolResult, executeToolCall, setMessages, settings, updateToolStatus]
   );
