@@ -277,6 +277,8 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         const textBefore = draftText.slice(0, pos);
         const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
         if (!match) return null;
+        const prevChar = textBefore.length > 1 ? textBefore[textBefore.length - match[0].length - 1] : "";
+        if (prevChar && !/\s|[\(\[\{,，。:：;；"“”'‘’]/.test(prevChar)) return null;
         return {
             query: match[1] || "",
             start: textBefore.lastIndexOf("@"),

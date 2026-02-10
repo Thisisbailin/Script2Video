@@ -445,13 +445,13 @@ body.qalam-resizing * {
   background: transparent;
   border: none;
   border-radius: 0;
-  padding: 18px;
+  padding: 20%;
   box-sizing: border-box;
 }
 
 .node-card-base[data-variant="text"] {
-  min-height: 320px;
-  aspect-ratio: 1 / 1;
+  min-height: 280px;
+  aspect-ratio: 5 / 4;
 }
 
 .text-node-shell {
@@ -462,7 +462,7 @@ body.qalam-resizing * {
 }
 
 .text-node-editor {
-  min-height: 160px;
+  min-height: 120px;
   display: block;
   font-size: 13px;
   font-weight: 500;
@@ -470,6 +470,7 @@ body.qalam-resizing * {
   color: var(--node-text-primary);
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
   outline: none;
   flex: 1;
 }
@@ -775,44 +776,44 @@ body.qalam-resizing * {
 }
 
 .custom-node-handle {
-  width: 22px !important;
-  height: 22px !important;
+  width: 20px !important;
+  height: 20px !important;
   background: transparent !important;
   border: none !important;
   position: relative;
-  color: rgba(59, 130, 246, 0.9);
+  color: rgba(155, 195, 255, 0.75);
 }
 
 .custom-node-handle::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border: 2px solid currentColor;
+  inset: -1px;
+  border: 1.5px solid currentColor;
   border-radius: 999px;
   clip-path: var(--arc-clip, inset(0 50% 50% 0));
 }
 
 .react-flow__resize-control.handle.top.left.custom-node-handle {
-  top: -11px !important;
-  left: -11px !important;
+  top: -10px !important;
+  left: -10px !important;
   --arc-clip: inset(0 50% 50% 0);
 }
 
 .react-flow__resize-control.handle.top.right.custom-node-handle {
-  top: -11px !important;
-  right: -11px !important;
+  top: -10px !important;
+  right: -10px !important;
   --arc-clip: inset(0 0 50% 50%);
 }
 
 .react-flow__resize-control.handle.bottom.left.custom-node-handle {
-  bottom: -11px !important;
-  left: -11px !important;
+  bottom: -10px !important;
+  left: -10px !important;
   --arc-clip: inset(50% 50% 0 0);
 }
 
 .react-flow__resize-control.handle.bottom.right.custom-node-handle {
-  bottom: -11px !important;
-  right: -11px !important;
+  bottom: -10px !important;
+  right: -10px !important;
   --arc-clip: inset(50% 0 0 50%);
 }
 
