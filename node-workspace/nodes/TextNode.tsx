@@ -65,26 +65,54 @@ const setCaretOffset = (el: HTMLElement, offset: number) => {
     const selection = window.getSelection();
     if (!selection) return;
     const range = document.createRange();
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
     let current = 0;
     let node = walker.nextNode();
     while (node) {
-        const text = node.textContent || "";
-        const next = current + text.length;
-        if (offset <= next) {
-            range.setStart(node, Math.max(0, offset - current));
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            return;
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent || "";
+            const next = current + text.length;
+            if (offset <= next) {
+                range.setStart(node, Math.max(0, offset - current));
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return;
+            }
+            current = next;
+        } else if ((node as HTMLElement).tagName === "BR") {
+            const next = current + 1;
+            if (offset <= next) {
+                range.setStartAfter(node);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return;
+            }
+            current = next;
         }
-        current = next;
         node = walker.nextNode();
     }
     range.selectNodeContents(el);
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
+};
+
+const getSelectionOffsets = (el: HTMLElement, fallback: number) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return { start: fallback, end: fallback };
+    const range = selection.getRangeAt(0);
+    if (!el.contains(range.startContainer)) return { start: fallback, end: fallback };
+    const preStart = range.cloneRange();
+    preStart.selectNodeContents(el);
+    preStart.setEnd(range.startContainer, range.startOffset);
+    const start = preStart.toString().length;
+    const preEnd = range.cloneRange();
+    preEnd.selectNodeContents(el);
+    preEnd.setEnd(range.endContainer, range.endOffset);
+    const end = preEnd.toString().length;
+    return { start, end };
 };
 
 const getCaretRect = (el: HTMLElement) => {
@@ -152,6 +180,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     const isComposingRef = useRef(false);
     const lastHtmlRef = useRef<string>("");
     const pendingSelectionRef = useRef<number | null>(null);
+    const baseStyleRef = useRef<{ height?: string; minHeight?: string } | null>(null);
     const [draftText, setDraftText] = useState(data.text || "");
     const [cursorPos, setCursorPos] = useState((data.text || "").length);
     const [isFocused, setIsFocused] = useState(false);
@@ -409,6 +438,40 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     }, [renderedHtml, draftText, cursorPos, updatePickerPosition]);
 
     useEffect(() => {
+        const shell = shellRef.current;
+        if (!shell) return;
+        const nodeEl = shell.closest(".react-flow__node") as HTMLElement | null;
+        if (!nodeEl) return;
+        const cardEl = nodeEl.querySelector(".node-card-base") as HTMLElement | null;
+        if (cardEl) {
+            const hasContent = draftText.trim().length > 0;
+            if (hasContent) cardEl.dataset.hasContent = "true";
+            else delete cardEl.dataset.hasContent;
+        }
+        if (!baseStyleRef.current) {
+            baseStyleRef.current = {
+                height: typeof nodeEl.style.height === "string" ? nodeEl.style.height : undefined,
+                minHeight: typeof nodeEl.style.minHeight === "string" ? nodeEl.style.minHeight : undefined,
+            };
+        }
+        const trim = draftText.trim();
+        if (!trim) {
+            if (baseStyleRef.current.height !== undefined) nodeEl.style.height = baseStyleRef.current.height;
+            else nodeEl.style.removeProperty("height");
+            if (baseStyleRef.current.minHeight !== undefined) nodeEl.style.minHeight = baseStyleRef.current.minHeight;
+            else nodeEl.style.removeProperty("min-height");
+            return;
+        }
+        const editor = editorRef.current;
+        if (!editor) return;
+        const paddingY = editor.clientHeight - editor.scrollHeight;
+        const desired = editor.scrollHeight + Math.max(0, paddingY);
+        const next = Math.max(nodeEl.offsetHeight || 0, desired);
+        nodeEl.style.height = `${next}px`;
+        nodeEl.style.minHeight = `${next}px`;
+    }, [draftText]);
+
+    useEffect(() => {
         if (isComposingRef.current) return;
         if ((data.text || "") === draftText) return;
         const next = data.text || "";
@@ -450,7 +513,11 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
             selected={selected}
             variant="text"
         >
-            <div ref={shellRef} className="text-node-shell relative flex-1">
+            <div
+                ref={shellRef}
+                className="text-node-shell relative flex-1"
+                data-has-content={draftText.trim().length > 0 ? "true" : "false"}
+            >
                 <div
                     ref={editorRef}
                     className="text-node-editor nodrag"
@@ -460,6 +527,24 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                     onInput={handleInput}
                     onKeyDown={(e) => {
                         e.stopPropagation();
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            const el = editorRef.current;
+                            if (!el) return;
+                            const { start, end } = getSelectionOffsets(el, cursorPos);
+                            const next = `${draftText.slice(0, start)}\n${draftText.slice(end)}`;
+                            const nextPos = start + 1;
+                            setDraftText(next);
+                            setCursorPos(nextPos);
+                            pendingSelectionRef.current = nextPos;
+                            const mentions = computeMentionMeta(next);
+                            updateNodeData(id, { text: next, atMentions: mentions });
+                            requestAnimationFrame(() => {
+                                if (!el) return;
+                                el.focus();
+                                setCaretOffset(el, nextPos);
+                            });
+                        }
                     }}
                     onKeyUp={() => {
                         updateCursor();

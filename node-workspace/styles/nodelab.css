@@ -429,29 +429,15 @@ body.qalam-resizing * {
   box-shadow: var(--node-shadow-strong);
 }
 
-.node-card-base[data-variant="text"] .node-card-body {
-  padding: 0;
-  gap: 0;
-}
-
-.node-card-base[data-variant="text"] .node-textarea {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 18px;
-}
-
-.node-card-base[data-variant="text"] .text-node-editor {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 20%;
-  box-sizing: border-box;
-}
-
 .node-card-base[data-variant="text"] {
   min-height: 280px;
   aspect-ratio: 5 / 4;
+}
+
+.node-card-base[data-variant="text"][data-has-content="true"] {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: auto;
 }
 
 .text-node-shell {
@@ -761,6 +747,7 @@ body.qalam-resizing * {
   transform: scale(0.6);
   transition: opacity 0.2s ease, transform 0.2s ease;
   pointer-events: none;
+  translate: 0 0 !important;
 }
 
 .node-card-base[data-resizer-visible="true"] .react-flow__resize-control.handle,
@@ -781,14 +768,14 @@ body.qalam-resizing * {
   background: transparent !important;
   border: none !important;
   position: relative;
-  color: rgba(155, 195, 255, 0.75);
+  color: rgba(155, 195, 255, 0.55);
 }
 
 .custom-node-handle::after {
   content: "";
   position: absolute;
-  inset: -1px;
-  border: 1.5px solid currentColor;
+  inset: 0;
+  border: 1.25px solid currentColor;
   border-radius: 999px;
   clip-path: var(--arc-clip, inset(0 50% 50% 0));
 }
@@ -818,23 +805,23 @@ body.qalam-resizing * {
 }
 
 .react-flow__resize-control.handle.top.left.group-arc-handle {
-  top: -18px !important;
-  left: -18px !important;
+  top: -12px !important;
+  left: -12px !important;
 }
 
 .react-flow__resize-control.handle.top.right.group-arc-handle {
-  top: -18px !important;
-  right: -18px !important;
+  top: -12px !important;
+  right: -12px !important;
 }
 
 .react-flow__resize-control.handle.bottom.left.group-arc-handle {
-  bottom: -18px !important;
-  left: -18px !important;
+  bottom: -12px !important;
+  left: -12px !important;
 }
 
 .react-flow__resize-control.handle.bottom.right.group-arc-handle {
-  bottom: -18px !important;
-  right: -18px !important;
+  bottom: -12px !important;
+  right: -12px !important;
 }
 
 .react-flow__resize-control.handle.top:not(.left):not(.right),
