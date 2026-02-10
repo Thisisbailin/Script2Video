@@ -443,13 +443,18 @@ body.qalam-resizing * {
   border: none;
   border-radius: 0;
   padding: 18px;
-  min-height: 100%;
-  height: 100%;
+  box-sizing: border-box;
 }
 
 .node-card-base[data-variant="text"] {
   min-height: 320px;
   aspect-ratio: 1 / 1;
+}
+
+.text-node-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .text-node-editor {
@@ -461,6 +466,7 @@ body.qalam-resizing * {
   white-space: pre-wrap;
   word-break: break-word;
   outline: none;
+  flex: 1;
 }
 
 .text-node-editor:empty::before {
@@ -836,7 +842,7 @@ body.qalam-resizing * {
 }
 
 .custom-node-line {
-  border-color: var(--node-accent) !important;
+  border-color: transparent !important;
   opacity: 0 !important;
 }
 
@@ -849,11 +855,9 @@ body.qalam-resizing * {
 
 .node-card-base[data-resizer-visible="true"] .react-flow__node-resizer__handle,
 .group-surface[data-resizer-visible="true"] .react-flow__node-resizer__handle,
-.react-flow__node.selected .react-flow__node-resizer__handle,
 .react-flow__node-resizer__handle:active {
   opacity: 1;
   transform: scale(1);
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
   pointer-events: auto;
 }
 
@@ -874,35 +878,33 @@ body.qalam-resizing * {
   content: "";
   position: absolute;
   inset: 0;
+  border: 2px solid currentColor;
   border-radius: 999px;
-  background: conic-gradient(from 0deg, currentColor 0 90deg, transparent 90deg);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-  transform: rotate(var(--arc-rotate, 0deg));
+  clip-path: var(--arc-clip, inset(0 50% 50% 0));
 }
 
 .react-flow__node-resizer__handle-top-left.custom-node-handle {
   top: -11px !important;
   left: -11px !important;
-  --arc-rotate: 270deg;
+  --arc-clip: inset(0 50% 50% 0);
 }
 
 .react-flow__node-resizer__handle-top-right.custom-node-handle {
   top: -11px !important;
   right: -11px !important;
-  --arc-rotate: 0deg;
+  --arc-clip: inset(0 0 50% 50%);
 }
 
 .react-flow__node-resizer__handle-bottom-left.custom-node-handle {
   bottom: -11px !important;
   left: -11px !important;
-  --arc-rotate: 180deg;
+  --arc-clip: inset(50% 50% 0 0);
 }
 
 .react-flow__node-resizer__handle-bottom-right.custom-node-handle {
   bottom: -11px !important;
   right: -11px !important;
-  --arc-rotate: 90deg;
+  --arc-clip: inset(50% 0 0 50%);
 }
 
 .react-flow__node-resizer__handle-top,
@@ -921,9 +923,7 @@ body.qalam-resizing * {
   border-radius: 999px !important;
 }
 
-.react-flow__node:hover .react-flow__handle,
-.react-flow__node.selected .react-flow__handle,
-.react-flow__node:focus-within .react-flow__handle {
+.react-flow__node:hover .react-flow__handle {
   opacity: 1;
   transform: scale(1);
   box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.18);

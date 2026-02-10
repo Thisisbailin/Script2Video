@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React from "react";
 import { NodeProps, NodeResizer } from "@xyflow/react";
 import { GroupNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -6,51 +6,11 @@ import { useWorkflowStore } from "../store/workflowStore";
 export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     const { updateNodeData } = useWorkflowStore();
     const groupData = data as GroupNodeData;
-    const groupRef = useRef<HTMLDivElement>(null);
-    const [showResizer, setShowResizer] = useState(false);
-    const [isResizing, setIsResizing] = useState(false);
-
-    const updateResizerVisibility = useCallback(
-        (event: React.MouseEvent<HTMLDivElement>) => {
-            if (isResizing) return;
-            const rect = groupRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            const threshold = 30;
-            const x = event.clientX;
-            const y = event.clientY;
-            const nearLeft = x - rect.left <= threshold;
-            const nearRight = rect.right - x <= threshold;
-            const nearTop = y - rect.top <= threshold;
-            const nearBottom = rect.bottom - y <= threshold;
-            const next = (nearLeft || nearRight) && (nearTop || nearBottom);
-            if (next !== showResizer) setShowResizer(next);
-        },
-        [isResizing, showResizer]
-    );
-
-    const clearResizer = useCallback(() => {
-        if (!isResizing) setShowResizer(false);
-    }, [isResizing]);
-
-    const handleResizeStart = useCallback(() => {
-        setIsResizing(true);
-        setShowResizer(true);
-    }, []);
-
-    const handleResizeEnd = useCallback(() => {
-        setIsResizing(false);
-        setShowResizer(false);
-    }, []);
 
     return (
         <div
-            ref={groupRef}
             className="group-surface h-full w-full rounded-[32px] transition-all duration-300 overflow-visible relative group/node"
             data-selected={selected ? "true" : "false"}
-            data-resizer-visible={showResizer || isResizing}
-            data-resizing={isResizing}
-            onMouseMove={updateResizerVisibility}
-            onMouseLeave={clearResizer}
         >
             <NodeResizer
                 color="var(--node-accent)"
@@ -59,8 +19,6 @@ export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                 minHeight={200}
                 handleClassName="custom-node-handle"
                 lineClassName="custom-node-line"
-                onResizeStart={handleResizeStart}
-                onResizeEnd={handleResizeEnd}
             />
 
             {/* Group Title - Floating above */}
