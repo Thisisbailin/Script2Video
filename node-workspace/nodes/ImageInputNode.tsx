@@ -1,8 +1,9 @@
-import React, { useMemo, useRef } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { ImageInputNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
-import { ImagePlus } from "lucide-react";
+import { AtSign, ImagePlus } from "lucide-react";
+import type { Character, CharacterForm, Location, LocationZone } from "../../types";
 
 type Props = {
   id: string;
@@ -10,14 +11,497 @@ type Props = {
   selected?: boolean;
 };
 
+type MentionKind = "form" | "zone" | "unknown";
+
+type MentionTarget = {
+  kind: Exclude<MentionKind, "unknown">;
+  name: string;
+  label: string;
+  search: string;
+  characterId?: string;
+  characterName?: string;
+  formName?: string;
+  locationId?: string;
+  locationName?: string;
+  zoneId?: string;
+  summary?: string;
+  detail?: string;
+};
+
+const mentionPriority: Record<MentionKind, number> = {
+  form: 0,
+  zone: 1,
+  unknown: 2,
+};
+
+const toSearch = (value: string) => value.toLowerCase();
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const escapeAttr = (value: string) => escapeHtml(value).replace(/\n/g, "&#10;");
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const getPlainText = (el: HTMLElement) => (el.innerText || "").replace(/\u200B/g, "").replace(/\r/g, "");
+
+const getRangeTextLength = (range: Range) => {
+  const fragment = range.cloneContents();
+  const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
+  let length = 0;
+  let node = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      length += (node.textContent || "").length;
+    } else if ((node as HTMLElement).tagName === "BR") {
+      length += 1;
+    }
+    node = walker.nextNode();
+  }
+  return length;
+};
+
+const getCaretOffset = (el: HTMLElement) => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return 0;
+  const range = selection.getRangeAt(0);
+  if (!el.contains(range.startContainer)) return 0;
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(el);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  return getRangeTextLength(preRange);
+};
+
+const setCaretOffset = (el: HTMLElement, offset: number) => {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
+  let current = 0;
+  let node = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || "";
+      const next = current + text.length;
+      if (offset <= next) {
+        range.setStart(node, Math.max(0, offset - current));
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+      current = next;
+    } else if ((node as HTMLElement).tagName === "BR") {
+      const next = current + 1;
+      if (offset <= next) {
+        range.setStartAfter(node);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+      current = next;
+    }
+    node = walker.nextNode();
+  }
+  range.selectNodeContents(el);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+};
+
+const getSelectionOffsets = (el: HTMLElement, fallback: number) => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return { start: fallback, end: fallback };
+  const range = selection.getRangeAt(0);
+  if (!el.contains(range.startContainer)) return { start: fallback, end: fallback };
+  const preStart = range.cloneRange();
+  preStart.selectNodeContents(el);
+  preStart.setEnd(range.startContainer, range.startOffset);
+  const start = getRangeTextLength(preStart);
+  const preEnd = range.cloneRange();
+  preEnd.selectNodeContents(el);
+  preEnd.setEnd(range.endContainer, range.endOffset);
+  const end = getRangeTextLength(preEnd);
+  return { start, end };
+};
+
+const getCaretRect = (el: HTMLElement) => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+  if (!el.contains(range.startContainer)) return null;
+  if (!range.collapsed) return range.getBoundingClientRect();
+  const rects = range.getClientRects();
+  if (rects.length > 0) return rects[0];
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  const clone = range.cloneRange();
+  clone.insertNode(marker);
+  const rect = marker.getBoundingClientRect();
+  marker.parentNode?.removeChild(marker);
+  return rect;
+};
+
+const buildFormDetail = (character: Character, form: CharacterForm) => {
+  const lines = [
+    character?.name ? `角色：${character.name}` : "",
+    character?.role ? `身份：${character.role}` : "",
+    form.episodeRange ? `区间：${form.episodeRange}` : "",
+    form.identityOrState ? `状态：${form.identityOrState}` : "",
+    form.visualTags ? `视觉：${form.visualTags}` : "",
+    form.description ? form.description : "",
+  ].filter(Boolean);
+  return lines.join("\n");
+};
+
+const buildZoneDetail = (location: Location, zone: LocationZone) => {
+  const kindLabel: Record<LocationZone["kind"], string> = {
+    interior: "内景",
+    exterior: "外景",
+    transition: "过渡",
+    unspecified: "未标注",
+  };
+  const lines = [
+    location?.name ? `场景：${location.name}` : "",
+    zone?.name ? `分区：${zone.name}` : "",
+    zone?.kind ? `类型：${kindLabel[zone.kind] || zone.kind}` : "",
+    zone?.episodeRange ? `区间：${zone.episodeRange}` : "",
+    zone?.layoutNotes ? `布局：${zone.layoutNotes}` : "",
+    zone?.keyProps ? `道具：${zone.keyProps}` : "",
+    zone?.lightingWeather ? `光色：${zone.lightingWeather}` : "",
+    zone?.materialPalette ? `材质：${zone.materialPalette}` : "",
+  ].filter(Boolean);
+  return lines.join("\n");
+};
+
 export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { updateNodeData, labContext } = useWorkflowStore();
+  const editorRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const isComposingRef = useRef(false);
+  const lastHtmlRef = useRef<string>("");
+  const pendingSelectionRef = useRef<number | null>(null);
+  const skipNextCursorUpdateRef = useRef(false);
+  const isLocalUpdateRef = useRef(false);
+  const { updateNodeData, updateNodeStyle, getNodeById, labContext } = useWorkflowStore();
 
-  const forms = useMemo(() => {
+  const [labelDraft, setLabelDraft] = useState(data.label || "");
+  const [cursorPos, setCursorPos] = useState(labelDraft.length);
+  const [isFocused, setIsFocused] = useState(false);
+  const [pickerPos, setPickerPos] = useState<{ left: number; top: number } | null>(null);
+  const lastRatioRef = useRef<number | null>(null);
+
+  const mentionTargets = useMemo(() => {
     const chars = labContext?.context?.characters || [];
-    return chars.flatMap((c) => (c.forms || []).map((f) => f.formName)).filter(Boolean);
+    const locations = labContext?.context?.locations || [];
+
+    const formTargets: MentionTarget[] = chars.flatMap((c) =>
+      (c.forms || [])
+        .filter((f) => !!f.formName)
+        .map((f) => {
+          const label = c.name ? `${f.formName} · ${c.name}` : f.formName;
+          return {
+            kind: "form" as const,
+            name: f.formName,
+            label,
+            search: toSearch([
+              f.formName,
+              c.name,
+              c.role,
+              f.episodeRange,
+              f.identityOrState,
+              f.visualTags,
+            ]
+              .filter(Boolean)
+              .join(" ")),
+            characterId: c.id,
+            characterName: c.name,
+            formName: f.formName,
+            summary: f.description,
+            detail: buildFormDetail(c, f),
+          };
+        })
+    );
+
+    const zoneTargets: MentionTarget[] = locations.flatMap((loc) =>
+      (loc.zones || [])
+        .filter((z) => !!z.name)
+        .map((z) => {
+          const label = loc.name ? `${z.name} · ${loc.name}` : z.name;
+          return {
+            kind: "zone" as const,
+            name: z.name,
+            label,
+            search: toSearch(
+              [z.name, loc.name, z.episodeRange, z.layoutNotes, z.keyProps, z.lightingWeather]
+                .filter(Boolean)
+                .join(" ")
+            ),
+            locationId: loc.id,
+            locationName: loc.name,
+            zoneId: z.id,
+            summary: z.layoutNotes || z.keyProps || z.lightingWeather || "",
+            detail: buildZoneDetail(loc, z),
+          };
+        })
+    );
+
+    return {
+      forms: formTargets,
+      zones: zoneTargets,
+      all: [...formTargets, ...zoneTargets],
+    };
   }, [labContext]);
+
+  const mentionIndex = useMemo(() => {
+    const map = new Map<string, MentionTarget[]>();
+    mentionTargets.all.forEach((item) => {
+      const key = toSearch(item.name);
+      const list = map.get(key) || [];
+      list.push(item);
+      map.set(key, list);
+    });
+    return map;
+  }, [mentionTargets]);
+
+  const resolveMention = useCallback(
+    (name: string) => {
+      const list = mentionIndex.get(toSearch(name)) || [];
+      if (!list.length) return null;
+      return list.slice().sort((a, b) => mentionPriority[a.kind] - mentionPriority[b.kind])[0];
+    },
+    [mentionIndex]
+  );
+
+  const parseMentions = (text: string) => {
+    const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
+    const names: string[] = [];
+    matches.forEach((m) => {
+      const name = m.slice(1);
+      if (!names.includes(name)) names.push(name);
+    });
+    return names;
+  };
+
+  const computeMentionMeta = useCallback(
+    (text: string) => {
+      const names = parseMentions(text);
+      return names.map((n) => {
+        const hit = resolveMention(n);
+        return {
+          name: n,
+          status: hit ? "match" : "missing",
+          kind: hit?.kind || "unknown",
+          characterId: hit?.characterId,
+          formName: hit?.formName,
+          summary: hit?.summary,
+          detail: hit?.detail,
+          locationId: hit?.locationId,
+          locationName: hit?.locationName,
+          zoneId: hit?.zoneId,
+        };
+      });
+    },
+    [resolveMention]
+  );
+
+  const mentionState = useMemo(() => {
+    const pos = Math.min(cursorPos, labelDraft.length);
+    const textBefore = labelDraft.slice(0, pos);
+    const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
+    if (!match) return null;
+    const prevChar = textBefore.length > 1 ? textBefore[textBefore.length - match[0].length - 1] : "";
+    if (prevChar && !/\s|[\(\[\{,，。:：;；"“”'‘’]/.test(prevChar)) return null;
+    return {
+      query: match[1] || "",
+      start: textBefore.lastIndexOf("@"),
+      end: pos,
+    };
+  }, [labelDraft, cursorPos]);
+
+  const filteredMentions = useMemo(() => {
+    if (!mentionState) return mentionTargets;
+    const query = toSearch(mentionState.query.trim());
+    if (!query) return mentionTargets;
+    const filterList = (list: MentionTarget[]) => list.filter((item) => item.search.includes(query));
+    return {
+      forms: filterList(mentionTargets.forms),
+      zones: filterList(mentionTargets.zones),
+      all: filterList(mentionTargets.all),
+    };
+  }, [mentionState, mentionTargets]);
+
+  const showMentionPicker = isFocused && !!mentionState;
+
+  const renderedHtml = useMemo(() => {
+    if (!labelDraft) return "";
+    const parts: string[] = [];
+    let lastIndex = 0;
+    const regex = /@([\w\u4e00-\u9fa5-]+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(labelDraft))) {
+      const start = match.index;
+      const end = start + match[0].length;
+      parts.push(escapeHtml(labelDraft.slice(lastIndex, start)));
+      const name = match[1];
+      const hit = resolveMention(name);
+      const kind = hit?.kind || "unknown";
+      const status = hit ? "match" : "missing";
+      const tooltipRaw = (hit?.detail || hit?.summary || "").trim();
+      const tooltip = tooltipRaw ? escapeAttr(tooltipRaw) : "";
+      const tooltipAttr = tooltip ? ` data-tooltip="${tooltip}"` : "";
+      parts.push(
+        `<span class=\"text-mention\" data-kind=\"${kind}\" data-status=\"${status}\"${tooltipAttr}>${escapeHtml(match[0])}</span>`
+      );
+      lastIndex = end;
+    }
+    parts.push(escapeHtml(labelDraft.slice(lastIndex)));
+    return parts.join("").replace(/\n/g, "<br />");
+  }, [labelDraft, resolveMention]);
+
+  const updateCursor = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const pos = getCaretOffset(el);
+    setCursorPos(pos);
+  }, []);
+
+  const commitLabel = useCallback(
+    (next: string) => {
+      const mentions = computeMentionMeta(next);
+      const match = mentions.find((m) => m.status === "match" && m.kind === "form")
+        || mentions.find((m) => m.status === "match" && m.kind === "zone");
+      updateNodeData(id, {
+        label: next,
+        atMentions: mentions,
+        formTag: match?.kind === "form" ? match.name : undefined,
+        zoneTag: match?.kind === "zone" ? match.name : undefined,
+      });
+    },
+    [computeMentionMeta, id, updateNodeData]
+  );
+
+  const handleInput = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const value = getPlainText(el);
+    const pos = getCaretOffset(el);
+    setLabelDraft(value);
+    setCursorPos(pos);
+    pendingSelectionRef.current = pos;
+    if (!isComposingRef.current) {
+      isLocalUpdateRef.current = true;
+      commitLabel(value);
+    }
+  }, [commitLabel]);
+
+  const insertMention = (target: MentionTarget) => {
+    const start = mentionState ? mentionState.start : cursorPos;
+    const end = mentionState ? mentionState.end : cursorPos;
+    const before = labelDraft.slice(0, start);
+    const after = labelDraft.slice(end);
+    const insertion = `@${target.name} `;
+    const next = `${before}${insertion}${after}`;
+    const nextPos = start + insertion.length;
+    setLabelDraft(next);
+    setCursorPos(nextPos);
+    pendingSelectionRef.current = nextPos;
+    isLocalUpdateRef.current = true;
+    commitLabel(next);
+    requestAnimationFrame(() => {
+      const el = editorRef.current;
+      if (!el) return;
+      el.focus();
+      setCaretOffset(el, nextPos);
+    });
+  };
+
+  const updatePickerPosition = useCallback(() => {
+    if (!showMentionPicker) return;
+    const shell = shellRef.current;
+    const editor = editorRef.current;
+    if (!shell || !editor) return;
+    const caretRect = getCaretRect(editor);
+    const shellRect = shell.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const anchorLeft = caretRect ? caretRect.left : editorRect.left + 12;
+    const anchorBottom = caretRect ? caretRect.bottom : editorRect.top + 22;
+    const pickerWidth = 260;
+    const left = clamp(anchorLeft - shellRect.left, 10, Math.max(10, shellRect.width - pickerWidth - 10));
+    const top = anchorBottom - shellRect.top + 8;
+    setPickerPos({ left, top });
+  }, [showMentionPicker]);
+
+  useLayoutEffect(() => {
+    const el = editorRef.current;
+    if (!el || isComposingRef.current) return;
+    const html = renderedHtml;
+    if (html !== lastHtmlRef.current) {
+      el.innerHTML = html;
+      lastHtmlRef.current = html;
+    }
+    if (document.activeElement === el) {
+      const targetPos = pendingSelectionRef.current ?? cursorPos;
+      setCaretOffset(el, Math.min(targetPos, labelDraft.length));
+      pendingSelectionRef.current = null;
+    }
+    updatePickerPosition();
+  }, [renderedHtml, labelDraft, cursorPos, updatePickerPosition]);
+
+  useLayoutEffect(() => {
+    if (!data.image || !data.dimensions?.width || !data.dimensions?.height) return;
+    const ratio = data.dimensions.height / data.dimensions.width;
+    if (!Number.isFinite(ratio) || ratio <= 0) return;
+    const nodeEl = shellRef.current?.closest(".react-flow__node") as HTMLElement | null;
+    if (!nodeEl) return;
+    const width = nodeEl.getBoundingClientRect().width;
+    if (!width) return;
+    const nextHeight = Math.round(width * ratio);
+    const node = getNodeById(id);
+    const rawHeight = node?.style?.height;
+    const currentHeight =
+      typeof rawHeight === "number" ? rawHeight : rawHeight ? Number.parseFloat(String(rawHeight)) : NaN;
+    const ratioChanged = lastRatioRef.current !== ratio;
+    if (ratioChanged || !Number.isFinite(currentHeight) || Math.abs(currentHeight - nextHeight) > 2) {
+      updateNodeStyle(id, { height: nextHeight });
+    }
+    lastRatioRef.current = ratio;
+  }, [data.image, data.dimensions?.width, data.dimensions?.height, getNodeById, id, updateNodeStyle]);
+
+  React.useEffect(() => {
+    if (isComposingRef.current) return;
+    if (isLocalUpdateRef.current) {
+      isLocalUpdateRef.current = false;
+      return;
+    }
+    const next = data.label || "";
+    if (next === labelDraft) return;
+    setLabelDraft(next);
+    setCursorPos(next.length);
+    pendingSelectionRef.current = next.length;
+  }, [data.label, labelDraft]);
+
+  React.useEffect(() => {
+    if (showMentionPicker) return;
+    setPickerPos(null);
+  }, [showMentionPicker]);
+
+  React.useEffect(() => {
+    if (!showMentionPicker) return;
+    const handleScroll = () => updatePickerPosition();
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [showMentionPicker, updatePickerPosition]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,10 +511,12 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
       const result = evt.target?.result as string;
       const img = new Image();
       img.onload = () => {
+        const baseName = file.name.replace(/\.[^/.]+$/, "");
         updateNodeData(id, {
           image: result,
           filename: file.name,
           dimensions: { width: img.width, height: img.height },
+          label: data.label || baseName,
         });
       };
       img.src = result;
@@ -40,63 +526,126 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   };
 
   return (
-    <BaseNode title="Visual Input" outputs={["image"]} selected={selected}>
-      <div className="space-y-4 flex-1 flex flex-col">
-        <div className="relative">
-          {data.image ? (
-            <div
-              className="node-surface node-media-frame relative group/img overflow-hidden rounded-[24px] shadow-[0_18px_40px_rgba(0,0,0,0.45)] bg-black/40 cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <img
-                src={data.image}
-                alt="preview"
-                className="node-media-preview transition-transform duration-500 group-hover/img:scale-[1.02]"
+    <BaseNode title="Visual Input" outputs={["image"]} selected={selected} variant="media">
+      <div ref={shellRef} className="image-input-shell relative w-full h-full">
+        {data.image ? (
+          <div
+            className="image-input-frame"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <img src={data.image} alt="preview" className="image-input-img" />
+            <div className="image-input-label">
+              <div
+                ref={editorRef}
+                className="image-input-editor nodrag"
+                contentEditable
+                suppressContentEditableWarning
+                data-placeholder={data.filename ? "Image" : "Name"}
+                onInput={handleInput}
+                onBeforeInput={(e) => {
+                  const native = e.nativeEvent as InputEvent;
+                  if (!native || typeof native.inputType !== "string") return;
+                  if (native.inputType === "insertParagraph" || native.inputType === "insertLineBreak") {
+                    e.preventDefault();
+                  }
+                }}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.currentTarget as HTMLDivElement).blur();
+                  }
+                }}
+                onKeyUp={() => {
+                  if (skipNextCursorUpdateRef.current) {
+                    skipNextCursorUpdateRef.current = false;
+                    return;
+                  }
+                  updateCursor();
+                  updatePickerPosition();
+                }}
+                onClick={() => {
+                  updateCursor();
+                  updatePickerPosition();
+                }}
+                onFocus={() => {
+                  setIsFocused(true);
+                  updateCursor();
+                  updatePickerPosition();
+                }}
+                onBlur={() => {
+                  setIsFocused(false);
+                  if (!isComposingRef.current && labelDraft !== data.label) {
+                    isLocalUpdateRef.current = true;
+                    commitLabel(labelDraft);
+                  }
+                }}
+                onCompositionStart={() => {
+                  isComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  isComposingRef.current = false;
+                  handleInput();
+                }}
               />
-              <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/70 to-transparent">
-                <div className="flex items-center justify-between gap-2 text-[9px] font-semibold text-white/80">
-                  <span className="truncate">{data.filename || "Image"}</span>
-                  {data.dimensions && (
-                    <span className="text-[8px] uppercase tracking-widest text-white/60">
-                      {data.dimensions.width}x{data.dimensions.height}
-                    </span>
-                  )}
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="image-input-empty"
+          >
+            <div className="image-input-empty-icon">
+              <ImagePlus size={22} />
+            </div>
+            <div className="image-input-empty-text">Upload</div>
+          </button>
+        )}
+
+        {showMentionPicker && pickerPos && (
+          <div
+            className="mention-picker animate-in fade-in slide-in-from-top-1 absolute z-30"
+            style={{ left: pickerPos.left, top: pickerPos.top, width: 260 }}
+          >
+            <div className="mention-picker-header">
+              <AtSign size={10} /> 数据绑定
+            </div>
+            {filteredMentions.forms.length > 0 && (
+              <div className="mention-picker-section">
+                <div className="mention-picker-title">角色形态</div>
+                <div className="mention-picker-grid">
+                  {filteredMentions.forms.map((f) => (
+                    <button
+                      key={`form-${f.name}-${f.characterId}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => insertMention(f)}
+                      className="mention-picker-item"
+                    >
+                      {f.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="absolute top-3 right-3 h-7 w-7 rounded-full bg-black/60 border border-white/10 text-white/80 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition">
-                <ImagePlus size={12} />
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="node-surface node-surface--dashed w-full h-[180px] rounded-[24px] flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative hover:border-emerald-500/30 hover:bg-emerald-500/[0.02] group/img"
-            >
-              <div className="h-14 w-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4 group-hover/img:scale-110 group-hover/img:bg-emerald-500/10 group-hover/img:border-emerald-500/20 transition-all duration-500 shadow-inner">
-                <ImagePlus className="text-[var(--node-text-secondary)] group-hover/img:text-emerald-500 transition-colors" size={28} />
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black text-white">UPLOAD</span>
-                <span className="text-[8px] opacity-30 uppercase tracking-[0.1em] font-bold">Click to select</span>
-              </div>
-            </button>
-          )}
-        </div>
+            )}
 
-        {forms.length > 0 && (
-          <div className="node-panel space-y-2 p-3">
-            <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
-            <select
-              className="node-control node-control--tight text-[9px] font-semibold px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors w-full"
-              value={data.formTag || ""}
-              onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
-            >
-              <option value="">未指定</option>
-              {forms.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
+            {filteredMentions.zones.length > 0 && (
+              <div className="mention-picker-section">
+                <div className="mention-picker-title">场景分区</div>
+                <div className="mention-picker-grid">
+                  {filteredMentions.zones.map((z) => (
+                    <button
+                      key={`zone-${z.name}-${z.zoneId}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => insertMention(z)}
+                      className="mention-picker-item"
+                    >
+                      {z.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />

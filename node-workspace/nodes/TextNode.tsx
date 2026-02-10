@@ -199,6 +199,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     const baseStyleRef = useRef<{ height?: string; minHeight?: string } | null>(null);
     const isLocalUpdateRef = useRef(false);
     const skipNextCursorUpdateRef = useRef(false);
+    const skipBeforeInputRef = useRef(false);
     const [draftText, setDraftText] = useState(data.text || "");
     const [cursorPos, setCursorPos] = useState((data.text || "").length);
     const [isFocused, setIsFocused] = useState(false);
@@ -385,6 +386,26 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         setCursorPos(pos);
     }, []);
 
+    const insertNewline = useCallback(() => {
+        const el = editorRef.current;
+        if (!el) return;
+        const { start, end } = getSelectionOffsets(el, cursorPos);
+        const next = `${draftText.slice(0, start)}\n${draftText.slice(end)}`;
+        const nextPos = start + 1;
+        setDraftText(next);
+        setCursorPos(nextPos);
+        pendingSelectionRef.current = nextPos;
+        isLocalUpdateRef.current = true;
+        skipNextCursorUpdateRef.current = true;
+        const mentions = computeMentionMeta(next);
+        updateNodeData(id, { text: next, atMentions: mentions });
+        requestAnimationFrame(() => {
+            if (!el) return;
+            el.focus();
+            setCaretOffset(el, nextPos);
+        });
+    }, [computeMentionMeta, cursorPos, draftText, id, updateNodeData]);
+
     const handleInput = useCallback(() => {
         const el = editorRef.current;
         if (!el) return;
@@ -546,27 +567,27 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                     suppressContentEditableWarning
                     data-placeholder="Describe or input text here..."
                     onInput={handleInput}
+                    onBeforeInput={(e) => {
+                        if (isComposingRef.current) return;
+                        const native = e.nativeEvent as InputEvent;
+                        if (!native || typeof native.inputType !== "string") return;
+                        if (skipBeforeInputRef.current) {
+                            skipBeforeInputRef.current = false;
+                            return;
+                        }
+                        if (native.inputType === "insertParagraph" || native.inputType === "insertLineBreak") {
+                            e.preventDefault();
+                            insertNewline();
+                        }
+                    }}
                     onKeyDown={(e) => {
                         e.stopPropagation();
                         if (e.key === "Enter") {
                             e.preventDefault();
-                            const el = editorRef.current;
-                            if (!el) return;
-                            const { start, end } = getSelectionOffsets(el, cursorPos);
-                            const next = `${draftText.slice(0, start)}\n${draftText.slice(end)}`;
-                            const nextPos = start + 1;
-                            setDraftText(next);
-                            setCursorPos(nextPos);
-                            pendingSelectionRef.current = nextPos;
-                            isLocalUpdateRef.current = true;
-                            skipNextCursorUpdateRef.current = true;
-                            const mentions = computeMentionMeta(next);
-                            updateNodeData(id, { text: next, atMentions: mentions });
-                            requestAnimationFrame(() => {
-                                if (!el) return;
-                                el.focus();
-                                setCaretOffset(el, nextPos);
-                            });
+                            if (!isComposingRef.current) {
+                                insertNewline();
+                            }
+                            skipBeforeInputRef.current = true;
                         }
                     }}
                     onKeyUp={() => {
@@ -605,22 +626,22 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
 
                 {showMentionPicker && pickerPos && (
                     <div
-                        className="node-panel p-3 space-y-3 animate-in fade-in slide-in-from-top-1 absolute z-30"
-                        style={{ left: pickerPos.left, top: pickerPos.top, width: 300 }}
+                        className="mention-picker animate-in fade-in slide-in-from-top-1 absolute z-30"
+                        style={{ left: pickerPos.left, top: pickerPos.top, width: 280 }}
                     >
-                        <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)] flex items-center gap-1">
-                            <AtSign size={10} /> 绑定角色/场景数据
+                        <div className="mention-picker-header">
+                            <AtSign size={10} /> 数据绑定
                         </div>
                         {filteredMentions.forms.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色形态</div>
-                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                            <div className="mention-picker-section">
+                                <div className="mention-picker-title">角色形态</div>
+                                <div className="mention-picker-grid">
                                     {filteredMentions.forms.map((f) => (
                                         <button
                                             key={`form-${f.name}-${f.characterId}`}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => insertMention(f)}
-                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                            className="mention-picker-item"
                                         >
                                             {f.label}
                                         </button>
@@ -630,15 +651,15 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         )}
 
                         {filteredMentions.characters.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色</div>
-                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                            <div className="mention-picker-section">
+                                <div className="mention-picker-title">角色</div>
+                                <div className="mention-picker-grid">
                                     {filteredMentions.characters.map((c) => (
                                         <button
                                             key={`char-${c.name}-${c.characterId}`}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => insertMention(c)}
-                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                            className="mention-picker-item"
                                         >
                                             {c.label}
                                         </button>
@@ -648,25 +669,21 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         )}
 
                         {filteredMentions.zones.length > 0 && (
-                            <div className="space-y-2">
-                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">场景分区</div>
-                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                            <div className="mention-picker-section">
+                                <div className="mention-picker-title">场景分区</div>
+                                <div className="mention-picker-grid">
                                     {filteredMentions.zones.map((z) => (
                                         <button
                                             key={`zone-${z.name}-${z.zoneId}`}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => insertMention(z)}
-                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                            className="mention-picker-item"
                                         >
                                             {z.label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                        )}
-
-                        {filteredMentions.all.length === 0 && (
-                            <div className="text-[10px] text-[var(--node-text-secondary)]">未匹配到对应的数据。</div>
                         )}
                     </div>
                 )}

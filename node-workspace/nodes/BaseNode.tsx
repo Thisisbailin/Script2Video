@@ -9,15 +9,24 @@ type Props = {
   inputs?: HandleType[];
   outputs?: HandleType[];
   selected?: boolean;
-  variant?: "default" | "text";
+  variant?: "default" | "text" | "media";
+  resizerKeepAspect?: boolean;
 };
 
-export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [], selected, variant = "default" }) => {
+export const BaseNode: React.FC<Props> = ({
+  children,
+  inputs = [],
+  outputs = [],
+  selected,
+  variant = "default",
+  resizerKeepAspect,
+}) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [showResizer, setShowResizer] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
   const minHeight = variant === "text" ? 256 : 160;
+  const keepAspectRatio = resizerKeepAspect ?? variant === "media";
 
   const updateResizerVisibility = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -67,6 +76,7 @@ export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [],
         isVisible
         minWidth={320}
         minHeight={minHeight}
+        keepAspectRatio={keepAspectRatio}
         handleClassName="custom-node-handle"
         lineClassName="custom-node-line"
         onResizeStart={handleResizeStart}

@@ -52,6 +52,9 @@ export const QWEN_WAN_IMAGE_MODEL = 'wan2.6-image';
 export const QWEN_WAN_VIDEO_MODEL = 'wan2.6-i2v';
 
 export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
+  projectData: {
+    enabled: true,
+  },
   characterLocation: {
     enabled: true,
     mergeStrategy: "patch",

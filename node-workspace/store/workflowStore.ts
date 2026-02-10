@@ -396,6 +396,7 @@ interface WorkflowStore {
   // Node operations
   addNode: (type: NodeType, position: XYPosition, parentId?: string, extraData?: Partial<WorkflowNodeData>) => string;
   updateNodeData: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
+  updateNodeStyle: (nodeId: string, style: Partial<WorkflowNode["style"]>) => void;
   removeNode: (nodeId: string) => void;
   onNodesChange: (changes: NodeChange<WorkflowNode>[]) => void;
 
@@ -430,7 +431,7 @@ interface WorkflowStore {
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
-  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null; atMentions?: TextNodeData['atMentions']; imageRefs?: { src: string; formTag?: string | null }[] };
+  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null; atMentions?: TextNodeData['atMentions']; imageRefs?: { src: string; formTag?: string | null; zoneTag?: string | null }[] };
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
   removeGlobalHistoryItem: (id: string) => void;
@@ -455,6 +456,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         image: null,
         filename: null,
         dimensions: null,
+        label: "",
       } as ImageInputNodeData;
     case "annotation":
       return {
@@ -651,6 +653,16 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     }));
   },
 
+  updateNodeStyle: (nodeId, style) => {
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId
+          ? { ...node, style: { ...(node.style || {}), ...(style || {}) } }
+          : node
+      ),
+    }));
+  },
+
   removeNode: (nodeId) => {
     set((state) => ({
       nodes: state.nodes.filter((node) => node.id !== nodeId),
@@ -769,7 +781,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const images: string[] = [];
     const texts: string[] = [];
     const mentions: TextNodeData['atMentions'] = [];
-    const imageRefs: { src: string; formTag?: string | null }[] = [];
+    const imageRefs: { src: string; formTag?: string | null; zoneTag?: string | null }[] = [];
     edges
       .filter((edge) => edge.target === nodeId)
       .forEach((edge) => {
@@ -780,7 +792,12 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           if (sourceNode.type === "imageInput") {
             const src = (sourceNode.data as ImageInputNodeData).image;
             if (src) images.push(src);
-            if (src) imageRefs.push({ src, formTag: (sourceNode.data as ImageInputNodeData).formTag });
+            if (src)
+              imageRefs.push({
+                src,
+                formTag: (sourceNode.data as ImageInputNodeData).formTag,
+                zoneTag: (sourceNode.data as ImageInputNodeData).zoneTag,
+              });
           } else if (sourceNode.type === "annotation") {
             const src = (sourceNode.data as AnnotationNodeData).outputImage;
             if (src) images.push(src);

@@ -68,8 +68,8 @@ const TOOL_ITEMS: ToolItem[] = [
     key: "project-data",
     label: "项目数据查询",
     description: "用于读取剧本或项目数据片段，供 Agent 作为证据或上下文。",
-    note: "占位：后续接入剧本/资源检索调用。",
-    status: "placeholder",
+    note: "已接入：read_project_data / search_script_data。",
+    status: "ready",
     Icon: Eye,
   },
   {
@@ -227,13 +227,22 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     },
   });
   const qalamToolSettings = useMemo(() => {
-    const base = DEFAULT_QALAM_TOOL_SETTINGS.characterLocation || {};
-    const current = config.textConfig.qalamTools?.characterLocation || {};
+    const base = DEFAULT_QALAM_TOOL_SETTINGS;
+    const current = config.textConfig.qalamTools || {};
+    const baseProject = base.projectData || {};
+    const currentProject = current.projectData || {};
+    const baseCharacter = base.characterLocation || {};
+    const currentCharacter = current.characterLocation || {};
     return {
-      enabled: current.enabled ?? base.enabled ?? true,
-      mergeStrategy: current.mergeStrategy || base.mergeStrategy || "patch",
-      formsMode: current.formsMode || base.formsMode || "merge",
-      zonesMode: current.zonesMode || base.zonesMode || "merge",
+      projectData: {
+        enabled: currentProject.enabled ?? baseProject.enabled ?? true,
+      },
+      characterLocation: {
+        enabled: currentCharacter.enabled ?? baseCharacter.enabled ?? true,
+        mergeStrategy: currentCharacter.mergeStrategy || baseCharacter.mergeStrategy || "patch",
+        formsMode: currentCharacter.formsMode || baseCharacter.formsMode || "merge",
+        zonesMode: currentCharacter.zonesMode || baseCharacter.zonesMode || "merge",
+      },
     };
   }, [config.textConfig.qalamTools]);
   const activeConversation = useMemo(
@@ -245,7 +254,24 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     [activeTool]
   );
   const ActiveToolIcon = activeToolItem.Icon;
-  const updateQalamToolSettings = (patch: Partial<typeof qalamToolSettings>) => {
+  const updateProjectToolSettings = (patch: Partial<typeof qalamToolSettings.projectData>) => {
+    setConfig((prev) => {
+      const existing = prev.textConfig.qalamTools?.projectData || {};
+      const next = { ...existing, ...patch };
+      return {
+        ...prev,
+        textConfig: {
+          ...prev.textConfig,
+          qalamTools: {
+            ...(prev.textConfig.qalamTools || {}),
+            projectData: next,
+          },
+        },
+      };
+    });
+  };
+
+  const updateAssetToolSettings = (patch: Partial<typeof qalamToolSettings.characterLocation>) => {
     setConfig((prev) => {
       const existing = prev.textConfig.qalamTools?.characterLocation || {};
       const next = { ...existing, ...patch };
@@ -1068,7 +1094,26 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                       )}
                     </div>
                     <div className="text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.description}</div>
-                    {activeTool === "asset-library" ? (
+                    {activeTool === "project-data" ? (
+                      <>
+                        <div className="text-[12px] text-[var(--app-text-secondary)]">
+                          接口：<span className="text-[var(--app-text-primary)]">read_project_data</span> /
+                          <span className="text-[var(--app-text-primary)]"> search_script_data</span>
+                        </div>
+                        <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={qalamToolSettings.projectData.enabled}
+                            onChange={(e) => updateProjectToolSettings({ enabled: e.target.checked })}
+                            className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
+                          />
+                          启用项目数据查询工具
+                        </label>
+                        <div className="text-[11px] text-[var(--app-text-muted)]">
+                          覆盖范围：剧本、理解摘要、角色库、场景库、分集摘要。证据仅引用集-场景（如 1-1）。
+                        </div>
+                      </>
+                    ) : activeTool === "asset-library" ? (
                       <>
                         <div className="text-[12px] text-[var(--app-text-secondary)]">
                           接口：<span className="text-[var(--app-text-primary)]">upsert_character</span> /
@@ -1078,8 +1123,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                         <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
                           <input
                             type="checkbox"
-                            checked={qalamToolSettings.enabled}
-                            onChange={(e) => updateQalamToolSettings({ enabled: e.target.checked })}
+                            checked={qalamToolSettings.characterLocation.enabled}
+                            onChange={(e) => updateAssetToolSettings({ enabled: e.target.checked })}
                             className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
                           />
                           启用资产库写入工具
@@ -1088,8 +1133,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           <div>
                             <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">合并策略</label>
                             <select
-                              value={qalamToolSettings.mergeStrategy}
-                              onChange={(e) => updateQalamToolSettings({ mergeStrategy: e.target.value as any })}
+                              value={qalamToolSettings.characterLocation.mergeStrategy}
+                              onChange={(e) => updateAssetToolSettings({ mergeStrategy: e.target.value as any })}
                               className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
                             >
                               <option value="patch">patch（局部更新）</option>
@@ -1099,8 +1144,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           <div>
                             <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">形态合并</label>
                             <select
-                              value={qalamToolSettings.formsMode}
-                              onChange={(e) => updateQalamToolSettings({ formsMode: e.target.value as any })}
+                              value={qalamToolSettings.characterLocation.formsMode}
+                              onChange={(e) => updateAssetToolSettings({ formsMode: e.target.value as any })}
                               className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
                             >
                               <option value="merge">merge（合并）</option>
@@ -1110,8 +1155,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           <div>
                             <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">分区合并</label>
                             <select
-                              value={qalamToolSettings.zonesMode}
-                              onChange={(e) => updateQalamToolSettings({ zonesMode: e.target.value as any })}
+                              value={qalamToolSettings.characterLocation.zonesMode}
+                              onChange={(e) => updateAssetToolSettings({ zonesMode: e.target.value as any })}
                               className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
                             >
                               <option value="merge">merge（合并）</option>

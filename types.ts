@@ -353,6 +353,9 @@ export interface TextServiceConfig {
 }
 
 export type QalamToolSettings = {
+  projectData?: {
+    enabled?: boolean;
+  };
   characterLocation?: {
     enabled?: boolean;
     mergeStrategy?: "patch" | "replace";

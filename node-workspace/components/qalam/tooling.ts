@@ -163,8 +163,12 @@ export const TOOL_DEFS: AgentTool[] = [
 ];
 
 export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined) => {
+  const projectData = value?.projectData || {};
   const characterLocation = value?.characterLocation || {};
   return {
+    projectData: {
+      enabled: projectData.enabled ?? true,
+    },
     characterLocation: {
       enabled: characterLocation.enabled ?? true,
       mergeStrategy: characterLocation.mergeStrategy === "replace" ? "replace" : "patch",
@@ -175,12 +179,14 @@ export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined)
 };
 
 export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolSettings>) => {
-  if (!settings.characterLocation.enabled) {
-    return TOOL_DEFS.filter(
-      (tool) => tool.type === "function" && (tool.name === "read_project_data" || tool.name === "search_script_data")
-    );
-  }
-  return TOOL_DEFS;
+  const allowProjectData = settings.projectData.enabled !== false;
+  const allowCharacterLocation = settings.characterLocation.enabled !== false;
+  return TOOL_DEFS.filter((tool) => {
+    if (tool.type !== "function") return true;
+    if (!allowProjectData && (tool.name === "read_project_data" || tool.name === "search_script_data")) return false;
+    if (!allowCharacterLocation && (tool.name === "upsert_character" || tool.name === "upsert_location")) return false;
+    return true;
+  });
 };
 
 export const parseToolArguments = (value: string) => {

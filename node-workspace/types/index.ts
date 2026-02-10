@@ -27,6 +27,9 @@ export interface ImageInputNodeData extends BaseNodeData {
   filename: string | null;
   dimensions: { width: number; height: number } | null;
   formTag?: string;
+  zoneTag?: string;
+  label?: string;
+  atMentions?: TextNodeData['atMentions'];
 }
 
 export type ShapeType = "rectangle" | "circle" | "arrow" | "freehand" | "text";
