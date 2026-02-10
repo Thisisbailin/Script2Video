@@ -458,10 +458,12 @@ body.qalam-resizing * {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
 }
 
 .text-node-editor {
   min-height: 160px;
+  display: block;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.7;
@@ -748,27 +750,27 @@ body.qalam-resizing * {
   border: none !important;
 }
 
+.react-flow__resize-control.line,
 .custom-node-line {
-  border-color: transparent !important;
-  opacity: 0 !important;
+  display: none !important;
 }
 
-.react-flow__node-resizer__handle {
+.react-flow__resize-control.handle {
   opacity: 0;
   transform: scale(0.6);
   transition: opacity 0.2s ease, transform 0.2s ease;
   pointer-events: none;
 }
 
-.node-card-base[data-resizer-visible="true"] .react-flow__node-resizer__handle,
-.group-surface[data-resizer-visible="true"] .react-flow__node-resizer__handle,
-.react-flow__node-resizer__handle:active {
+.node-card-base[data-resizer-visible="true"] .react-flow__resize-control.handle,
+.group-surface[data-resizer-visible="true"] .react-flow__resize-control.handle,
+.react-flow__resize-control.handle:active {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
 
-.react-flow__node-resizer__handle:active {
+.react-flow__resize-control.handle:active {
   transform: scale(1.08);
 }
 
@@ -790,53 +792,53 @@ body.qalam-resizing * {
   clip-path: var(--arc-clip, inset(0 50% 50% 0));
 }
 
-.react-flow__node-resizer__handle-top-left.custom-node-handle {
+.react-flow__resize-control.handle.top.left.custom-node-handle {
   top: -11px !important;
   left: -11px !important;
   --arc-clip: inset(0 50% 50% 0);
 }
 
-.react-flow__node-resizer__handle-top-right.custom-node-handle {
+.react-flow__resize-control.handle.top.right.custom-node-handle {
   top: -11px !important;
   right: -11px !important;
   --arc-clip: inset(0 0 50% 50%);
 }
 
-.react-flow__node-resizer__handle-bottom-left.custom-node-handle {
+.react-flow__resize-control.handle.bottom.left.custom-node-handle {
   bottom: -11px !important;
   left: -11px !important;
   --arc-clip: inset(50% 50% 0 0);
 }
 
-.react-flow__node-resizer__handle-bottom-right.custom-node-handle {
+.react-flow__resize-control.handle.bottom.right.custom-node-handle {
   bottom: -11px !important;
   right: -11px !important;
   --arc-clip: inset(50% 0 0 50%);
 }
 
-.react-flow__node-resizer__handle-top-left.group-arc-handle {
+.react-flow__resize-control.handle.top.left.group-arc-handle {
   top: -18px !important;
   left: -18px !important;
 }
 
-.react-flow__node-resizer__handle-top-right.group-arc-handle {
+.react-flow__resize-control.handle.top.right.group-arc-handle {
   top: -18px !important;
   right: -18px !important;
 }
 
-.react-flow__node-resizer__handle-bottom-left.group-arc-handle {
+.react-flow__resize-control.handle.bottom.left.group-arc-handle {
   bottom: -18px !important;
   left: -18px !important;
 }
 
-.react-flow__node-resizer__handle-bottom-right.group-arc-handle {
+.react-flow__resize-control.handle.bottom.right.group-arc-handle {
   bottom: -18px !important;
   right: -18px !important;
 }
 
-.react-flow__node-resizer__handle-top,
-.react-flow__node-resizer__handle-right,
-.react-flow__node-resizer__handle-bottom,
-.react-flow__node-resizer__handle-left {
+.react-flow__resize-control.handle.top:not(.left):not(.right),
+.react-flow__resize-control.handle.bottom:not(.left):not(.right),
+.react-flow__resize-control.handle.left:not(.top):not(.bottom),
+.react-flow__resize-control.handle.right:not(.top):not(.bottom) {
   display: none !important;
 }
