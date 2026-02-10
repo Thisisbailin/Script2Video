@@ -837,21 +837,13 @@ body.qalam-resizing * {
 
 .custom-node-line {
   border-color: var(--node-accent) !important;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.node-card-base[data-resizer-visible="true"] .custom-node-line,
-.group-surface[data-resizer-visible="true"] .custom-node-line,
-.react-flow__node.selected .custom-node-line {
-  opacity: 0.25;
+  opacity: 0 !important;
 }
 
 .react-flow__node-resizer__handle {
   opacity: 0;
   transform: scale(0.6);
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
   pointer-events: none;
 }
 
@@ -870,43 +862,54 @@ body.qalam-resizing * {
 }
 
 .custom-node-handle {
-  width: 28px !important;
-  height: 28px !important;
+  width: 22px !important;
+  height: 22px !important;
   background: transparent !important;
-  border: 2px solid rgba(59, 130, 246, 0.65) !important;
-  border-radius: 18px !important;
+  border: none !important;
+  position: relative;
+  color: rgba(59, 130, 246, 0.9);
+}
+
+.custom-node-handle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg, currentColor 0 90deg, transparent 90deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  transform: rotate(var(--arc-rotate, 0deg));
 }
 
 .react-flow__node-resizer__handle-top-left.custom-node-handle {
-  top: -14px !important;
-  left: -14px !important;
-  border-right: 0 !important;
-  border-bottom: 0 !important;
-  border-radius: 18px 0 0 0 !important;
+  top: -11px !important;
+  left: -11px !important;
+  --arc-rotate: 270deg;
 }
 
 .react-flow__node-resizer__handle-top-right.custom-node-handle {
-  top: -14px !important;
-  right: -14px !important;
-  border-left: 0 !important;
-  border-bottom: 0 !important;
-  border-radius: 0 18px 0 0 !important;
+  top: -11px !important;
+  right: -11px !important;
+  --arc-rotate: 0deg;
 }
 
 .react-flow__node-resizer__handle-bottom-left.custom-node-handle {
-  bottom: -14px !important;
-  left: -14px !important;
-  border-right: 0 !important;
-  border-top: 0 !important;
-  border-radius: 0 0 0 18px !important;
+  bottom: -11px !important;
+  left: -11px !important;
+  --arc-rotate: 180deg;
 }
 
 .react-flow__node-resizer__handle-bottom-right.custom-node-handle {
-  bottom: -14px !important;
-  right: -14px !important;
-  border-left: 0 !important;
-  border-top: 0 !important;
-  border-radius: 0 0 18px 0 !important;
+  bottom: -11px !important;
+  right: -11px !important;
+  --arc-rotate: 90deg;
+}
+
+.react-flow__node-resizer__handle-top,
+.react-flow__node-resizer__handle-right,
+.react-flow__node-resizer__handle-bottom,
+.react-flow__node-resizer__handle-left {
+  display: none !important;
 }
 
 /* Connection handles: hidden until hover */
