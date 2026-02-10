@@ -295,13 +295,16 @@ body.qalam-resizing * {
   border-radius: 50% !important;
   border: 1.5px solid var(--bg-panel) !important;
   background: var(--text-secondary) !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  opacity: 0;
+  transform: scale(0.4);
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
 }
 
-.react-flow__handle:hover {
-  transform: scale(1.4);
+.react-flow__node:hover .react-flow__handle {
+  transform: scale(1);
   opacity: 1;
+  box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.18);
 }
 
 .react-flow__handle[data-handletype="image"] {
@@ -443,36 +446,18 @@ body.qalam-resizing * {
   border: none;
   border-radius: 0;
   padding: 18px;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
   box-sizing: border-box;
 }
 
 .node-card-base[data-variant="text"] {
   min-height: 320px;
   aspect-ratio: 1 / 1;
-=======
->>>>>>> theirs
 }
 
 .text-node-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 }
 
 .text-node-editor {
@@ -484,6 +469,7 @@ body.qalam-resizing * {
   white-space: pre-wrap;
   word-break: break-word;
   outline: none;
+  flex: 1;
 }
 
 .text-node-editor:empty::before {
@@ -763,193 +749,94 @@ body.qalam-resizing * {
 }
 
 .custom-node-line {
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
   border-color: transparent !important;
   opacity: 0 !important;
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-  border-color: var(--node-accent) !important;
-<<<<<<< ours
-<<<<<<< ours
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
->>>>>>> theirs
-.react-flow__node:hover .custom-node-line,
-.react-flow__node-group:hover .custom-node-line,
-.react-flow__node.selected .custom-node-line {
-  opacity: 0.25;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
-.node-card-base[data-resizer-visible="true"] .custom-node-line,
-.group-surface[data-resizer-visible="true"] .custom-node-line,
-=======
-.react-flow__node:hover .custom-node-line,
-.react-flow__node-group:hover .custom-node-line,
->>>>>>> theirs
-=======
-.react-flow__node:hover .custom-node-line,
-.react-flow__node-group:hover .custom-node-line,
->>>>>>> theirs
-.react-flow__node.selected .custom-node-line {
-  opacity: 0.25;
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
-.node-card-base[data-resizer-visible="true"] .custom-node-line,
-.group-surface[data-resizer-visible="true"] .custom-node-line,
-.react-flow__node.selected .custom-node-line {
-  opacity: 0.25;
->>>>>>> theirs
 }
 
 .react-flow__node-resizer__handle {
   opacity: 0;
   transform: scale(0.6);
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
   transition: opacity 0.2s ease, transform 0.2s ease;
-=======
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
->>>>>>> theirs
   pointer-events: none;
-=======
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
->>>>>>> theirs
-=======
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
->>>>>>> theirs
-=======
->>>>>>> theirs
 }
 
-.react-flow__node:hover .react-flow__node-resizer__handle,
-.react-flow__node-group:hover .react-flow__node-resizer__handle,
-.react-flow__node.selected .react-flow__node-resizer__handle,
+.node-card-base[data-resizer-visible="true"] .react-flow__node-resizer__handle,
+.group-surface[data-resizer-visible="true"] .react-flow__node-resizer__handle,
 .react-flow__node-resizer__handle:active {
   opacity: 1;
   transform: scale(1);
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
   pointer-events: auto;
-=======
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-}
-
-.react-flow__node:hover .react-flow__node-resizer__handle,
-.react-flow__node-group:hover .react-flow__node-resizer__handle,
-.react-flow__node.selected .react-flow__node-resizer__handle,
-.react-flow__node-resizer__handle:active {
-  opacity: 1;
-  transform: scale(1);
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
->>>>>>> theirs
-=======
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
->>>>>>> theirs
-=======
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
->>>>>>> theirs
-=======
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
->>>>>>> theirs
-=======
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
->>>>>>> theirs
-=======
-  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
->>>>>>> theirs
 }
 
 .react-flow__node-resizer__handle:active {
   transform: scale(1.08);
-=======
-  opacity: 0.2;
->>>>>>> theirs
-=======
-  opacity: 0.2;
->>>>>>> theirs
 }
 
 .custom-node-handle {
-  width: 8px !important;
-  height: 8px !important;
-  background: var(--node-bg) !important;
-  border: 1.5px solid var(--node-accent) !important;
-  border-radius: 2px !important;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.custom-node-handle:hover {
-  transform: scale(1.5);
-  background: var(--node-accent) !important;
-}
-
-/* Group Resizer - Hidden lines, only bottom-right handle */
-.group-resize-line {
-  border: none !important;
-}
-
-.group-resize-handle {
+  width: 22px !important;
+  height: 22px !important;
   background: transparent !important;
   border: none !important;
-  width: 24px !important;
-  height: 24px !important;
+  position: relative;
+  color: rgba(59, 130, 246, 0.9);
 }
 
-/* Hide all group handles except bottom-right */
-.react-flow__node-resizer__handle:not(.react-flow__node-resizer__handle-bottom-right) {
+.custom-node-handle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  clip-path: var(--arc-clip, inset(0 50% 50% 0));
+}
+
+.react-flow__node-resizer__handle-top-left.custom-node-handle {
+  top: -11px !important;
+  left: -11px !important;
+  --arc-clip: inset(0 50% 50% 0);
+}
+
+.react-flow__node-resizer__handle-top-right.custom-node-handle {
+  top: -11px !important;
+  right: -11px !important;
+  --arc-clip: inset(0 0 50% 50%);
+}
+
+.react-flow__node-resizer__handle-bottom-left.custom-node-handle {
+  bottom: -11px !important;
+  left: -11px !important;
+  --arc-clip: inset(50% 50% 0 0);
+}
+
+.react-flow__node-resizer__handle-bottom-right.custom-node-handle {
+  bottom: -11px !important;
+  right: -11px !important;
+  --arc-clip: inset(50% 0 0 50%);
+}
+
+.react-flow__node-resizer__handle-top-left.group-arc-handle {
+  top: -18px !important;
+  left: -18px !important;
+}
+
+.react-flow__node-resizer__handle-top-right.group-arc-handle {
+  top: -18px !important;
+  right: -18px !important;
+}
+
+.react-flow__node-resizer__handle-bottom-left.group-arc-handle {
+  bottom: -18px !important;
+  left: -18px !important;
+}
+
+.react-flow__node-resizer__handle-bottom-right.group-arc-handle {
+  bottom: -18px !important;
+  right: -18px !important;
+}
+
+.react-flow__node-resizer__handle-top,
+.react-flow__node-resizer__handle-right,
+.react-flow__node-resizer__handle-bottom,
+.react-flow__node-resizer__handle-left {
   display: none !important;
 }
