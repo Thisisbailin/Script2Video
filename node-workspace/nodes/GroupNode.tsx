@@ -14,11 +14,11 @@ export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         >
             <NodeResizer
                 color="var(--node-accent)"
-                isVisible
+                isVisible={selected}
                 minWidth={300}
                 minHeight={200}
-                handleClassName="custom-node-handle"
-                lineClassName="custom-node-line"
+                handleClassName="group-resize-handle"
+                lineClassName="group-resize-line"
             />
 
             {/* Group Title - Floating above */}
@@ -35,7 +35,12 @@ export const GroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             </div>
 
             {/* Content area if needed (usually just holds nested nodes provided by React Flow) */}
-            <div className="w-full h-full p-6 pointer-events-none" />
+            <div className="w-full h-full p-6 pointer-events-none">
+                {/* Visual arc at bottom right - shown on hover or selection */}
+                <div className={`absolute bottom-0 right-0 p-4 transition-all duration-300 ${selected ? 'opacity-100' : 'opacity-0 group-hover/node:opacity-40'}`}>
+                    <div className="w-6 h-6 border-r-2 border-b-2 border-[var(--node-accent)] rounded-br-[28px]" />
+                </div>
+            </div>
         </div>
     );
 };

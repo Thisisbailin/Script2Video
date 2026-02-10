@@ -443,18 +443,36 @@ body.qalam-resizing * {
   border: none;
   border-radius: 0;
   padding: 18px;
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   box-sizing: border-box;
 }
 
 .node-card-base[data-variant="text"] {
   min-height: 320px;
   aspect-ratio: 1 / 1;
+=======
+>>>>>>> theirs
 }
 
 .text-node-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
 
 .text-node-editor {
@@ -466,7 +484,6 @@ body.qalam-resizing * {
   white-space: pre-wrap;
   word-break: break-word;
   outline: none;
-  flex: 1;
 }
 
 .text-node-editor:empty::before {
@@ -486,6 +503,15 @@ body.qalam-resizing * {
   color: #e2e8f0;
   font-weight: 600;
   position: relative;
+}
+
+.text-mention::after {
+  content: attr(data-kind-label);
+  margin-left: 6px;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.65;
 }
 
 .text-mention::before {
@@ -531,114 +557,9 @@ body.qalam-resizing * {
 }
 
 .text-mention[data-status="missing"] {
-  background: rgba(248, 113, 113, 0.16);
-  border-color: rgba(248, 113, 113, 0.6);
-  color: #fecaca;
-}
-
-.text-mention-picker {
-  background: rgba(12, 14, 18, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  padding: 10px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(18px);
-}
-
-.text-mention-picker__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.text-mention-picker__icon {
-  height: 22px;
-  width: 22px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--node-text-secondary);
-}
-
-.text-mention-picker__title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--node-text-primary);
-}
-
-.text-mention-picker__query {
-  margin-left: auto;
-  font-size: 10px;
-  color: var(--node-text-secondary);
-}
-
-.text-mention-picker__list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.text-mention-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--node-text-primary);
-  font-size: 11px;
-  font-weight: 600;
-  text-align: left;
-  transition: border 0.2s ease, background 0.2s ease, transform 0.2s ease;
-}
-
-.text-mention-option:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
-}
-
-.text-mention-option__dot {
-  height: 8px;
-  width: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04);
-}
-
-.text-mention-option__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.text-mention-option[data-kind="form"] .text-mention-option__dot {
-  background: rgba(59, 130, 246, 0.9);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
-}
-
-.text-mention-option[data-kind="character"] .text-mention-option__dot {
-  background: rgba(245, 158, 11, 0.9);
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
-}
-
-.text-mention-option[data-kind="zone"] .text-mention-option__dot {
-  background: rgba(16, 185, 129, 0.9);
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
-}
-
-.text-mention-picker__empty {
-  font-size: 10px;
-  color: var(--node-text-secondary);
-  padding: 6px 8px;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fde68a;
 }
 
 .node-media-frame {
@@ -842,97 +763,193 @@ body.qalam-resizing * {
 }
 
 .custom-node-line {
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   border-color: transparent !important;
   opacity: 0 !important;
+=======
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+  border-color: var(--node-accent) !important;
+<<<<<<< ours
+<<<<<<< ours
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
+.react-flow__node:hover .custom-node-line,
+.react-flow__node-group:hover .custom-node-line,
+.react-flow__node.selected .custom-node-line {
+  opacity: 0.25;
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+.node-card-base[data-resizer-visible="true"] .custom-node-line,
+.group-surface[data-resizer-visible="true"] .custom-node-line,
+=======
+.react-flow__node:hover .custom-node-line,
+.react-flow__node-group:hover .custom-node-line,
+>>>>>>> theirs
+=======
+.react-flow__node:hover .custom-node-line,
+.react-flow__node-group:hover .custom-node-line,
+>>>>>>> theirs
+.react-flow__node.selected .custom-node-line {
+  opacity: 0.25;
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+.node-card-base[data-resizer-visible="true"] .custom-node-line,
+.group-surface[data-resizer-visible="true"] .custom-node-line,
+.react-flow__node.selected .custom-node-line {
+  opacity: 0.25;
+>>>>>>> theirs
 }
 
 .react-flow__node-resizer__handle {
   opacity: 0;
   transform: scale(0.6);
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   transition: opacity 0.2s ease, transform 0.2s ease;
+=======
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+<<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+>>>>>>> theirs
   pointer-events: none;
+=======
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+>>>>>>> theirs
+=======
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
 
-.node-card-base[data-resizer-visible="true"] .react-flow__node-resizer__handle,
-.group-surface[data-resizer-visible="true"] .react-flow__node-resizer__handle,
+.react-flow__node:hover .react-flow__node-resizer__handle,
+.react-flow__node-group:hover .react-flow__node-resizer__handle,
+.react-flow__node.selected .react-flow__node-resizer__handle,
 .react-flow__node-resizer__handle:active {
   opacity: 1;
   transform: scale(1);
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   pointer-events: auto;
+=======
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+}
+
+.react-flow__node:hover .react-flow__node-resizer__handle,
+.react-flow__node-group:hover .react-flow__node-resizer__handle,
+.react-flow__node.selected .react-flow__node-resizer__handle,
+.react-flow__node-resizer__handle:active {
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
+>>>>>>> theirs
+=======
+  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
+>>>>>>> theirs
+=======
+  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
+>>>>>>> theirs
+=======
+  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
+>>>>>>> theirs
+=======
+  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
+>>>>>>> theirs
+=======
+  box-shadow: 0 0 0 10px rgba(59, 130, 246, 0.08);
+>>>>>>> theirs
 }
 
 .react-flow__node-resizer__handle:active {
   transform: scale(1.08);
+=======
+  opacity: 0.2;
+>>>>>>> theirs
+=======
+  opacity: 0.2;
+>>>>>>> theirs
 }
 
 .custom-node-handle {
-  width: 22px !important;
-  height: 22px !important;
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--node-bg) !important;
+  border: 1.5px solid var(--node-accent) !important;
+  border-radius: 2px !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-node-handle:hover {
+  transform: scale(1.5);
+  background: var(--node-accent) !important;
+}
+
+/* Group Resizer - Hidden lines, only bottom-right handle */
+.group-resize-line {
+  border: none !important;
+}
+
+.group-resize-handle {
   background: transparent !important;
   border: none !important;
-  position: relative;
-  color: rgba(59, 130, 246, 0.9);
+  width: 24px !important;
+  height: 24px !important;
 }
 
-.custom-node-handle::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 2px solid currentColor;
-  border-radius: 999px;
-  clip-path: var(--arc-clip, inset(0 50% 50% 0));
-}
-
-.react-flow__node-resizer__handle-top-left.custom-node-handle {
-  top: -11px !important;
-  left: -11px !important;
-  --arc-clip: inset(0 50% 50% 0);
-}
-
-.react-flow__node-resizer__handle-top-right.custom-node-handle {
-  top: -11px !important;
-  right: -11px !important;
-  --arc-clip: inset(0 0 50% 50%);
-}
-
-.react-flow__node-resizer__handle-bottom-left.custom-node-handle {
-  bottom: -11px !important;
-  left: -11px !important;
-  --arc-clip: inset(50% 50% 0 0);
-}
-
-.react-flow__node-resizer__handle-bottom-right.custom-node-handle {
-  bottom: -11px !important;
-  right: -11px !important;
-  --arc-clip: inset(50% 0 0 50%);
-}
-
-.react-flow__node-resizer__handle-top,
-.react-flow__node-resizer__handle-right,
-.react-flow__node-resizer__handle-bottom,
-.react-flow__node-resizer__handle-left {
+/* Hide all group handles except bottom-right */
+.react-flow__node-resizer__handle:not(.react-flow__node-resizer__handle-bottom-right) {
   display: none !important;
-}
-
-/* Connection handles: hidden until hover */
-.react-flow__handle {
-  opacity: 0;
-  transform: scale(0.4);
-  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-  border-radius: 999px !important;
-}
-
-.react-flow__node:hover .react-flow__handle {
-  opacity: 1;
-  transform: scale(1);
-  box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.18);
-}
-
-.react-flow__handle-connecting,
-.react-flow__handle-connectingfrom,
-.react-flow__handle-connectingto {
-  opacity: 1 !important;
-  transform: scale(1) !important;
-  box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.22) !important;
 }

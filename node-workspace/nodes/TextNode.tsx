@@ -317,26 +317,20 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
             const hit = resolveMention(name);
             const kind = hit?.kind || "unknown";
             const status = hit ? "match" : "missing";
+            const kindLabel =
+                status === "missing" ? "未匹配" : kind === "zone" ? "场景" : kind === "character" ? "角色" : "形态";
             const tooltipRaw = (hit?.detail || hit?.summary || "").trim();
             const tooltip = tooltipRaw ? escapeAttr(tooltipRaw) : "";
             const tooltipAttr = tooltip ? ` data-tooltip="${tooltip}"` : "";
+            const kindLabelAttr = ` data-kind-label="${escapeAttr(kindLabel)}"`;
             parts.push(
-                `<span class="text-mention" data-kind="${kind}" data-status="${status}"${tooltipAttr}>${escapeHtml(match[0])}</span>`
+                `<span class="text-mention" data-kind="${kind}" data-status="${status}"${kindLabelAttr}${tooltipAttr}>${escapeHtml(match[0])}</span>`
             );
             lastIndex = end;
         }
         parts.push(escapeHtml(draftText.slice(lastIndex)));
         return parts.join("").replace(/\n/g, "<br />");
     }, [draftText, resolveMention]);
-
-    const flatMentions = useMemo(
-        () => [
-            ...filteredMentions.forms,
-            ...filteredMentions.characters,
-            ...filteredMentions.zones,
-        ],
-        [filteredMentions]
-    );
 
     const updateCursor = useCallback(() => {
         const el = editorRef.current;
@@ -496,33 +490,68 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
 
                 {showMentionPicker && pickerPos && (
                     <div
-                        className="text-mention-picker animate-in fade-in slide-in-from-top-1 absolute z-30"
-                        style={{ left: pickerPos.left, top: pickerPos.top, width: 280 }}
+                        className="node-panel p-3 space-y-3 animate-in fade-in slide-in-from-top-1 absolute z-30"
+                        style={{ left: pickerPos.left, top: pickerPos.top, width: 300 }}
                     >
-                        <div className="text-mention-picker__header">
-                            <span className="text-mention-picker__icon">
-                                <AtSign size={11} />
-                            </span>
-                            <span className="text-mention-picker__title">选择绑定数据</span>
-                            {mentionState?.query && <span className="text-mention-picker__query">@{mentionState.query}</span>}
+                        <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)] flex items-center gap-1">
+                            <AtSign size={10} /> 绑定角色/场景数据
                         </div>
-                        {flatMentions.length > 0 ? (
-                            <div className="text-mention-picker__list">
-                                {flatMentions.map((item) => (
-                                    <button
-                                        key={`${item.kind}-${item.name}-${item.characterId ?? item.zoneId ?? ""}`}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => insertMention(item)}
-                                        className="text-mention-option"
-                                        data-kind={item.kind}
-                                    >
-                                        <span className="text-mention-option__dot" />
-                                        <span className="text-mention-option__label">{item.label}</span>
-                                    </button>
-                                ))}
+                        {filteredMentions.forms.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色形态</div>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {filteredMentions.forms.map((f) => (
+                                        <button
+                                            key={`form-${f.name}-${f.characterId}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => insertMention(f)}
+                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                        >
+                                            {f.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        ) : (
-                            <div className="text-mention-picker__empty">无结果</div>
+                        )}
+
+                        {filteredMentions.characters.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色</div>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {filteredMentions.characters.map((c) => (
+                                        <button
+                                            key={`char-${c.name}-${c.characterId}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => insertMention(c)}
+                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                        >
+                                            {c.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {filteredMentions.zones.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">场景分区</div>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {filteredMentions.zones.map((z) => (
+                                        <button
+                                            key={`zone-${z.name}-${z.zoneId}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => insertMention(z)}
+                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                        >
+                                            {z.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {filteredMentions.all.length === 0 && (
+                            <div className="text-[10px] text-[var(--node-text-secondary)]">未匹配到对应的数据。</div>
                         )}
                     </div>
                 )}

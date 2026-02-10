@@ -17,7 +17,7 @@ export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [],
     <>
       <NodeResizer
         color="var(--node-accent)"
-        isVisible
+        isVisible={selected}
         minWidth={320}
         minHeight={160}
         handleClassName="custom-node-handle"
