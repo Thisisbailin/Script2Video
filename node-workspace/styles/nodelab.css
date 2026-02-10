@@ -438,7 +438,7 @@ body.qalam-resizing * {
   background: transparent;
   border: none;
   border-radius: 0;
-  padding: 14% 20% 26%;
+  padding: 8% 20% 20%;
   box-sizing: border-box;
 }
 
@@ -467,6 +467,7 @@ body.qalam-resizing * {
   font-weight: 500;
   line-height: 1.7;
   color: var(--node-text-primary);
+  text-align: left;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -777,7 +778,7 @@ body.qalam-resizing * {
   height: var(--arc-size) !important;
   background: transparent !important;
   border: none !important;
-  position: relative;
+  position: absolute;
   color: rgba(145, 200, 255, 0.5);
 }
 
