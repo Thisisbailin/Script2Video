@@ -88,7 +88,6 @@ export interface AnnotationNodeData extends BaseNodeData {
 export interface TextNodeData extends BaseNodeData {
   title: string;
   text: string;
-  category?: 'project' | 'episode' | 'script' | 'guide' | 'character' | 'scene' | 'location' | 'form' | 'zone';
   refId?: string;
   atMentions?: {
     name: string;

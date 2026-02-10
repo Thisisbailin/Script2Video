@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { X, Tag, Type } from "lucide-react";
-import { WorkflowNode, TextNodeData } from "../types";
+import React, { useState } from "react";
+import { X, Type } from "lucide-react";
 import { useWorkflowStore } from "../store/workflowStore";
 
 type Props = {
@@ -17,13 +16,11 @@ export const NodeEditorOverlay: React.FC<Props> = ({ nodeId, position, onClose }
 
     const data = node.data as any;
     const [title, setTitle] = useState(data.title || "");
-    const [category, setCategory] = useState(data.category || "");
     const [text, setText] = useState(data.text || "");
 
     const handleSave = () => {
         const updates: any = {};
         if ('title' in data) updates.title = title;
-        if ('category' in data) updates.category = category;
         if ('text' in data) updates.text = text;
 
         updateNodeData(nodeId, updates);
@@ -57,20 +54,6 @@ export const NodeEditorOverlay: React.FC<Props> = ({ nodeId, position, onClose }
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Node Title"
-                        />
-                    </div>
-                )}
-
-                {'category' in data && (
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-bold app-text-muted uppercase flex items-center gap-1.5">
-                            <Tag size={10} /> Category
-                        </label>
-                        <input
-                            className="w-full bg-[var(--app-panel-muted)] text-[var(--app-accent)] text-[11px] font-black px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-[var(--app-accent-soft)] transition-all uppercase tracking-wider"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            placeholder="e.g. CHARACTER, ZONE"
                         />
                     </div>
                 )}

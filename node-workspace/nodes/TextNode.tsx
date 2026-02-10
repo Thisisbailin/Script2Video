@@ -1,8 +1,8 @@
-import React, { useRef, useLayoutEffect, useState, useEffect, useMemo } from "react";
+import React, { useRef, useLayoutEffect, useState, useEffect, useMemo, useCallback } from "react";
 import { BaseNode } from "./BaseNode";
 import { TextNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
-import { AtSign, Info } from "lucide-react";
+import { AtSign } from "lucide-react";
 import type { Character, CharacterForm, Location, LocationZone } from "../../types";
 
 type Props = {
@@ -35,6 +35,74 @@ const mentionPriority: Record<MentionKind, number> = {
 };
 
 const toSearch = (value: string) => value.toLowerCase();
+
+const escapeHtml = (value: string) =>
+    value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+const escapeAttr = (value: string) => escapeHtml(value).replace(/\n/g, "&#10;");
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const getPlainText = (el: HTMLElement) => (el.innerText || "").replace(/\u200B/g, "").replace(/\r/g, "");
+
+const getCaretOffset = (el: HTMLElement) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return 0;
+    const range = selection.getRangeAt(0);
+    if (!el.contains(range.startContainer)) return 0;
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(el);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    return preRange.toString().length;
+};
+
+const setCaretOffset = (el: HTMLElement, offset: number) => {
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    let current = 0;
+    let node = walker.nextNode();
+    while (node) {
+        const text = node.textContent || "";
+        const next = current + text.length;
+        if (offset <= next) {
+            range.setStart(node, Math.max(0, offset - current));
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            return;
+        }
+        current = next;
+        node = walker.nextNode();
+    }
+    range.selectNodeContents(el);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+};
+
+const getCaretRect = (el: HTMLElement) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!el.contains(range.startContainer)) return null;
+    if (!range.collapsed) return range.getBoundingClientRect();
+    const rects = range.getClientRects();
+    if (rects.length > 0) return rects[0];
+    const marker = document.createElement("span");
+    marker.textContent = "\u200b";
+    const clone = range.cloneRange();
+    clone.insertNode(marker);
+    const rect = marker.getBoundingClientRect();
+    marker.parentNode?.removeChild(marker);
+    return rect;
+};
 
 const buildFormDetail = (character: Character, form: CharacterForm) => {
     const lines = [
@@ -79,10 +147,15 @@ const buildZoneDetail = (location: Location, zone: LocationZone) => {
 
 export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, selected }) => {
     const { updateNodeData, labContext } = useWorkflowStore();
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const editorRef = useRef<HTMLDivElement>(null);
+    const shellRef = useRef<HTMLDivElement>(null);
     const isComposingRef = useRef(false);
+    const lastHtmlRef = useRef<string>("");
+    const pendingSelectionRef = useRef<number | null>(null);
     const [draftText, setDraftText] = useState(data.text || "");
-    const [cursorPos, setCursorPos] = useState(0);
+    const [cursorPos, setCursorPos] = useState((data.text || "").length);
+    const [isFocused, setIsFocused] = useState(false);
+    const [pickerPos, setPickerPos] = useState<{ left: number; top: number } | null>(null);
 
     const mentionTargets = useMemo(() => {
         const chars = labContext?.context?.characters || [];
@@ -158,6 +231,15 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         return map;
     }, [mentionTargets]);
 
+    const resolveMention = useCallback(
+        (name: string) => {
+            const list = mentionIndex.get(toSearch(name)) || [];
+            if (!list.length) return null;
+            return list.slice().sort((a, b) => mentionPriority[a.kind] - mentionPriority[b.kind])[0];
+        },
+        [mentionIndex]
+    );
+
     const parseMentions = (text: string) => {
         const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
         const names: string[] = [];
@@ -168,37 +250,27 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         return names;
     };
 
-    const resolveMention = (name: string) => {
-        const list = mentionIndex.get(toSearch(name)) || [];
-        if (!list.length) return null;
-        return list.slice().sort((a, b) => mentionPriority[a.kind] - mentionPriority[b.kind])[0];
-    };
-
-    const computeMentionMeta = (text: string) => {
-        const names = parseMentions(text);
-        return names.map((n) => {
-            const hit = resolveMention(n);
-            return {
-                name: n,
-                status: hit ? "match" : "missing",
-                kind: hit?.kind || "unknown",
-                characterId: hit?.characterId,
-                formName: hit?.formName,
-                summary: hit?.summary,
-                detail: hit?.detail,
-                locationId: hit?.locationId,
-                locationName: hit?.locationName,
-                zoneId: hit?.zoneId,
-            };
-        });
-    };
-
-    const autoResize = () => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = "auto";
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-        }
-    };
+    const computeMentionMeta = useCallback(
+        (text: string) => {
+            const names = parseMentions(text);
+            return names.map((n) => {
+                const hit = resolveMention(n);
+                return {
+                    name: n,
+                    status: hit ? "match" : "missing",
+                    kind: hit?.kind || "unknown",
+                    characterId: hit?.characterId,
+                    formName: hit?.formName,
+                    summary: hit?.summary,
+                    detail: hit?.detail,
+                    locationId: hit?.locationId,
+                    locationName: hit?.locationName,
+                    zoneId: hit?.zoneId,
+                };
+            });
+        },
+        [resolveMention]
+    );
 
     const mentionState = useMemo(() => {
         const pos = Math.min(cursorPos, draftText.length);
@@ -229,41 +301,118 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         };
     }, [mentionState, mentionTargets]);
 
-    const showMentionPicker = !!mentionState;
+    const showMentionPicker = isFocused && !!mentionState;
+
+    const renderedHtml = useMemo(() => {
+        if (!draftText) return "";
+        const parts: string[] = [];
+        let lastIndex = 0;
+        const regex = /@([\w\u4e00-\u9fa5-]+)/g;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(draftText))) {
+            const start = match.index;
+            const end = start + match[0].length;
+            parts.push(escapeHtml(draftText.slice(lastIndex, start)));
+            const name = match[1];
+            const hit = resolveMention(name);
+            const kind = hit?.kind || "unknown";
+            const status = hit ? "match" : "missing";
+            const kindLabel =
+                status === "missing" ? "未匹配" : kind === "zone" ? "场景" : kind === "character" ? "角色" : "形态";
+            const tooltipRaw = (hit?.detail || hit?.summary || "").trim();
+            const tooltip = tooltipRaw ? escapeAttr(tooltipRaw) : "";
+            const tooltipAttr = tooltip ? ` data-tooltip="${tooltip}"` : "";
+            const kindLabelAttr = ` data-kind-label="${escapeAttr(kindLabel)}"`;
+            parts.push(
+                `<span class="text-mention" data-kind="${kind}" data-status="${status}"${kindLabelAttr}${tooltipAttr}>${escapeHtml(match[0])}</span>`
+            );
+            lastIndex = end;
+        }
+        parts.push(escapeHtml(draftText.slice(lastIndex)));
+        return parts.join("").replace(/\n/g, "<br />");
+    }, [draftText, resolveMention]);
+
+    const updateCursor = useCallback(() => {
+        const el = editorRef.current;
+        if (!el) return;
+        const pos = getCaretOffset(el);
+        setCursorPos(pos);
+    }, []);
+
+    const handleInput = useCallback(() => {
+        const el = editorRef.current;
+        if (!el) return;
+        const value = getPlainText(el);
+        const pos = getCaretOffset(el);
+        setDraftText(value);
+        setCursorPos(pos);
+        pendingSelectionRef.current = pos;
+        if (!isComposingRef.current) {
+            const mentions = computeMentionMeta(value);
+            updateNodeData(id, { text: value, atMentions: mentions });
+        }
+    }, [computeMentionMeta, id, updateNodeData]);
 
     const insertMention = (target: MentionTarget) => {
-        const el = textareaRef.current;
-        const cursor = el?.selectionStart ?? draftText.length;
-        const start = mentionState ? mentionState.start : cursor;
+        const start = mentionState ? mentionState.start : cursorPos;
+        const end = mentionState ? mentionState.end : cursorPos;
         const before = draftText.slice(0, start);
-        const after = draftText.slice(cursor);
+        const after = draftText.slice(end);
         const insertion = `@${target.name} `;
         const next = `${before}${insertion}${after}`;
+        const nextPos = start + insertion.length;
         setDraftText(next);
+        setCursorPos(nextPos);
+        pendingSelectionRef.current = nextPos;
         const mentions = computeMentionMeta(next);
         updateNodeData(id, { text: next, atMentions: mentions });
         requestAnimationFrame(() => {
+            const el = editorRef.current;
             if (!el) return;
-            const nextPos = start + insertion.length;
             el.focus();
-            el.setSelectionRange(nextPos, nextPos);
-            setCursorPos(nextPos);
+            setCaretOffset(el, nextPos);
         });
     };
 
-    const updateCursor = () => {
-        const pos = textareaRef.current?.selectionStart ?? draftText.length;
-        setCursorPos(pos);
-    };
+    const updatePickerPosition = useCallback(() => {
+        if (!showMentionPicker) return;
+        const shell = shellRef.current;
+        const editor = editorRef.current;
+        if (!shell || !editor) return;
+        const caretRect = getCaretRect(editor);
+        const shellRect = shell.getBoundingClientRect();
+        const editorRect = editor.getBoundingClientRect();
+        const anchorLeft = caretRect ? caretRect.left : editorRect.left + 12;
+        const anchorBottom = caretRect ? caretRect.bottom : editorRect.top + 28;
+        const pickerWidth = 300;
+        const left = clamp(anchorLeft - shellRect.left, 12, Math.max(12, shellRect.width - pickerWidth - 12));
+        const top = anchorBottom - shellRect.top + 8;
+        setPickerPos({ left, top });
+    }, [showMentionPicker]);
 
     useLayoutEffect(() => {
-        const id = window.requestAnimationFrame(autoResize);
-        return () => window.cancelAnimationFrame(id);
-    }, [draftText]);
+        const el = editorRef.current;
+        if (!el || isComposingRef.current) return;
+        const html = renderedHtml;
+        if (html !== lastHtmlRef.current) {
+            el.innerHTML = html;
+            lastHtmlRef.current = html;
+        }
+        if (document.activeElement === el) {
+            const targetPos = pendingSelectionRef.current ?? cursorPos;
+            setCaretOffset(el, Math.min(targetPos, draftText.length));
+            pendingSelectionRef.current = null;
+        }
+        updatePickerPosition();
+    }, [renderedHtml, draftText, cursorPos, updatePickerPosition]);
 
     useEffect(() => {
         if (isComposingRef.current) return;
-        setDraftText(data.text || "");
+        if ((data.text || "") === draftText) return;
+        const next = data.text || "";
+        setDraftText(next);
+        setCursorPos(next.length);
+        pendingSelectionRef.current = next.length;
     }, [data.text]);
 
     useEffect(() => {
@@ -272,7 +421,23 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         if (!text.includes("@")) return;
         const mentions = computeMentionMeta(text);
         updateNodeData(id, { atMentions: mentions });
-    }, [mentionTargets]);
+    }, [computeMentionMeta, data.text, draftText, id, mentionTargets, updateNodeData]);
+
+    useEffect(() => {
+        if (showMentionPicker) return;
+        setPickerPos(null);
+    }, [showMentionPicker]);
+
+    useEffect(() => {
+        if (!showMentionPicker) return;
+        const handleScroll = () => updatePickerPosition();
+        window.addEventListener("scroll", handleScroll, true);
+        window.addEventListener("resize", handleScroll);
+        return () => {
+            window.removeEventListener("scroll", handleScroll, true);
+            window.removeEventListener("resize", handleScroll);
+        };
+    }, [showMentionPicker, updatePickerPosition]);
 
     return (
         <BaseNode
@@ -283,163 +448,113 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
             selected={selected}
             variant="text"
         >
-            <div className="flex flex-col flex-1">
-                <textarea
-                    ref={textareaRef}
-                    className="node-textarea w-full text-[13px] leading-relaxed outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] min-h-[160px] font-medium"
-                    value={draftText}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        setDraftText(value);
-                        setCursorPos(e.target.selectionStart ?? value.length);
-                        if (!isComposingRef.current) {
-                            const mentions = computeMentionMeta(value);
-                            updateNodeData(id, { text: value, atMentions: mentions });
-                        }
+            <div ref={shellRef} className="text-node-shell relative flex-1">
+                <div
+                    ref={editorRef}
+                    className="text-node-editor nodrag"
+                    contentEditable
+                    suppressContentEditableWarning
+                    data-placeholder="Describe or input text here..."
+                    onInput={handleInput}
+                    onKeyDown={(e) => {
+                        e.stopPropagation();
                     }}
-                    onCompositionStart={() => {
-                        isComposingRef.current = true;
+                    onKeyUp={() => {
+                        updateCursor();
+                        updatePickerPosition();
                     }}
-                    onCompositionEnd={(e) => {
-                        isComposingRef.current = false;
-                        const value = e.currentTarget.value;
-                        setDraftText(value);
-                        setCursorPos(e.currentTarget.selectionStart ?? value.length);
-                        const mentions = computeMentionMeta(value);
-                        updateNodeData(id, { text: value, atMentions: mentions });
+                    onClick={() => {
+                        updateCursor();
+                        updatePickerPosition();
+                    }}
+                    onFocus={() => {
+                        setIsFocused(true);
+                        updateCursor();
+                        updatePickerPosition();
                     }}
                     onBlur={() => {
+                        setIsFocused(false);
                         if (!isComposingRef.current && draftText !== data.text) {
                             const mentions = computeMentionMeta(draftText);
                             updateNodeData(id, { text: draftText, atMentions: mentions });
                         }
                     }}
-                    onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === "@") {
-                            requestAnimationFrame(updateCursor);
-                        }
+                    onCompositionStart={() => {
+                        isComposingRef.current = true;
                     }}
-                    onKeyUp={updateCursor}
-                    onClick={updateCursor}
-                    onFocus={() => {
-                        autoResize();
-                        updateCursor();
+                    onCompositionEnd={() => {
+                        isComposingRef.current = false;
+                        handleInput();
                     }}
-                    placeholder="Describe or input text here..."
-                    style={{ height: "auto" }}
                 />
 
-                <div className="px-4 pb-4 pt-2 space-y-3">
-                    {(data.atMentions?.length || 0) > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {data.atMentions?.map((m, idx) => {
-                                const kind = m.kind || "unknown";
-                                const tone =
-                                    m.status === "missing"
-                                        ? "bg-amber-500/15 text-amber-100 border border-amber-500/30"
-                                        : kind === "zone"
-                                            ? "bg-emerald-500/15 text-emerald-100 border border-emerald-500/30"
-                                            : kind === "character"
-                                                ? "bg-amber-500/20 text-amber-100 border border-amber-500/40"
-                                                : "bg-sky-500/20 text-sky-100 border border-sky-500/30";
-                                const label = m.formName || m.name;
-                                const kindLabel =
-                                    kind === "zone" ? "场景" : kind === "character" ? "角色" : kind === "form" ? "形态" : "未匹配";
-                                return (
-                                    <span key={`${m.name}-${idx}`} className="relative group/mention">
-                                        <span className={`px-2 py-1 text-[10px] rounded-full inline-flex items-center gap-1 ${tone}`}>
-                                            <AtSign size={10} />
-                                            {label}
-                                            <span className="text-[8px] uppercase tracking-[0.2em] opacity-70">{kindLabel}</span>
-                                            {m.status === "missing" && <Info size={10} className="opacity-70" />}
-                                        </span>
-                                        {m.status === "match" && (m.detail || m.summary) && (
-                                            <div className="absolute left-0 top-full mt-2 w-72 rounded-xl border border-white/10 bg-black/80 p-3 text-[11px] text-white/90 opacity-0 pointer-events-none transition group-hover/mention:opacity-100 z-20">
-                                                <div className="text-[9px] uppercase tracking-[0.2em] text-white/60 mb-2">{kindLabel}详情</div>
-                                                <div className="whitespace-pre-wrap leading-relaxed">{m.detail || m.summary}</div>
-                                            </div>
-                                        )}
-                                    </span>
-                                );
-                            })}
+                {showMentionPicker && pickerPos && (
+                    <div
+                        className="node-panel p-3 space-y-3 animate-in fade-in slide-in-from-top-1 absolute z-30"
+                        style={{ left: pickerPos.left, top: pickerPos.top, width: 300 }}
+                    >
+                        <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)] flex items-center gap-1">
+                            <AtSign size={10} /> 绑定角色/场景数据
                         </div>
-                    )}
-
-                    {showMentionPicker && (
-                        <div className="node-panel p-3 space-y-3 animate-in fade-in slide-in-from-top-1">
-                            <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)] flex items-center gap-1">
-                                <AtSign size={10} /> 绑定角色/场景数据
+                        {filteredMentions.forms.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色形态</div>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {filteredMentions.forms.map((f) => (
+                                        <button
+                                            key={`form-${f.name}-${f.characterId}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => insertMention(f)}
+                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                        >
+                                            {f.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            {filteredMentions.forms.length > 0 && (
-                                <div className="space-y-2">
-                                    <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色形态</div>
-                                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                                        {filteredMentions.forms.map((f) => (
-                                            <button
-                                                key={`form-${f.name}-${f.characterId}`}
-                                                onClick={() => insertMention(f)}
-                                                className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
-                                            >
-                                                {f.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                        )}
+
+                        {filteredMentions.characters.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色</div>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {filteredMentions.characters.map((c) => (
+                                        <button
+                                            key={`char-${c.name}-${c.characterId}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => insertMention(c)}
+                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                        >
+                                            {c.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {filteredMentions.characters.length > 0 && (
-                                <div className="space-y-2">
-                                    <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">角色</div>
-                                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                                        {filteredMentions.characters.map((c) => (
-                                            <button
-                                                key={`char-${c.name}-${c.characterId}`}
-                                                onClick={() => insertMention(c)}
-                                                className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
-                                            >
-                                                {c.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                        {filteredMentions.zones.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">场景分区</div>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {filteredMentions.zones.map((z) => (
+                                        <button
+                                            key={`zone-${z.name}-${z.zoneId}`}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => insertMention(z)}
+                                            className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
+                                        >
+                                            {z.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {filteredMentions.zones.length > 0 && (
-                                <div className="space-y-2">
-                                    <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">场景分区</div>
-                                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                                        {filteredMentions.zones.map((z) => (
-                                            <button
-                                                key={`zone-${z.name}-${z.zoneId}`}
-                                                onClick={() => insertMention(z)}
-                                                className="node-control node-control--tight text-left text-[10px] font-semibold text-[var(--node-text-primary)] hover:border-[var(--node-accent)]/40"
-                                            >
-                                                {z.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {filteredMentions.all.length === 0 && (
-                                <div className="text-[10px] text-[var(--node-text-secondary)]">未匹配到对应的数据。</div>
-                            )}
-                        </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-2 min-h-[24px]">
-                        <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
-                            <input
-                                className="bg-transparent text-[9px] font-black uppercase tracking-[0.2em] text-[var(--node-accent)] outline-none border-none text-center appearance-none"
-                                value={data.category || ""}
-                                onChange={(e) => updateNodeData(id, { category: e.target.value as any })}
-                                placeholder="CATEGORY"
-                                style={{ width: Math.max(data.category?.length || 4, 4) + "ch" }}
-                            />
-                        </div>
+                        {filteredMentions.all.length === 0 && (
+                            <div className="text-[10px] text-[var(--node-text-secondary)]">未匹配到对应的数据。</div>
+                        )}
                     </div>
-                </div>
+                )}
             </div>
         </BaseNode>
     );

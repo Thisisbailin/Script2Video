@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Bot, Loader2, ChevronUp, X, Plus, ArrowUp, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
+import { createQwenResponse } from "../../services/qwenResponsesService";
 import type { DeyunAITool, DeyunAIToolCall } from "../../services/deyunaiService";
 import { useConfig } from "../../hooks/useConfig";
 import { usePersistedState } from "../../hooks/usePersistedState";
@@ -20,6 +21,67 @@ type Props = {
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   onOpenStats?: () => void;
   onToggleAgentSettings?: () => void;
+};
+
+const WORK_HINT_KEYWORDS = [
+  "剧本",
+  "剧情",
+  "场景",
+  "角色",
+  "剧集",
+  "镜头",
+  "分镜",
+  "对白",
+  "台词",
+  "理解",
+  "understanding",
+  "角色库",
+  "场景库",
+  "总结",
+  "梳理",
+  "分析",
+  "查阅",
+  "搜索",
+  "提取",
+  "生成",
+  "写作",
+  "改写",
+  "优化",
+  "Prompt",
+  "Sora",
+];
+
+const stripModePrefix = (text: string) => {
+  const trimmed = text.trim();
+  const patterns = [/^\/(work|chat)\s*/i, /^#(work|chat)\s*/i, /^(工作|闲聊)[:：]\s*/];
+  for (const pattern of patterns) {
+    if (pattern.test(trimmed)) {
+      return trimmed.replace(pattern, "").trim();
+    }
+  }
+  return trimmed;
+};
+
+const getForcedMode = (text: string) => {
+  const trimmed = text.trim();
+  if (/^\/chat\b/i.test(trimmed) || /^#chat\b/i.test(trimmed) || /^闲聊[:：]/.test(trimmed)) return "chat";
+  if (/^\/work\b/i.test(trimmed) || /^#work\b/i.test(trimmed) || /^工作[:：]/.test(trimmed)) return "work";
+  return "auto";
+};
+
+const hasEpisodeSceneRef = (text: string) => {
+  if (!text) return false;
+  if (/第\s*\d+\s*集/.test(text)) return true;
+  if (/\d+\s*[-－–—]\s*\d+/.test(text)) return true; // scene id like 12-3
+  return false;
+};
+
+const detectWorkIntent = (text: string, hasAttachments: boolean) => {
+  if (!text) return false;
+  const lowered = text.toLowerCase();
+  if (hasAttachments) return true;
+  if (hasEpisodeSceneRef(text)) return true;
+  return WORK_HINT_KEYWORDS.some((kw) => lowered.includes(kw.toLowerCase()));
 };
 
 type ConversationRecord = {
@@ -617,22 +679,32 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const sendMessage = async () => {
     if (!canSend) return;
     setMood("loading");
-    const userMsg: Message = { role: "user", text: input.trim(), kind: "chat" };
+    const forcedMode = getForcedMode(input);
+    const cleanedInput = stripModePrefix(input);
+    const userMsg: Message = { role: "user", text: cleanedInput, kind: "chat" };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsSending(true);
     const isDeyunai = config.textConfig.provider === "deyunai";
+    const isQwen = config.textConfig.provider === "qwen";
     const useStream = isDeyunai ? config.textConfig.stream ?? true : false;
     let assistantIndex = -1;
     try {
+      const wantsWork = forcedMode === "work"
+        ? true
+        : forcedMode === "chat"
+        ? false
+        : detectWorkIntent(cleanedInput, attachments.length > 0);
+      const useWorkMode = isQwen && wantsWork;
+      const activeContext = useWorkMode ? contextText : "";
       const systemInstruction =
         "You are Qalam, a creative agent helping build this project. Keep responses concise. You can use Markdown. Do not include chain-of-thought or internal reasoning; respond with final answers only.";
-      const toolHint = isDeyunai
+      const toolHint = isDeyunai || useWorkMode
         ? "\n[Tooling]\n- 当用户描述内容不够明确时，先调用 search_script_data 搜索，再决定要读取的剧集/场景。\n- 当用户提到具体剧集/场景/剧情片段，或需要理解/角色/场景库信息时，调用 read_project_data 获取对应内容再回答。\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
         : "";
       const memoryText = buildConversationMemory(messages);
       const memoryBlock = memoryText ? `[Conversation]\n${memoryText}\n\n` : "";
-      const prompt = `${contextText ? contextText + "\n\n" : ""}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
+      const prompt = `${activeContext ? activeContext + "\n\n" : ""}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
 
       if (isDeyunai) {
         const imageUrls = await resolveAttachmentUrls();
@@ -1112,6 +1184,145 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           }
         }
 
+        setIsSending(false);
+        setMood("thinking");
+        return;
+      }
+
+      if (useWorkMode) {
+        if (attachments.length > 0) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: "提示：Qwen Responses 当前仅支持文本输入，已忽略图片附件。", kind: "chat" },
+          ]);
+        }
+        const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
+        const mergedTools: DeyunAITool[] = [];
+        const seen = new Set<string>();
+        [...getQalamToolDefs(qalamToolSettings), ...toolsFromConfig].forEach((tool) => {
+          const key = tool.type === "function" ? `function:${tool.name}` : tool.type;
+          if (seen.has(key)) return;
+          seen.add(key);
+          mergedTools.push(tool);
+        });
+
+        const workModel = config.textConfig.workModel || "qwen3-max";
+        const workBaseUrl = config.textConfig.workBaseUrl || config.textConfig.baseUrl || undefined;
+
+        const firstRes = await createQwenResponse(
+          prompt,
+          { apiKey: config.textConfig.apiKey, baseUrl: workBaseUrl },
+          {
+            model: workModel,
+            tools: mergedTools,
+            toolChoice: "auto",
+          }
+        );
+
+        const toolCalls = firstRes.toolCalls || [];
+        if (!toolCalls.length && firstRes.text && firstRes.text.trim()) {
+          const extracted = extractReasoningSection(firstRes.text || "");
+          const parsed = parsePlanFromText(extracted.text || "");
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: parsed.text || firstRes.text, kind: "chat", meta: { planItems: parsed.planItems } },
+          ]);
+          setIsSending(false);
+          setMood("thinking");
+          return;
+        }
+
+        const toolOutputs = toolCalls.length ? await handleToolCalls(toolCalls) : [];
+        if (!toolOutputs.length) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: firstRes.text || "（未返回有效结果）", kind: "chat" },
+          ]);
+          setIsSending(false);
+          setMood("thinking");
+          return;
+        }
+
+        const inputItems = [
+          { role: "user", content: [{ type: "input_text", text: prompt }] },
+          ...toolOutputs.map((item) => ({
+            type: "function_call_output",
+            call_id: item.callId,
+            output: item.output,
+          })),
+        ];
+
+        const followToolChoice = toolCalls.some((tc) => tc.name === "search_script_data") &&
+          !toolCalls.some((tc) => tc.name === "read_project_data" || tc.name === "read_script_data")
+          ? "auto"
+          : "none";
+
+        const followRes = await createQwenResponse(
+          prompt,
+          { apiKey: config.textConfig.apiKey, baseUrl: workBaseUrl },
+          {
+            model: workModel,
+            tools: mergedTools,
+            toolChoice: followToolChoice,
+            inputItems,
+          }
+        );
+
+        const followToolCalls = followRes.toolCalls || [];
+        if (followToolCalls.length) {
+          const secondOutputs = await handleToolCalls(followToolCalls);
+          if (secondOutputs.length) {
+            const finalItems = [
+              { role: "user", content: [{ type: "input_text", text: prompt }] },
+              ...toolOutputs.map((item) => ({
+                type: "function_call_output",
+                call_id: item.callId,
+                output: item.output,
+              })),
+              ...secondOutputs.map((item) => ({
+                type: "function_call_output",
+                call_id: item.callId,
+                output: item.output,
+              })),
+            ];
+            const finalRes = await createQwenResponse(
+              prompt,
+              { apiKey: config.textConfig.apiKey, baseUrl: workBaseUrl },
+              {
+                model: workModel,
+                tools: mergedTools,
+                toolChoice: "none",
+                inputItems: finalItems,
+              }
+            );
+            const finalExtracted = extractReasoningSection(finalRes.text || "");
+            const finalParsed = parsePlanFromText(finalExtracted.text || "");
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                text: finalParsed.text || finalRes.text || "",
+                kind: "chat",
+                meta: { planItems: finalParsed.planItems },
+              },
+            ]);
+            setIsSending(false);
+            setMood("thinking");
+            return;
+          }
+        }
+
+        const followExtracted = extractReasoningSection(followRes.text || "");
+        const followParsed = parsePlanFromText(followExtracted.text || "");
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: followParsed.text || followRes.text || "",
+            kind: "chat",
+            meta: { planItems: followParsed.planItems },
+          },
+        ]);
         setIsSending(false);
         setMood("thinking");
         return;

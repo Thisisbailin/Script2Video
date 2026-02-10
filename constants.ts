@@ -67,6 +67,8 @@ export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   baseUrl: '', // Not used for Gemini SDK
   apiKey: '', // Uses process.env by default if empty
   model: 'gemini-2.5-flash',
+  workModel: '',
+  workBaseUrl: '',
   qwenModels: [],
   voiceDesignModel: "",
   voiceDubbingModel: "",

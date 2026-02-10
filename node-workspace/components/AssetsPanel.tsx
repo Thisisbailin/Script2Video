@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useWorkflowStore } from "../store/workflowStore";
 import { Episode, ProjectData } from "../../types";
-import { TextNodeData } from "../types";
 
 type AssetTab =
   | "images"
@@ -29,7 +28,6 @@ type AssetTab =
 type InsertTextPayload = {
   title: string;
   text: string;
-  category?: TextNodeData["category"];
   refId?: string;
 };
 
@@ -130,7 +128,6 @@ export const AssetsPanel: React.FC<Props> = ({
     onInsertTextNode({
       title: name,
       text,
-      category: "character",
       refId: id,
     });
   };
@@ -139,7 +136,6 @@ export const AssetsPanel: React.FC<Props> = ({
     onInsertTextNode({
       title: name,
       text,
-      category: "scene",
       refId: id,
     });
   };
@@ -339,7 +335,6 @@ export const AssetsPanel: React.FC<Props> = ({
                       onInsertTextNode({
                         title: guide.title,
                         text: guide.text,
-                        category: "guide",
                         refId: guide.key,
                       })
                     }
@@ -382,7 +377,6 @@ export const AssetsPanel: React.FC<Props> = ({
                       onInsertTextNode({
                         title: script.title,
                         text: script.text,
-                        category: "script",
                         refId: `episode-${script.id}`,
                       })
                     }

@@ -342,6 +342,8 @@ export interface TextServiceConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  workModel?: string;
+  workBaseUrl?: string;
   qwenModels?: Array<Record<string, any>>;
   voiceDesignModel?: string;
   voiceDubbingModel?: string;
