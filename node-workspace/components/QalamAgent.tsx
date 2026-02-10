@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, X, Plus, ArrowUp, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns } from "lucide-react";
+import { Bot, Loader2, ChevronUp, X, Plus, ArrowUp, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns, AtSign } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
 import * as DeyunAIService from "../../services/deyunaiService";
 import { createQwenResponse } from "../../services/qwenResponsesService";
@@ -50,6 +50,18 @@ const WORK_HINT_KEYWORDS = [
   "Prompt",
   "Sora",
 ];
+
+const toSearch = (value: string) => value.toLowerCase().replace(/\s+/g, "");
+
+const parseMentions = (text: string) => {
+  const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
+  const names: string[] = [];
+  matches.forEach((m) => {
+    const name = m.slice(1);
+    if (!names.includes(name)) names.push(name);
+  });
+  return names;
+};
 
 const stripModePrefix = (text: string) => {
   const trimmed = text.trim();
@@ -418,6 +430,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
+  const [inputMode, setInputMode] = useState<"auto" | "chat" | "work">("auto");
+  const [modePickerOpen, setModePickerOpen] = useState(false);
+  const [cursorPos, setCursorPos] = useState(0);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [conversationState, setConversationState] = usePersistedState<ConversationState>({
     key: "script2video_qalam_conversations_v1",
     initialValue: { activeId: "", items: [] },
@@ -491,6 +507,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   });
   const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string; remoteUrl?: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentUrlsRef = useRef<string[]>([]);
   const [layoutMode, setLayoutMode] = useState<"floating" | "split">("floating");
   const [splitWidth, setSplitWidth] = useState(560);
@@ -514,6 +531,63 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     setProjectData,
     toolSettings: config.textConfig?.qalamTools,
   });
+  const mentionTargets = useMemo(() => {
+    const targets: Array<{ kind: "character" | "location"; name: string; label: string; search: string; id?: string }> = [];
+    (projectData.context?.characters || []).forEach((c) => {
+      if (!c?.name) return;
+      targets.push({
+        kind: "character",
+        name: c.name,
+        label: `角色 · ${c.name}`,
+        search: toSearch(c.name),
+        id: c.id,
+      });
+    });
+    (projectData.context?.locations || []).forEach((l) => {
+      if (!l?.name) return;
+      targets.push({
+        kind: "location",
+        name: l.name,
+        label: `场景 · ${l.name}`,
+        search: toSearch(l.name),
+        id: l.id,
+      });
+    });
+    return targets;
+  }, [projectData.context?.characters, projectData.context?.locations]);
+  const mentionIndex = useMemo(() => {
+    const map = new Map<string, { kind: "character" | "location"; name: string; label: string; id?: string }>();
+    mentionTargets.forEach((item) => {
+      const key = toSearch(item.name);
+      if (!key || map.has(key)) return;
+      map.set(key, item);
+    });
+    return map;
+  }, [mentionTargets]);
+  const mentionState = useMemo(() => {
+    const pos = Math.min(cursorPos, input.length);
+    const textBefore = input.slice(0, pos);
+    const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
+    if (!match) return null;
+    return {
+      query: match[1] || "",
+      start: textBefore.lastIndexOf("@"),
+      end: pos,
+    };
+  }, [input, cursorPos]);
+  const filteredMentions = useMemo(() => {
+    if (!mentionState) return mentionTargets;
+    const query = toSearch(mentionState.query.trim());
+    if (!query) return mentionTargets;
+    return mentionTargets.filter((item) => item.search.includes(query));
+  }, [mentionState, mentionTargets]);
+  const showMentionPicker = isInputFocused && !!mentionState;
+  const mentionTags = useMemo(() => {
+    const names = parseMentions(input);
+    return names
+      .map((name) => mentionIndex.get(toSearch(name)) || null)
+      .filter(Boolean) as Array<{ kind: "character" | "location"; name: string; label: string; id?: string }>;
+  }, [input, mentionIndex]);
   const canSend = input.trim().length > 0 && !isSending;
   const splitMinWidth = Math.min(360, Math.max(280, Math.round(viewportWidth * 0.4)));
   const splitMaxWidth = viewportWidth;
@@ -679,11 +753,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
   const sendMessage = async () => {
     if (!canSend) return;
     setMood("loading");
-    const forcedMode = getForcedMode(input);
+    setModePickerOpen(false);
+    const forcedMode = inputMode !== "auto" ? inputMode : getForcedMode(input);
     const cleanedInput = stripModePrefix(input);
     const userMsg: Message = { role: "user", text: cleanedInput, kind: "chat" };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setInputMode("auto");
     setIsSending(true);
     const isDeyunai = config.textConfig.provider === "deyunai";
     const isQwen = config.textConfig.provider === "qwen";
@@ -702,9 +778,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       const toolHint = isDeyunai || useWorkMode
         ? "\n[Tooling]\n- 当用户描述内容不够明确时，先调用 search_script_data 搜索，再决定要读取的剧集/场景。\n- 当用户提到具体剧集/场景/剧情片段，或需要理解/角色/场景库信息时，调用 read_project_data 获取对应内容再回答。\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
         : "";
+      const mentionContext = (() => {
+        if (!mentionTags.length) return "";
+        const rows = mentionTags.map((tag) => `- @${tag.name} => ${tag.kind}${tag.id ? ` (${tag.id})` : ""}`);
+        return `[Mentions]\n${rows.join("\n")}`;
+      })();
       const memoryText = buildConversationMemory(messages);
       const memoryBlock = memoryText ? `[Conversation]\n${memoryText}\n\n` : "";
-      const prompt = `${activeContext ? activeContext + "\n\n" : ""}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
+      const mentionBlock = mentionContext ? `${mentionContext}\n\n` : "";
+      const prompt = `${activeContext ? activeContext + "\n\n" : ""}${mentionBlock}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
 
       if (isDeyunai) {
         const imageUrls = await resolveAttachmentUrls();
@@ -1598,20 +1680,153 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           })}
         </div>
         <div className="rounded-2xl bg-[var(--app-panel-soft)] border border-[var(--app-border)] px-3 py-3 space-y-3">
+          {(inputMode !== "auto" || mentionTags.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {inputMode !== "auto" && (
+                <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] border border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]">
+                  模式：{inputMode === "work" ? "工作" : "闲聊"}
+                  <button
+                    type="button"
+                    onClick={() => setInputMode("auto")}
+                    className="text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                    title="清除模式"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {mentionTags.map((tag) => (
+                <span
+                  key={`${tag.kind}-${tag.name}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)]"
+                >
+                  <AtSign size={11} />
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          )}
           <textarea
+            ref={inputRef}
             className="w-full bg-transparent text-[13px] text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
             rows={3}
-            placeholder="向 Qalam 提问，@ 提及角色形态，/ 选择指令..."
+            placeholder="向 Qalam 提问，@ 提及角色/场景，/ 选择指令..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setCursorPos(e.target.selectionStart ?? e.target.value.length);
+            }}
             onKeyDown={(e) => {
               e.stopPropagation();
+              if (e.key === "Escape") {
+                setModePickerOpen(false);
+                return;
+              }
+              if (e.key === "/" && !e.shiftKey) {
+                const pos = (e.currentTarget as HTMLTextAreaElement).selectionStart ?? 0;
+                const textBefore = input.slice(0, pos);
+                const lastChar = textBefore.slice(-1);
+                const atTokenStart = !textBefore || /\s/.test(lastChar);
+                if (atTokenStart) {
+                  e.preventDefault();
+                  setModePickerOpen(true);
+                  return;
+                }
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
               }
             }}
+            onKeyUp={(e) => {
+              setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
+            }}
+            onClick={(e) => {
+              setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
+            }}
+            onFocus={(e) => {
+              setIsInputFocused(true);
+              setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
+            }}
+            onBlur={() => {
+              setIsInputFocused(false);
+            }}
           />
+          {modePickerOpen && (
+            <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 space-y-2">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+                选择模式
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputMode("chat");
+                    setModePickerOpen(false);
+                    inputRef.current?.focus();
+                  }}
+                  className="flex-1 px-3 py-2 rounded-lg border border-[var(--app-border)] text-[12px] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+                >
+                  /chat · 闲聊
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputMode("work");
+                    setModePickerOpen(false);
+                    inputRef.current?.focus();
+                  }}
+                  className="flex-1 px-3 py-2 rounded-lg border border-[var(--app-border)] text-[12px] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+                >
+                  /work · 工作
+                </button>
+              </div>
+            </div>
+          )}
+          {showMentionPicker && (
+            <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+                <AtSign size={11} />
+                选择绑定数据
+                {mentionState?.query ? <span className="text-[var(--app-text-muted)]">@{mentionState.query}</span> : null}
+              </div>
+              {filteredMentions.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {filteredMentions.map((item) => (
+                    <button
+                      key={`${item.kind}-${item.name}-${item.id || "none"}`}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        const start = mentionState ? mentionState.start : cursorPos;
+                        const end = mentionState ? mentionState.end : cursorPos;
+                        const before = input.slice(0, start);
+                        const after = input.slice(end);
+                        const insertion = `@${item.name} `;
+                        const next = `${before}${insertion}${after}`;
+                        const nextPos = start + insertion.length;
+                        setInput(next);
+                        setCursorPos(nextPos);
+                        requestAnimationFrame(() => {
+                          if (!inputRef.current) return;
+                          inputRef.current.focus();
+                          inputRef.current.setSelectionRange(nextPos, nextPos);
+                        });
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-transparent hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition text-left"
+                    >
+                      <span className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                        {item.kind === "character" ? "角色" : "场景"}
+                      </span>
+                      <span className="text-[12px] text-[var(--app-text-primary)]">{item.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[12px] text-[var(--app-text-secondary)]">未找到匹配项</div>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2 text-[12px] text-[var(--app-text-secondary)]">
             <button
               onClick={handleUploadClick}
