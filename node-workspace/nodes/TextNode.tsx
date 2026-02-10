@@ -50,6 +50,22 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const getPlainText = (el: HTMLElement) => (el.innerText || "").replace(/\u200B/g, "").replace(/\r/g, "");
 
+const getRangeTextLength = (range: Range) => {
+    const fragment = range.cloneContents();
+    const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
+    let length = 0;
+    let node = walker.nextNode();
+    while (node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            length += (node.textContent || "").length;
+        } else if ((node as HTMLElement).tagName === "BR") {
+            length += 1;
+        }
+        node = walker.nextNode();
+    }
+    return length;
+};
+
 const getCaretOffset = (el: HTMLElement) => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return 0;
@@ -58,7 +74,7 @@ const getCaretOffset = (el: HTMLElement) => {
     const preRange = range.cloneRange();
     preRange.selectNodeContents(el);
     preRange.setEnd(range.startContainer, range.startOffset);
-    return preRange.toString().length;
+    return getRangeTextLength(preRange);
 };
 
 const setCaretOffset = (el: HTMLElement, offset: number) => {
@@ -107,11 +123,11 @@ const getSelectionOffsets = (el: HTMLElement, fallback: number) => {
     const preStart = range.cloneRange();
     preStart.selectNodeContents(el);
     preStart.setEnd(range.startContainer, range.startOffset);
-    const start = preStart.toString().length;
+    const start = getRangeTextLength(preStart);
     const preEnd = range.cloneRange();
     preEnd.selectNodeContents(el);
     preEnd.setEnd(range.endContainer, range.endOffset);
-    const end = preEnd.toString().length;
+    const end = getRangeTextLength(preEnd);
     return { start, end };
 };
 
@@ -181,6 +197,8 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     const lastHtmlRef = useRef<string>("");
     const pendingSelectionRef = useRef<number | null>(null);
     const baseStyleRef = useRef<{ height?: string; minHeight?: string } | null>(null);
+    const isLocalUpdateRef = useRef(false);
+    const skipNextCursorUpdateRef = useRef(false);
     const [draftText, setDraftText] = useState(data.text || "");
     const [cursorPos, setCursorPos] = useState((data.text || "").length);
     const [isFocused, setIsFocused] = useState(false);
@@ -348,14 +366,11 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
             const hit = resolveMention(name);
             const kind = hit?.kind || "unknown";
             const status = hit ? "match" : "missing";
-            const kindLabel =
-                status === "missing" ? "未匹配" : kind === "zone" ? "场景" : kind === "character" ? "角色" : "形态";
             const tooltipRaw = (hit?.detail || hit?.summary || "").trim();
             const tooltip = tooltipRaw ? escapeAttr(tooltipRaw) : "";
             const tooltipAttr = tooltip ? ` data-tooltip="${tooltip}"` : "";
-            const kindLabelAttr = ` data-kind-label="${escapeAttr(kindLabel)}"`;
             parts.push(
-                `<span class="text-mention" data-kind="${kind}" data-status="${status}"${kindLabelAttr}${tooltipAttr}>${escapeHtml(match[0])}</span>`
+                `<span class="text-mention" data-kind="${kind}" data-status="${status}"${tooltipAttr}>${escapeHtml(match[0])}</span>`
             );
             lastIndex = end;
         }
@@ -379,6 +394,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         setCursorPos(pos);
         pendingSelectionRef.current = pos;
         if (!isComposingRef.current) {
+            isLocalUpdateRef.current = true;
             const mentions = computeMentionMeta(value);
             updateNodeData(id, { text: value, atMentions: mentions });
         }
@@ -395,6 +411,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         setDraftText(next);
         setCursorPos(nextPos);
         pendingSelectionRef.current = nextPos;
+        isLocalUpdateRef.current = true;
         const mentions = computeMentionMeta(next);
         updateNodeData(id, { text: next, atMentions: mentions });
         requestAnimationFrame(() => {
@@ -473,6 +490,10 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
 
     useEffect(() => {
         if (isComposingRef.current) return;
+        if (isLocalUpdateRef.current) {
+            isLocalUpdateRef.current = false;
+            return;
+        }
         if ((data.text || "") === draftText) return;
         const next = data.text || "";
         setDraftText(next);
@@ -537,6 +558,8 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                             setDraftText(next);
                             setCursorPos(nextPos);
                             pendingSelectionRef.current = nextPos;
+                            isLocalUpdateRef.current = true;
+                            skipNextCursorUpdateRef.current = true;
                             const mentions = computeMentionMeta(next);
                             updateNodeData(id, { text: next, atMentions: mentions });
                             requestAnimationFrame(() => {
@@ -547,6 +570,10 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         }
                     }}
                     onKeyUp={() => {
+                        if (skipNextCursorUpdateRef.current) {
+                            skipNextCursorUpdateRef.current = false;
+                            return;
+                        }
                         updateCursor();
                         updatePickerPosition();
                     }}
@@ -562,6 +589,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                     onBlur={() => {
                         setIsFocused(false);
                         if (!isComposingRef.current && draftText !== data.text) {
+                            isLocalUpdateRef.current = true;
                             const mentions = computeMentionMeta(draftText);
                             updateNodeData(id, { text: draftText, atMentions: mentions });
                         }

@@ -1975,11 +1975,9 @@ const App: React.FC = () => {
     ? 'Gemini'
     : config.textConfig.provider === 'openrouter'
       ? 'OpenRouter'
-      : config.textConfig.provider === 'deyunai'
-        ? 'DeyunAI'
-        : config.textConfig.provider === 'qwen'
-          ? 'Qwen'
-          : 'Partner';
+      : config.textConfig.provider === 'qwen'
+        ? 'Qwen'
+        : 'Custom';
   const activeModelLabel = `${providerLabel} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];

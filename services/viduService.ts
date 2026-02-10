@@ -8,7 +8,7 @@ import {
   ViduTaskState,
 } from "../types";
 
-const DEFAULT_BASE_URL = "https://api.deyunai.com/ent/v2";
+const DEFAULT_BASE_URL = "";
 const DEFAULT_REFERENCE_MODEL = "viduq2";
 
 const normalizeBaseUrl = (baseUrl?: string) =>
@@ -43,6 +43,9 @@ const resolveConfig = (config?: ViduServiceConfig) => {
   const apiKey = config?.apiKey || envKey;
   const defaultModel = config?.defaultModel || DEFAULT_REFERENCE_MODEL;
 
+  if (!baseUrl) {
+    throw new Error("Missing Vidu API base URL. Set VIDU_BASE_URL or pass it via config.");
+  }
   if (!apiKey) {
     throw new Error("Missing Vidu API key. Set VIDU_API_KEY or pass it via config.");
   }

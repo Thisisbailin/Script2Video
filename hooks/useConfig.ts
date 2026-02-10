@@ -19,17 +19,22 @@ export const useConfig = (key: string) => {
       const rememberApiKeys = parsed.rememberApiKeys ?? INITIAL_REMEMBER_KEYS;
       const syncApiKeys = parsed.syncApiKeys ?? INITIAL_SYNC_KEYS;
       const safeText = rememberApiKeys ? parsed.textConfig : { ...parsed.textConfig, apiKey: '' };
+      const allowedProviders = ["gemini", "openrouter", "qwen"];
+      const safeProvider =
+        safeText?.provider && allowedProviders.includes(safeText.provider)
+          ? safeText.provider
+          : INITIAL_TEXT_CONFIG.provider;
       const safeVideo = rememberApiKeys ? parsed.videoConfig : { ...parsed.videoConfig, apiKey: '' };
       const safeMulti = rememberApiKeys ? parsed.multimodalConfig : { ...parsed.multimodalConfig, apiKey: '' };
       const safeVidu = rememberApiKeys ? (parsed.viduConfig || INITIAL_VIDU_CONFIG) : { ...(parsed.viduConfig || INITIAL_VIDU_CONFIG), apiKey: '' };
       return {
         syncApiKeys,
         rememberApiKeys,
-        textConfig: { ...INITIAL_TEXT_CONFIG, ...safeText },
+        textConfig: { ...INITIAL_TEXT_CONFIG, ...safeText, provider: safeProvider },
         videoConfig: { ...INITIAL_VIDEO_CONFIG, ...safeVideo },
-        multimodalConfig: (safeMulti?.provider === 'wuyinkeji' || !safeMulti?.provider)
-          ? { ...INITIAL_MULTIMODAL_CONFIG, provider: 'seedream', baseUrl: 'https://ai.deyunai.com/api/v3/images/generations', model: 'doubao-seedream-250828' }
-          : { ...INITIAL_MULTIMODAL_CONFIG, ...safeMulti },
+        multimodalConfig: safeMulti?.provider
+          ? { ...INITIAL_MULTIMODAL_CONFIG, ...safeMulti }
+          : { ...INITIAL_MULTIMODAL_CONFIG },
         viduConfig: { ...INITIAL_VIDU_CONFIG, ...safeVidu },
         videoProvider: parsed.videoProvider || "default",
       } as AppConfig;

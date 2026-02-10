@@ -4,7 +4,7 @@ import { wrapWithProxy } from "../utils/api";
 
 /**
  * GENERATE SEEDREAM IMAGE
- * Follows the ai.deyunai.com API spec (OpenAI-compatible /images/generations)
+ * OpenAI-compatible /images/generations endpoint.
  */
 export const generateSeedreamImage = async (
     prompt: string,
@@ -20,8 +20,10 @@ export const generateSeedreamImage = async (
         throw new Error("Missing Seedream API Key.");
     }
 
-    // Default endpoint based on document
-    const targetUrl = baseUrl || "https://ai.deyunai.com/api/v3/images/generations";
+    if (!baseUrl) {
+        throw new Error("Seedream endpoint missing. Please set the API base URL in Settings.");
+    }
+    const targetUrl = baseUrl;
 
     // Map aspectRatio to 'size' or similar if needed, 
     // Document shows 'size' as string. Standard is '1024x1024'.

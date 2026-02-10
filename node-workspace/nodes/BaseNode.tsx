@@ -17,7 +17,7 @@ export const BaseNode: React.FC<Props> = ({ children, inputs = [], outputs = [],
   const [showResizer, setShowResizer] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
-  const minHeight = variant === "text" ? 320 : 160;
+  const minHeight = variant === "text" ? 256 : 160;
 
   const updateResizerVisibility = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {

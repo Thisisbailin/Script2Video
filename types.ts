@@ -335,7 +335,7 @@ export interface ViduVideoGenNodeData extends BaseNodeData {
   seed?: number;
 }
 
-export type TextProvider = 'gemini' | 'openrouter' | 'partner' | 'deyunai' | 'qwen';
+export type TextProvider = 'gemini' | 'openrouter' | 'qwen';
 
 export interface TextServiceConfig {
   provider: TextProvider;
@@ -347,20 +347,9 @@ export interface TextServiceConfig {
   qwenModels?: Array<Record<string, any>>;
   voiceDesignModel?: string;
   voiceDubbingModel?: string;
-  // DeyunAI 专属可选项（其他 provider 忽略）
-  reasoningEffort?: 'low' | 'medium' | 'high';
-  verbosity?: 'low' | 'medium' | 'high';
-  stream?: boolean;
-  store?: boolean;
+  // Tooling / advanced options (provider-specific)
   tools?: any[];
   qalamTools?: QalamToolSettings;
-  deyunModels?: Array<{
-    id: string;
-    label?: string;
-    modalities?: string[];
-    capabilities?: Record<string, any>;
-    description?: string;
-  }>;
 }
 
 export type QalamToolSettings = {
@@ -371,11 +360,6 @@ export type QalamToolSettings = {
     zonesMode?: "merge" | "replace";
   };
 };
-
-export interface DeyunAIConfig {
-  apiKey: string;
-  baseUrl?: string;
-}
 
 export interface MultimodalConfig {
   baseUrl: string;

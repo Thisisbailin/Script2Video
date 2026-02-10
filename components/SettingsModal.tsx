@@ -403,7 +403,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, config, onConf
                                                 newConfig.baseUrl = 'https://api.openai.com/v1';
                                                 newConfig.model = 'gpt-4o';
                                             } else if (val === 'seedream') {
-                                                newConfig.baseUrl = 'https://ai.deyunai.com/api/v3/images/generations';
+                                                newConfig.baseUrl = '';
                                                 newConfig.model = 'doubao-seedream-250828';
                                             } else if (val === 'wan') {
                                                 newConfig.baseUrl = ''; // placeholder

@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Loader2, ChevronUp, X, Plus, ArrowUp, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns, AtSign } from "lucide-react";
 import * as GeminiService from "../../services/geminiService";
-import * as DeyunAIService from "../../services/deyunaiService";
 import { createQwenResponse } from "../../services/qwenResponsesService";
-import type { DeyunAITool, DeyunAIToolCall } from "../../services/deyunaiService";
+import type { AgentTool } from "../../services/toolingTypes";
 import { useConfig } from "../../hooks/useConfig";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { ProjectData, Character, Location } from "../../types";
-import { AVAILABLE_MODELS, DEYUNAI_MODELS } from "../../constants";
+import { AVAILABLE_MODELS } from "../../constants";
 import { createStableId } from "../../utils/id";
 import { buildApiUrl } from "../../utils/api";
 import { QalamChatContent } from "./qalam/QalamChatContent";
@@ -208,128 +207,6 @@ const extractReasoningSection = (text: string) => {
   return { text: cleaned, reasoning: reasoning || undefined };
 };
 
-const extractReasoningSummary = (raw: any) => {
-  const extractFromItem = (item: any) => {
-    if (!item || item.type !== "reasoning") return "";
-    const summary = item.summary;
-    if (typeof summary === "string") return summary;
-    if (Array.isArray(summary)) {
-      return summary.map((s: any) => (typeof s === "string" ? s : s?.text || "")).join("");
-    }
-    return "";
-  };
-
-  if (!raw) return undefined;
-
-  const extractDeltaText = (event: any) => {
-    if (!event || typeof event !== "object") return "";
-    if (typeof event.delta === "string") return event.delta;
-    if (typeof event.text === "string") return event.text;
-    if (typeof event.part?.text === "string") return event.part.text;
-    if (typeof event.data?.delta === "string") return event.data.delta;
-    if (typeof event.data?.text === "string") return event.data.text;
-    return "";
-  };
-
-  if (Array.isArray(raw)) {
-    let deltaText = "";
-    let fallbackText = "";
-    raw.forEach((event) => {
-      const type = typeof event?.type === "string" ? event.type : "";
-      if (type.includes("reasoning_summary_text.delta")) {
-        const chunk = extractDeltaText(event);
-        if (chunk) deltaText += chunk;
-        return;
-      }
-      if (type.includes("reasoning_summary_part.added")) {
-        const part = event?.part || event?.summary || event?.item;
-        const partText = typeof part === "string" ? part : part?.text;
-        if (partText) fallbackText += partText;
-        return;
-      }
-      if (event?.item) {
-        const itemText = extractFromItem(event.item);
-        if (itemText) fallbackText += itemText;
-      }
-      if (event?.response) {
-        const responseSummary = extractReasoningSummary(event.response);
-        if (responseSummary) fallbackText += responseSummary;
-      }
-      if (Array.isArray(event?.output)) {
-        const outSummary = extractReasoningSummary({ output: event.output });
-        if (outSummary) fallbackText += outSummary;
-      }
-    });
-    const finalText = deltaText.trim() ? deltaText : fallbackText.trim() ? fallbackText : "";
-    return finalText || undefined;
-  }
-
-  const eventType = typeof raw?.type === "string" ? raw.type : "";
-  if (eventType.includes("reasoning_summary_text.delta")) {
-    const deltaText = extractDeltaText(raw);
-    if (deltaText) return deltaText;
-  }
-  if (eventType.includes("reasoning_summary_part.added")) {
-    return undefined;
-  }
-  if (raw?.item) {
-    const itemText = extractFromItem(raw.item);
-    if (itemText) return itemText;
-  }
-
-  const output = raw?.output;
-  if (!Array.isArray(output)) return undefined;
-  for (const item of output) {
-    const summary = extractFromItem(item);
-    if (summary) return summary;
-  }
-  return undefined;
-};
-
-const extractSearchUsage = (raw: any) => {
-  if (!raw) return false;
-  if (Array.isArray(raw)) {
-    return raw.some((event) => {
-      const type = typeof event?.type === "string" ? event.type : "";
-      if (type.includes("web_search")) return true;
-      if (event?.item?.type && `${event.item.type}`.includes("web_search")) return true;
-      if (Array.isArray(event?.output)) return extractSearchUsage({ output: event.output });
-      return false;
-    });
-  }
-  const output = raw?.output;
-  if (!Array.isArray(output)) return false;
-  return output.some((item: any) => {
-    const type = typeof item?.type === "string" ? item.type : "";
-    return type.includes("web_search");
-  });
-};
-
-const extractSearchQueries = (raw: any) => {
-  if (!raw) return [];
-  const queries: string[] = [];
-  const collectFromItem = (item: any) => {
-    if (!item || typeof item !== "object") return;
-    const type = typeof item.type === "string" ? item.type : "";
-    if (!type.includes("web_search")) return;
-    const query = item.query || item.input || item.q;
-    if (typeof query === "string" && query.trim()) queries.push(query.trim());
-  };
-  if (Array.isArray(raw)) {
-    raw.forEach((event) => {
-      collectFromItem(event?.item);
-      if (Array.isArray(event?.output)) {
-        extractSearchQueries({ output: event.output }).forEach((q) => queries.push(q));
-      }
-    });
-    return Array.from(new Set(queries));
-  }
-  const output = raw?.output;
-  if (!Array.isArray(output)) return [];
-  output.forEach((item: any) => collectFromItem(item));
-  return Array.from(new Set(queries));
-};
-
 const uploadAgentImage = async (source: string, contentType?: string) => {
   const response = await fetch(source);
   const blob = await response.blob();
@@ -516,12 +393,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const isDeyunaiProvider = config.textConfig.provider === "deyunai";
-  const searchEnabledInUi = useMemo(
-    () => Array.isArray(config.textConfig.tools) && config.textConfig.tools.some((tool: any) => tool?.type === "web_search_preview"),
-    [config.textConfig.tools]
-  );
-
   const qalamToolSettings = useMemo(
     () => normalizeQalamToolSettings(config.textConfig?.qalamTools),
     [config.textConfig?.qalamTools]
@@ -606,18 +477,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         setIsFullscreen(nextWidth >= width * splitThreshold);
       }
     }
-  };
-
-  const toggleSearch = () => {
-    if (!isDeyunaiProvider) return;
-    setConfig((prev) => {
-      const tools = Array.isArray(prev.textConfig.tools) ? [...prev.textConfig.tools] : [];
-      const hasSearch = tools.some((tool: any) => tool?.type === "web_search_preview");
-      const nextTools = hasSearch
-        ? tools.filter((tool: any) => tool?.type !== "web_search_preview")
-        : [...tools, { type: "web_search_preview" }];
-      return { ...prev, textConfig: { ...prev.textConfig, tools: nextTools } };
-    });
   };
 
   useEffect(() => {
@@ -761,10 +620,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     setInput("");
     setInputMode("auto");
     setIsSending(true);
-    const isDeyunai = config.textConfig.provider === "deyunai";
     const isQwen = config.textConfig.provider === "qwen";
-    const useStream = isDeyunai ? config.textConfig.stream ?? true : false;
-    let assistantIndex = -1;
     try {
       const wantsWork = forcedMode === "work"
         ? true
@@ -775,7 +631,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       const activeContext = useWorkMode ? contextText : "";
       const systemInstruction =
         "You are Qalam, a creative agent helping build this project. Keep responses concise. You can use Markdown. Do not include chain-of-thought or internal reasoning; respond with final answers only.";
-      const toolHint = isDeyunai || useWorkMode
+      const toolHint = useWorkMode
         ? "\n[Tooling]\n- 当用户描述内容不够明确时，先调用 search_script_data 搜索，再决定要读取的剧集/场景。\n- 当用户提到具体剧集/场景/剧情片段，或需要理解/角色/场景库信息时，调用 read_project_data 获取对应内容再回答。\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
         : "";
       const mentionContext = (() => {
@@ -788,489 +644,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       const mentionBlock = mentionContext ? `${mentionContext}\n\n` : "";
       const prompt = `${activeContext ? activeContext + "\n\n" : ""}${mentionBlock}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
 
-      if (isDeyunai) {
-        const imageUrls = await resolveAttachmentUrls();
-        const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
-        const searchEnabled = toolsFromConfig.some((tool: any) => tool?.type === "web_search_preview");
-        const mergedTools: DeyunAITool[] = [];
-        const seen = new Set<string>();
-        [...getQalamToolDefs(qalamToolSettings), ...toolsFromConfig].forEach((tool) => {
-          const key = tool.type === "function" ? `function:${tool.name}` : tool.type;
-          if (seen.has(key)) return;
-          seen.add(key);
-          mergedTools.push(tool);
-        });
-
-        if (useStream) {
-          setMessages((prev) => {
-            assistantIndex = prev.length;
-            return [
-              ...prev,
-              {
-                role: "assistant",
-                text: "",
-                kind: "chat",
-                meta: { thinkingStatus: "active", searchEnabled },
-              },
-            ];
-          });
-        }
-
-        let reasoningSummary = "";
-        let searchUsed = false;
-        let searchQueries: string[] = [];
-        const inputContent: Array<{
-          type: "input_text" | "input_image";
-          text?: string;
-          image_url?: { url: string; detail?: "low" | "high" | "auto" };
-        }> = [
-          { type: "input_text", text: prompt },
-          ...imageUrls.map((url) => ({ type: "input_image" as const, image_url: { url } })),
-        ];
-        const { text, toolCalls, raw } = await DeyunAIService.createReasoningResponse(
-          prompt,
-          { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
-          {
-            model: config.textConfig.model || "gpt-5.1",
-            reasoningEffort: config.textConfig.reasoningEffort || "medium",
-            verbosity: config.textConfig.verbosity || "medium",
-            stream: useStream,
-            store: config.textConfig.store ?? true,
-            tools: mergedTools,
-            inputContent: imageUrls.length ? inputContent : undefined,
-          },
-          useStream
-            ? (delta, rawDelta) => {
-                if (delta) {
-                  setMessages((prev) => {
-                    if (assistantIndex === -1) assistantIndex = prev.length - 1;
-                    return prev.map((m, idx) => {
-                      if (idx !== assistantIndex || isToolMessage(m)) return m;
-                      return { ...m, text: (m.text || "") + delta };
-                    });
-                  });
-                }
-                const summary = extractReasoningSummary(rawDelta);
-                const usedSearch = extractSearchUsage(rawDelta);
-                const queries = extractSearchQueries(rawDelta);
-                if (queries.length) {
-                  searchQueries = Array.from(new Set([...searchQueries, ...queries]));
-                  setMessages((prev) =>
-                    prev.map((m, idx) => {
-                      if (idx !== assistantIndex || isToolMessage(m)) return m;
-                      return { ...m, meta: { ...m.meta, searchQueries, searchEnabled } };
-                    })
-                  );
-                }
-                if (usedSearch && !searchUsed) {
-                  searchUsed = true;
-                  setMessages((prev) =>
-                    prev.map((m, idx) => {
-                      if (idx !== assistantIndex || isToolMessage(m)) return m;
-                      return { ...m, meta: { ...m.meta, searchUsed: true, searchEnabled } };
-                    })
-                  );
-                }
-                if (summary) {
-                  reasoningSummary = `${reasoningSummary}${summary}`;
-                  setMessages((prev) =>
-                    prev.map((m, idx) => {
-                      if (idx !== assistantIndex || isToolMessage(m)) return m;
-                      return {
-                        ...m,
-                        meta: {
-                          ...m.meta,
-                          reasoningSummary,
-                          thinkingStatus: "active",
-                          searchEnabled,
-                          searchUsed,
-                          searchQueries,
-                        },
-                      };
-                    })
-                  );
-                }
-              }
-            : undefined
-        );
-        try {
-          console.log("[Agent] DeyunAI full response", {
-            text,
-            toolCalls,
-            raw,
-          });
-        } catch {}
-
-        const needsFollowUp = toolCalls?.some(
-          (tc) =>
-            tc.name === "read_project_data" ||
-            tc.name === "read_script_data" ||
-            tc.name === "search_script_data"
-        );
-        const summaryFromRaw = extractReasoningSummary(raw);
-        const usedSearchFromRaw = extractSearchUsage(raw);
-        const queriesFromRaw = extractSearchQueries(raw);
-        if (queriesFromRaw.length) {
-          searchQueries = Array.from(new Set([...searchQueries, ...queriesFromRaw]));
-        }
-        if (usedSearchFromRaw) searchUsed = true;
-        if (summaryFromRaw) reasoningSummary = summaryFromRaw;
-
-        const extractedReasoning = extractReasoningSection(text || "");
-        const parsed = parsePlanFromText(extractedReasoning.text || "");
-        if (!needsFollowUp) {
-          if (useStream && assistantIndex !== -1) {
-            setMessages((prev) =>
-              prev.map((m, idx) => {
-                if (idx !== assistantIndex || isToolMessage(m)) return m;
-                return {
-                  ...m,
-                  text: parsed.text || m.text,
-                  meta: {
-                    ...m.meta,
-                    planItems: parsed.planItems,
-                    reasoningSummary:
-                      reasoningSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
-                    thinkingStatus: "done",
-                    searchEnabled,
-                    searchUsed,
-                    searchQueries,
-                  },
-                };
-              })
-            );
-          } else if (text && text.trim()) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                text: parsed.text || text,
-                kind: "chat",
-                meta: {
-                  planItems: parsed.planItems,
-                  reasoningSummary: reasoningSummary || undefined,
-                  thinkingStatus: "done",
-                  searchEnabled,
-                  searchUsed,
-                  searchQueries,
-                },
-              },
-            ]);
-          }
-        } else if (useStream && assistantIndex !== -1) {
-          setMessages((prev) =>
-            prev.map((m, idx) => {
-              if (idx !== assistantIndex || isToolMessage(m)) return m;
-              return {
-                ...m,
-                text: "",
-                meta: {
-                  ...m.meta,
-                  thinkingStatus: "active",
-                  searchEnabled,
-                  searchUsed,
-                  searchQueries,
-                },
-              };
-            })
-          );
-        }
-
-        const toolOutputs = toolCalls?.length ? await handleToolCalls(toolCalls) : [];
-
-        if (needsFollowUp && toolOutputs.length) {
-          const hasSearchTool = toolCalls?.some((tc) => tc.name === "search_script_data");
-          const hasReadTool = toolCalls?.some(
-            (tc) => tc.name === "read_project_data" || tc.name === "read_script_data"
-          );
-          const followToolChoice = hasSearchTool && !hasReadTool ? "auto" : "none";
-          const followStream = useStream && followToolChoice === "none";
-
-          const followInputContent = imageUrls.length
-            ? inputContent
-            : [{ type: "input_text" as const, text: prompt }];
-          const outputItems = toolOutputs.filter((item) => item.callId);
-          const inputItems = [
-            { role: "user", content: followInputContent },
-            ...outputItems.map((item) => ({
-              type: "function_call_output",
-              call_id: item.callId,
-              output: item.output,
-            })),
-          ];
-
-          let followSummary = "";
-          let followSearchUsed = false;
-          let followSearchQueries: string[] = [];
-
-          const followRes = await DeyunAIService.createReasoningResponse(
-            prompt,
-            { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
-            {
-              model: config.textConfig.model || "gpt-5.1",
-              reasoningEffort: config.textConfig.reasoningEffort || "medium",
-              verbosity: config.textConfig.verbosity || "medium",
-              stream: followStream,
-              store: config.textConfig.store ?? true,
-              tools: mergedTools,
-              toolChoice: followToolChoice,
-              inputItems,
-            },
-            followStream
-              ? (delta, rawDelta) => {
-                  if (delta) {
-                    setMessages((prev) => {
-                      if (assistantIndex === -1) assistantIndex = prev.length - 1;
-                      return prev.map((m, idx) => {
-                        if (idx !== assistantIndex || isToolMessage(m)) return m;
-                        return { ...m, text: (m.text || "") + delta };
-                      });
-                    });
-                  }
-                  const summary = extractReasoningSummary(rawDelta);
-                  const usedSearch = extractSearchUsage(rawDelta);
-                  const queries = extractSearchQueries(rawDelta);
-                  if (queries.length) {
-                    followSearchQueries = Array.from(new Set([...followSearchQueries, ...queries]));
-                    setMessages((prev) =>
-                      prev.map((m, idx) => {
-                        if (idx !== assistantIndex || isToolMessage(m)) return m;
-                        return { ...m, meta: { ...m.meta, searchQueries: followSearchQueries, searchEnabled } };
-                      })
-                    );
-                  }
-                  if (usedSearch && !followSearchUsed) {
-                    followSearchUsed = true;
-                    setMessages((prev) =>
-                      prev.map((m, idx) => {
-                        if (idx !== assistantIndex || isToolMessage(m)) return m;
-                        return { ...m, meta: { ...m.meta, searchUsed: true, searchEnabled } };
-                      })
-                    );
-                  }
-                  if (summary) {
-                    followSummary = `${followSummary}${summary}`;
-                    setMessages((prev) =>
-                      prev.map((m, idx) => {
-                        if (idx !== assistantIndex || isToolMessage(m)) return m;
-                        return {
-                          ...m,
-                          meta: {
-                            ...m.meta,
-                            reasoningSummary: followSummary,
-                            thinkingStatus: "active",
-                            searchEnabled,
-                            searchUsed: followSearchUsed,
-                            searchQueries: followSearchQueries,
-                          },
-                        };
-                      })
-                    );
-                  }
-                }
-              : undefined
-          );
-
-          const followSummaryFromRaw = extractReasoningSummary(followRes.raw);
-          const followUsedSearchFromRaw = extractSearchUsage(followRes.raw);
-          const followQueriesFromRaw = extractSearchQueries(followRes.raw);
-          if (followQueriesFromRaw.length) {
-            followSearchQueries = Array.from(new Set([...followSearchQueries, ...followQueriesFromRaw]));
-          }
-          if (followUsedSearchFromRaw) followSearchUsed = true;
-          if (followSummaryFromRaw) followSummary = followSummaryFromRaw;
-
-          const followToolCalls = followRes.toolCalls || [];
-          if (followToolCalls.length) {
-            const secondOutputs = await handleToolCalls(followToolCalls);
-            if (secondOutputs.length) {
-              const finalInputItems = [
-                { role: "user", content: followInputContent },
-                ...outputItems.map((item) => ({
-                  type: "function_call_output",
-                  call_id: item.callId,
-                  output: item.output,
-                })),
-                ...secondOutputs.map((item) => ({
-                  type: "function_call_output",
-                  call_id: item.callId,
-                  output: item.output,
-                })),
-              ];
-
-              let finalSummary = "";
-              let finalSearchUsed = followSearchUsed;
-              let finalSearchQueries = followSearchQueries.slice();
-
-              const finalRes = await DeyunAIService.createReasoningResponse(
-                prompt,
-                { apiKey: config.textConfig.apiKey, baseUrl: config.textConfig.baseUrl },
-                {
-                  model: config.textConfig.model || "gpt-5.1",
-                  reasoningEffort: config.textConfig.reasoningEffort || "medium",
-                  verbosity: config.textConfig.verbosity || "medium",
-                  stream: useStream,
-                  store: config.textConfig.store ?? true,
-                  tools: mergedTools,
-                  toolChoice: "none",
-                  inputItems: finalInputItems,
-                },
-                useStream
-                  ? (delta, rawDelta) => {
-                      if (delta) {
-                        setMessages((prev) => {
-                          if (assistantIndex === -1) assistantIndex = prev.length - 1;
-                          return prev.map((m, idx) => {
-                            if (idx !== assistantIndex || isToolMessage(m)) return m;
-                            return { ...m, text: (m.text || "") + delta };
-                          });
-                        });
-                      }
-                      const summary = extractReasoningSummary(rawDelta);
-                      const usedSearch = extractSearchUsage(rawDelta);
-                      const queries = extractSearchQueries(rawDelta);
-                      if (queries.length) {
-                        finalSearchQueries = Array.from(new Set([...finalSearchQueries, ...queries]));
-                        setMessages((prev) =>
-                          prev.map((m, idx) => {
-                            if (idx !== assistantIndex || isToolMessage(m)) return m;
-                            return { ...m, meta: { ...m.meta, searchQueries: finalSearchQueries, searchEnabled } };
-                          })
-                        );
-                      }
-                      if (usedSearch && !finalSearchUsed) {
-                        finalSearchUsed = true;
-                        setMessages((prev) =>
-                          prev.map((m, idx) => {
-                            if (idx !== assistantIndex || isToolMessage(m)) return m;
-                            return { ...m, meta: { ...m.meta, searchUsed: true, searchEnabled } };
-                          })
-                        );
-                      }
-                      if (summary) {
-                        finalSummary = `${finalSummary}${summary}`;
-                        setMessages((prev) =>
-                          prev.map((m, idx) => {
-                            if (idx !== assistantIndex || isToolMessage(m)) return m;
-                            return {
-                              ...m,
-                              meta: {
-                                ...m.meta,
-                                reasoningSummary: finalSummary,
-                                thinkingStatus: "active",
-                                searchEnabled,
-                                searchUsed: finalSearchUsed,
-                                searchQueries: finalSearchQueries,
-                              },
-                            };
-                          })
-                        );
-                      }
-                    }
-                  : undefined
-              );
-
-              const finalSummaryFromRaw = extractReasoningSummary(finalRes.raw);
-              const finalUsedSearchFromRaw = extractSearchUsage(finalRes.raw);
-              const finalQueriesFromRaw = extractSearchQueries(finalRes.raw);
-              if (finalQueriesFromRaw.length) {
-                finalSearchQueries = Array.from(new Set([...finalSearchQueries, ...finalQueriesFromRaw]));
-              }
-              if (finalUsedSearchFromRaw) finalSearchUsed = true;
-              if (finalSummaryFromRaw) finalSummary = finalSummaryFromRaw;
-
-              const finalExtracted = extractReasoningSection(finalRes.text || "");
-              const finalParsed = parsePlanFromText(finalExtracted.text || "");
-
-              if (useStream && assistantIndex !== -1) {
-                setMessages((prev) =>
-                  prev.map((m, idx) => {
-                    if (idx !== assistantIndex || isToolMessage(m)) return m;
-                    return {
-                      ...m,
-                      text: finalParsed.text || m.text,
-                      meta: {
-                        ...m.meta,
-                        planItems: finalParsed.planItems,
-                        reasoningSummary:
-                          finalSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
-                        thinkingStatus: "done",
-                        searchEnabled,
-                        searchUsed: finalSearchUsed,
-                        searchQueries: finalSearchQueries,
-                      },
-                    };
-                  })
-                );
-              } else if (finalRes.text && finalRes.text.trim()) {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    role: "assistant",
-                    text: finalParsed.text || finalRes.text,
-                    kind: "chat",
-                    meta: {
-                      planItems: finalParsed.planItems,
-                      reasoningSummary: finalSummary || undefined,
-                      thinkingStatus: "done",
-                      searchEnabled,
-                      searchUsed: finalSearchUsed,
-                      searchQueries: finalSearchQueries,
-                    },
-                  },
-                ]);
-              }
-            }
-          } else {
-            const followExtracted = extractReasoningSection(followRes.text || "");
-            const followParsed = parsePlanFromText(followExtracted.text || "");
-
-            if (followStream && assistantIndex !== -1) {
-              setMessages((prev) =>
-                prev.map((m, idx) => {
-                  if (idx !== assistantIndex || isToolMessage(m)) return m;
-                  return {
-                    ...m,
-                    text: followParsed.text || m.text,
-                    meta: {
-                      ...m.meta,
-                      planItems: followParsed.planItems,
-                      reasoningSummary:
-                        followSummary || (m.meta?.reasoningSummary === "思考中..." ? undefined : m.meta?.reasoningSummary),
-                      thinkingStatus: "done",
-                      searchEnabled,
-                      searchUsed: followSearchUsed,
-                      searchQueries: followSearchQueries,
-                    },
-                  };
-                })
-              );
-            } else if (!followStream && followRes.text && followRes.text.trim()) {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  text: followParsed.text || followRes.text,
-                  kind: "chat",
-                  meta: {
-                    planItems: followParsed.planItems,
-                    reasoningSummary: followSummary || undefined,
-                    thinkingStatus: "done",
-                    searchEnabled,
-                    searchUsed: followSearchUsed,
-                    searchQueries: followSearchQueries,
-                  },
-                },
-              ]);
-            }
-          }
-        }
-
-        setIsSending(false);
-        setMood("thinking");
-        return;
-      }
-
       if (useWorkMode) {
         if (attachments.length > 0) {
           setMessages((prev) => [
@@ -1279,7 +652,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           ]);
         }
         const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
-        const mergedTools: DeyunAITool[] = [];
+        const mergedTools: AgentTool[] = [];
         const seen = new Set<string>();
         [...getQalamToolDefs(qalamToolSettings), ...toolsFromConfig].forEach((tool) => {
           const key = tool.type === "function" ? `function:${tool.name}` : tool.type;
@@ -1410,50 +783,20 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         return;
       }
 
-      if (useStream) {
-        setMessages((prev) => {
-          assistantIndex = prev.length;
-          return [...prev, { role: "assistant", text: "", kind: "chat" }];
-        });
-      }
       const res = await GeminiService.generateFreeformText(
         config.textConfig,
         prompt,
-        systemInstruction,
-        useStream
-          ? {
-              onStream: (delta) => {
-                setMessages((prev) => {
-                  if (assistantIndex === -1) assistantIndex = prev.length - 1;
-                  return prev.map((m, idx) => {
-                    if (idx !== assistantIndex || isToolMessage(m)) return m;
-                    return { ...m, text: (m.text || "") + delta };
-                  });
-                });
-              },
-            }
-          : undefined
+        systemInstruction
       );
       try {
         console.log("[Agent] Raw response", res);
       } catch {}
-      if (useStream && assistantIndex !== -1) {
-        const extracted = extractReasoningSection(res.outputText || "");
-        const parsed = parsePlanFromText(extracted.text || "");
-        setMessages((prev) =>
-          prev.map((m, idx) => {
-            if (idx !== assistantIndex || isToolMessage(m)) return m;
-            return { ...m, text: parsed.text || m.text, meta: { ...m.meta, planItems: parsed.planItems } };
-          })
-        );
-      } else {
-        const extracted = extractReasoningSection(res.outputText || "");
-        const parsed = parsePlanFromText(extracted.text || "");
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", text: parsed.text || "", kind: "chat", meta: { planItems: parsed.planItems } },
-        ]);
-      }
+      const extracted = extractReasoningSection(res.outputText || "");
+      const parsed = parsePlanFromText(extracted.text || "");
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: parsed.text || "", kind: "chat", meta: { planItems: parsed.planItems } },
+      ]);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -1512,22 +855,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
   const formatNumber = (n: number) => n.toLocaleString();
   const providerModelOptions = useMemo(() => {
-    if (config.textConfig?.provider === "deyunai") {
-      const remote = (config.textConfig.deyunModels || []).map((m) => ({ id: m.id, name: m.label || m.id }));
-      const fallback = DEYUNAI_MODELS.map((id) => ({ id, name: id }));
-      const merged: { id: string; name: string }[] = [];
-      [...remote, ...fallback].forEach((item) => {
-        if (!merged.find((m) => m.id === item.id)) merged.push(item);
-      });
-      return merged;
-    }
     if (config.textConfig?.provider === "gemini") {
       return AVAILABLE_MODELS.slice().sort((a, b) => a.name.localeCompare(b.name));
     }
-    // OpenRouter/Partner: no preset list, keep current value as sole option
+    // OpenRouter/Qwen: no preset list, keep current value as sole option
     const currentId = config.textConfig?.model || "custom";
     return [{ id: currentId, name: currentId }];
-  }, [config.textConfig?.provider, config.textConfig?.model, config.textConfig?.deyunModels]);
+  }, [config.textConfig?.provider, config.textConfig?.model]);
 
   const modelValue = useMemo(() => {
     const ids = providerModelOptions.map((m) => m.id);
@@ -1859,21 +1193,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
                 ))}
               </select>
             </div>
-            {isDeyunaiProvider && (
-              <button
-                type="button"
-                onClick={toggleSearch}
-                className={`h-8 px-3 rounded-full border text-[11px] flex items-center gap-2 transition ${
-                  searchEnabledInUi
-                    ? "border-sky-400/60 text-sky-200 bg-sky-400/10"
-                    : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
-                }`}
-                title={searchEnabledInUi ? "关闭搜索" : "开启搜索"}
-              >
-                <Globe size={12} />
-                搜索
-              </button>
-            )}
             <div className="flex-1" />
             <button
               onClick={sendMessage}

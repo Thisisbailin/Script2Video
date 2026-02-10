@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { DeyunAIToolCall } from "../../../services/deyunaiService";
+import type { AgentToolCall } from "../../../services/toolingTypes";
 import type { ProjectData } from "../../../types";
 import type { Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { buildToolMessages, buildToolCallMeta, buildToolSummary, normalizeQalamToolSettings } from "./tooling";
@@ -43,7 +43,7 @@ export const useQalamTooling = ({
   );
 
   const executeToolCall = useCallback(
-    (call: DeyunAIToolCall) => {
+    (call: AgentToolCall) => {
       const toolMeta = buildToolCallMeta([call], settings);
       const args = toolMeta[0]?.args || {};
       if (call.name === "upsert_character") {
@@ -86,7 +86,7 @@ export const useQalamTooling = ({
   );
 
   const handleToolCalls = useCallback(
-    async (toolCalls: DeyunAIToolCall[]) => {
+    async (toolCalls: AgentToolCall[]) => {
       if (!toolCalls?.length) return [] as ToolOutput[];
       const toolMeta = buildToolCallMeta(toolCalls, settings);
       const toolMessages: ToolMessage[] = buildToolMessages(toolMeta);

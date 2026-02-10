@@ -1,8 +1,8 @@
-import type { DeyunAITool, DeyunAIToolCall } from "../../../services/deyunaiService";
+import type { AgentTool, AgentToolCall } from "../../../services/toolingTypes";
 import type { ToolMessage } from "./types";
 import type { QalamToolSettings } from "../../../types";
 
-export const TOOL_DEFS: DeyunAITool[] = [
+export const TOOL_DEFS: AgentTool[] = [
   {
     type: "function",
     name: "read_project_data",
@@ -249,13 +249,13 @@ export const applyToolDefaults = (
 };
 
 export type ToolCallMeta = {
-  tc: DeyunAIToolCall;
+  tc: AgentToolCall;
   args: any;
   callId: string;
 };
 
 export const buildToolCallMeta = (
-  toolCalls: DeyunAIToolCall[],
+  toolCalls: AgentToolCall[],
   settings: ReturnType<typeof normalizeQalamToolSettings>
 ): ToolCallMeta[] => {
   const baseTs = Date.now();

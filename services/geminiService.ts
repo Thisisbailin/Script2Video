@@ -1,8 +1,6 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig } from "../types";
 import { ensureStableId } from "../utils/id";
-import { generatePartnerText } from "./partnerService";
-import * as DeyunAIService from "./deyunaiService";
 import * as QwenService from "./qwenService";
 import { QWEN_DEFAULT_MODEL } from "../constants";
 
@@ -23,20 +21,6 @@ const resolveGeminiApiKey = (config: TextServiceConfig): string => {
   if (!apiKey) {
     throw new Error("Gemini API key missing. Please add it in Settings or set GEMINI_API_KEY/VITE_GEMINI_API_KEY in your env.");
   }
-  return apiKey;
-};
-
-const resolveDeyunApiKey = (config: TextServiceConfig): string => {
-  const envKey =
-    (typeof import.meta !== "undefined"
-      ? (import.meta.env.DEYUNAI_API_KEY || import.meta.env.VITE_DEYUNAI_API_KEY)
-      : undefined) ||
-    (typeof process !== "undefined"
-      ? (process.env?.DEYUNAI_API_KEY || process.env?.VITE_DEYUNAI_API_KEY)
-      : undefined);
-  const configKey = config.apiKey?.trim();
-  const apiKey = configKey || envKey;
-  if (!apiKey) throw new Error("DeyunAI API key missing. 请配置 DEYUNAI_API_KEY 或在设置中填写。");
   return apiKey;
 };
 
@@ -218,59 +202,6 @@ const generateText = async (
     }
   }
 
-  // 3. PARTNER PROVIDER
-  else if (config.provider === 'partner') {
-    const jsonSchema = googleSchemaToJsonSchema(schema);
-    const messages: Array<{ role: string; content: string }> = [];
-    if (systemInstruction) messages.push({ role: "system", content: systemInstruction });
-    const refinedPrompt = `${prompt}\n\nIMPORTANT: Return JSON matching schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
-    messages.push({ role: "user", content: refinedPrompt });
-
-    try {
-      const { text, usage } = await generatePartnerText(config, messages);
-      return { text, usage };
-    } catch (e: any) {
-      console.error("Partner API Error:", e);
-      throw new Error(`Partner Error: ${e.message}`);
-    }
-  }
-
-  // 4. DEYUNAI PROVIDER
-  else if (config.provider === 'deyunai') {
-    const apiKey = resolveDeyunApiKey(config);
-    const refinedPrompt = `${prompt}\n\nIMPORTANT: 返回一个满足此 JSON Schema 的对象：\n${JSON.stringify(
-      googleSchemaToJsonSchema(schema),
-      null,
-      2
-    )}\n请只输出 JSON。`;
-    const useStore = config.store ?? false;
-    const baseUrl =
-      config.baseUrl?.trim() ||
-      (typeof import.meta !== "undefined" ? import.meta.env.DEYUNAI_API_BASE : undefined) ||
-      (typeof process !== "undefined" ? process.env?.DEYUNAI_API_BASE : undefined) ||
-      "https://api.deyunai.com/v1";
-
-    try {
-      const { text, usage } = await DeyunAIService.createModelResponse(
-        refinedPrompt,
-        { apiKey, baseUrl },
-        {
-          model: config.model || "gpt-5.1",
-          temperature: 0.2,
-          store: useStore,
-          tools: config.tools,
-        }
-      );
-      return {
-        text: text || "{}",
-        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
-      };
-    } catch (e: any) {
-      console.error("DeyunAI API Error:", e);
-      throw new Error(`DeyunAI Error: ${e.message}`);
-    }
-  }
-
   throw new Error(`Unknown provider: ${config.provider}`);
 };
 
@@ -425,35 +356,6 @@ export const generateFreeformText = async (
     },
     required: ["outputText"]
   };
-
-  // DeyunAI 流式：直接文本输出，避免 JSON 解析失败
-  if (config.provider === "deyunai") {
-    const apiKey = resolveDeyunApiKey(config);
-    const baseUrl =
-      config.baseUrl?.trim() ||
-      (typeof import.meta !== "undefined" ? import.meta.env.DEYUNAI_API_BASE : undefined) ||
-      (typeof process !== "undefined" ? process.env?.DEYUNAI_API_BASE : undefined) ||
-      "https://api.deyunai.com/v1/responses";
-
-    const modelFromList = (config as any).deyunModels?.[0]?.id;
-    const model = config.model || modelFromList || "gpt-5.1";
-
-    const { text, usage, raw } = await DeyunAIService.createModelResponse(
-        prompt,
-        { apiKey, baseUrl },
-        { model, temperature: 0.7, store: false, tools: [] }
-      );
-    try {
-      console.log("[DeyunAI] Response raw", raw);
-    } catch {}
-    if ((raw as any)?.error?.message) {
-      throw new Error((raw as any).error.message);
-    }
-    return {
-      outputText: text,
-      usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
-    };
-  }
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
   const candidate = (() => {

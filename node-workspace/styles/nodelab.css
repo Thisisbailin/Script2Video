@@ -429,8 +429,21 @@ body.qalam-resizing * {
   box-shadow: var(--node-shadow-strong);
 }
 
+.node-card-base[data-variant="text"] .node-card-body {
+  padding: 0;
+  gap: 0;
+}
+
+.node-card-base[data-variant="text"] .text-node-editor {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 14% 20% 26%;
+  box-sizing: border-box;
+}
+
 .node-card-base[data-variant="text"] {
-  min-height: 280px;
+  min-height: 0;
   aspect-ratio: 5 / 4;
 }
 
@@ -481,12 +494,7 @@ body.qalam-resizing * {
 }
 
 .text-mention::after {
-  content: attr(data-kind-label);
-  margin-left: 6px;
-  font-size: 8px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  opacity: 0.65;
+  display: none;
 }
 
 .text-mention::before {
@@ -532,9 +540,9 @@ body.qalam-resizing * {
 }
 
 .text-mention[data-status="missing"] {
-  background: rgba(251, 191, 36, 0.12);
-  border-color: rgba(251, 191, 36, 0.5);
-  color: #fde68a;
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(248, 113, 113, 0.6);
+  color: #fecaca;
 }
 
 .node-media-frame {
@@ -763,65 +771,90 @@ body.qalam-resizing * {
 }
 
 .custom-node-handle {
-  width: 20px !important;
-  height: 20px !important;
+  --arc-size: 48px;
+  --arc-offset: -24px;
+  width: var(--arc-size) !important;
+  height: var(--arc-size) !important;
   background: transparent !important;
   border: none !important;
   position: relative;
-  color: rgba(155, 195, 255, 0.55);
+  color: rgba(145, 200, 255, 0.5);
 }
 
 .custom-node-handle::after {
   content: "";
   position: absolute;
   inset: 0;
-  border: 1.25px solid currentColor;
+  border: 1.2px solid currentColor;
   border-radius: 999px;
   clip-path: var(--arc-clip, inset(0 50% 50% 0));
 }
 
 .react-flow__resize-control.handle.top.left.custom-node-handle {
-  top: -10px !important;
-  left: -10px !important;
+  top: var(--arc-offset) !important;
+  left: var(--arc-offset) !important;
+  right: auto !important;
+  bottom: auto !important;
   --arc-clip: inset(0 50% 50% 0);
 }
 
 .react-flow__resize-control.handle.top.right.custom-node-handle {
-  top: -10px !important;
-  right: -10px !important;
+  top: var(--arc-offset) !important;
+  right: var(--arc-offset) !important;
+  left: auto !important;
+  bottom: auto !important;
   --arc-clip: inset(0 0 50% 50%);
 }
 
 .react-flow__resize-control.handle.bottom.left.custom-node-handle {
-  bottom: -10px !important;
-  left: -10px !important;
+  bottom: var(--arc-offset) !important;
+  left: var(--arc-offset) !important;
+  top: auto !important;
+  right: auto !important;
   --arc-clip: inset(50% 50% 0 0);
 }
 
 .react-flow__resize-control.handle.bottom.right.custom-node-handle {
-  bottom: -10px !important;
-  right: -10px !important;
+  bottom: var(--arc-offset) !important;
+  right: var(--arc-offset) !important;
+  top: auto !important;
+  left: auto !important;
   --arc-clip: inset(50% 0 0 50%);
 }
 
+.react-flow__resize-control.handle.group-arc-handle {
+  --arc-size: 64px;
+  --arc-offset: -32px;
+  width: var(--arc-size) !important;
+  height: var(--arc-size) !important;
+}
+
 .react-flow__resize-control.handle.top.left.group-arc-handle {
-  top: -12px !important;
-  left: -12px !important;
+  top: var(--arc-offset) !important;
+  left: var(--arc-offset) !important;
+  right: auto !important;
+  bottom: auto !important;
 }
 
 .react-flow__resize-control.handle.top.right.group-arc-handle {
-  top: -12px !important;
-  right: -12px !important;
+  top: var(--arc-offset) !important;
+  right: var(--arc-offset) !important;
+  left: auto !important;
+  bottom: auto !important;
 }
 
 .react-flow__resize-control.handle.bottom.left.group-arc-handle {
-  bottom: -12px !important;
-  left: -12px !important;
+  bottom: var(--arc-offset) !important;
+  left: var(--arc-offset) !important;
+  top: auto !important;
+  right: auto !important;
 }
 
 .react-flow__resize-control.handle.bottom.right.group-arc-handle {
-  bottom: -12px !important;
-  right: -12px !important;
+  bottom: var(--arc-offset) !important;
+  right: var(--arc-offset) !important;
+  top: auto !important;
+  left: auto !important;
 }
 
 .react-flow__resize-control.handle.top:not(.left):not(.right),

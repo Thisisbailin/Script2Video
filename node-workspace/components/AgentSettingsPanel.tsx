@@ -9,7 +9,6 @@ import {
   Globe,
   Layers,
   Loader2,
-  Shield,
   Sparkles,
   Video,
   X,
@@ -20,10 +19,7 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { TextProvider } from "../../types";
 import {
   AVAILABLE_MODELS,
-  DEYUNAI_BASE_URL,
-  DEYUNAI_MODELS,
   INITIAL_VIDU_CONFIG,
-  PARTNER_TEXT_BASE_URL,
   QWEN_CHAT_COMPLETIONS_ENDPOINT,
   QWEN_DEFAULT_MODEL,
   QWEN_WAN_IMAGE_MODEL,
@@ -34,7 +30,6 @@ import {
 } from "../../constants";
 import { useWorkflowStore } from "../store/workflowStore";
 import * as GeminiService from "../../services/geminiService";
-import * as DeyunAIService from "../../services/deyunaiService";
 import * as QwenService from "../../services/qwenService";
 import type { QwenModel } from "../../services/qwenService";
 import { createStableId } from "../../utils/id";
@@ -200,17 +195,13 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const { applyViduReferenceDemo } = useWorkflowStore();
   const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
-  const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen" | "deyunai">("openrouter");
+  const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen">("openrouter");
   const [activeVideoProvider, setActiveVideoProvider] = useState<"sora" | "qwen" | "vidu">("sora");
   const [selectedPanel, setSelectedPanel] = useState<"provider" | "tools" | "history">("provider");
   const [activeTool, setActiveTool] = useState<ToolKey>("asset-library");
   const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
   const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
-
-  const [isLoadingDeyunModels, setIsLoadingDeyunModels] = useState(false);
-  const [deyunModelFetchMessage, setDeyunModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
-  const [availableDeyunModels, setAvailableDeyunModels] = useState<Array<{ id: string; label: string; meta?: any }>>([]);
 
   const [isLoadingQwenChatModels, setIsLoadingQwenChatModels] = useState(false);
   const [qwenChatFetchMessage, setQwenChatFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -298,19 +289,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [config.textConfig.qwenModels, qwenChatModels.length]);
 
   useEffect(() => {
-    if (config.textConfig.provider === "deyunai" && Array.isArray(config.textConfig.deyunModels)) {
-      const mapped = config.textConfig.deyunModels.map((m) => ({
-        id: m.id,
-        label: m.label || m.id,
-        meta: m,
-      }));
-      setAvailableDeyunModels(mapped);
-    } else {
-      setAvailableDeyunModels([]);
-    }
-  }, [config.textConfig.deyunModels, config.textConfig.provider]);
-
-  useEffect(() => {
     if (!conversationState.items.length) return;
     if (!conversationState.activeId || !conversationState.items.find((item) => item.id === conversationState.activeId)) {
       setConversationState((prev) => ({ ...prev, activeId: prev.items[0]?.id || "" }));
@@ -331,27 +309,12 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     if (p === "gemini") {
       nextConfig.baseUrl = "";
       nextConfig.model = "gemini-2.5-flash";
-      nextConfig.deyunModels = [];
     } else if (p === "openrouter") {
       nextConfig.baseUrl = nextConfig.baseUrl || OPENROUTER_BASE_URL;
       nextConfig.model = nextConfig.model || "";
-      nextConfig.deyunModels = [];
-    } else if (p === "deyunai") {
-      nextConfig.baseUrl = nextConfig.baseUrl || DEYUNAI_BASE_URL;
-      nextConfig.model = nextConfig.model || "gpt-5.1";
-      nextConfig.reasoningEffort = nextConfig.reasoningEffort || "medium";
-      nextConfig.verbosity = nextConfig.verbosity || "medium";
-      nextConfig.stream = false;
-      nextConfig.store = nextConfig.store ?? false;
-      nextConfig.deyunModels = [];
     } else if (p === "qwen") {
       nextConfig.baseUrl = "";
       nextConfig.model = nextConfig.model || QWEN_DEFAULT_MODEL;
-      nextConfig.deyunModels = [];
-    } else {
-      nextConfig.baseUrl = PARTNER_TEXT_BASE_URL;
-      nextConfig.model = "partner-text-pro";
-      nextConfig.apiKey = "";
     }
 
     setConfig({
@@ -431,42 +394,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       setTextModelFetchMessage({ type: "error", text: e.message || "拉取失败" });
     } finally {
       setIsLoadingTextModels(false);
-    }
-  };
-
-  const handleFetchDeyunModels = async () => {
-    setIsLoadingDeyunModels(true);
-    setDeyunModelFetchMessage(null);
-    try {
-      const models = await DeyunAIService.fetchModels({
-        apiKey: config.textConfig.apiKey,
-        baseUrl: config.textConfig.baseUrl,
-      });
-      const mapped = models.map((m) => ({
-        id: m.id,
-        label: `${m.id}${m.modalities?.length ? ` · ${m.modalities.join("/")}` : ""}${m.capabilities?.tools ? " · tools" : ""}`,
-        meta: m,
-      }));
-      setAvailableDeyunModels(mapped);
-      setConfig({
-        ...config,
-        textConfig: {
-          ...config.textConfig,
-          deyunModels: mapped.map((m) => ({
-            id: m.id,
-            label: m.label,
-            modalities: m.meta?.modalities,
-            capabilities: m.meta?.capabilities,
-            description: m.meta?.description,
-          })),
-        },
-      });
-      const msg = mapped.length === 0 ? "获取成功，0 个模型" : `获取成功，${mapped.length} 个模型`;
-      setDeyunModelFetchMessage({ type: "success", text: msg });
-    } catch (e: any) {
-      setDeyunModelFetchMessage({ type: "error", text: e.message || "拉取失败" });
-    } finally {
-      setIsLoadingDeyunModels(false);
     }
   };
 
@@ -759,8 +686,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
                           { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
                           { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
-                          { key: "deyunai" as TextProvider, label: "DeyunAI", Icon: Sparkles },
-                          { key: "partner" as TextProvider, label: "Partner", Icon: Shield },
                         ].map(({ key, label, Icon }) => {
                           const active = config.textConfig.provider === key;
                           return (
@@ -791,7 +716,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                         {[
                           { key: "openrouter" as const, label: "OpenRouter", Icon: Globe },
                           { key: "qwen" as const, label: "Qwen", Icon: QwenIcon },
-                          { key: "deyunai" as const, label: "DeyunAI", Icon: Sparkles },
                         ].map(({ key, label, Icon }) => {
                           const active = activeMultiProvider === key;
                           return (
@@ -1037,114 +961,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {activeType === "chat" && config.textConfig.provider === "partner" && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
-              <div className="text-sm font-semibold text-[var(--app-text-primary)]">合作专线</div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">使用平台预置密钥与专属网关，无需配置。</div>
-              <div className="text-[11px] text-[var(--app-text-muted)]">Base URL: {PARTNER_TEXT_BASE_URL}</div>
-            </div>
-          )}
-
-          {activeType === "chat" && config.textConfig.provider === "deyunai" && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-[var(--app-text-secondary)]">模型</label>
-                <button
-                  type="button"
-                  onClick={handleFetchDeyunModels}
-                  disabled={isLoadingDeyunModels}
-                  className="text-[11px] flex items-center gap-1 text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
-                >
-                  {isLoadingDeyunModels ? <Loader2 size={12} className="animate-spin" /> : "拉取模型"}
-                </button>
-              </div>
-              {deyunModelFetchMessage && (
-                <div className={`text-[11px] flex items-center gap-1 ${deyunModelFetchMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
-                  {deyunModelFetchMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
-                  {deyunModelFetchMessage.text}
-                </div>
-              )}
-              <select
-                value={config.textConfig.model || "gpt-5.1"}
-                onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-              >
-                {(availableDeyunModels.length ? availableDeyunModels : DEYUNAI_MODELS.map((m) => ({ id: m, label: m }))).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">思考强度</label>
-                  <select
-                    value={config.textConfig.reasoningEffort || "medium"}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, reasoningEffort: e.target.value as any } })}
-                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                  >
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">输出详尽度</label>
-                  <select
-                    value={config.textConfig.verbosity || "medium"}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, verbosity: e.target.value as any } })}
-                    className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-300 focus:outline-none"
-                  >
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-[11px] text-[var(--app-text-secondary)]">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!!config.textConfig.stream}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, stream: e.target.checked } })}
-                    className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                  />
-                  流式返回
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!!config.textConfig.store}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, store: e.target.checked } })}
-                    className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                  />
-                  结果存储
-                </label>
-              </div>
-              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-2 text-[11px] text-[var(--app-text-secondary)]">
-                <div className="text-[11px] font-semibold text-[var(--app-text-primary)]">常用工具</div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={Array.isArray(config.textConfig.tools) && config.textConfig.tools.some((t: any) => t?.type === "web_search_preview")}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      const existingTools = Array.isArray(config.textConfig.tools)
-                        ? config.textConfig.tools.filter((t: any) => t?.type !== "web_search_preview")
-                        : [];
-                      const nextTools = enabled ? [...existingTools, { type: "web_search_preview" }] : existingTools;
-                      setConfig({ ...config, textConfig: { ...config.textConfig, tools: nextTools } });
-                    }}
-                    className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                  />
-                  启用网络搜索工具（web_search_preview）
-                </label>
-              </div>
-              <div className="text-[11px] text-[var(--app-text-muted)]">
-                使用环境变量 DEYUNAI_API_KEY / VITE_DEYUNAI_API_KEY。
-              </div>
-            </div>
-          )}
 
           {activeType === "multi" && activeMultiProvider === "openrouter" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
@@ -1175,13 +991,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
                 <div className="text-[11px] text-[var(--app-text-muted)]">用于 WAN Image 节点，端口已固定。</div>
               </div>
-            </div>
-          )}
-
-          {activeType === "multi" && activeMultiProvider === "deyunai" && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-2">
-              <div className="text-sm font-semibold text-[var(--app-text-primary)]">DeyunAI</div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">多模态路线规划中。</div>
             </div>
           )}
 

@@ -168,28 +168,6 @@ export interface ViduVideoGenNodeData extends BaseNodeData {
   seed?: number;
 }
 
-export interface LLMGenerateNodeData extends BaseNodeData {
-  inputPrompt: string | null;
-  outputText: string | null;
-  model?: string;
-  contextSelection?: {
-    script?: boolean;
-    globalStyleGuide?: boolean;
-    shotGuide?: boolean;
-    soraGuide?: boolean;
-    storyboardGuide?: boolean;
-    dramaGuide?: boolean;
-    projectSummary?: boolean;
-    episodeSummaries?: boolean;
-    characters?: boolean;
-    locations?: boolean;
-  };
-  temperature: number;
-  maxTokens: number;
-  status: NodeStatus;
-  error: string | null;
-}
-
 export interface OutputNodeData extends BaseNodeData {
   image: string | null;
   text?: string | null;

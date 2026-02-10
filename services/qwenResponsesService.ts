@@ -1,4 +1,4 @@
-import { DeyunAITool, DeyunAIToolCall } from "./deyunaiService";
+import { AgentTool, AgentToolCall } from "./toolingTypes";
 import type { TokenUsage } from "../types";
 import { wrapWithProxy } from "../utils/api";
 
@@ -9,7 +9,7 @@ export interface QwenResponsesConfig {
 
 export interface QwenResponsesOptions {
   model?: string;
-  tools?: DeyunAITool[];
+  tools?: AgentTool[];
   toolChoice?: "auto" | "none";
   parallelToolCalls?: boolean;
   inputItems?: any[];
@@ -23,7 +23,7 @@ export interface QwenResponsesResult<T = any> {
   text: string;
   usage?: TokenUsage;
   raw: T;
-  toolCalls?: DeyunAIToolCall[];
+  toolCalls?: AgentToolCall[];
 }
 
 const DEFAULT_BASE = "https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1";
@@ -78,8 +78,8 @@ const flattenContent = (content: any): string => {
   return "";
 };
 
-const collectToolCalls = (data: any): DeyunAIToolCall[] => {
-  const calls: DeyunAIToolCall[] = [];
+const collectToolCalls = (data: any): AgentToolCall[] => {
+  const calls: AgentToolCall[] = [];
   const pushFromItem = (item: any) => {
     if (!item) return;
     const itemType = typeof item?.type === "string" ? item.type : "";
