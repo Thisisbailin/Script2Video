@@ -1107,7 +1107,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="fixed inset-0 z-20" onClick={closeAll} />
       )}
       <header className="pointer-events-none fixed top-0 left-0 right-0 z-40 px-4 sm:px-6 pt-3">
-        <div className="flex items-start justify-end gap-2.5 w-full">
+        <div className="flex items-start justify-between gap-2.5 w-full">
+          <div className="pointer-events-auto flex h-12 items-center px-2 sm:px-3">
+            <div className="select-none text-[1.15rem] sm:text-[1.45rem] font-black uppercase tracking-[0.38em] text-[var(--text-primary)] drop-shadow-[0_1px_10px_rgba(0,0,0,0.12)]">
+              QALAM
+            </div>
+          </div>
           <div className="pointer-events-auto">
             <div
               className="flex h-12 items-center gap-1.5 px-4 rounded-full bg-[var(--bg-panel)]/95 backdrop-blur max-w-6xl"

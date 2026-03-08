@@ -68,8 +68,14 @@ Examples:
 - storyboard draft
 - prompt draft
 
-For V1, these artifacts can be persisted as text nodes.
-Later, the project may introduce a dedicated document registry, but the conceptual capability should already be explicit now.
+For the current implementation, the first durable understanding artifacts are persisted directly into project data:
+
+- `context.projectSummary`
+- `context.episodeSummaries[]`
+- `episodes[].summary`
+
+The runtime also supports `create_text_node` as the first operational artifact write path inside NodeLab.
+Later, the project may introduce a dedicated understanding registry, but the conceptual capability should already be explicit now.
 
 ### Capability 3: node workflow operations
 
@@ -234,56 +240,56 @@ The first version should stay small.
 
 ### Class 1: inspect existing data
 
-1. `read_project_data`
+1. `get_episode_script`
 
 Purpose:
 
-- inspect episode content
-- inspect scene content
-- inspect summaries
-- inspect character data
-- inspect location data
+- read one episode body by `episode_id`
 
 Notes:
 
-- preserve current argument model where possible
-- return structured JSON only
-- keep warnings explicit
+- intentionally minimal schema
+- no title-based selection
+- no broad include flags
 
-2. `search_script_data`
+2. `get_scene_script`
 
 Purpose:
 
-- locate relevant episodes/scenes before deeper reads
+- read one scene body by `scene_id`
+- or by `episode_id + scene_index`
 
 Notes:
 
-- useful as the first retrieval step for broad questions
+- intentionally minimal schema
+- scene lookup is exact, not fuzzy
+- this keeps Qwen function calling stable
 
 ### Class 2: write understanding documents
 
-3. `upsert_character`
+3. `write_project_summary`
 
 Purpose:
 
-- create or patch durable character understanding records and forms
+- persist a project-level understanding summary into project data
 
 Requirements:
 
-- idempotent behavior where possible
-- preserve all form fields including voice-related fields
+- explicit summary text required
+- overwrite current `context.projectSummary`
 - return exact mutation summary
 
-4. `upsert_location`
+4. `write_episode_summary`
 
 Purpose:
 
-- create or patch durable location understanding records and zones
+- persist one episode-level understanding summary into project data
 
 Requirements:
 
-- idempotent behavior where possible
-- preserve all zone fields
+- explicit `episode_id` and `summary` required
+- update both `episodes[].summary` and `context.episodeSummaries[]`
+- return exact mutation summary
 
 5. `create_text_node`
 
@@ -299,9 +305,11 @@ Requirements:
 
 ### Class 3: node workflow operations
 
-For V1, node workflow operations are intentionally narrow:
+For the current implementation, node workflow operations are intentionally narrow:
 
-- create text nodes as durable work artifacts
+- create a single text node as an operational artifact
+
+`create_node_workflow` exists in the codebase but is currently outside the stabilized tool surface.
 
 For later phases, this class should expand toward:
 
@@ -309,6 +317,48 @@ For later phases, this class should expand toward:
 - template instantiation
 - structured node bundle creation
 - agent-authored execution chains inside NodeLab
+
+## Current Implementation Snapshot
+
+As of the current refactor stage, the runtime is no longer a hand-written chat loop.
+It is a single-agent runtime built around:
+
+- `OpenAI Agents SDK JS`
+- OpenAI-compatible `Responses`
+- local session persistence
+- explicit bridge-based tools
+- UI-side activity rendering for thinking, tool actions, tool results, and streaming assistant output
+
+The currently stabilized tool surface is:
+
+- `get_episode_script`
+- `get_scene_script`
+- `write_project_summary`
+- `write_episode_summary`
+- `create_text_node`
+
+The following tools exist but are not part of the stabilized runtime surface yet:
+
+- `read_project_data`
+- `search_script_data`
+- `upsert_character`
+- `upsert_location`
+- `create_node_workflow`
+
+This means the project has completed the first runnable milestone:
+
+- one single agent
+- stable Qwen/OpenRouter Responses path
+- minimal inspect / write / operate capabilities
+- streaming UI feedback
+
+But it has not yet completed:
+
+- understanding-layer expansion
+- skill productization
+- workflow scaffold stabilization
+- guardrails
+- formal tracing integration
 
 ## Skill Model
 
@@ -568,10 +618,10 @@ Do not try to rebuild the full agent at once.
 The first useful vertical slice should be:
 
 1. user asks a script question
-2. agent decides whether to call `search_script_data`
-3. agent calls `read_project_data` if needed
+2. agent decides whether to call `get_episode_script` or `get_scene_script`
+3. agent reads the relevant script body
 4. agent produces a grounded understanding artifact or answer
-5. optionally persists that artifact as a text node if the user asks to save the result
+5. optionally persists that artifact as a project summary, episode summary, or text node if the user asks to save the result
 
 This proves:
 

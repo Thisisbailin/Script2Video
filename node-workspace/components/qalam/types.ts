@@ -16,19 +16,18 @@ export type ChatMessage = {
   role: "user" | "assistant";
   text: string;
   kind?: "chat";
+  order?: number;
   meta?: {
     runId?: string;
     isStreaming?: boolean;
     planItems?: string[];
-    reasoningSummary?: string;
-    thinkingStatus?: "active" | "done";
     searchEnabled?: boolean;
     searchUsed?: boolean;
     searchQueries?: string[];
   };
 };
 
-export type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; tool: ToolPayload };
+export type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; order?: number; tool: ToolPayload };
 export type StatusStep = {
   id: string;
   label: string;
@@ -41,12 +40,13 @@ export type StatusPayload = {
   status: TraceStatus;
   headline: string;
   detail?: string;
+  summary?: string;
   steps: StatusStep[];
   startedAt: number;
   updatedAt: number;
   isThinking?: boolean;
 };
-export type StatusMessage = { role: "assistant"; kind: "status"; statusCard: StatusPayload };
+export type StatusMessage = { role: "assistant"; kind: "status"; order?: number; statusCard: StatusPayload };
 
 export type Message = ChatMessage | ToolMessage | StatusMessage;
 

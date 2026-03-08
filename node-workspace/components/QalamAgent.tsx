@@ -452,8 +452,11 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     setModePickerOpen(false);
     const forcedMode = inputMode !== "auto" ? inputMode : getForcedMode(input);
     const cleanedInput = stripModePrefix(input);
-    const userMsg: Message = { role: "user", text: cleanedInput, kind: "chat" };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => {
+      const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
+      const userMsg: Message = { role: "user", text: cleanedInput, kind: "chat", order: nextOrder };
+      return [...prev, userMsg];
+    });
     setInput("");
     setInputMode("auto");
     setIsSending(true);
@@ -470,10 +473,13 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         },
       });
     } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: `请求失败: ${err?.message || err}`, kind: "chat" },
-      ]);
+      setMessages((prev) => {
+        const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
+        return [
+          ...prev,
+          { role: "assistant", text: `请求失败: ${err?.message || err}`, kind: "chat", order: nextOrder },
+        ];
+      });
     } finally {
       setIsSending(false);
       setMood("thinking");

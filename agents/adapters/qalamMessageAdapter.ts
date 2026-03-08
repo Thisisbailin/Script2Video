@@ -27,67 +27,6 @@ const UNDERSTANDING_DOCUMENT_HINTS = [
   "文档",
 ];
 
-const normalizeHeadingLine = (line: string) => {
-  let cleaned = line.trim().replace(/^#{1,4}\s*/, "");
-  if (cleaned.startsWith("**")) {
-    const endBold = cleaned.indexOf("**", 2);
-    if (endBold !== -1) {
-      const inside = cleaned.slice(2, endBold);
-      const rest = cleaned.slice(endBold + 2);
-      cleaned = `${inside}${rest}`;
-    }
-  }
-  return cleaned.trim();
-};
-
-const extractReasoningSection = (text: string) => {
-  const lines = (text || "").split("\n");
-  let start = -1;
-  let end = -1;
-  let inlineReasoning = "";
-
-  const matchReasoningHeading = (line: string) => {
-    const cleaned = normalizeHeadingLine(line);
-    const match = cleaned.match(/^(思考过程|思考|Reasoning|Thoughts)(?:\s*[\(（][^)）]+[\)）])?\s*[:：]?\s*(.*)$/i);
-    if (!match) return null;
-    return { inline: match[2]?.trim() || "" };
-  };
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const match = matchReasoningHeading(lines[i]);
-    if (match) {
-      start = i;
-      inlineReasoning = match.inline;
-      break;
-    }
-  }
-  if (start === -1) {
-    return { text: (text || "").trim(), reasoning: undefined };
-  }
-
-  end = start + 1;
-  while (end < lines.length) {
-    const line = lines[end];
-    if (!line.trim()) break;
-    if (line.match(/^(#{1,4})\s+/)) break;
-    if (line.match(/^\s*\*\*(.+)\*\*\s*$/)) break;
-    if (inlineReasoning) {
-      if (!line.match(/^\s*(?:[-*•]|\d+\.|\d+、)\s+/) && !line.match(/^\s{2,}/)) {
-        break;
-      }
-    }
-    end += 1;
-  }
-
-  const reasoningLines = [
-    ...(inlineReasoning ? [inlineReasoning] : []),
-    ...lines.slice(start + 1, end),
-  ];
-  const reasoning = reasoningLines.join("\n").trim();
-  const cleaned = [...lines.slice(0, start), ...lines.slice(end)].join("\n").trim();
-  return { text: cleaned, reasoning: reasoning || undefined };
-};
-
 const parsePlanFromText = (text: string) => {
   const lines = (text || "").split("\n");
   const planItems: string[] = [];
@@ -122,16 +61,13 @@ const parsePlanFromText = (text: string) => {
 };
 
 export const buildAssistantChatMessage = (text: string): ChatMessage => {
-  const extracted = extractReasoningSection(text);
-  const parsed = parsePlanFromText(extracted.text);
+  const parsed = parsePlanFromText(text);
   return {
     role: "assistant",
     kind: "chat",
     text: parsed.text,
     meta: {
       planItems: parsed.planItems,
-      reasoningSummary: extracted.reasoning,
-      thinkingStatus: extracted.reasoning ? "done" : undefined,
     },
   };
 };

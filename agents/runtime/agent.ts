@@ -19,14 +19,6 @@ import type {
   Script2VideoSkillLoader,
 } from "./types";
 
-const WRITE_TOOL_NAMES = new Set([
-  "write_project_summary",
-  "write_episode_summary",
-  "create_text_node",
-  "create_node_workflow",
-  "upsert_character",
-  "upsert_location",
-]);
 const STABILIZATION_DISABLED_TOOLS = [
   "ping_tool",
   "read_project_data",
@@ -125,25 +117,6 @@ const createTraceEntry = (
   payload,
 });
 
-const buildToolDrivenFinalOutput = (toolResults: any[]) => {
-  const writeResults = toolResults.filter(
-    (toolResult) => toolResult?.type === "function_output" && WRITE_TOOL_NAMES.has(toolResult?.tool?.name)
-  );
-  if (!writeResults.length) return null;
-  const lines = writeResults.map((toolResult) => {
-    const payload = toolResult.output;
-    if (typeof payload === "string") {
-      try {
-        const parsed = JSON.parse(payload);
-        if (parsed?.summary) return `- ${parsed.summary}`;
-      } catch {}
-      return `- ${toolResult.tool.name} 已完成`;
-    }
-    return `- ${toolResult.tool.name} 已完成`;
-  });
-  return ["操作已完成：", ...lines, "如需继续扩展，我可以基于当前结果继续处理。"].join("\n");
-};
-
 const instrumentOpenAIResponsesClient = (client: OpenAI, runId: string) => {
   const responsesApi = client.responses as OpenAI["responses"] & {
     create: (...args: any[]) => Promise<any>;
@@ -205,6 +178,39 @@ const extractTextFromResponseOutput = (output: unknown): string => {
     }
     if ((item as any).type === "output_text" && typeof (item as any).text === "string") {
       parts.push((item as any).text);
+    }
+  }
+  return parts.join("\n").trim();
+};
+
+const extractReasoningSummaryFromResponseOutput = (output: unknown): string => {
+  if (!output || !Array.isArray(output)) return "";
+  const parts: string[] = [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const itemType = (item as any).type;
+    if (
+      (itemType === "reasoning" || itemType === "reasoning_summary" || itemType === "summary_text") &&
+      typeof (item as any).text === "string"
+    ) {
+      parts.push((item as any).text);
+    }
+    if (Array.isArray((item as any).summary)) {
+      for (const summaryItem of (item as any).summary) {
+        if (typeof summaryItem?.text === "string") parts.push(summaryItem.text);
+      }
+    }
+    if (Array.isArray((item as any).content)) {
+      for (const content of (item as any).content) {
+        if (
+          (content?.type === "reasoning_summary_text" ||
+            content?.type === "reasoning_text" ||
+            content?.type === "summary_text") &&
+          typeof content.text === "string"
+        ) {
+          parts.push(content.text);
+        }
+      }
     }
   }
   return parts.join("\n").trim();
@@ -300,6 +306,7 @@ export const createScript2VideoAgentRuntime = ({
     const toolEvents: AgentExecutedToolCall[] = [];
     let streamedTextDelta = "";
     let streamedResponseText = "";
+    let streamedReasoningText = "";
     const emitToolEvent = (event: AgentRuntimeEvent) => {
       debugLog(runId, `tool event: ${event.type}`, event);
       if (event.type === "tool_called") {
@@ -362,20 +369,6 @@ export const createScript2VideoAgentRuntime = ({
         parallelToolCalls: false,
       },
       resetToolChoice: true,
-      toolUseBehavior: async (_context, toolResults) => {
-        const finalOutput = buildToolDrivenFinalOutput(toolResults as any[]);
-        if (!finalOutput) {
-          return {
-            isFinalOutput: false as const,
-            isInterrupted: undefined,
-          };
-        }
-        return {
-          isFinalOutput: true as const,
-          isInterrupted: undefined,
-          finalOutput,
-        };
-      },
       tools: createScript2VideoTools({
         bridge,
         emitEvent: emitToolEvent,
@@ -467,12 +460,44 @@ export const createScript2VideoAgentRuntime = ({
                 providerData: (streamEvent.data as any)?.providerData,
               });
             }
+            if (
+              (rawType === "response.reasoning_summary_text.delta" || rawType === "reasoning_summary_text.delta") &&
+              typeof (streamEvent.data as any)?.delta === "string"
+            ) {
+              streamedReasoningText += (streamEvent.data as any).delta;
+              options?.onEvent?.({
+                type: "reasoning_delta",
+                runId,
+                delta: (streamEvent.data as any).delta,
+                accumulatedText: streamedReasoningText,
+              });
+            }
+            if (
+              (rawType === "response.reasoning_summary_text.done" || rawType === "reasoning_summary_text.done") &&
+              typeof (streamEvent.data as any)?.text === "string"
+            ) {
+              streamedReasoningText = (streamEvent.data as any).text || streamedReasoningText;
+              options?.onEvent?.({
+                type: "reasoning_completed",
+                runId,
+                text: streamedReasoningText,
+              });
+            }
             if (rawType === "response_done") {
               const responsePayload = (streamEvent.data as any)?.response;
               debugLog(runId, "raw response_done", responsePayload);
               const candidate = extractTextFromResponseOutput(responsePayload?.output);
               if (candidate) {
                 streamedResponseText = candidate;
+              }
+              const reasoningCandidate = extractReasoningSummaryFromResponseOutput(responsePayload?.output);
+              if (reasoningCandidate && !streamedReasoningText.trim()) {
+                streamedReasoningText = reasoningCandidate;
+                options?.onEvent?.({
+                  type: "reasoning_completed",
+                  runId,
+                  text: reasoningCandidate,
+                });
               }
             }
             if (rawType === "model") {

@@ -160,14 +160,15 @@ The runtime should emit normalized events.
 
 ```ts
 export type AgentRuntimeEvent =
-  | { type: "run_started"; sessionId: string }
+  | { type: "run_started"; sessionId: string; runId: string }
+  | { type: "trace"; runId: string; entry: AgentTraceEntry }
+  | { type: "message_delta"; runId: string; delta: string; accumulatedText: string }
   | { type: "tool_called"; call: AgentExecutedToolCall }
   | { type: "tool_completed"; call: AgentExecutedToolCall }
   | { type: "tool_failed"; call: AgentExecutedToolCall; error: string }
-  | { type: "text_delta"; delta: string }
-  | { type: "message_completed"; text: string }
-  | { type: "run_completed"; result: Script2VideoRunResult }
-  | { type: "run_failed"; error: string };
+  | { type: "message_completed"; runId: string; text: string }
+  | { type: "run_completed"; runId: string; result: Script2VideoRunResult }
+  | { type: "run_failed"; runId: string; error: string };
 ```
 
 ### Design note
@@ -176,6 +177,7 @@ The UI should only consume these events and render:
 
 - tool queue items
 - tool results
+- thinking / progress status
 - assistant text
 - error state
 
@@ -322,19 +324,23 @@ The V1 tool layer should map directly to the product capability model.
 
 Tools:
 
-- `read_project_data`
-- `search_script_data`
+- `get_episode_script`
+- `get_scene_script`
 
 ### Class 2: write understanding documents
 
 Tools:
 
-- `upsert_character`
-- `upsert_location`
+- `write_project_summary`
+- `write_episode_summary`
 - `create_text_node`
 
-For V1, durable understanding documents are persisted through `create_text_node`.
-This is sufficient as long as the runtime treats them as first-class artifacts rather than casual chat text.
+For the current implementation, the first durable understanding documents are persisted directly into project data through:
+
+- `write_project_summary`
+- `write_episode_summary`
+
+`create_text_node` is still part of the write surface, but it currently belongs more to the operational artifact path inside NodeLab than to project summary persistence.
 
 ### Class 3: node workflow operations
 
@@ -342,8 +348,9 @@ Tools:
 
 - `create_text_node`
 
-For V1, node operations are intentionally narrow.
-Future versions may add explicit workflow-building tools.
+For the current implementation, node operations are intentionally narrow.
+`create_node_workflow` exists in the codebase but is not yet part of the stabilized runtime surface.
+Future versions may add explicit workflow-building tools back into the primary tool catalog.
 
 ## V1 Tool Schemas
 
@@ -358,205 +365,95 @@ That means:
 - it should be saveable
 - it should not be treated as ordinary assistant chatter
 
-### `read_project_data`
+### `get_episode_script`
 
 Input:
 
 ```ts
-export type ReadProjectDataInput = {
-  episodeId?: number;
-  episodeTitle?: string;
-  sceneId?: string;
-  sceneIndex?: number;
-  characterId?: string;
-  characterName?: string;
-  locationId?: string;
-  locationName?: string;
-  query?: string;
-  queryScopes?: Array<"script" | "understanding" | "characters" | "locations">;
-  include?: Array<
-    | "episodeContent"
-    | "sceneContent"
-    | "sceneList"
-    | "episodeCharacters"
-    | "matches"
-    | "projectSummary"
-    | "episodeSummary"
-    | "episodeSummaries"
-    | "characters"
-    | "character"
-    | "locations"
-    | "location"
-    | "rawScript"
-  >;
-  maxChars?: number;
-  maxMatches?: number;
-  maxItems?: number;
+export type GetEpisodeScriptInput = {
+  episode_id: number;
+  max_chars?: number;
 };
 ```
 
 Output:
 
 ```ts
-export type ReadProjectDataOutput = {
-  request: Record<string, unknown>;
-  resolved: {
-    episode?: { id: number; title: string } | null;
-    scene?: { id: string; title: string } | null;
-    character?: { id: string; name: string } | null;
-    location?: { id: string; name: string } | null;
-  };
-  data: Record<string, unknown>;
-  warnings: string[];
+export type GetEpisodeScriptOutput = {
+  found: boolean;
+  episode_id: number;
+  episode_label: string;
+  content: string;
 };
 ```
 
-### `search_script_data`
+### `get_scene_script`
 
 Input:
 
 ```ts
-export type SearchScriptDataInput = {
-  query: string;
-  episodeId?: number;
-  episodeTitle?: string;
-  maxMatches?: number;
-  maxSnippetChars?: number;
+export type GetSceneScriptInput = {
+  scene_id?: string;
+  episode_id?: number;
+  scene_index?: number;
+  max_chars?: number;
 };
 ```
 
 Output:
 
 ```ts
-export type SearchScriptDataOutput = {
-  request: {
-    query: string | null;
-    episodeId: number | null;
-    episodeTitle: string | null;
-  };
-  resolved: {
-    episode: { id: number; title: string } | null;
-  };
-  data: {
-    matches: Array<{
-      scope: "episode" | "scene";
-      episodeId: number;
-      episodeTitle: string;
-      sceneId?: string;
-      sceneTitle?: string;
-      snippet: string;
-    }>;
-  };
-  warnings: string[];
+export type GetSceneScriptOutput = {
+  found: boolean;
+  episode_id: number;
+  scene_id: string;
+  scene_title: string;
+  content: string;
 };
 ```
 
-### `upsert_character`
+### `write_project_summary`
 
 Input:
 
 ```ts
-export type UpsertCharacterInput = {
-  character: {
-    id?: string;
-    name: string;
-    role?: string;
-    isMain?: boolean;
-    bio?: string;
-    assetPriority?: "high" | "medium" | "low";
-    episodeUsage?: string;
-    archetype?: string;
-    tags?: string[];
-    forms?: Array<{
-      id?: string;
-      formName: string;
-      episodeRange: string;
-      description?: string;
-      visualTags?: string;
-      identityOrState?: string;
-      hair?: string;
-      face?: string;
-      body?: string;
-      costume?: string;
-      accessories?: string;
-      props?: string;
-      materialPalette?: string;
-      poses?: string;
-      expressions?: string;
-      lightingOrPalette?: string;
-      turnaroundNeeded?: boolean;
-      deliverables?: string;
-      designRationale?: string;
-      styleRef?: string;
-      genPrompts?: string;
-      voiceId?: string;
-      voicePrompt?: string;
-      previewAudioUrl?: string;
-    }>;
-  };
-  mergeStrategy?: "patch" | "replace";
-  formsMode?: "merge" | "replace";
-  formsToDelete?: string[];
-  evidence?: string[];
+export type WriteProjectSummaryInput = {
+  summary: string;
 };
 ```
 
 Output:
 
 ```ts
-export type UpsertCharacterOutput = {
-  kind: "character";
-  action: "created" | "updated";
-  id: string;
-  name: string;
-  formsCount: number;
+export type WriteProjectSummaryOutput = {
+  updated: true;
+  field: "context.projectSummary";
+  chars: number;
+  summary: string;
 };
 ```
 
-### `upsert_location`
+### `write_episode_summary`
 
 Input:
 
 ```ts
-export type UpsertLocationInput = {
-  location: {
-    id?: string;
-    name: string;
-    type?: "core" | "secondary";
-    description?: string;
-    visuals?: string;
-    assetPriority?: "high" | "medium" | "low";
-    episodeUsage?: string;
-    zones?: Array<{
-      id?: string;
-      name: string;
-      kind?: "interior" | "exterior" | "transition" | "unspecified";
-      episodeRange: string;
-      layoutNotes?: string;
-      keyProps?: string;
-      lightingWeather?: string;
-      materialPalette?: string;
-      designRationale?: string;
-      deliverables?: string;
-      genPrompts?: string;
-    }>;
-  };
-  mergeStrategy?: "patch" | "replace";
-  zonesMode?: "merge" | "replace";
-  zonesToDelete?: string[];
-  evidence?: string[];
+export type WriteEpisodeSummaryInput = {
+  episode_id: number;
+  summary: string;
 };
 ```
 
 Output:
 
 ```ts
-export type UpsertLocationOutput = {
-  kind: "location";
-  action: "created" | "updated";
-  id: string;
-  name: string;
-  zonesCount: number;
+export type WriteEpisodeSummaryOutput = {
+  updated: true;
+  episode_id: number;
+  episode_label: string;
+  field: "context.episodeSummaries";
+  chars: number;
+  summary: string;
 };
 ```
 
@@ -597,6 +494,40 @@ When `create_text_node` is used to persist a durable artifact, the content shoul
 - `production_notes`
 
 This does not require a separate tool in V1, but the runtime should distinguish these artifacts conceptually from plain chat replies.
+
+## Current Implementation Status
+
+The current codebase has completed the first runnable milestone:
+
+- one single agent runtime
+- OpenAI-compatible `Responses`
+- Qwen as the primary provider
+- OpenRouter as the fallback provider
+- local session persistence
+- streaming assistant text in the UI
+- normalized runtime events for thinking, tool actions, and tool results
+
+The currently stabilized tools are:
+
+- `get_episode_script`
+- `get_scene_script`
+- `write_project_summary`
+- `write_episode_summary`
+- `create_text_node`
+
+The following tool families still exist outside the stabilized tool surface:
+
+- broad retrieval (`read_project_data`, `search_script_data`)
+- character and location upserts
+- multi-node workflow creation
+
+So the next implementation phase should focus on:
+
+- guardrails
+- session hardening
+- understanding-layer expansion
+- skill productization
+- workflow scaffold stabilization
 
 ## Tool Validation Rules
 

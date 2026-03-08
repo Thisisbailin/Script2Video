@@ -66,17 +66,41 @@ const upsertStreamingAssistantMessage = (
   return [...messages, next];
 };
 
-const appendOrReplaceRunningStep = (steps: StatusStep[], step: StatusStep) => {
-  const next = steps.map((item) =>
-    item.status === "running"
-      ? {
-          ...item,
-          status: "success" as const,
-        }
-      : item
-  );
-  next.push(step);
-  return next.slice(-8);
+const upsertStatusStep = (steps: StatusStep[], step: StatusStep) => {
+  const index = steps.findIndex((item) => item.id === step.id);
+  if (index >= 0) {
+    const clone = [...steps];
+    clone[index] = {
+      ...clone[index],
+      ...step,
+    };
+    return clone;
+  }
+  return [...steps, step].slice(-8);
+};
+
+const completeRunningSteps = (steps: StatusStep[], status: "success" | "error") =>
+  steps.map((step) => (step.status === "running" ? { ...step, status } : step));
+
+const normalizeStreamingStepStack = (steps: StatusStep[]) =>
+  steps.filter((step, index, array) => {
+    if (step.id !== "streaming-response") return true;
+    return array.findIndex((candidate) => candidate.id === "streaming-response") === index;
+  });
+
+const nextMessageOrder = (messages: Message[]) =>
+  messages.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
+
+const buildStatusLabelFromTrace = (entry: TraceLikeEntry) => {
+  if (entry.stage === "model" && (entry.title === "Streaming started" || entry.title === "Model request started")) {
+    return {
+      headline: "思考 生成回复",
+      detail: "模型正在生成回答，或决定是否继续调用工具。",
+      step: { id: "model-processing", label: "生成回复", status: "running" as const, detail: entry.detail },
+      isThinking: true,
+    };
+  }
+  return null;
 };
 
 const humanizeToolName = (name: string) => {
@@ -103,50 +127,6 @@ type TraceLikeEntry = {
   detail?: string;
 };
 
-const mapTraceEntryToStatusPatch = (entry: TraceLikeEntry) => {
-  if (entry.stage === "runtime" && entry.title === "Run started") {
-    return {
-      headline: "已接收请求",
-      detail: "正在理解你的目标并规划下一步。",
-      step: { id: "request-received", label: "接收请求", status: "success" as const },
-      isThinking: true,
-    };
-  }
-  if (entry.stage === "runtime" && entry.title === "Instructions prepared") {
-    return {
-      headline: "正在规划处理方式",
-      detail: "已分析请求类型，正在决定使用直接回答、查阅、写入还是操作工具。",
-      step: { id: "request-planned", label: "理解请求", status: "success" as const, detail: entry.detail },
-      isThinking: true,
-    };
-  }
-  if (entry.stage === "session" && entry.title === "Session attached") {
-    return {
-      headline: "已载入当前会话",
-      detail: "历史上下文已接入，准备执行本轮任务。",
-      step: { id: "session-attached", label: "载入会话", status: "success" as const, detail: entry.detail },
-      isThinking: true,
-    };
-  }
-  if (entry.stage === "model" && (entry.title === "Streaming started" || entry.title === "Model request started")) {
-    return {
-      headline: "模型正在处理",
-      detail: "正在生成回答，或判断是否需要调用工具。",
-      step: { id: "model-processing", label: "模型处理中", status: "running" as const, detail: entry.detail },
-      isThinking: true,
-    };
-  }
-  if (entry.stage === "model" && entry.title === "Raw response received") {
-    return {
-      headline: "模型已返回结果",
-      detail: "正在整理最终回复内容。",
-      step: { id: "model-response", label: "接收模型结果", status: "success" as const, detail: entry.detail },
-      isThinking: false,
-    };
-  }
-  return null;
-};
-
 export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Options) => {
   const [isRunning, setIsRunning] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -165,10 +145,11 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           if (!current || current.statusCard.status !== "running") return current || {
             role: "assistant",
             kind: "status",
+            order: nextMessageOrder(prev),
             statusCard: {
               runId,
               status: "running",
-              headline: "Qalam 正在处理请求",
+              headline: "思考 处理中",
               detail: `已运行 ${elapsedSeconds}s`,
               steps: [],
               startedAt,
@@ -180,9 +161,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
             ...current,
             statusCard: {
               ...current.statusCard,
-              detail: current.statusCard.isThinking
-                ? `正在分析与生成结果，已运行 ${elapsedSeconds}s`
-                : `正在等待下一步结果，已运行 ${elapsedSeconds}s`,
+              detail: `已运行 ${elapsedSeconds}s`,
               updatedAt: Date.now(),
             },
           };
@@ -201,12 +180,13 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           upsertStatusMessage(prev, event.runId, () => ({
             role: "assistant",
             kind: "status",
+            order: nextMessageOrder(prev),
             statusCard: {
               runId: event.runId,
               status: "running",
-              headline: "Qalam 正在处理请求",
-              detail: "已接收请求，正在准备执行。",
-              steps: [{ id: "boot", label: "启动执行", status: "running" }],
+              headline: "思考 处理中",
+              detail: "已接收请求，正在准备分析。",
+              steps: [],
               startedAt: activeRunStartedAtRef.current || Date.now(),
               updatedAt: Date.now(),
               isThinking: true,
@@ -217,23 +197,22 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       }
 
       if (event.type === "trace") {
-        const patch = mapTraceEntryToStatusPatch(event.entry as TraceLikeEntry);
+        const patch = buildStatusLabelFromTrace(event.entry as TraceLikeEntry);
         if (!patch) return;
         setMessages((prev) =>
           upsertStatusMessage(prev, event.runId, (current) => {
             const existing = current?.statusCard;
-            const nextSteps = patch.step
-              ? appendOrReplaceRunningStep(existing?.steps || [], patch.step)
-              : existing?.steps || [];
             return {
               role: "assistant",
               kind: "status",
+              order: current?.order || nextMessageOrder(prev),
               statusCard: {
                 runId: event.runId,
                 status: existing?.status || "running",
                 headline: patch.headline,
                 detail: patch.detail,
-                steps: nextSteps,
+                summary: existing?.summary,
+                steps: patch.step ? upsertStatusStep(existing?.steps || [], patch.step) : existing?.steps || [],
                 startedAt: existing?.startedAt || Date.now(),
                 updatedAt: Date.now(),
                 isThinking: patch.isThinking ?? existing?.isThinking,
@@ -244,39 +223,88 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
         return;
       }
 
-      if (event.type === "message_delta") {
-        setMessages((prev) =>
-          upsertStreamingAssistantMessage(prev, event.runId, (current) => ({
-            role: "assistant",
-            kind: "chat",
-            text: event.accumulatedText,
-            meta: {
-              ...current?.meta,
-              runId: event.runId,
-              isStreaming: true,
-              thinkingStatus: "active",
-            },
-          }))
-        );
+      if (event.type === "reasoning_delta") {
         setMessages((prev) =>
           upsertStatusMessage(prev, event.runId, (current) => ({
             role: "assistant",
             kind: "status",
+            order: current?.order || nextMessageOrder(prev),
             statusCard: {
               runId: event.runId,
               status: current?.statusCard.status || "running",
-              headline: "正在生成回复",
-              detail: "回答内容正在持续输出。",
-              steps: appendOrReplaceRunningStep(current?.statusCard.steps || [], {
-                id: "streaming-response",
-                label: "流式生成回复",
-                status: "running",
-              }),
+              headline: "思考 处理中",
+              detail: current?.statusCard.detail || "模型正在分析请求。",
+              summary: event.accumulatedText,
+              steps: current?.statusCard.steps || [],
               startedAt: current?.statusCard.startedAt || Date.now(),
               updatedAt: Date.now(),
               isThinking: true,
             },
           }))
+        );
+        return;
+      }
+
+      if (event.type === "reasoning_completed") {
+        setMessages((prev) =>
+          upsertStatusMessage(prev, event.runId, (current) => ({
+            role: "assistant",
+            kind: "status",
+            order: current?.order || nextMessageOrder(prev),
+            statusCard: {
+              runId: event.runId,
+              status: current?.statusCard.status || "running",
+              headline: current?.statusCard.headline || "思考 处理中",
+              detail: current?.statusCard.detail,
+              summary: event.text,
+              steps: current?.statusCard.steps || [],
+              startedAt: current?.statusCard.startedAt || Date.now(),
+              updatedAt: Date.now(),
+              isThinking: true,
+            },
+          }))
+        );
+        return;
+      }
+
+      if (event.type === "message_delta") {
+        setMessages((prev) =>
+          upsertStatusMessage(
+            upsertStreamingAssistantMessage(prev, event.runId, (current) => ({
+              role: "assistant",
+              kind: "chat",
+              order: current?.order || nextMessageOrder(prev),
+              text: event.accumulatedText,
+              meta: {
+                ...current?.meta,
+                runId: event.runId,
+                isStreaming: true,
+              },
+            })),
+            event.runId,
+            (current) => ({
+              role: "assistant",
+              kind: "status",
+              order: current?.order || nextMessageOrder(prev),
+              statusCard: {
+                runId: event.runId,
+                status: current?.statusCard.status || "running",
+                headline: "思考 生成回复",
+                detail: "回答内容正在持续输出。",
+                summary: current?.statusCard.summary,
+                steps: normalizeStreamingStepStack(
+                  upsertStatusStep(current?.statusCard.steps || [], {
+                    id: "streaming-response",
+                    label: "生成回复",
+                    status: "running",
+                  })
+                ),
+                startedAt: current?.statusCard.startedAt || Date.now(),
+                updatedAt: Date.now(),
+                isThinking: true,
+              },
+            })
+          )
         );
         return;
       }
@@ -289,6 +317,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           {
             role: "assistant",
             kind: "tool",
+            order: nextMessageOrder(prev),
             tool: {
               callId: event.call.callId,
               name: event.call.name,
@@ -307,6 +336,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           {
             role: "assistant",
             kind: "tool_result",
+            order: nextMessageOrder(prev),
             tool: {
               callId: event.call.callId,
               name: event.call.name,
@@ -326,6 +356,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           {
             role: "assistant",
             kind: "tool_result",
+            order: nextMessageOrder(prev),
             tool: {
               callId: event.call.callId,
               name: event.call.name,
@@ -339,26 +370,27 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
 
       if (event.type === "message_completed") {
         setMessages((prev) => {
+          const built = buildAssistantChatMessage(event.text);
           const withStreamedAnswer = upsertStreamingAssistantMessage(prev, event.runId, (current) => {
-            const built = buildAssistantChatMessage(event.text);
             return current
               ? {
                   ...current,
+                  order: current.order || nextMessageOrder(prev),
                   text: event.text || current.text,
                   meta: {
                     ...current.meta,
                     runId: event.runId,
                     isStreaming: false,
-                    thinkingStatus: "done",
+                    planItems: built.meta?.planItems,
                   },
                 }
               : {
                   ...built,
+                  order: nextMessageOrder(prev),
                   meta: {
                     ...built.meta,
                     runId: event.runId,
                     isStreaming: false,
-                    thinkingStatus: "done",
                   },
                 };
           });
@@ -368,13 +400,11 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
               ...message,
               statusCard: {
                 ...message.statusCard,
-                headline: "已生成最终回复",
-                detail: "正在展示结果。",
-                steps: appendOrReplaceRunningStep(message.statusCard.steps, {
-                  id: "final-response",
-                  label: "生成最终回复",
-                  status: "success",
-                }),
+                status: "success",
+                headline: "思考完成",
+                detail: message.statusCard.detail,
+                summary: message.statusCard.summary,
+                steps: completeRunningSteps(message.statusCard.steps, "success"),
                 updatedAt: Date.now(),
                 isThinking: false,
               },
@@ -391,14 +421,14 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           upsertStatusMessage(prev, event.runId, (current) => ({
             role: "assistant",
             kind: "status",
+            order: current?.order || nextMessageOrder(prev),
             statusCard: {
               runId: event.runId,
               status: "success",
-              headline: "处理完成",
-              detail: event.result.toolCalls.length > 0 ? "本轮任务已执行完成，并已返回结果。" : "本轮回答已完成。",
-              steps: (current?.statusCard.steps || []).map((step) =>
-                step.status === "running" ? { ...step, status: "success" } : step
-              ),
+              headline: current?.statusCard.headline || "思考完成",
+              detail: current?.statusCard.detail,
+              summary: current?.statusCard.summary,
+              steps: completeRunningSteps(current?.statusCard.steps || [], "success"),
               startedAt: current?.statusCard.startedAt || Date.now(),
               updatedAt: Date.now(),
               isThinking: false,
@@ -415,14 +445,14 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
           const withStatus = upsertStatusMessage(prev, event.runId, (current) => ({
             role: "assistant",
             kind: "status",
+            order: current?.order || nextMessageOrder(prev),
             statusCard: {
               runId: event.runId,
               status: "error",
-              headline: "处理失败",
+              headline: "思考中断",
               detail: event.error,
-              steps: (current?.statusCard.steps || []).map((step) =>
-                step.status === "running" ? { ...step, status: "error", detail: event.error } : step
-              ),
+              summary: current?.statusCard.summary,
+              steps: completeRunningSteps(current?.statusCard.steps || [], "error"),
               startedAt: current?.statusCard.startedAt || Date.now(),
               updatedAt: Date.now(),
               isThinking: false,
@@ -433,6 +463,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
             {
               role: "assistant",
               kind: "chat",
+              order: nextMessageOrder(withStatus),
               text: `请求失败: ${event.error}`,
             },
           ];

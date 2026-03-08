@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Globe } from "lucide-react";
 import type { ChatMessage, Message, StatusMessage, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { isStatusMessage, isToolMessage } from "./types";
@@ -707,18 +707,7 @@ const renderToolThread = (thread: ToolThread) => {
 };
 
 const buildThinkingLabel = (status: StatusMessage["statusCard"]) => {
-  const latestStep = status.steps.at(-1);
-  if (latestStep?.label) {
-    if (latestStep.label === "生成最终回复") return "思考 完成回复整理";
-    if (latestStep.label === "流式生成回复") return "思考 生成回复";
-    return `思考 ${latestStep.label}`;
-  }
-  if (status.headline === "已接收请求") return "思考 理解请求";
-  if (status.headline === "正在规划处理方式") return "思考 规划处理方式";
-  if (status.headline === "已载入当前会话") return "思考 关联会话上下文";
-  if (status.headline === "处理完成") return "思考 完成处理";
-  if (status.headline === "处理失败") return "思考 处理中断";
-  return `思考 ${status.headline}`;
+  return status.headline;
 };
 
 const renderStatusLine = (message: StatusMessage) => {
@@ -749,7 +738,10 @@ const renderStatusLine = (message: StatusMessage) => {
       {renderFoldoutSurface(
         "思考摘要",
         <>
-          {status.detail ? <div className="whitespace-pre-wrap text-[var(--app-text-secondary)]">{status.detail}</div> : null}
+          {status.summary ? <div className="whitespace-pre-wrap text-[var(--app-text-secondary)]">{status.summary}</div> : null}
+          {!status.summary && status.detail ? (
+            <div className="whitespace-pre-wrap text-[var(--app-text-secondary)]">{status.detail}</div>
+          ) : null}
           {status.steps.length > 0 ? (
             <div className="space-y-2">
               {status.steps.map((step) => (
@@ -782,53 +774,21 @@ const renderStatusLine = (message: StatusMessage) => {
   );
 };
 
-const renderAssistantPanel = (
-  message: ChatMessage,
-  options: {
-    reasoningOpen: boolean;
-    onToggleReasoning: (open: boolean) => void;
-  }
-) => {
+const renderAssistantPanel = (message: ChatMessage) => {
   const planItems = message.meta?.planItems || [];
-  const reasoningSummary = message.meta?.reasoningSummary;
-  const thinkingStatus = message.meta?.thinkingStatus;
   const searchEnabled = message.meta?.searchEnabled;
   const searchUsed = message.meta?.searchUsed;
   const searchQueries = message.meta?.searchQueries || [];
-  const showNoSummary = thinkingStatus === "done" && !reasoningSummary;
   return (
     <div className="w-full space-y-3">
-      {(thinkingStatus || searchEnabled || searchUsed) && (
+      {(searchEnabled || searchUsed) && (
         <div className="flex flex-wrap items-center gap-2">
-          {thinkingStatus && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] uppercase tracking-widest border border-[var(--app-border)] text-[var(--app-text-secondary)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {thinkingStatus === "active" ? "思考中" : "思考完成"}
-            </span>
-          )}
           {(searchEnabled || searchUsed) && (
             <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] uppercase tracking-widest border border-[var(--app-border)] text-[var(--app-text-secondary)]">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
               {searchUsed ? "已搜索" : "搜索开启"}
             </span>
           )}
-        </div>
-      )}
-      {reasoningSummary ? (
-        <details
-          open={options.reasoningOpen}
-          onToggle={(event) => options.onToggleReasoning((event.currentTarget as HTMLDetailsElement).open)}
-          className="text-[12px] text-[var(--app-text-secondary)]"
-        >
-          <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
-            思考摘要（系统）
-          </summary>
-          {renderFoldoutSurface("系统思考摘要", <>{renderMarkdownLite(reasoningSummary)}</>, thinkingStatus === "done" ? "已完成" : "处理中")}
-        </details>
-      ) : null}
-      {showNoSummary && (
-        <div className="text-[12px] text-[var(--app-text-secondary)]">
-          当前模型未提供思考摘要。
         </div>
       )}
       {searchQueries.length > 0 && (
@@ -867,13 +827,12 @@ const renderAssistantPanel = (
 export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const displayMessages = useMemo(() => {
     const consumed = new Set<number>();
     const items: Array<
-      | { kind: "status"; key: string; message: StatusMessage }
-      | { kind: "tool"; key: string; thread: ToolThread }
-      | { kind: "chat"; key: string; message: ChatMessage }
+      | { kind: "status"; key: string; order: number; message: StatusMessage }
+      | { kind: "tool"; key: string; order: number; thread: ToolThread }
+      | { kind: "chat"; key: string; order: number; message: ChatMessage }
     > = [];
 
     for (let i = 0; i < messages.length; i += 1) {
@@ -896,6 +855,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
           items.push({
             kind: "tool",
             key: message.tool.callId || `tool-${i}`,
+            order: message.order || i,
             thread: {
               key: message.tool.callId || `tool-${i}`,
               request: message,
@@ -908,6 +868,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
         items.push({
           kind: "tool",
           key: message.tool.callId || `tool-result-${i}`,
+          order: message.order || i,
           thread: {
             key: message.tool.callId || `tool-result-${i}`,
             result: message,
@@ -917,14 +878,14 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
       }
 
       if (isStatusMessage(message)) {
-        items.push({ kind: "status", key: `${message.statusCard.runId}-${i}`, message });
+        items.push({ kind: "status", key: `${message.statusCard.runId}-${i}`, order: message.order || i, message });
         continue;
       }
 
-      items.push({ kind: "chat", key: `chat-${i}`, message });
+      items.push({ kind: "chat", key: `chat-${i}`, order: message.order || i, message });
     }
 
-    return items;
+    return [...items].sort((a, b) => a.order - b.order);
   }, [messages]);
 
   useEffect(() => {
@@ -940,8 +901,6 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
       {displayMessages.map((item, idx) => {
         const isUser = item.kind === "chat" && item.message.role === "user";
         const isAssistantPanel = item.kind === "chat" && !isUser;
-        const reasoningKey = `reasoning-${item.key}-${idx}`;
-        const reasoningOpen = openPanels[reasoningKey] ?? true;
         return (
           <div
             key={item.key}
@@ -956,14 +915,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
                 {item.message.text}
               </div>
             ) : (
-              renderAssistantPanel(item.message, {
-                reasoningOpen,
-                onToggleReasoning: (open) =>
-                  setOpenPanels((prev) => ({
-                    ...prev,
-                    [reasoningKey]: open,
-                  })),
-              })
+              renderAssistantPanel(item.message)
             )}
           </div>
         );
