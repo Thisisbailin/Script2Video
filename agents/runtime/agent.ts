@@ -26,8 +26,7 @@ const WRITE_TOOL_NAMES = new Set([
   "upsert_location",
 ]);
 const STABILIZATION_DISABLED_TOOLS = [
-  "get_episode_script",
-  "get_scene_script",
+  "ping_tool",
   "read_project_data",
   "search_script_data",
   "upsert_character",

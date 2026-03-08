@@ -110,9 +110,11 @@ interface NodeLabProps {
 }
 
 type ThemeKey = "dark" | "light" | "sand" | "creative" | "calm" | "lively";
+type PatternKey = "dots" | "grid" | "cross" | "lines" | "diagonal" | "none";
 
 type ThemePreset = {
   label: string;
+  description: string;
   bg: string;
   panel: string;
   panelStrong: string;
@@ -146,191 +148,225 @@ type ThemePreset = {
 const THEME_PRESETS: Record<ThemeKey, ThemePreset> = {
   dark: {
     label: "Dark",
-    bg: "#0a0a0a",
-    panel: "rgba(11, 13, 16, 0.95)",
-    panelStrong: "rgba(15, 19, 24, 0.98)",
-    panelMuted: "rgba(255, 255, 255, 0.04)",
-    panelSoft: "rgba(255, 255, 255, 0.08)",
-    border: "rgba(255, 255, 255, 0.12)",
-    borderStrong: "rgba(255, 255, 255, 0.26)",
-    textPrimary: "#f8fafc",
-    textSecondary: "rgba(255, 255, 255, 0.68)",
-    textMuted: "rgba(255, 255, 255, 0.45)",
-    accent: "#3b82f6",
-    accentStrong: "#60a5fa",
-    accentSoft: "rgba(59, 130, 246, 0.18)",
-    panelShadow: "0 12px 28px rgba(0, 0, 0, 0.28)",
-    panelShadowStrong: "0 16px 36px rgba(0, 0, 0, 0.32)",
-    nodeShadow: "0 24px 60px rgba(0, 0, 0, 0.55)",
-    nodeShadowStrong: "0 32px 70px rgba(0, 0, 0, 0.7)",
-    pattern: "rgba(255, 255, 255, 0.08)",
-    patternSoft: "rgba(255, 255, 255, 0.04)",
-    nodeBgGradient: "linear-gradient(160deg, rgba(20, 26, 36, 0.95), rgba(10, 12, 16, 0.98))",
+    description: "Graphite workspace with a restrained steel accent.",
+    bg: "#111416",
+    panel: "rgba(18, 22, 26, 0.92)",
+    panelStrong: "rgba(24, 29, 34, 0.97)",
+    panelMuted: "rgba(142, 164, 184, 0.08)",
+    panelSoft: "rgba(142, 164, 184, 0.13)",
+    border: "rgba(210, 220, 228, 0.12)",
+    borderStrong: "rgba(210, 220, 228, 0.22)",
+    textPrimary: "#f2efe9",
+    textSecondary: "rgba(242, 239, 233, 0.68)",
+    textMuted: "rgba(242, 239, 233, 0.42)",
+    accent: "#8ea4b8",
+    accentStrong: "#b4c3cf",
+    accentSoft: "rgba(142, 164, 184, 0.16)",
+    panelShadow: "0 18px 40px rgba(6, 8, 10, 0.28)",
+    panelShadowStrong: "0 24px 56px rgba(6, 8, 10, 0.34)",
+    nodeShadow: "0 28px 72px rgba(4, 6, 8, 0.58)",
+    nodeShadowStrong: "0 36px 88px rgba(4, 6, 8, 0.72)",
+    pattern: "rgba(214, 223, 230, 0.055)",
+    patternSoft: "rgba(214, 223, 230, 0.028)",
+    nodeBgGradient: "linear-gradient(160deg, rgba(31, 37, 42, 0.97), rgba(16, 19, 23, 0.98))",
     nodeHeaderBg: "rgba(255, 255, 255, 0.02)",
-    groupBg: "rgba(13, 17, 24, 0.62)",
-    groupBgSelected: "rgba(18, 24, 34, 0.78)",
-    groupBorder: "rgba(255, 255, 255, 0.12)",
-    groupBorderStrong: "rgba(255, 255, 255, 0.22)",
-    groupHighlight: "rgba(255, 255, 255, 0.08)",
-    groupShadow: "0 30px 80px rgba(0, 0, 0, 0.45)",
+    groupBg: "rgba(20, 26, 31, 0.64)",
+    groupBgSelected: "rgba(26, 33, 39, 0.8)",
+    groupBorder: "rgba(214, 223, 230, 0.12)",
+    groupBorderStrong: "rgba(214, 223, 230, 0.24)",
+    groupHighlight: "rgba(255, 255, 255, 0.06)",
+    groupShadow: "0 34px 96px rgba(4, 6, 8, 0.48)",
     scheme: "dark",
   },
   light: {
     label: "Light",
-    bg: "#f5f5f7",
-    panel: "rgba(255, 255, 255, 0.95)",
-    panelStrong: "#ffffff",
-    panelMuted: "rgba(15, 23, 42, 0.04)",
-    panelSoft: "rgba(15, 23, 42, 0.08)",
-    border: "rgba(15, 23, 42, 0.12)",
-    borderStrong: "rgba(15, 23, 42, 0.24)",
-    textPrimary: "#0f172a",
-    textSecondary: "rgba(15, 23, 42, 0.7)",
-    textMuted: "rgba(15, 23, 42, 0.45)",
-    accent: "#2563eb",
-    accentStrong: "#1d4ed8",
-    accentSoft: "rgba(37, 99, 235, 0.16)",
-    panelShadow: "0 12px 28px rgba(15, 23, 42, 0.12)",
-    panelShadowStrong: "0 16px 36px rgba(15, 23, 42, 0.16)",
-    nodeShadow: "0 18px 40px rgba(15, 23, 42, 0.14)",
-    nodeShadowStrong: "0 24px 60px rgba(15, 23, 42, 0.18)",
-    pattern: "rgba(15, 23, 42, 0.08)",
-    patternSoft: "rgba(15, 23, 42, 0.04)",
-    nodeBgGradient: "linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96))",
-    nodeHeaderBg: "rgba(15, 23, 42, 0.03)",
-    groupBg: "rgba(15, 23, 42, 0.06)",
-    groupBgSelected: "rgba(15, 23, 42, 0.1)",
-    groupBorder: "rgba(15, 23, 42, 0.14)",
-    groupBorderStrong: "rgba(15, 23, 42, 0.24)",
+    description: "Warm paper tones with quiet editorial contrast.",
+    bg: "#f3efe8",
+    panel: "rgba(255, 252, 246, 0.92)",
+    panelStrong: "#fffdfa",
+    panelMuted: "rgba(92, 117, 146, 0.05)",
+    panelSoft: "rgba(92, 117, 146, 0.08)",
+    border: "rgba(92, 117, 146, 0.12)",
+    borderStrong: "rgba(92, 117, 146, 0.2)",
+    textPrimary: "#1f2937",
+    textSecondary: "rgba(31, 41, 55, 0.68)",
+    textMuted: "rgba(31, 41, 55, 0.43)",
+    accent: "#5c7592",
+    accentStrong: "#48627f",
+    accentSoft: "rgba(92, 117, 146, 0.14)",
+    panelShadow: "0 18px 40px rgba(63, 70, 80, 0.08)",
+    panelShadowStrong: "0 24px 56px rgba(63, 70, 80, 0.12)",
+    nodeShadow: "0 20px 48px rgba(63, 70, 80, 0.12)",
+    nodeShadowStrong: "0 28px 68px rgba(63, 70, 80, 0.16)",
+    pattern: "rgba(92, 117, 146, 0.07)",
+    patternSoft: "rgba(92, 117, 146, 0.034)",
+    nodeBgGradient: "linear-gradient(160deg, rgba(255, 255, 252, 0.99), rgba(247, 243, 237, 0.96))",
+    nodeHeaderBg: "rgba(92, 117, 146, 0.03)",
+    groupBg: "rgba(92, 117, 146, 0.06)",
+    groupBgSelected: "rgba(92, 117, 146, 0.1)",
+    groupBorder: "rgba(92, 117, 146, 0.14)",
+    groupBorderStrong: "rgba(92, 117, 146, 0.24)",
     groupHighlight: "rgba(255, 255, 255, 0.8)",
-    groupShadow: "0 24px 60px rgba(15, 23, 42, 0.12)",
+    groupShadow: "0 28px 64px rgba(63, 70, 80, 0.12)",
     scheme: "light",
   },
   sand: {
     label: "Sand",
-    bg: "#dcd3b9",
-    panel: "rgba(236, 227, 206, 0.92)",
-    panelStrong: "rgba(246, 238, 222, 0.98)",
-    panelMuted: "rgba(90, 74, 46, 0.08)",
-    panelSoft: "rgba(90, 74, 46, 0.14)",
-    border: "rgba(90, 74, 46, 0.18)",
-    borderStrong: "rgba(90, 74, 46, 0.3)",
-    textPrimary: "#2b2214",
-    textSecondary: "rgba(43, 34, 20, 0.65)",
-    textMuted: "rgba(43, 34, 20, 0.45)",
-    accent: "#b45309",
-    accentStrong: "#d97706",
-    accentSoft: "rgba(180, 83, 9, 0.18)",
-    panelShadow: "0 12px 28px rgba(90, 74, 46, 0.2)",
-    panelShadowStrong: "0 16px 36px rgba(90, 74, 46, 0.26)",
-    nodeShadow: "0 22px 50px rgba(90, 74, 46, 0.3)",
-    nodeShadowStrong: "0 30px 70px rgba(90, 74, 46, 0.34)",
-    pattern: "rgba(90, 74, 46, 0.18)",
-    patternSoft: "rgba(90, 74, 46, 0.1)",
-    nodeBgGradient: "linear-gradient(160deg, rgba(250, 243, 227, 0.96), rgba(236, 227, 206, 0.94))",
-    nodeHeaderBg: "rgba(90, 74, 46, 0.05)",
-    groupBg: "rgba(90, 74, 46, 0.12)",
-    groupBgSelected: "rgba(90, 74, 46, 0.18)",
-    groupBorder: "rgba(90, 74, 46, 0.2)",
-    groupBorderStrong: "rgba(90, 74, 46, 0.32)",
-    groupHighlight: "rgba(255, 255, 255, 0.5)",
-    groupShadow: "0 26px 60px rgba(90, 74, 46, 0.3)",
+    description: "Limestone and clay for a softer cinematic desk.",
+    bg: "#d9cfbf",
+    panel: "rgba(242, 235, 222, 0.92)",
+    panelStrong: "rgba(248, 242, 232, 0.97)",
+    panelMuted: "rgba(180, 111, 63, 0.07)",
+    panelSoft: "rgba(180, 111, 63, 0.12)",
+    border: "rgba(125, 97, 66, 0.14)",
+    borderStrong: "rgba(125, 97, 66, 0.24)",
+    textPrimary: "#32281d",
+    textSecondary: "rgba(50, 40, 29, 0.66)",
+    textMuted: "rgba(50, 40, 29, 0.42)",
+    accent: "#b46f3f",
+    accentStrong: "#cb8757",
+    accentSoft: "rgba(180, 111, 63, 0.16)",
+    panelShadow: "0 18px 40px rgba(88, 67, 43, 0.14)",
+    panelShadowStrong: "0 24px 56px rgba(88, 67, 43, 0.18)",
+    nodeShadow: "0 24px 60px rgba(88, 67, 43, 0.22)",
+    nodeShadowStrong: "0 30px 78px rgba(88, 67, 43, 0.28)",
+    pattern: "rgba(125, 97, 66, 0.09)",
+    patternSoft: "rgba(125, 97, 66, 0.045)",
+    nodeBgGradient: "linear-gradient(160deg, rgba(249, 243, 234, 0.98), rgba(238, 230, 216, 0.95))",
+    nodeHeaderBg: "rgba(125, 97, 66, 0.04)",
+    groupBg: "rgba(125, 97, 66, 0.1)",
+    groupBgSelected: "rgba(125, 97, 66, 0.16)",
+    groupBorder: "rgba(125, 97, 66, 0.16)",
+    groupBorderStrong: "rgba(125, 97, 66, 0.28)",
+    groupHighlight: "rgba(255, 255, 255, 0.44)",
+    groupShadow: "0 28px 68px rgba(88, 67, 43, 0.24)",
     scheme: "light",
   },
   creative: {
     label: "Creative",
-    bg: "#0f2f2a",
-    panel: "rgba(10, 26, 24, 0.92)",
-    panelStrong: "rgba(14, 35, 31, 0.98)",
-    panelMuted: "rgba(138, 220, 196, 0.08)",
-    panelSoft: "rgba(138, 220, 196, 0.14)",
-    border: "rgba(138, 220, 196, 0.2)",
-    borderStrong: "rgba(138, 220, 196, 0.34)",
-    textPrimary: "#e6fff7",
-    textSecondary: "rgba(230, 255, 247, 0.7)",
-    textMuted: "rgba(230, 255, 247, 0.45)",
-    accent: "#10b981",
-    accentStrong: "#34d399",
-    accentSoft: "rgba(16, 185, 129, 0.22)",
-    panelShadow: "0 12px 28px rgba(4, 20, 18, 0.32)",
-    panelShadowStrong: "0 16px 36px rgba(4, 20, 18, 0.38)",
-    nodeShadow: "0 24px 60px rgba(4, 20, 18, 0.6)",
-    nodeShadowStrong: "0 30px 80px rgba(4, 20, 18, 0.75)",
-    pattern: "rgba(138, 220, 196, 0.18)",
-    patternSoft: "rgba(138, 220, 196, 0.08)",
-    nodeBgGradient: "linear-gradient(160deg, rgba(16, 40, 34, 0.98), rgba(8, 22, 20, 0.96))",
-    nodeHeaderBg: "rgba(138, 220, 196, 0.08)",
-    groupBg: "rgba(16, 40, 34, 0.55)",
-    groupBgSelected: "rgba(22, 48, 42, 0.72)",
-    groupBorder: "rgba(138, 220, 196, 0.2)",
-    groupBorderStrong: "rgba(138, 220, 196, 0.32)",
-    groupHighlight: "rgba(138, 220, 196, 0.14)",
-    groupShadow: "0 28px 70px rgba(4, 20, 18, 0.6)",
+    description: "Deep pine with aged brass instead of neon green.",
+    bg: "#0b1614",
+    panel: "rgba(11, 22, 20, 0.92)",
+    panelStrong: "rgba(16, 28, 25, 0.97)",
+    panelMuted: "rgba(185, 142, 98, 0.07)",
+    panelSoft: "rgba(185, 142, 98, 0.12)",
+    border: "rgba(212, 181, 135, 0.16)",
+    borderStrong: "rgba(212, 181, 135, 0.28)",
+    textPrimary: "#f3eee5",
+    textSecondary: "rgba(243, 238, 229, 0.68)",
+    textMuted: "rgba(243, 238, 229, 0.42)",
+    accent: "#b98e62",
+    accentStrong: "#d3b08b",
+    accentSoft: "rgba(185, 142, 98, 0.18)",
+    panelShadow: "0 18px 40px rgba(6, 13, 12, 0.32)",
+    panelShadowStrong: "0 24px 56px rgba(6, 13, 12, 0.4)",
+    nodeShadow: "0 28px 72px rgba(5, 10, 9, 0.62)",
+    nodeShadowStrong: "0 38px 96px rgba(5, 10, 9, 0.78)",
+    pattern: "rgba(211, 176, 132, 0.06)",
+    patternSoft: "rgba(211, 176, 132, 0.03)",
+    nodeBgGradient: "linear-gradient(160deg, rgba(18, 32, 28, 0.98), rgba(10, 18, 16, 0.98))",
+    nodeHeaderBg: "rgba(211, 176, 132, 0.06)",
+    groupBg: "rgba(18, 32, 28, 0.58)",
+    groupBgSelected: "rgba(24, 39, 35, 0.76)",
+    groupBorder: "rgba(212, 181, 135, 0.18)",
+    groupBorderStrong: "rgba(212, 181, 135, 0.3)",
+    groupHighlight: "rgba(211, 176, 132, 0.1)",
+    groupShadow: "0 30px 78px rgba(5, 10, 9, 0.62)",
     scheme: "dark",
   },
   calm: {
     label: "Calm",
-    bg: "#1f2f3f",
-    panel: "rgba(16, 26, 36, 0.9)",
-    panelStrong: "rgba(21, 33, 45, 0.98)",
-    panelMuted: "rgba(135, 190, 255, 0.08)",
-    panelSoft: "rgba(135, 190, 255, 0.14)",
-    border: "rgba(135, 190, 255, 0.2)",
-    borderStrong: "rgba(135, 190, 255, 0.36)",
-    textPrimary: "#e6f2ff",
-    textSecondary: "rgba(230, 242, 255, 0.7)",
-    textMuted: "rgba(230, 242, 255, 0.45)",
-    accent: "#38bdf8",
-    accentStrong: "#7dd3fc",
-    accentSoft: "rgba(56, 189, 248, 0.22)",
-    panelShadow: "0 12px 28px rgba(5, 10, 15, 0.3)",
-    panelShadowStrong: "0 16px 36px rgba(5, 10, 15, 0.36)",
-    nodeShadow: "0 24px 60px rgba(5, 10, 15, 0.6)",
-    nodeShadowStrong: "0 30px 80px rgba(5, 10, 15, 0.75)",
-    pattern: "rgba(135, 190, 255, 0.18)",
-    patternSoft: "rgba(135, 190, 255, 0.08)",
-    nodeBgGradient: "linear-gradient(160deg, rgba(24, 36, 48, 0.98), rgba(16, 26, 36, 0.96))",
-    nodeHeaderBg: "rgba(135, 190, 255, 0.08)",
-    groupBg: "rgba(18, 30, 42, 0.6)",
-    groupBgSelected: "rgba(24, 38, 52, 0.78)",
-    groupBorder: "rgba(135, 190, 255, 0.2)",
-    groupBorderStrong: "rgba(135, 190, 255, 0.32)",
-    groupHighlight: "rgba(135, 190, 255, 0.14)",
-    groupShadow: "0 28px 70px rgba(5, 10, 15, 0.6)",
+    description: "Blue slate tuned for long-form focus work.",
+    bg: "#151c22",
+    panel: "rgba(20, 29, 35, 0.92)",
+    panelStrong: "rgba(26, 36, 43, 0.97)",
+    panelMuted: "rgba(110, 149, 173, 0.08)",
+    panelSoft: "rgba(110, 149, 173, 0.12)",
+    border: "rgba(154, 182, 198, 0.14)",
+    borderStrong: "rgba(154, 182, 198, 0.24)",
+    textPrimary: "#e8edf0",
+    textSecondary: "rgba(232, 237, 240, 0.67)",
+    textMuted: "rgba(232, 237, 240, 0.42)",
+    accent: "#6e95ad",
+    accentStrong: "#92b5ca",
+    accentSoft: "rgba(110, 149, 173, 0.16)",
+    panelShadow: "0 18px 40px rgba(6, 10, 13, 0.28)",
+    panelShadowStrong: "0 24px 56px rgba(6, 10, 13, 0.34)",
+    nodeShadow: "0 28px 72px rgba(4, 7, 10, 0.58)",
+    nodeShadowStrong: "0 36px 92px rgba(4, 7, 10, 0.74)",
+    pattern: "rgba(154, 182, 198, 0.06)",
+    patternSoft: "rgba(154, 182, 198, 0.03)",
+    nodeBgGradient: "linear-gradient(160deg, rgba(29, 40, 47, 0.98), rgba(18, 25, 31, 0.98))",
+    nodeHeaderBg: "rgba(154, 182, 198, 0.05)",
+    groupBg: "rgba(23, 33, 40, 0.6)",
+    groupBgSelected: "rgba(29, 40, 48, 0.78)",
+    groupBorder: "rgba(154, 182, 198, 0.16)",
+    groupBorderStrong: "rgba(154, 182, 198, 0.28)",
+    groupHighlight: "rgba(154, 182, 198, 0.08)",
+    groupShadow: "0 30px 78px rgba(4, 7, 10, 0.6)",
     scheme: "dark",
   },
   lively: {
     label: "Lively",
-    bg: "#2c1e2c",
-    panel: "rgba(24, 16, 26, 0.92)",
-    panelStrong: "rgba(30, 20, 34, 0.98)",
-    panelMuted: "rgba(255, 175, 214, 0.08)",
-    panelSoft: "rgba(255, 175, 214, 0.16)",
-    border: "rgba(255, 175, 214, 0.2)",
-    borderStrong: "rgba(255, 175, 214, 0.36)",
-    textPrimary: "#ffe7f5",
-    textSecondary: "rgba(255, 231, 245, 0.7)",
-    textMuted: "rgba(255, 231, 245, 0.45)",
-    accent: "#f472b6",
-    accentStrong: "#f9a8d4",
-    accentSoft: "rgba(244, 114, 182, 0.22)",
-    panelShadow: "0 12px 28px rgba(10, 4, 12, 0.3)",
-    panelShadowStrong: "0 16px 36px rgba(10, 4, 12, 0.36)",
-    nodeShadow: "0 24px 60px rgba(10, 4, 12, 0.6)",
-    nodeShadowStrong: "0 30px 80px rgba(10, 4, 12, 0.78)",
-    pattern: "rgba(255, 175, 214, 0.18)",
-    patternSoft: "rgba(255, 175, 214, 0.08)",
-    nodeBgGradient: "linear-gradient(160deg, rgba(32, 22, 38, 0.98), rgba(20, 14, 26, 0.96))",
-    nodeHeaderBg: "rgba(255, 175, 214, 0.08)",
-    groupBg: "rgba(32, 20, 38, 0.62)",
-    groupBgSelected: "rgba(40, 26, 46, 0.78)",
-    groupBorder: "rgba(255, 175, 214, 0.22)",
-    groupBorderStrong: "rgba(255, 175, 214, 0.36)",
-    groupHighlight: "rgba(255, 175, 214, 0.14)",
-    groupShadow: "0 28px 70px rgba(10, 4, 12, 0.6)",
+    description: "Mulberry base with a clay rose accent, not candy pink.",
+    bg: "#221918",
+    panel: "rgba(33, 24, 24, 0.92)",
+    panelStrong: "rgba(40, 29, 29, 0.97)",
+    panelMuted: "rgba(196, 123, 100, 0.08)",
+    panelSoft: "rgba(196, 123, 100, 0.13)",
+    border: "rgba(214, 164, 148, 0.15)",
+    borderStrong: "rgba(214, 164, 148, 0.26)",
+    textPrimary: "#f4e9e4",
+    textSecondary: "rgba(244, 233, 228, 0.67)",
+    textMuted: "rgba(244, 233, 228, 0.42)",
+    accent: "#c47b64",
+    accentStrong: "#d99a84",
+    accentSoft: "rgba(196, 123, 100, 0.16)",
+    panelShadow: "0 18px 40px rgba(10, 6, 6, 0.3)",
+    panelShadowStrong: "0 24px 56px rgba(10, 6, 6, 0.36)",
+    nodeShadow: "0 28px 72px rgba(8, 4, 4, 0.6)",
+    nodeShadowStrong: "0 36px 92px rgba(8, 4, 4, 0.74)",
+    pattern: "rgba(214, 164, 148, 0.065)",
+    patternSoft: "rgba(214, 164, 148, 0.032)",
+    nodeBgGradient: "linear-gradient(160deg, rgba(41, 30, 30, 0.98), rgba(26, 19, 19, 0.98))",
+    nodeHeaderBg: "rgba(214, 164, 148, 0.05)",
+    groupBg: "rgba(37, 27, 27, 0.6)",
+    groupBgSelected: "rgba(44, 32, 32, 0.78)",
+    groupBorder: "rgba(214, 164, 148, 0.16)",
+    groupBorderStrong: "rgba(214, 164, 148, 0.28)",
+    groupHighlight: "rgba(214, 164, 148, 0.08)",
+    groupShadow: "0 30px 78px rgba(8, 4, 4, 0.6)",
     scheme: "dark",
   },
 };
+
+const getPatternDefinitions = (theme: ThemePreset): Record<Exclude<PatternKey, "none">, { image: string; size: (scale: number) => string; position?: string }> => ({
+  dots: {
+    image:
+      `radial-gradient(circle at 1px 1px, ${theme.pattern} 1px, transparent 0), radial-gradient(circle at 1px 1px, ${theme.patternSoft} 1px, transparent 0)`,
+    size: (scale) => `${30 * scale}px ${30 * scale}px, ${30 * scale}px ${30 * scale}px`,
+    position: "0 0, 15px 15px",
+  },
+  grid: {
+    image: `linear-gradient(${theme.patternSoft} 1px, transparent 1px), linear-gradient(90deg, ${theme.patternSoft} 1px, transparent 1px)`,
+    size: (scale) => `${38 * scale}px ${38 * scale}px`,
+  },
+  cross: {
+    image:
+      `linear-gradient(${theme.patternSoft} 1px, transparent 1px), linear-gradient(90deg, ${theme.patternSoft} 1px, transparent 1px), radial-gradient(circle, ${theme.patternSoft} 1px, transparent 1px)`,
+    size: (scale) => `${36 * scale}px ${36 * scale}px, ${36 * scale}px ${36 * scale}px, ${36 * scale}px ${36 * scale}px`,
+    position: "0 0, 0 0, 18px 18px",
+  },
+  lines: {
+    image: `linear-gradient(0deg, ${theme.patternSoft} 1px, transparent 1px)`,
+    size: (scale) => `${34 * scale}px ${34 * scale}px`,
+  },
+  diagonal: {
+    image:
+      `linear-gradient(135deg, ${theme.patternSoft} 12.5%, transparent 12.5%, transparent 50%, ${theme.patternSoft} 50%, ${theme.patternSoft} 62.5%, transparent 62.5%, transparent)`,
+    size: (scale) => `${32 * scale}px ${32 * scale}px`,
+  },
+});
 
 const NodeLabInner: React.FC<NodeLabProps> = ({
   projectData,
@@ -352,7 +388,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   onToggleWorkflow,
 }) => {
   const [bgTheme, setBgTheme] = useState<ThemeKey>("creative");
-  const [bgPattern, setBgPattern] = useState<"dots" | "grid" | "cross" | "lines" | "diagonal" | "none">("cross");
+  const [bgPattern, setBgPattern] = useState<PatternKey>("grid");
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showAgentSettings, setShowAgentSettings] = useState(false);
   const {
@@ -805,6 +841,15 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const selectedGroup = getSelectedGroup();
 
   const activeTheme = useMemo(() => THEME_PRESETS[bgTheme], [bgTheme]);
+  const patternDefinitions = useMemo(() => getPatternDefinitions(activeTheme), [activeTheme]);
+  const patternOptions: { key: PatternKey; label: string }[] = [
+    { key: "dots", label: "Dots" },
+    { key: "grid", label: "Grid" },
+    { key: "cross", label: "Cross" },
+    { key: "lines", label: "Lines" },
+    { key: "diagonal", label: "Diagonal" },
+    { key: "none", label: "None" },
+  ];
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -895,49 +940,22 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     };
     if (bgPattern === "none") {
       return {
-        background: base,
+        backgroundColor: base,
         backgroundImage: "none",
         backgroundSize: "auto",
         backgroundPosition: "0 0",
         baseColor: base,
       };
     }
-    const patterns: Record<string, { image: string; size: (s: number) => string; position?: string }> = {
-      dots: {
-        image:
-          `radial-gradient(circle at 1px 1px, ${activeTheme.pattern} 1px, transparent 0), radial-gradient(circle at 1px 1px, ${activeTheme.patternSoft} 1px, transparent 0)`,
-        size: (k) => `${22 * k}px ${22 * k}px, ${22 * k}px ${22 * k}px`,
-        position: "0 0, 11px 11px",
-      },
-      grid: {
-        image: `linear-gradient(${activeTheme.patternSoft} 1px, transparent 1px), linear-gradient(90deg, ${activeTheme.patternSoft} 1px, transparent 1px)`,
-        size: (k) => `${28 * k}px ${28 * k}px`,
-      },
-      cross: {
-        image:
-          `linear-gradient(${activeTheme.patternSoft} 1px, transparent 1px), linear-gradient(90deg, ${activeTheme.patternSoft} 1px, transparent 1px), radial-gradient(circle, ${activeTheme.patternSoft} 1px, transparent 1px)`,
-        size: (k) => `${26 * k}px ${26 * k}px, ${26 * k}px ${26 * k}px, ${26 * k}px ${26 * k}px`,
-        position: "0 0, 0 0, 13px 13px",
-      },
-      lines: {
-        image: `linear-gradient(0deg, ${activeTheme.patternSoft} 1px, transparent 1px)`,
-        size: (k) => `${26 * k}px ${26 * k}px`,
-      },
-      diagonal: {
-        image:
-          `linear-gradient(135deg, ${activeTheme.patternSoft} 12.5%, transparent 12.5%, transparent 50%, ${activeTheme.patternSoft} 50%, ${activeTheme.patternSoft} 62.5%, transparent 62.5%, transparent)`,
-        size: (k) => `${24 * k}px ${24 * k}px`,
-      },
-    };
-    const pat = patterns[bgPattern] || patterns.dots;
+    const pat = patternDefinitions[bgPattern as Exclude<PatternKey, "none">] || patternDefinitions.dots;
     return {
-      background: base,
+      backgroundColor: base,
       backgroundImage: pat.image,
       backgroundSize: pat.size(scale),
       backgroundPosition: buildPosition(pat.position),
       baseColor: base,
     };
-  }, [activeTheme, bgPattern, liveViewport]);
+  }, [activeTheme, bgPattern, liveViewport, patternDefinitions]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -1080,21 +1098,27 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       <AnnotationModal />
       {showThemeModal && (
         <>
-          <div className="fixed inset-0 z-50" onClick={() => setShowThemeModal(false)} />
-          <div className="fixed bottom-20 right-6 z-50 w-[440px] rounded-2xl app-panel p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">主题与样式</div>
+          <div className="theme-modal-backdrop fixed inset-0 z-50" onClick={() => setShowThemeModal(false)} />
+          <div className="theme-modal fixed left-1/2 top-1/2 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[30px] p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="theme-modal-eyebrow">Workspace Styling</div>
+                <div className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">主题与样式</div>
+                <p className="mt-2 max-w-[36ch] text-sm leading-6 text-[var(--app-text-secondary)]">
+                  调整画布的底色、表面层次与背景纹理，让工作区更克制、更耐看。
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowThemeModal(false)}
-                className="h-8 w-8 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+                className="mt-1 h-10 w-10 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
               >
                 ×
               </button>
             </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-widest app-text-muted mb-2">颜色主题</div>
-              <div className="grid grid-cols-2 gap-2 pb-1">
+            <div className="mt-6">
+              <div className="text-[11px] uppercase tracking-[0.28em] app-text-muted mb-3">颜色主题</div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {(Object.keys(THEME_PRESETS) as ThemeKey[]).map((key) => {
                   const theme = THEME_PRESETS[key];
                   const isActive = bgTheme === key;
@@ -1102,42 +1126,68 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                     <button
                       key={key}
                       onClick={() => setBgTheme(key)}
-                      className={`rounded-xl border px-3 py-2 text-left transition ${isActive ? "border-[var(--app-border-strong)] bg-[var(--app-panel-muted)]" : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
-                        }`}
+                      className="theme-preset-card rounded-[24px] border px-4 py-4 text-left transition"
+                      data-active={isActive}
+                      style={isActive ? {
+                        borderColor: theme.accentStrong,
+                        boxShadow: `0 20px 56px ${theme.accentSoft}`,
+                        background: `linear-gradient(180deg, ${theme.panelSoft}, ${theme.panelMuted})`,
+                      } : undefined}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-semibold">{theme.label}</span>
-                        {isActive && <span className="text-[10px] app-text-secondary">Active</span>}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{theme.label}</div>
+                          <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-muted)]">{theme.description}</div>
+                        </div>
+                        {isActive && (
+                          <span
+                            className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                            style={{ color: theme.accentStrong, background: theme.accentSoft }}
+                          >
+                            Active
+                          </span>
+                        )}
                       </div>
-                      <div className="mt-2 grid grid-cols-3 gap-1">
-                        <span className="h-6 rounded-md" style={{ background: theme.bg }} />
-                        <span className="h-6 rounded-md" style={{ background: theme.panel }} />
-                        <span className="h-6 rounded-md" style={{ background: theme.accent }} />
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <span className="h-9 rounded-xl border border-white/5" style={{ background: theme.bg }} />
+                        <span className="h-9 rounded-xl border border-white/5" style={{ background: theme.panel }} />
+                        <span className="h-9 rounded-xl border border-white/5" style={{ background: theme.accent }} />
                       </div>
-                      <div className="mt-1 text-[10px] app-text-muted">Base / Surface / Accent</div>
+                      <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] app-text-muted">
+                        <span>Base / Surface / Accent</span>
+                        <span style={{ color: isActive ? theme.accentStrong : undefined }}>Scene tone</span>
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-widest app-text-muted mb-2">图案</div>
-              <div className="grid grid-cols-3 gap-2 pb-1">
-                {[
-                  { key: "dots", label: "Dots" },
-                  { key: "grid", label: "Grid" },
-                  { key: "cross", label: "Cross" },
-                  { key: "lines", label: "Lines" },
-                  { key: "diagonal", label: "Diagonal" },
-                  { key: "none", label: "None" },
-                ].map((item) => (
+            <div className="mt-6">
+              <div className="text-[11px] uppercase tracking-[0.28em] app-text-muted mb-3">图案</div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {patternOptions.map((item) => (
                   <button
                     key={item.key}
-                    onClick={() => setBgPattern(item.key as any)}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-sm transition ${bgPattern === item.key ? "border-[var(--app-border-strong)] bg-[var(--app-panel-muted)]" : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
-                      }`}
+                    onClick={() => setBgPattern(item.key)}
+                    className="theme-pattern-card flex flex-col gap-3 rounded-[20px] border px-3 py-3 text-left transition"
+                    data-active={bgPattern === item.key}
+                    style={bgPattern === item.key ? {
+                      borderColor: activeTheme.accentStrong,
+                      boxShadow: `0 18px 42px ${activeTheme.accentSoft}`,
+                    } : undefined}
                   >
-                    {item.label}
+                    <span
+                      className="theme-pattern-preview h-10 rounded-xl border border-white/5"
+                      style={item.key === "none"
+                        ? { background: activeTheme.panelMuted }
+                        : {
+                            backgroundColor: activeTheme.panelMuted,
+                            backgroundImage: patternDefinitions[item.key as Exclude<PatternKey, "none">].image,
+                            backgroundSize: patternDefinitions[item.key as Exclude<PatternKey, "none">].size(0.55),
+                            backgroundPosition: patternDefinitions[item.key as Exclude<PatternKey, "none">].position ?? "0 0",
+                          }}
+                    />
+                    <span className="text-sm font-medium text-[var(--app-text-primary)]">{item.label}</span>
                   </button>
                 ))}
               </div>
