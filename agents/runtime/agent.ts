@@ -7,6 +7,7 @@ import { composeAgentInstructions } from "./instructions";
 import { OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import type {
   AgentExecutedToolCall,
+  AgentTraceEntry,
   Script2VideoAgentRuntime,
   AgentRuntimeEvent,
   Script2VideoAgentConfigProvider,
@@ -85,6 +86,22 @@ const normalizeText = (value: unknown) => {
   }
 };
 
+const createTraceEntry = (
+  stage: AgentTraceEntry["stage"],
+  status: AgentTraceEntry["status"],
+  title: string,
+  detail?: string,
+  payload?: string
+): AgentTraceEntry => ({
+  id: `${stage}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  at: Date.now(),
+  stage,
+  status,
+  title,
+  detail,
+  payload,
+});
+
 const buildToolDrivenFinalOutput = (toolResults: any[]) => {
   const writeResults = toolResults.filter(
     (toolResult) => toolResult?.type === "function_output" && WRITE_TOOL_NAMES.has(toolResult?.tool?.name)
@@ -112,19 +129,36 @@ export const createScript2VideoAgentRuntime = ({
   tracer,
 }: RuntimeDeps): Script2VideoAgentRuntime => ({
   async run(input: Script2VideoRunInput, options?: Script2VideoRunOptions): Promise<Script2VideoRunResult> {
+    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const emitTrace = (
+      stage: AgentTraceEntry["stage"],
+      status: AgentTraceEntry["status"],
+      title: string,
+      detail?: string,
+      payload?: string
+    ) => {
+      options?.onEvent?.({
+        type: "trace",
+        runId,
+        entry: createTraceEntry(stage, status, title, detail, payload),
+      });
+    };
+
     if (input.attachments?.length) {
       const message = "新的 Agent runtime 暂不支持图片附件，请先移除附件后再发送。";
-      options?.onEvent?.({ type: "run_failed", error: message });
+      options?.onEvent?.({ type: "run_failed", runId, error: message });
       throw new Error(message);
     }
 
-    options?.onEvent?.({ type: "run_started", sessionId: input.sessionId });
+    options?.onEvent?.({ type: "run_started", sessionId: input.sessionId, runId });
+    emitTrace("runtime", "running", "Run started", `session=${input.sessionId}`);
     tracer?.onRunStarted(input);
 
     const config = await configProvider.getConfig();
     const provider = config.provider === "openrouter" ? "openrouter" : "qwen";
     const apiKey = resolveApiKey(provider, config.apiKey);
     const baseURL = resolveBaseUrl(provider, config.baseUrl);
+    emitTrace("runtime", "info", "Config resolved", `${provider} · ${config.model}`, baseURL);
     setOpenAIAPI("responses");
     const client = new OpenAI({
       apiKey,
@@ -136,8 +170,17 @@ export const createScript2VideoAgentRuntime = ({
     const enabledSkills = (
       await Promise.all((input.enabledSkillIds || []).map((skillId) => skillLoader.getSkill(skillId)))
     ).filter(Boolean);
+    emitTrace(
+      "runtime",
+      "info",
+      "Instructions prepared",
+      `skills=${enabledSkills.length} · outcome=${input.requestedOutcome || "auto"}`
+    );
 
     const session = await sessionStore.getSession(input.sessionId);
+    const sessionId = await session.getSessionId();
+    const sessionItems = await session.getItems(12);
+    emitTrace("session", "info", "Session attached", `id=${sessionId} · items=${sessionItems.length}`);
 
     const toolEvents: AgentExecutedToolCall[] = [];
     const emitToolEvent = (event: AgentRuntimeEvent) => {
@@ -169,6 +212,17 @@ export const createScript2VideoAgentRuntime = ({
     if (!toolSettings.workflowBuilder.enabled) {
       disabledTools.push("create_text_node", "create_node_workflow");
     }
+    const enabledToolNames = createScript2VideoTools({
+      bridge,
+      disabledTools,
+    }).map((tool) => tool.name);
+    emitTrace(
+      "tool",
+      "info",
+      "Tool catalog ready",
+      `enabled=${enabledToolNames.length} · disabled=${Array.from(new Set(disabledTools)).length}`,
+      enabledToolNames.join(", ")
+    );
     const agent = new Agent({
       name: "Script2Video Agent",
       instructions: composeAgentInstructions({
@@ -203,13 +257,51 @@ export const createScript2VideoAgentRuntime = ({
         disabledTools,
       }),
     });
+    emitTrace("runtime", "info", "Agent created", agent.name, `model=${config.model}`);
 
     try {
+      emitTrace("model", "running", "Streaming started", input.userText.trim());
       const result = await run(agent, input.userText.trim(), {
         signal: options?.signal,
         maxTurns: 8,
         session,
+        stream: true,
       });
+      for await (const streamEvent of result) {
+        if (streamEvent.type === "agent_updated_stream_event") {
+          emitTrace("runtime", "info", "Agent updated", streamEvent.agent.name);
+          continue;
+        }
+        if (streamEvent.type === "run_item_stream_event") {
+          const itemType = (streamEvent.item as any)?.type || (streamEvent.item as any)?.rawItem?.type || "unknown";
+          const rawItem = (streamEvent.item as any)?.rawItem;
+          const detail =
+            itemType === "function_call"
+              ? `${rawItem?.name || "tool"}`
+              : itemType === "function_call_result"
+                ? `${rawItem?.name || "tool"} · ${rawItem?.status || "completed"}`
+                : streamEvent.name;
+          const payload =
+            itemType === "function_call"
+              ? rawItem?.arguments
+              : itemType === "function_call_result"
+                ? normalizeText(rawItem?.output)
+                : undefined;
+          emitTrace(
+            itemType === "function_call" || itemType === "function_call_result" ? "tool" : "model",
+            itemType === "function_call_result" ? "success" : "info",
+            `Stream item: ${streamEvent.name}`,
+            detail,
+            payload
+          );
+          continue;
+        }
+        if (streamEvent.type === "raw_model_stream_event") {
+          const rawType = (streamEvent.data as any)?.type || "raw_event";
+          emitTrace("model", "info", `Raw event: ${rawType}`);
+        }
+      }
+      await result.completed;
       const finalText = normalizeText(result.finalOutput);
       const runResult: Script2VideoRunResult = {
         finalText,
@@ -219,10 +311,24 @@ export const createScript2VideoAgentRuntime = ({
           { kind: "text", text: finalText } as const,
         ],
         toolCalls: toolEvents,
+        usage: result.rawResponses?.at(-1)?.usage
+          ? {
+              inputTokens: result.rawResponses.at(-1)?.usage?.inputTokens,
+              outputTokens: result.rawResponses.at(-1)?.usage?.outputTokens,
+              totalTokens: result.rawResponses.at(-1)?.usage?.totalTokens,
+            }
+          : undefined,
       };
 
+      emitTrace(
+        "result",
+        "success",
+        "Run completed",
+        `tools=${toolEvents.length} · response=${result.lastResponseId || "n/a"}`,
+        finalText
+      );
       options?.onEvent?.({ type: "message_completed", text: finalText });
-      options?.onEvent?.({ type: "run_completed", result: runResult });
+      options?.onEvent?.({ type: "run_completed", runId, result: runResult });
       tracer?.onRunCompleted(runResult);
       return runResult;
     } catch (error: any) {
@@ -234,7 +340,8 @@ export const createScript2VideoAgentRuntime = ({
       const message = isMaxTurns
         ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
         : error?.message || "Agent runtime 执行失败";
-      options?.onEvent?.({ type: "run_failed", error: message });
+      emitTrace("result", "error", "Run failed", message);
+      options?.onEvent?.({ type: "run_failed", runId, error: message });
       tracer?.onRunFailed(message);
       throw new Error(message);
     }

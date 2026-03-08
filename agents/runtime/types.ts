@@ -28,6 +28,18 @@ export type AgentOutputItem =
   | { kind: "text"; text: string }
   | { kind: "tool_result"; toolCall: AgentExecutedToolCall };
 
+export type AgentTraceStage = "runtime" | "session" | "model" | "tool" | "result";
+export type AgentTraceStatus = "info" | "running" | "success" | "error";
+export type AgentTraceEntry = {
+  id: string;
+  at: number;
+  stage: AgentTraceStage;
+  status: AgentTraceStatus;
+  title: string;
+  detail?: string;
+  payload?: string;
+};
+
 export type Script2VideoRunInput = {
   sessionId: string;
   userText: string;
@@ -54,13 +66,14 @@ export interface Script2VideoAgentRuntime {
 }
 
 export type AgentRuntimeEvent =
-  | { type: "run_started"; sessionId: string }
+  | { type: "run_started"; sessionId: string; runId: string }
+  | { type: "trace"; runId: string; entry: AgentTraceEntry }
   | { type: "tool_called"; call: AgentExecutedToolCall }
   | { type: "tool_completed"; call: AgentExecutedToolCall }
   | { type: "tool_failed"; call: AgentExecutedToolCall; error: string }
   | { type: "message_completed"; text: string }
-  | { type: "run_completed"; result: Script2VideoRunResult }
-  | { type: "run_failed"; error: string };
+  | { type: "run_completed"; runId: string; result: Script2VideoRunResult }
+  | { type: "run_failed"; runId: string; error: string };
 
 export type Script2VideoRunOptions = {
   onEvent?: (event: AgentRuntimeEvent) => void;

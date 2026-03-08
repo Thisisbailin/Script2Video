@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Globe } from "lucide-react";
-import type { ChatMessage, Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
-import { isToolMessage } from "./types";
+import type { ChatMessage, Message, ToolMessage, ToolPayload, ToolStatus, TraceMessage } from "./types";
+import { isToolMessage, isTraceMessage } from "./types";
 
 type Props = {
   messages: Message[];
@@ -612,6 +612,129 @@ const renderToolCard = (message: ToolMessage) => {
   );
 };
 
+const traceStageLabel: Record<TraceMessage["trace"]["entries"][number]["stage"], string> = {
+  runtime: "Runtime",
+  session: "Session",
+  model: "Model",
+  tool: "Tool",
+  result: "Result",
+};
+
+const traceStatusClass: Record<TraceMessage["trace"]["entries"][number]["status"], string> = {
+  info: "border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-secondary)]",
+  running: "border-amber-400/30 bg-amber-500/10 text-amber-200",
+  success: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
+  error: "border-rose-400/30 bg-rose-500/10 text-rose-200",
+};
+
+const renderTraceCard = (message: TraceMessage) => {
+  const trace = message.trace;
+  const isActive = trace.status === "running";
+  const headerClass =
+    trace.status === "error"
+      ? "border-rose-400/30 bg-rose-500/8"
+      : trace.status === "success"
+        ? "border-emerald-400/30 bg-emerald-500/8"
+        : "border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(15,23,42,0.06))]";
+  return (
+    <details open className="w-full max-w-[92%]">
+      <summary
+        className={`cursor-pointer list-none rounded-2xl border px-4 py-3 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.45)] ${headerClass}`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
+              <span>Agent Trace</span>
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold ${
+                  trace.status === "error"
+                    ? "border-rose-400/30 text-rose-200"
+                    : trace.status === "success"
+                      ? "border-emerald-400/30 text-emerald-200"
+                      : "border-amber-400/30 text-amber-200"
+                }`}
+              >
+                {trace.status}
+              </span>
+            </div>
+            <div className="mt-1 text-[13px] font-semibold text-[var(--app-text-primary)]">
+              {isActive ? "正在运行 Agent 执行链路" : "Agent 执行链路已完成"}
+            </div>
+            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+              runId: {trace.runId} · {trace.entries.length} events
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            {trace.entries.slice(-3).map((entry) => (
+              <span
+                key={entry.id}
+                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] ${traceStatusClass[entry.status]}`}
+              >
+                {traceStageLabel[entry.stage]}
+              </span>
+            ))}
+          </div>
+        </div>
+      </summary>
+      <div className="mt-3 rounded-[1.4rem] border border-[var(--app-border)] bg-[rgba(7,20,18,0.42)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="space-y-3">
+          {trace.entries.map((entry, index) => (
+            <div key={entry.id} className="grid grid-cols-[auto_1fr] gap-3">
+              <div className="flex flex-col items-center">
+                <span
+                  className={`mt-1 h-2.5 w-2.5 rounded-full ${
+                    entry.status === "error"
+                      ? "bg-rose-400"
+                      : entry.status === "success"
+                        ? "bg-emerald-400"
+                        : entry.status === "running"
+                          ? "bg-amber-300 animate-pulse"
+                          : "bg-sky-300"
+                  }`}
+                />
+                {index < trace.entries.length - 1 && <span className="mt-1 h-full w-px bg-[var(--app-border)]" />}
+              </div>
+              <div className="min-w-0 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
+                        {traceStageLabel[entry.stage]}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] ${traceStatusClass[entry.status]}`}>
+                        {entry.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[12px] font-semibold text-[var(--app-text-primary)]">{entry.title}</div>
+                    {entry.detail ? (
+                      <div className="mt-1 text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                        {entry.detail}
+                      </div>
+                    ) : null}
+                    {entry.payload ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                          Payload
+                        </summary>
+                        <pre className="mt-2 overflow-x-auto rounded-xl border border-[var(--app-border)] bg-black/20 px-3 py-2 text-[10px] leading-relaxed text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                          {entry.payload}
+                        </pre>
+                      </details>
+                    ) : null}
+                  </div>
+                  <div className="text-[10px] text-[var(--app-text-muted)] whitespace-nowrap">
+                    {new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+};
+
 const renderAssistantPanel = (
   message: ChatMessage,
   options: {
@@ -707,7 +830,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
     <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((m, idx) => {
         const isUser = m.role === "user";
-        const isAssistantPanel = !isUser && !isToolMessage(m);
+        const isAssistantPanel = !isUser && !isToolMessage(m) && !isTraceMessage(m);
         const reasoningKey = `reasoning-${idx}`;
         const reasoningOpen = openPanels[reasoningKey] ?? true;
         return (
@@ -715,7 +838,9 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
             key={idx}
             className={`flex ${isUser ? "justify-end" : "justify-start"} ${isAssistantPanel ? "w-full" : ""}`}
           >
-            {isToolMessage(m) ? (
+            {isTraceMessage(m) ? (
+              renderTraceCard(m)
+            ) : isToolMessage(m) ? (
               renderToolCard(m)
             ) : isUser ? (
               <div className="max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]">

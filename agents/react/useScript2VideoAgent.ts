@@ -32,12 +32,74 @@ const upsertToolStatus = (messages: Message[], callId: string, status: "running"
     };
   });
 
+const upsertTraceMessage = (
+  messages: Message[],
+  runId: string,
+  updater: (
+    current:
+      | {
+          role: "assistant";
+          kind: "trace";
+          trace: {
+            runId: string;
+            status: "running" | "success" | "error";
+            entries: Array<{
+              id: string;
+              at: number;
+              stage: "runtime" | "session" | "model" | "tool" | "result";
+              status: "info" | "running" | "success" | "error";
+              title: string;
+              detail?: string;
+              payload?: string;
+            }>;
+          };
+        }
+      | null
+  ) => Message
+) => {
+  const index = messages.findIndex((message) => message.kind === "trace" && message.trace.runId === runId);
+  const current = index >= 0 ? messages[index] : null;
+  const next = updater(current as any);
+  if (index >= 0) {
+    const clone = [...messages];
+    clone[index] = next;
+    return clone;
+  }
+  return [...messages, next];
+};
+
 export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Options) => {
   const [isRunning, setIsRunning] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const handleEvent = useCallback(
     (event: AgentRuntimeEvent) => {
+      if (event.type === "run_started") {
+        setMessages((prev) =>
+          upsertTraceMessage(prev, event.runId, () => ({
+            role: "assistant",
+            kind: "trace",
+            trace: {
+              runId: event.runId,
+              status: "running",
+              entries: [],
+            },
+          }))
+        );
+      }
+      if (event.type === "trace") {
+        setMessages((prev) =>
+          upsertTraceMessage(prev, event.runId, (current) => ({
+            role: "assistant",
+            kind: "trace",
+            trace: {
+              runId: event.runId,
+              status: current?.trace.status || "running",
+              entries: [...(current?.trace.entries || []), event.entry],
+            },
+          }))
+        );
+      }
       if (event.type === "tool_called") {
         recordAgentToolCalled(event.call);
         setMessages((prev) => [
@@ -90,15 +152,39 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       if (event.type === "message_completed") {
         setMessages((prev) => [...prev, buildAssistantChatMessage(event.text)]);
       }
-      if (event.type === "run_failed") {
-        setMessages((prev) => [
-          ...prev,
-          {
+      if (event.type === "run_completed") {
+        setMessages((prev) =>
+          upsertTraceMessage(prev, event.runId, (current) => ({
             role: "assistant",
-            kind: "chat",
-            text: `请求失败: ${event.error}`,
-          },
-        ]);
+            kind: "trace",
+            trace: {
+              runId: event.runId,
+              status: "success",
+              entries: current?.trace.entries || [],
+            },
+          }))
+        );
+      }
+      if (event.type === "run_failed") {
+        setMessages((prev) => {
+          const withTrace = upsertTraceMessage(prev, event.runId, (current) => ({
+            role: "assistant",
+            kind: "trace",
+            trace: {
+              runId: event.runId,
+              status: "error",
+              entries: current?.trace.entries || [],
+            },
+          }));
+          return [
+            ...withTrace,
+            {
+              role: "assistant",
+              kind: "chat",
+              text: `请求失败: ${event.error}`,
+            },
+          ];
+        });
       }
     },
     [setMessages]
