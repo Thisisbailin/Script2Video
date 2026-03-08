@@ -5,12 +5,14 @@ import { createNodeWorkflowToolDef } from "./createNodeWorkflow";
 import { createTextNodeToolDef } from "./createTextNode";
 import { getEpisodeScriptToolDef } from "./getEpisodeScript";
 import { getSceneScriptToolDef } from "./getSceneScript";
+import { pingToolDef } from "./ping";
 import { readProjectDataToolDef } from "./readProjectData";
 import { searchScriptDataToolDef } from "./searchScriptData";
 import { upsertCharacterToolDef } from "./upsertCharacter";
 import { upsertLocationToolDef } from "./upsertLocation";
 
 const TOOL_DEFS = [
+  pingToolDef,
   getEpisodeScriptToolDef,
   getSceneScriptToolDef,
   readProjectDataToolDef,
