@@ -520,7 +520,7 @@ export const createScript2VideoAgentRuntime = ({
         `tools=${toolEvents.length} · response=${result.lastResponseId || "n/a"}`,
         finalText
       );
-      options?.onEvent?.({ type: "message_completed", text: finalText });
+      options?.onEvent?.({ type: "message_completed", runId, text: finalText });
       options?.onEvent?.({ type: "run_completed", runId, result: runResult });
       tracer?.onRunCompleted(runResult);
       debugGroupEnd();
@@ -550,7 +550,7 @@ export const createScript2VideoAgentRuntime = ({
         };
         debugLog(runId, "fallback text recovered", runResult);
         emitTrace("result", "success", "Fallback text recovered", "SDK 未识别 finalOutput，已从 raw response 恢复文本。", fallbackText);
-        options?.onEvent?.({ type: "message_completed", text: fallbackText });
+        options?.onEvent?.({ type: "message_completed", runId, text: fallbackText });
         options?.onEvent?.({ type: "run_completed", runId, result: runResult });
         tracer?.onRunCompleted(runResult);
         debugGroupEnd();

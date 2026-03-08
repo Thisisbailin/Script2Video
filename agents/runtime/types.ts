@@ -71,7 +71,7 @@ export type AgentRuntimeEvent =
   | { type: "tool_called"; call: AgentExecutedToolCall }
   | { type: "tool_completed"; call: AgentExecutedToolCall }
   | { type: "tool_failed"; call: AgentExecutedToolCall; error: string }
-  | { type: "message_completed"; text: string }
+  | { type: "message_completed"; runId: string; text: string }
   | { type: "run_completed"; runId: string; result: Script2VideoRunResult }
   | { type: "run_failed"; runId: string; error: string };
 

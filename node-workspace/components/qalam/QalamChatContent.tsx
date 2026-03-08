@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Globe } from "lucide-react";
-import type { ChatMessage, Message, ToolMessage, ToolPayload, ToolStatus, TraceMessage } from "./types";
-import { isToolMessage, isTraceMessage } from "./types";
+import type { ChatMessage, Message, StatusMessage, ToolMessage, ToolPayload, ToolStatus } from "./types";
+import { isStatusMessage, isToolMessage } from "./types";
 
 type Props = {
   messages: Message[];
@@ -9,10 +9,10 @@ type Props = {
 };
 
 const toolStatusLabel: Record<ToolStatus, string> = {
-  queued: "Queued",
-  running: "Running",
-  success: "Success",
-  error: "Error",
+  queued: "等待中",
+  running: "执行中",
+  success: "成功",
+  error: "失败",
 };
 
 const toolStatusClass: Record<ToolStatus, string> = {
@@ -381,6 +381,51 @@ const renderToolOutput = (tool: ToolPayload) => {
     );
   }
 
+  const simpleFields: Array<{ label: string; value: string }> = [];
+  if (typeof parsed.episode_label === "string") simpleFields.push({ label: "剧集", value: parsed.episode_label });
+  if (typeof parsed.episode_id === "number") simpleFields.push({ label: "集数", value: `第${parsed.episode_id}集` });
+  if (typeof parsed.scene_id === "string") simpleFields.push({ label: "场景", value: parsed.scene_id });
+  if (typeof parsed.scene_title === "string") simpleFields.push({ label: "场景标题", value: parsed.scene_title });
+  if (typeof parsed.field === "string") simpleFields.push({ label: "写入字段", value: parsed.field });
+  if (typeof parsed.chars === "number") simpleFields.push({ label: "字数", value: String(parsed.chars) });
+  if (typeof parsed.nodeId === "string") simpleFields.push({ label: "节点 ID", value: parsed.nodeId });
+
+  if (
+    typeof parsed.content === "string" ||
+    typeof parsed.summary === "string" ||
+    simpleFields.length > 0
+  ) {
+    return (
+      <div className="space-y-2">
+        {simpleFields.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {simpleFields.map((item) => (
+              <div
+                key={`${item.label}-${item.value}`}
+                className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2"
+              >
+                <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">{item.label}</div>
+                <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{item.value}</div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {typeof parsed.summary === "string" ? (
+          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">摘要</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{parsed.summary}</div>
+          </div>
+        ) : null}
+        {typeof parsed.content === "string" ? (
+          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">正文</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{parsed.content}</div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   const data = parsed.data || {};
   const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
   const matches = Array.isArray(data.matches) ? data.matches : [];
@@ -587,17 +632,36 @@ const renderToolOutput = (tool: ToolPayload) => {
 const renderToolCard = (message: ToolMessage) => {
   const isResult = message.kind === "tool_result";
   const summaryText = message.tool.summary || message.tool.name;
-  const isLookup = message.tool.name.includes("read_") || message.tool.name.includes("search_");
-  const label = isLookup ? (isResult ? "查阅结果" : "查阅请求") : (isResult ? "工具结果" : "工具调用");
+  const label = isResult ? "结果反馈" : "执行行为";
+  if (!isResult) {
+    return (
+      <div className="max-w-[78%] rounded-2xl border border-amber-400/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(17,24,39,0.12))] px-3 py-2 shadow-[0_12px_28px_-22px_rgba(245,158,11,0.6)]">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-amber-200/90">
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
+          <span>{label}</span>
+          <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
+        </div>
+        <div className="mt-1 text-[13px] font-semibold text-[var(--app-text-primary)]">{summaryText}</div>
+        <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">
+          Agent 正在执行 `{message.tool.name}`。
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <details className="max-w-[85%]">
-      <summary className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
-        <span>{label}</span>
-        <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
-        <span className="text-[var(--app-text-primary)] normal-case text-[12px]">{summaryText}</span>
+    <details className="max-w-[88%] rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] shadow-[0_16px_32px_-24px_rgba(0,0,0,0.42)]">
+      <summary className="cursor-pointer list-none px-4 py-3">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
+          <span>{label}</span>
+          <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
+        </div>
+        <div className="mt-1 text-[13px] font-semibold text-[var(--app-text-primary)]">{summaryText}</div>
+        <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">
+          {message.tool.name}
+        </div>
       </summary>
-      <div className="mt-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2 space-y-2">
-        <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">{message.tool.name}</div>
+      <div className="border-t border-[var(--app-border)] px-4 py-3 space-y-3">
         {message.tool.summary ? (
           <div className="text-[12px] text-[var(--app-text-secondary)]">{message.tool.summary}</div>
         ) : null}
@@ -606,132 +670,74 @@ const renderToolCard = (message: ToolMessage) => {
             证据：{message.tool.evidence.join(", ")}
           </div>
         ) : null}
-        {isResult ? renderToolOutput(message.tool) : null}
+        {renderToolOutput(message.tool)}
       </div>
     </details>
   );
 };
 
-const traceStageLabel: Record<TraceMessage["trace"]["entries"][number]["stage"], string> = {
-  runtime: "Runtime",
-  session: "Session",
-  model: "Model",
-  tool: "Tool",
-  result: "Result",
-};
-
-const traceStatusClass: Record<TraceMessage["trace"]["entries"][number]["status"], string> = {
-  info: "border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-secondary)]",
-  running: "border-amber-400/30 bg-amber-500/10 text-amber-200",
-  success: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
-  error: "border-rose-400/30 bg-rose-500/10 text-rose-200",
-};
-
-const renderTraceCard = (message: TraceMessage) => {
-  const trace = message.trace;
-  const isActive = trace.status === "running";
+const renderStatusCard = (message: StatusMessage) => {
+  const status = message.statusCard;
   const headerClass =
-    trace.status === "error"
-      ? "border-rose-400/30 bg-rose-500/8"
-      : trace.status === "success"
-        ? "border-emerald-400/30 bg-emerald-500/8"
-        : "border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(15,23,42,0.06))]";
+    status.status === "error"
+      ? "border-rose-400/25 bg-[linear-gradient(135deg,rgba(244,63,94,0.12),rgba(17,24,39,0.08))]"
+      : status.status === "success"
+        ? "border-emerald-400/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(17,24,39,0.08))]"
+        : "border-sky-400/20 bg-[linear-gradient(135deg,rgba(56,189,248,0.10),rgba(17,24,39,0.10))]";
   return (
-    <details open className="w-full max-w-[92%]">
-      <summary
-        className={`cursor-pointer list-none rounded-2xl border px-4 py-3 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.45)] ${headerClass}`}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
-              <span>Agent Trace</span>
-              <span
-                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold ${
-                  trace.status === "error"
-                    ? "border-rose-400/30 text-rose-200"
-                    : trace.status === "success"
-                      ? "border-emerald-400/30 text-emerald-200"
-                      : "border-amber-400/30 text-amber-200"
-                }`}
-              >
-                {trace.status}
-              </span>
-            </div>
-            <div className="mt-1 text-[13px] font-semibold text-[var(--app-text-primary)]">
-              {isActive ? "正在运行 Agent 执行链路" : "Agent 执行链路已完成"}
-            </div>
-            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
-              runId: {trace.runId} · {trace.entries.length} events
-            </div>
+    <div className={`w-full max-w-[92%] rounded-2xl border px-4 py-3 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.45)] ${headerClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${
+                status.status === "error"
+                  ? "bg-rose-400"
+                  : status.status === "success"
+                    ? "bg-emerald-400"
+                    : "bg-sky-300 animate-pulse"
+              }`}
+            />
+            <span>Agent 状态</span>
+            {status.isThinking ? <span className="text-sky-200/90">思考中</span> : null}
           </div>
-          <div className="hidden sm:flex items-center gap-2">
-            {trace.entries.slice(-3).map((entry) => (
-              <span
-                key={entry.id}
-                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] ${traceStatusClass[entry.status]}`}
-              >
-                {traceStageLabel[entry.stage]}
-              </span>
-            ))}
-          </div>
+          <div className="mt-1 text-[14px] font-semibold text-[var(--app-text-primary)]">{status.headline}</div>
+          {status.detail ? (
+            <div className="mt-1 text-[12px] leading-relaxed text-[var(--app-text-secondary)]">{status.detail}</div>
+          ) : null}
         </div>
-      </summary>
-      <div className="mt-3 rounded-[1.4rem] border border-[var(--app-border)] bg-[rgba(7,20,18,0.42)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-        <div className="space-y-3">
-          {trace.entries.map((entry, index) => (
-            <div key={entry.id} className="grid grid-cols-[auto_1fr] gap-3">
-              <div className="flex flex-col items-center">
+        <div className="text-[10px] text-[var(--app-text-muted)] whitespace-nowrap">
+          {new Date(status.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        </div>
+      </div>
+      {status.steps.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {status.steps.map((step) => (
+            <div key={step.id} className="grid grid-cols-[auto_1fr] gap-3">
+              <div className="pt-1">
                 <span
-                  className={`mt-1 h-2.5 w-2.5 rounded-full ${
-                    entry.status === "error"
+                  className={`inline-block h-2.5 w-2.5 rounded-full ${
+                    step.status === "error"
                       ? "bg-rose-400"
-                      : entry.status === "success"
+                      : step.status === "success"
                         ? "bg-emerald-400"
-                        : entry.status === "running"
-                          ? "bg-amber-300 animate-pulse"
-                          : "bg-sky-300"
+                        : "bg-amber-300 animate-pulse"
                   }`}
                 />
-                {index < trace.entries.length - 1 && <span className="mt-1 h-full w-px bg-[var(--app-border)]" />}
               </div>
-              <div className="min-w-0 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
-                        {traceStageLabel[entry.stage]}
-                      </span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] ${traceStatusClass[entry.status]}`}>
-                        {entry.status}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-[12px] font-semibold text-[var(--app-text-primary)]">{entry.title}</div>
-                    {entry.detail ? (
-                      <div className="mt-1 text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                        {entry.detail}
-                      </div>
-                    ) : null}
-                    {entry.payload ? (
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                          Payload
-                        </summary>
-                        <pre className="mt-2 overflow-x-auto rounded-xl border border-[var(--app-border)] bg-black/20 px-3 py-2 text-[10px] leading-relaxed text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                          {entry.payload}
-                        </pre>
-                      </details>
-                    ) : null}
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium text-[var(--app-text-primary)]">{step.label}</div>
+                {step.detail ? (
+                  <div className="mt-0.5 text-[11px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                    {step.detail}
                   </div>
-                  <div className="text-[10px] text-[var(--app-text-muted)] whitespace-nowrap">
-                    {new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </div>
-                </div>
+                ) : null}
               </div>
             </div>
           ))}
         </div>
-      </div>
-    </details>
+      ) : null}
+    </div>
   );
 };
 
@@ -830,7 +836,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
     <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((m, idx) => {
         const isUser = m.role === "user";
-        const isAssistantPanel = !isUser && !isToolMessage(m) && !isTraceMessage(m);
+        const isAssistantPanel = !isUser && !isToolMessage(m) && !isStatusMessage(m);
         const reasoningKey = `reasoning-${idx}`;
         const reasoningOpen = openPanels[reasoningKey] ?? true;
         return (
@@ -838,8 +844,8 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
             key={idx}
             className={`flex ${isUser ? "justify-end" : "justify-start"} ${isAssistantPanel ? "w-full" : ""}`}
           >
-            {isTraceMessage(m) ? (
-              renderTraceCard(m)
+            {isStatusMessage(m) ? (
+              renderStatusCard(m)
             ) : isToolMessage(m) ? (
               renderToolCard(m)
             ) : isUser ? (

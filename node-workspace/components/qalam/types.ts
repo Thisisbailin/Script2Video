@@ -27,24 +27,28 @@ export type ChatMessage = {
 };
 
 export type ToolMessage = { role: "assistant"; kind: "tool" | "tool_result"; tool: ToolPayload };
-export type TracePayload = {
+export type StatusStep = {
+  id: string;
+  label: string;
+  status: "running" | "success" | "error";
+  detail?: string;
+};
+
+export type StatusPayload = {
   runId: string;
   status: TraceStatus;
-  entries: Array<{
-    id: string;
-    at: number;
-    stage: TraceStage;
-    status: TraceEntryStatus;
-    title: string;
-    detail?: string;
-    payload?: string;
-  }>;
+  headline: string;
+  detail?: string;
+  steps: StatusStep[];
+  startedAt: number;
+  updatedAt: number;
+  isThinking?: boolean;
 };
-export type TraceMessage = { role: "assistant"; kind: "trace"; trace: TracePayload };
+export type StatusMessage = { role: "assistant"; kind: "status"; statusCard: StatusPayload };
 
-export type Message = ChatMessage | ToolMessage | TraceMessage;
+export type Message = ChatMessage | ToolMessage | StatusMessage;
 
 export const isToolMessage = (message: Message): message is ToolMessage =>
   message.kind === "tool" || message.kind === "tool_result";
 
-export const isTraceMessage = (message: Message): message is TraceMessage => message.kind === "trace";
+export const isStatusMessage = (message: Message): message is StatusMessage => message.kind === "status";
