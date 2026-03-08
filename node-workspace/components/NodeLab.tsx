@@ -1099,26 +1099,26 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       {showThemeModal && (
         <>
           <div className="theme-modal-backdrop fixed inset-0 z-50" onClick={() => setShowThemeModal(false)} />
-          <div className="theme-modal fixed left-1/2 top-1/2 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[30px] p-5 sm:p-6">
+          <div className="theme-modal fixed bottom-20 right-6 z-50 w-[min(420px,calc(100vw-24px))] max-h-[min(72dvh,720px)] overflow-x-hidden overflow-y-auto rounded-[28px] p-4 sm:p-4.5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="theme-modal-eyebrow">Workspace Styling</div>
-                <div className="mt-2 text-[26px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">主题与样式</div>
-                <p className="mt-2 max-w-[36ch] text-sm leading-6 text-[var(--app-text-secondary)]">
-                  调整画布的底色、表面层次与背景纹理，让工作区更克制、更耐看。
+                <div className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">主题与样式</div>
+                <p className="mt-1.5 max-w-[30ch] text-[12px] leading-5 text-[var(--app-text-secondary)]">
+                  调整底色、表面层次和背景纹理。
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowThemeModal(false)}
-                className="mt-1 h-10 w-10 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+                className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
               >
                 ×
               </button>
             </div>
-            <div className="mt-6">
-              <div className="text-[11px] uppercase tracking-[0.28em] app-text-muted mb-3">颜色主题</div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-5">
+              <div className="mb-2.5 text-[10px] uppercase tracking-[0.26em] app-text-muted">颜色主题</div>
+              <div className="grid grid-cols-2 gap-2">
                 {(Object.keys(THEME_PRESETS) as ThemeKey[]).map((key) => {
                   const theme = THEME_PRESETS[key];
                   const isActive = bgTheme === key;
@@ -1126,58 +1126,58 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                     <button
                       key={key}
                       onClick={() => setBgTheme(key)}
-                      className="theme-preset-card rounded-[24px] border px-4 py-4 text-left transition"
+                      className="theme-preset-card rounded-[20px] border px-3 py-3 text-left transition"
                       data-active={isActive}
                       style={isActive ? {
                         borderColor: theme.accentStrong,
-                        boxShadow: `0 20px 56px ${theme.accentSoft}`,
+                        boxShadow: `0 14px 34px ${theme.accentSoft}`,
                         background: `linear-gradient(180deg, ${theme.panelSoft}, ${theme.panelMuted})`,
                       } : undefined}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{theme.label}</div>
-                          <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-muted)]">{theme.description}</div>
+                          <div className="text-[14px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{theme.label}</div>
+                          <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-[var(--app-text-muted)]">{theme.description}</div>
                         </div>
                         {isActive && (
                           <span
-                            className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                            className="rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em]"
                             style={{ color: theme.accentStrong, background: theme.accentSoft }}
                           >
                             Active
                           </span>
                         )}
                       </div>
-                      <div className="mt-4 grid grid-cols-3 gap-2">
-                        <span className="h-9 rounded-xl border border-white/5" style={{ background: theme.bg }} />
-                        <span className="h-9 rounded-xl border border-white/5" style={{ background: theme.panel }} />
-                        <span className="h-9 rounded-xl border border-white/5" style={{ background: theme.accent }} />
+                      <div className="mt-3 grid grid-cols-3 gap-1.5">
+                        <span className="h-8 rounded-[12px] border border-white/5" style={{ background: theme.bg }} />
+                        <span className="h-8 rounded-[12px] border border-white/5" style={{ background: theme.panel }} />
+                        <span className="h-8 rounded-[12px] border border-white/5" style={{ background: theme.accent }} />
                       </div>
-                      <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] app-text-muted">
+                      <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-[0.16em] app-text-muted">
                         <span>Base / Surface / Accent</span>
-                        <span style={{ color: isActive ? theme.accentStrong : undefined }}>Scene tone</span>
+                        <span style={{ color: isActive ? theme.accentStrong : undefined }}>Tone</span>
                       </div>
                     </button>
                   );
                 })}
               </div>
             </div>
-            <div className="mt-6">
-              <div className="text-[11px] uppercase tracking-[0.28em] app-text-muted mb-3">图案</div>
+            <div className="mt-5">
+              <div className="mb-2.5 text-[10px] uppercase tracking-[0.26em] app-text-muted">图案</div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {patternOptions.map((item) => (
                   <button
                     key={item.key}
                     onClick={() => setBgPattern(item.key)}
-                    className="theme-pattern-card flex flex-col gap-3 rounded-[20px] border px-3 py-3 text-left transition"
+                    className="theme-pattern-card flex flex-col gap-2 rounded-[18px] border px-3 py-2.5 text-left transition"
                     data-active={bgPattern === item.key}
                     style={bgPattern === item.key ? {
                       borderColor: activeTheme.accentStrong,
-                      boxShadow: `0 18px 42px ${activeTheme.accentSoft}`,
+                      boxShadow: `0 12px 28px ${activeTheme.accentSoft}`,
                     } : undefined}
                   >
                     <span
-                      className="theme-pattern-preview h-10 rounded-xl border border-white/5"
+                      className="theme-pattern-preview h-8 rounded-[12px] border border-white/5"
                       style={item.key === "none"
                         ? { background: activeTheme.panelMuted }
                         : {
@@ -1187,7 +1187,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                             backgroundPosition: patternDefinitions[item.key as Exclude<PatternKey, "none">].position ?? "0 0",
                           }}
                     />
-                    <span className="text-sm font-medium text-[var(--app-text-primary)]">{item.label}</span>
+                    <span className="text-[13px] font-medium text-[var(--app-text-primary)]">{item.label}</span>
                   </button>
                 ))}
               </div>

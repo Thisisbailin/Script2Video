@@ -20,6 +20,8 @@ import type {
 } from "./types";
 
 const WRITE_TOOL_NAMES = new Set([
+  "write_project_summary",
+  "write_episode_summary",
   "create_text_node",
   "create_node_workflow",
   "upsert_character",
@@ -31,7 +33,6 @@ const STABILIZATION_DISABLED_TOOLS = [
   "search_script_data",
   "upsert_character",
   "upsert_location",
-  "create_text_node",
   "create_node_workflow",
 ] as const;
 

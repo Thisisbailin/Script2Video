@@ -10,11 +10,15 @@ import { readProjectDataToolDef } from "./readProjectData";
 import { searchScriptDataToolDef } from "./searchScriptData";
 import { upsertCharacterToolDef } from "./upsertCharacter";
 import { upsertLocationToolDef } from "./upsertLocation";
+import { writeEpisodeSummaryToolDef } from "./writeEpisodeSummary";
+import { writeProjectSummaryToolDef } from "./writeProjectSummary";
 
 const TOOL_DEFS = [
   pingToolDef,
   getEpisodeScriptToolDef,
   getSceneScriptToolDef,
+  writeProjectSummaryToolDef,
+  writeEpisodeSummaryToolDef,
   readProjectDataToolDef,
   searchScriptDataToolDef,
   upsertCharacterToolDef,
