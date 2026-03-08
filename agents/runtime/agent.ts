@@ -121,6 +121,26 @@ const buildToolDrivenFinalOutput = (toolResults: any[]) => {
   return ["操作已完成：", ...lines, "如需继续扩展，我可以基于当前结果继续处理。"].join("\n");
 };
 
+const consumeRunStream = async (
+  streamResult: Awaited<ReturnType<typeof run>>,
+  onEvent: (streamEvent: any) => void
+) => {
+  if (!("toStream" in streamResult) || typeof streamResult.toStream !== "function") {
+    return;
+  }
+  const stream = streamResult.toStream();
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) onEvent(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+};
+
 export const createScript2VideoAgentRuntime = ({
   bridge,
   skillLoader,
@@ -267,10 +287,10 @@ export const createScript2VideoAgentRuntime = ({
         session,
         stream: true,
       });
-      for await (const streamEvent of result) {
+      await consumeRunStream(result, (streamEvent) => {
         if (streamEvent.type === "agent_updated_stream_event") {
           emitTrace("runtime", "info", "Agent updated", streamEvent.agent.name);
-          continue;
+          return;
         }
         if (streamEvent.type === "run_item_stream_event") {
           const itemType = (streamEvent.item as any)?.type || (streamEvent.item as any)?.rawItem?.type || "unknown";
@@ -294,13 +314,13 @@ export const createScript2VideoAgentRuntime = ({
             detail,
             payload
           );
-          continue;
+          return;
         }
         if (streamEvent.type === "raw_model_stream_event") {
           const rawType = (streamEvent.data as any)?.type || "raw_event";
           emitTrace("model", "info", `Raw event: ${rawType}`);
         }
-      }
+      });
       await result.completed;
       const finalText = normalizeText(result.finalOutput);
       const runResult: Script2VideoRunResult = {
