@@ -3,12 +3,16 @@ import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import type { AgentExecutedToolCall, AgentRuntimeEvent } from "../runtime/types";
 import { createNodeWorkflowToolDef } from "./createNodeWorkflow";
 import { createTextNodeToolDef } from "./createTextNode";
+import { getEpisodeScriptToolDef } from "./getEpisodeScript";
+import { getSceneScriptToolDef } from "./getSceneScript";
 import { readProjectDataToolDef } from "./readProjectData";
 import { searchScriptDataToolDef } from "./searchScriptData";
 import { upsertCharacterToolDef } from "./upsertCharacter";
 import { upsertLocationToolDef } from "./upsertLocation";
 
 const TOOL_DEFS = [
+  getEpisodeScriptToolDef,
+  getSceneScriptToolDef,
   readProjectDataToolDef,
   searchScriptDataToolDef,
   upsertCharacterToolDef,

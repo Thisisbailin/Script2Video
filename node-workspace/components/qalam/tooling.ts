@@ -5,6 +5,43 @@ import type { QalamToolSettings } from "../../../types";
 export const TOOL_DEFS: AgentTool[] = [
   {
     type: "function",
+    name: "get_episode_script",
+    description: "Read a specific episode from the parsed script, including scene list and optional summary.",
+    parameters: {
+      type: "object",
+      properties: {
+        episodeId: { type: "integer", description: "Episode number (1-based)." },
+        episodeTitle: { type: "string", description: "Episode title or label to match." },
+        maxChars: { type: "integer", description: "Max chars for episode content (default 4000)." },
+        maxScenes: { type: "integer", description: "Max scenes to return in the scene list (default 50)." },
+        includeSceneList: { type: "boolean", description: "Include the episode scene list. Default true." },
+        includeEpisodeSummary: { type: "boolean", description: "Include the episode summary if available. Default true." },
+        includeCharacters: { type: "boolean", description: "Include parsed episode characters. Default true." },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_scene_script",
+    description: "Read a specific scene from the parsed script by scene id or scene index.",
+    parameters: {
+      type: "object",
+      properties: {
+        episodeId: { type: "integer", description: "Episode number (1-based)." },
+        episodeTitle: { type: "string", description: "Episode title or label to match." },
+        sceneId: { type: "string", description: "Scene id like 1-3." },
+        sceneIndex: { type: "integer", description: "Scene index within the episode (1-based)." },
+        maxChars: { type: "integer", description: "Max chars for scene content (default 2400)." },
+        includeEpisodeSummary: { type: "boolean", description: "Include the episode summary if available. Default true." },
+        includeCharacters: { type: "boolean", description: "Include parsed episode characters. Default true." },
+        includeSceneMetadata: { type: "boolean", description: "Include parsed scene metadata. Default true." },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
     name: "read_project_data",
     description: "Read project data: script, understanding, characters, locations. Supports episode/scene lookup and search.",
     parameters: {
@@ -204,7 +241,15 @@ export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolS
   const allowCharacterLocation = settings.characterLocation.enabled !== false;
   return TOOL_DEFS.filter((tool) => {
     if (tool.type !== "function") return true;
-    if (!allowProjectData && (tool.name === "read_project_data" || tool.name === "search_script_data")) return false;
+    if (
+      !allowProjectData &&
+      (tool.name === "get_episode_script" ||
+        tool.name === "get_scene_script" ||
+        tool.name === "read_project_data" ||
+        tool.name === "search_script_data")
+    ) {
+      return false;
+    }
     if (!allowWorkflowBuilder && tool.name === "create_text_node") return false;
     if (!allowCharacterLocation && (tool.name === "upsert_character" || tool.name === "upsert_location")) return false;
     return true;
@@ -221,6 +266,18 @@ export const parseToolArguments = (value: string) => {
 };
 
 export const buildToolSummary = (name: string, args: any) => {
+  if (name === "get_episode_script") {
+    const ep = args?.episodeId || args?.episodeTitle || "";
+    return ep ? `剧集查阅：${ep}` : "剧集查阅";
+  }
+  if (name === "get_scene_script") {
+    const ep = args?.episodeId || args?.episodeTitle || "";
+    const sc = args?.sceneId || args?.sceneIndex || "";
+    const parts = [];
+    if (ep) parts.push(`集 ${ep}`);
+    if (sc) parts.push(`场景 ${sc}`);
+    return parts.length ? `场景查阅：${parts.join(" · ")}` : "场景查阅";
+  }
   if (name === "read_project_data" || name === "read_script_data") {
     const ep = args?.episodeId || args?.episodeTitle || "";
     const sc = args?.sceneId || args?.sceneIndex || "";

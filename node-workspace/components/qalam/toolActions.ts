@@ -1,4 +1,4 @@
-import type { Character, Location, ProjectData } from "../../../types";
+import type { Character, Episode, Location, ProjectData, Scene } from "../../../types";
 import { createStableId, ensureStableId } from "../../../utils/id";
 
 type UpsertResult = { next: ProjectData; result: any };
@@ -447,6 +447,213 @@ const pickEpisodeByTitle = (episodes: any[], title: string) => {
   const normalized = title.trim().toLowerCase();
   if (!normalized) return undefined;
   return episodes.find((ep) => (ep.title || "").toLowerCase().includes(normalized));
+};
+
+const resolveEpisodeSelection = (episodes: Episode[], args: any) => {
+  const episodeId = toNumber(args?.episodeId ?? args?.episode ?? args?.episodeNumber);
+  const episodeTitle = typeof args?.episodeTitle === "string" ? args.episodeTitle.trim() : "";
+  let episode = episodeId ? episodes.find((ep) => ep.id === episodeId) : undefined;
+  if (!episode && episodeTitle) {
+    episode = pickEpisodeByTitle(episodes, episodeTitle);
+  }
+  return {
+    episodeId,
+    episodeTitle,
+    episode,
+  };
+};
+
+const resolveSceneSelection = (episodes: Episode[], args: any, selectedEpisode?: Episode) => {
+  const requestedEpisodeId = toNumber(args?.episodeId ?? args?.episode ?? args?.episodeNumber);
+  const sceneIndex = toNumber(args?.sceneIndex ?? args?.sceneNumber);
+  const sceneId = normalizeSceneId(args?.sceneId ?? args?.scene, selectedEpisode?.id ?? requestedEpisodeId);
+  let episode = selectedEpisode;
+  let scene: Scene | undefined;
+
+  if (episode) {
+    if (sceneId) {
+      scene = (episode.scenes || []).find((sc) => sc.id === sceneId);
+    }
+    if (!scene && sceneIndex) {
+      const idx = sceneIndex - 1;
+      if (idx >= 0 && idx < (episode.scenes || []).length) {
+        scene = episode.scenes[idx];
+      }
+    }
+  } else if (sceneId) {
+    for (const ep of episodes) {
+      const found = (ep.scenes || []).find((sc) => sc.id === sceneId);
+      if (found) {
+        episode = ep;
+        scene = found;
+        break;
+      }
+    }
+  }
+
+  return {
+    episode,
+    scene,
+    sceneId,
+    sceneIndex,
+  };
+};
+
+const buildSceneListItem = (scene: Scene, index: number, previewChars: number) => ({
+  index: index + 1,
+  id: scene.id,
+  title: scene.title,
+  partition: scene.partition,
+  timeOfDay: scene.timeOfDay,
+  location: scene.location,
+  contentPreview: clipText(scene.content || "", previewChars),
+});
+
+const findEpisodeSummary = (data: ProjectData, episodeId?: number) => {
+  if (!episodeId) return "";
+  return data.context?.episodeSummaries?.find((entry) => entry.episodeId === episodeId)?.summary || "";
+};
+
+export const getEpisodeScript = (data: ProjectData, args: any): ReadResult => {
+  const episodes = data.episodes || [];
+  const { episodeId, episodeTitle, episode } = resolveEpisodeSelection(episodes, args);
+  const maxChars = Math.max(400, Math.min(12000, toNumber(args?.maxChars) || 4000));
+  const maxScenes = Math.max(1, Math.min(200, toNumber(args?.maxScenes) || 50));
+  const includeSceneList = args?.includeSceneList !== false;
+  const includeEpisodeSummary = args?.includeEpisodeSummary !== false;
+  const includeCharacters = args?.includeCharacters !== false;
+  const previewChars = Math.max(80, Math.min(320, Math.floor(maxChars / 10)));
+
+  const result: any = {
+    request: {
+      episodeId: episodeId ?? null,
+      episodeTitle: episodeTitle || null,
+    },
+    resolved: {
+      episode: episode ? { id: episode.id, title: episode.title } : null,
+    },
+    data: {},
+    warnings: [] as string[],
+  };
+
+  if (!episodeId && !episodeTitle) {
+    result.warnings.push("missing_episode_selector");
+    return { result };
+  }
+
+  if (!episode) {
+    result.warnings.push("episode_not_found");
+    return { result };
+  }
+
+  result.data.episode = {
+    id: episode.id,
+    title: episode.title,
+    content: clipText(episode.content || "", maxChars),
+    sceneCount: (episode.scenes || []).length,
+    shotCount: (episode.shots || []).length,
+  };
+
+  if (includeCharacters) {
+    result.data.episodeCharacters = (episode.characters || []).slice(0, 50);
+  }
+
+  if (includeEpisodeSummary) {
+    const summary = findEpisodeSummary(data, episode.id);
+    if (summary) {
+      result.data.episodeSummary = clipText(summary, Math.min(maxChars, 2400));
+    }
+  }
+
+  if (includeSceneList) {
+    const scenes = (episode.scenes || []).slice(0, maxScenes);
+    result.data.sceneList = scenes.map((scene, index) => buildSceneListItem(scene, index, previewChars));
+    if ((episode.scenes || []).length > maxScenes) {
+      result.warnings.push("scene_list_truncated");
+    }
+  }
+
+  return { result };
+};
+
+export const getSceneScript = (data: ProjectData, args: any): ReadResult => {
+  const episodes = data.episodes || [];
+  const episodeSelection = resolveEpisodeSelection(episodes, args);
+  const { episode, scene, sceneId, sceneIndex } = resolveSceneSelection(episodes, args, episodeSelection.episode);
+  const maxChars = Math.max(200, Math.min(8000, toNumber(args?.maxChars) || 2400));
+  const includeEpisodeSummary = args?.includeEpisodeSummary !== false;
+  const includeCharacters = args?.includeCharacters !== false;
+  const includeSceneMetadata = args?.includeSceneMetadata !== false;
+
+  const result: any = {
+    request: {
+      episodeId: episodeSelection.episodeId ?? null,
+      episodeTitle: episodeSelection.episodeTitle || null,
+      sceneId: sceneId ?? null,
+      sceneIndex: sceneIndex ?? null,
+    },
+    resolved: {
+      episode: episode ? { id: episode.id, title: episode.title } : null,
+      scene: scene ? { id: scene.id, title: scene.title } : null,
+    },
+    data: {},
+    warnings: [] as string[],
+  };
+
+  if (!sceneId && !sceneIndex) {
+    result.warnings.push("missing_scene_selector");
+    return { result };
+  }
+
+  if (sceneIndex && !sceneId && !episodeSelection.episodeId && !episodeSelection.episodeTitle) {
+    result.warnings.push("missing_episode_selector");
+    return { result };
+  }
+
+  if (!episode && (episodeSelection.episodeId || episodeSelection.episodeTitle)) {
+    result.warnings.push("episode_not_found");
+    return { result };
+  }
+
+  if (!scene || !episode) {
+    result.warnings.push("scene_not_found");
+    return { result };
+  }
+
+  result.data.episode = {
+    id: episode.id,
+    title: episode.title,
+    sceneCount: (episode.scenes || []).length,
+  };
+  result.data.scene = {
+    id: scene.id,
+    title: scene.title,
+    index: (episode.scenes || []).findIndex((item) => item.id === scene.id) + 1,
+    content: clipText(scene.content || "", maxChars),
+  };
+
+  if (includeSceneMetadata) {
+    result.data.scene.metadata = {
+      partition: scene.partition,
+      timeOfDay: scene.timeOfDay,
+      location: scene.location,
+      rawTitle: scene.metadata?.rawTitle,
+      tokens: scene.metadata?.tokens,
+    };
+  }
+
+  if (includeCharacters) {
+    result.data.episodeCharacters = (episode.characters || []).slice(0, 50);
+  }
+
+  if (includeEpisodeSummary) {
+    const summary = findEpisodeSummary(data, episode.id);
+    if (summary) {
+      result.data.episodeSummary = clipText(summary, Math.min(maxChars, 2000));
+    }
+  }
+
+  return { result };
 };
 
 const summarizeCharacters = (characters: Character[], maxChars: number, maxItems: number) =>

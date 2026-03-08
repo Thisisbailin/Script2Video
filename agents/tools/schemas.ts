@@ -41,6 +41,27 @@ export const searchScriptDataSchema = z.object({
   maxSnippetChars: z.number().int().optional(),
 });
 
+export const getEpisodeScriptSchema = z.object({
+  episodeId: z.number().int().optional(),
+  episodeTitle: z.string().optional(),
+  maxChars: z.number().int().optional(),
+  maxScenes: z.number().int().optional(),
+  includeSceneList: z.boolean().optional(),
+  includeEpisodeSummary: z.boolean().optional(),
+  includeCharacters: z.boolean().optional(),
+});
+
+export const getSceneScriptSchema = z.object({
+  episodeId: z.number().int().optional(),
+  episodeTitle: z.string().optional(),
+  sceneId: z.string().optional(),
+  sceneIndex: z.number().int().optional(),
+  maxChars: z.number().int().optional(),
+  includeEpisodeSummary: z.boolean().optional(),
+  includeCharacters: z.boolean().optional(),
+  includeSceneMetadata: z.boolean().optional(),
+});
+
 export const upsertCharacterSchema = z.object({
   character: z.object({
     id: z.string().optional(),
@@ -173,6 +194,8 @@ export const createNodeWorkflowSchema = z.object({
 
 export const readProjectDataParameters = z.toJSONSchema(readProjectDataSchema);
 export const searchScriptDataParameters = z.toJSONSchema(searchScriptDataSchema);
+export const getEpisodeScriptParameters = z.toJSONSchema(getEpisodeScriptSchema);
+export const getSceneScriptParameters = z.toJSONSchema(getSceneScriptSchema);
 export const upsertCharacterParameters = z.toJSONSchema(upsertCharacterSchema);
 export const upsertLocationParameters = z.toJSONSchema(upsertLocationSchema);
 export const createTextNodeParameters = z.toJSONSchema(createTextNodeSchema);

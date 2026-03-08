@@ -141,6 +141,27 @@ const consumeRunStream = async (
   }
 };
 
+const extractTextFromResponseOutput = (output: unknown): string => {
+  if (!output) return "";
+  if (typeof output === "string") return output.trim();
+  if (!Array.isArray(output)) return "";
+  const parts: string[] = [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    if ((item as any).type === "message" && Array.isArray((item as any).content)) {
+      for (const content of (item as any).content) {
+        if (content?.type === "output_text" && typeof content.text === "string") {
+          parts.push(content.text);
+        }
+      }
+    }
+    if ((item as any).type === "output_text" && typeof (item as any).text === "string") {
+      parts.push((item as any).text);
+    }
+  }
+  return parts.join("\n").trim();
+};
+
 export const createScript2VideoAgentRuntime = ({
   bridge,
   skillLoader,
@@ -203,6 +224,8 @@ export const createScript2VideoAgentRuntime = ({
     emitTrace("session", "info", "Session attached", `id=${sessionId} · items=${sessionItems.length}`);
 
     const toolEvents: AgentExecutedToolCall[] = [];
+    let streamedTextDelta = "";
+    let streamedResponseText = "";
     const emitToolEvent = (event: AgentRuntimeEvent) => {
       if (event.type === "tool_called") {
         toolEvents.push(event.call);
@@ -224,7 +247,7 @@ export const createScript2VideoAgentRuntime = ({
     const disabledTools = enabledSkills.flatMap((skill) => skill?.disabledTools || []);
     disabledTools.push(...STABILIZATION_DISABLED_TOOLS);
     if (!toolSettings.projectData.enabled) {
-      disabledTools.push("read_project_data", "search_script_data");
+      disabledTools.push("get_episode_script", "get_scene_script", "read_project_data", "search_script_data");
     }
     if (!toolSettings.characterLocation.enabled) {
       disabledTools.push("upsert_character", "upsert_location");
@@ -318,11 +341,20 @@ export const createScript2VideoAgentRuntime = ({
         }
         if (streamEvent.type === "raw_model_stream_event") {
           const rawType = (streamEvent.data as any)?.type || "raw_event";
+          if (rawType === "output_text_delta" && typeof (streamEvent.data as any)?.delta === "string") {
+            streamedTextDelta += (streamEvent.data as any).delta;
+          }
+          if (rawType === "response_done") {
+            const candidate = extractTextFromResponseOutput((streamEvent.data as any)?.response?.output);
+            if (candidate) {
+              streamedResponseText = candidate;
+            }
+          }
           emitTrace("model", "info", `Raw event: ${rawType}`);
         }
       });
       await result.completed;
-      const finalText = normalizeText(result.finalOutput);
+      const finalText = normalizeText(result.finalOutput) || streamedTextDelta.trim() || streamedResponseText.trim();
       const runResult: Script2VideoRunResult = {
         finalText,
         sessionId: input.sessionId,
@@ -357,6 +389,20 @@ export const createScript2VideoAgentRuntime = ({
         .slice(-5)
         .map((toolCall) => `${toolCall.name}:${toolCall.status}${toolCall.summary ? `(${toolCall.summary})` : ""}`)
         .join(" -> ");
+      const fallbackText = streamedTextDelta.trim() || streamedResponseText.trim();
+      if (isMaxTurns && !toolEvents.length && fallbackText) {
+        const runResult: Script2VideoRunResult = {
+          finalText: fallbackText,
+          sessionId: input.sessionId,
+          outputItems: [{ kind: "text", text: fallbackText }],
+          toolCalls: [],
+        };
+        emitTrace("result", "success", "Fallback text recovered", "SDK 未识别 finalOutput，已从 raw response 恢复文本。", fallbackText);
+        options?.onEvent?.({ type: "message_completed", text: fallbackText });
+        options?.onEvent?.({ type: "run_completed", runId, result: runResult });
+        tracer?.onRunCompleted(runResult);
+        return runResult;
+      }
       const message = isMaxTurns
         ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
         : error?.message || "Agent runtime 执行失败";

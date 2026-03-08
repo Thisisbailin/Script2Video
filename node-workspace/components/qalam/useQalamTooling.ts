@@ -3,7 +3,14 @@ import type { AgentToolCall } from "../../../services/toolingTypes";
 import type { ProjectData } from "../../../types";
 import type { Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { buildToolMessages, buildToolCallMeta, buildToolSummary, normalizeQalamToolSettings } from "./tooling";
-import { readProjectData, searchScriptData, upsertCharacter, upsertLocation } from "./toolActions";
+import {
+  getEpisodeScript,
+  getSceneScript,
+  readProjectData,
+  searchScriptData,
+  upsertCharacter,
+  upsertLocation,
+} from "./toolActions";
 import { useWorkflowStore } from "../../store/workflowStore";
 
 type Options = {
@@ -78,6 +85,22 @@ export const useQalamTooling = ({
         });
         return result;
       }
+      if (call.name === "get_episode_script") {
+        let result: any = null;
+        setProjectData((prev) => {
+          result = getEpisodeScript(prev, args).result;
+          return prev;
+        });
+        return result;
+      }
+      if (call.name === "get_scene_script") {
+        let result: any = null;
+        setProjectData((prev) => {
+          result = getSceneScript(prev, args).result;
+          return prev;
+        });
+        return result;
+      }
       if (call.name === "search_script_data") {
         let result: any = null;
         setProjectData((prev) => {
@@ -120,6 +143,8 @@ export const useQalamTooling = ({
           if (
             tc.name !== "upsert_character" &&
             tc.name !== "upsert_location" &&
+            tc.name !== "get_episode_script" &&
+            tc.name !== "get_scene_script" &&
             tc.name !== "read_project_data" &&
             tc.name !== "read_script_data" &&
             tc.name !== "search_script_data" &&
@@ -149,6 +174,8 @@ export const useQalamTooling = ({
               ? `已${result.action === "created" ? "创建" : "更新"}场景 ${result.name}（分区 ${result.zonesCount ?? 0} 个）`
               : buildToolSummary(tc.name, args);
           if (
+            tc.name === "get_episode_script" ||
+            tc.name === "get_scene_script" ||
             tc.name === "read_project_data" ||
             tc.name === "read_script_data" ||
             tc.name === "search_script_data"
