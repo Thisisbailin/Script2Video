@@ -145,16 +145,14 @@ const createConversationRecord = (messages: Message[] = []): ConversationRecord 
 
 export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpenStats, onToggleAgentSettings }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
-  const { addNode, updateNodeStyle, onConnect, toggleEdgePause, removeNode, removeEdge, nodes, viewport } = useWorkflowStore((state) => ({
-    addNode: state.addNode,
-    updateNodeStyle: state.updateNodeStyle,
-    onConnect: state.onConnect,
-    toggleEdgePause: state.toggleEdgePause,
-    removeNode: state.removeNode,
-    removeEdge: state.removeEdge,
-    nodes: state.nodes,
-    viewport: state.viewport,
-  }));
+  const addNode = useWorkflowStore((state) => state.addNode);
+  const updateNodeStyle = useWorkflowStore((state) => state.updateNodeStyle);
+  const onConnect = useWorkflowStore((state) => state.onConnect);
+  const toggleEdgePause = useWorkflowStore((state) => state.toggleEdgePause);
+  const removeNode = useWorkflowStore((state) => state.removeNode);
+  const removeEdge = useWorkflowStore((state) => state.removeEdge);
+  const nodes = useWorkflowStore((state) => state.nodes);
+  const viewport = useWorkflowStore((state) => state.viewport);
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
