@@ -67,6 +67,7 @@ export type Script2VideoRunOptions = {
 };
 
 export type Script2VideoAgentConfig = {
+  provider?: "qwen" | "openrouter";
   apiKey?: string;
   baseUrl?: string;
   model: string;

@@ -38,13 +38,8 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
   }
 };
 
-export const AVAILABLE_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fast)' },
-  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview (High Intelligence)' },
-];
-
-export const QWEN_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-export const QWEN_CHAT_COMPLETIONS_ENDPOINT = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+export const QWEN_RESPONSES_BASE_URL = 'https://dashscope.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1';
+export const OPENROUTER_RESPONSES_BASE_URL = 'https://openrouter.ai/api/v1';
 export const QWEN_DEFAULT_MODEL = 'qwen-plus';
 export const QWEN_WAN_IMAGE_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 export const QWEN_WAN_VIDEO_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis';
@@ -67,10 +62,10 @@ export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
 };
 
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
-  provider: 'gemini',
-  baseUrl: '', // Not used for Gemini SDK
-  apiKey: '', // Uses process.env by default if empty
-  model: 'gemini-2.5-flash',
+  provider: 'qwen',
+  baseUrl: QWEN_RESPONSES_BASE_URL,
+  apiKey: '',
+  model: QWEN_DEFAULT_MODEL,
   workModel: '',
   workBaseUrl: '',
   qwenModels: [],

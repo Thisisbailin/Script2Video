@@ -19,7 +19,7 @@ export const useConfig = (key: string) => {
       const rememberApiKeys = parsed.rememberApiKeys ?? INITIAL_REMEMBER_KEYS;
       const syncApiKeys = parsed.syncApiKeys ?? INITIAL_SYNC_KEYS;
       const safeText = rememberApiKeys ? parsed.textConfig : { ...parsed.textConfig, apiKey: '' };
-      const allowedProviders = ["gemini", "openrouter", "qwen"];
+      const allowedProviders = ["openrouter", "qwen"];
       const safeProvider =
         safeText?.provider && allowedProviders.includes(safeText.provider)
           ? safeText.provider

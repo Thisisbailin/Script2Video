@@ -3,7 +3,6 @@ import { Bot, Loader2, ChevronUp, X, ArrowUp, Lightbulb, Sparkles, CircleHelp, C
 import { useConfig } from "../../hooks/useConfig";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { ProjectData } from "../../types";
-import { AVAILABLE_MODELS } from "../../constants";
 import { createStableId } from "../../utils/id";
 import { QalamChatContent } from "./qalam/QalamChatContent";
 import type { ChatMessage, Message } from "./qalam/types";
@@ -289,9 +288,10 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         sessionStore: sessionStoreRef.current,
         configProvider: {
           getConfig: () => ({
+            provider: config.textConfig?.provider,
             apiKey: config.textConfig?.apiKey,
             baseUrl: config.textConfig?.baseUrl || undefined,
-            model: config.textConfig?.model || "gpt-4.1",
+            model: config.textConfig?.model || "qwen-plus",
             qalamTools: config.textConfig?.qalamTools,
             tracingDisabled: true,
           }),
@@ -557,10 +557,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
   const formatNumber = (n: number) => n.toLocaleString();
   const providerModelOptions = useMemo(() => {
-    if (config.textConfig?.provider === "gemini") {
-      return AVAILABLE_MODELS.slice().sort((a, b) => a.name.localeCompare(b.name));
-    }
-    // OpenRouter/Qwen: no preset list, keep current value as sole option
     const currentId = config.textConfig?.model || "custom";
     return [{ id: currentId, name: currentId }];
   }, [config.textConfig?.provider, config.textConfig?.model]);

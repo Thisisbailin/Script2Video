@@ -1,33 +1,68 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig } from "../types";
+import type { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig, TextProvider } from "../types";
 import { ensureStableId } from "../utils/id";
-import * as QwenService from "./qwenService";
-import { QWEN_DEFAULT_MODEL } from "../constants";
+import { OPENROUTER_RESPONSES_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_RESPONSES_BASE_URL } from "../constants";
+import { createQwenResponse } from "./qwenResponsesService";
 
 // --- HELPERS ---
 
-// Helper to init Gemini client
-const getGeminiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
+type Schema = {
+  type?: string;
+  description?: string;
+  properties?: Record<string, Schema>;
+  items?: Schema;
+  required?: string[];
+  enum?: string[];
+  additionalProperties?: boolean;
+} & Record<string, any>;
 
-// Resolve API key from user config first, then fall back to env
-const resolveGeminiApiKey = (config: TextServiceConfig): string => {
-  const configKey = config.apiKey?.trim();
-  const envKey = (typeof import.meta !== 'undefined'
-    ? (import.meta.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY)
-    : undefined)
-    || (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : undefined);
+const Type = {
+  STRING: "string",
+  NUMBER: "number",
+  INTEGER: "integer",
+  BOOLEAN: "boolean",
+  ARRAY: "array",
+  OBJECT: "object",
+} as const;
 
-  const apiKey = configKey || envKey;
-  if (!apiKey) {
-    throw new Error("Gemini API key missing. Please add it in Settings or set GEMINI_API_KEY/VITE_GEMINI_API_KEY in your env.");
+const resolveProviderApiKey = (provider: TextProvider, configuredKey?: string): string => {
+  const key = (configuredKey || "").trim();
+  if (key) return key;
+
+  const env = typeof import.meta !== "undefined" ? import.meta.env : undefined;
+  const processEnv = typeof process !== "undefined" ? process.env : undefined;
+
+  const candidates =
+    provider === "openrouter"
+      ? [
+          env?.OPENROUTER_API_KEY,
+          env?.VITE_OPENROUTER_API_KEY,
+          processEnv?.OPENROUTER_API_KEY,
+          processEnv?.VITE_OPENROUTER_API_KEY,
+        ]
+      : [
+          env?.QWEN_API_KEY,
+          env?.VITE_QWEN_API_KEY,
+          env?.DASHSCOPE_API_KEY,
+          env?.VITE_DASHSCOPE_API_KEY,
+          processEnv?.QWEN_API_KEY,
+          processEnv?.VITE_QWEN_API_KEY,
+          processEnv?.DASHSCOPE_API_KEY,
+          processEnv?.VITE_DASHSCOPE_API_KEY,
+        ];
+
+  const resolved = candidates.find((value) => typeof value === "string" && value.trim())?.trim();
+  if (!resolved) {
+    throw new Error(
+      provider === "openrouter"
+        ? "OpenRouter API key missing. 请配置 OPENROUTER_API_KEY/VITE_OPENROUTER_API_KEY。"
+        : "Qwen API key missing. 请配置 QWEN_API_KEY/VITE_QWEN_API_KEY 或 DASHSCOPE_API_KEY。"
+    );
   }
-  return apiKey;
+  return resolved;
 };
 
-
-// Helper to map Google Schema to JSON Schema (Simplified for OpenRouter)
 const googleSchemaToJsonSchema = (schema: Schema): any => {
-  const convertType = (t: Type | undefined): string => {
+  const convertType = (t: string | undefined): string => {
     if (!t) return 'string';
     switch (t) {
       case Type.STRING: return 'string';
@@ -61,147 +96,150 @@ const googleSchemaToJsonSchema = (schema: Schema): any => {
   return res;
 };
 
-// Unified Text Generation Caller
+const extractResponsesText = (data: any): string => {
+  const outputText = typeof data?.output_text === "string" ? data.output_text : "";
+  if (outputText) return outputText;
+
+  const output = Array.isArray(data?.output) ? data.output : [];
+  const fromItems = output
+    .flatMap((item: any) => {
+      if (typeof item?.text === "string") return [item.text];
+      if (typeof item?.output_text === "string") return [item.output_text];
+      if (typeof item?.content === "string") return [item.content];
+      if (Array.isArray(item?.content)) {
+        return item.content
+          .map((part: any) => {
+            if (typeof part === "string") return part;
+            if (typeof part?.text === "string") return part.text;
+            if (typeof part?.content === "string") return part.content;
+            if (part?.type === "output_text" && typeof part?.text === "string") return part.text;
+            return "";
+          })
+          .filter(Boolean);
+      }
+      return [];
+    })
+    .filter(Boolean)
+    .join("");
+  if (fromItems) return fromItems;
+
+  const choiceContent = data?.choices?.[0]?.message?.content;
+  if (typeof choiceContent === "string") return choiceContent;
+  if (Array.isArray(choiceContent)) {
+    return choiceContent
+      .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+      .filter(Boolean)
+      .join("");
+  }
+  return "";
+};
+
+const mapUsage = (usage: any): TokenUsage => {
+  const promptTokens = usage?.prompt_tokens ?? usage?.input_tokens ?? 0;
+  const responseTokens = usage?.completion_tokens ?? usage?.output_tokens ?? 0;
+  const totalTokens = usage?.total_tokens ?? promptTokens + responseTokens;
+  return { promptTokens, responseTokens, totalTokens };
+};
+
+const resolveResponsesBaseUrl = (provider: TextProvider, configuredBaseUrl?: string) => {
+  const fallback = provider === "openrouter" ? OPENROUTER_RESPONSES_BASE_URL : QWEN_RESPONSES_BASE_URL;
+  return (configuredBaseUrl || fallback).trim().replace(/\/+$/, "");
+};
+
+const createOpenRouterResponse = async (
+  config: TextServiceConfig,
+  prompt: string,
+  schema: Schema,
+  systemInstruction?: string
+): Promise<{ text: string; usage: TokenUsage; raw?: any }> => {
+  const apiKey = resolveProviderApiKey("openrouter", config.apiKey);
+  const jsonSchema = googleSchemaToJsonSchema(schema);
+  const endpoint = `${resolveResponsesBaseUrl("openrouter", config.baseUrl)}/responses`;
+  const input: any[] = [];
+  if (systemInstruction?.trim()) {
+    input.push({
+      role: "system",
+      content: [{ type: "input_text", text: systemInstruction.trim() }],
+    });
+  }
+  input.push({
+    role: "user",
+    content: [{ type: "input_text", text: prompt }],
+  });
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": window.location.origin,
+      "X-Title": "Script2Video",
+    },
+    body: JSON.stringify({
+      model: config.model || "openai/gpt-4.1-mini",
+      input,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "script2video_output",
+          schema: jsonSchema,
+          strict: true,
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenRouter Responses Error ${response.status}: ${errText}`);
+  }
+
+  const raw = await response.json();
+  return {
+    text: extractResponsesText(raw),
+    usage: mapUsage(raw?.usage),
+    raw,
+  };
+};
+
 const generateText = async (
   config: TextServiceConfig,
   prompt: string,
   schema: Schema,
   systemInstruction?: string
 ): Promise<{ text: string; usage: TokenUsage; raw?: any }> => {
-
-  // 1. GEMINI PROVIDER
-  if (config.provider === 'gemini') {
-    const apiKey = resolveGeminiApiKey(config);
-    const ai = getGeminiClient(apiKey);
-    const modelName = config.model || 'gemini-2.5-flash';
-
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: schema,
-          systemInstruction: systemInstruction
-        },
-      });
-      return {
-        text: response.text || "{}",
-        usage: {
-          promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
-          responseTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
-          totalTokens: response.usageMetadata?.totalTokenCount ?? 0,
-        }
-      };
-    } catch (e: any) {
-      console.error("Gemini API Error:", e);
-      throw new Error(`Gemini Error: ${e.message}`);
-    }
+  if (config.provider === "openrouter") {
+    return createOpenRouterResponse(config, prompt, schema, systemInstruction);
   }
-
-  // 2. OPENROUTER / OPENAI PROVIDER
-  else if (config.provider === 'openrouter') {
-    const envKey =
-      (typeof import.meta !== "undefined"
-        ? (import.meta.env.OPENROUTER_API_KEY || import.meta.env.VITE_OPENROUTER_API_KEY)
-        : undefined) ||
-      (typeof process !== "undefined"
-        ? (process.env?.OPENROUTER_API_KEY || process.env?.VITE_OPENROUTER_API_KEY)
-        : undefined);
-    const apiKey = config.apiKey?.trim() || envKey;
-    if (!apiKey) throw new Error("OpenRouter API key missing. 请配置 OPENROUTER_API_KEY/VITE_OPENROUTER_API_KEY。");
-
+  if (config.provider === "qwen") {
     const jsonSchema = googleSchemaToJsonSchema(schema);
-
-    // Construct the messages
-    const messages = [];
-    if (systemInstruction) {
-      messages.push({ role: "system", content: systemInstruction });
-    }
-    // Append schema instruction to prompt for robustness
-    const refinedPrompt = `${prompt}\n\nIMPORTANT: Return the output as a valid JSON object matching this schema:\n${JSON.stringify(jsonSchema, null, 2)}`;
-    messages.push({ role: "user", content: refinedPrompt });
-
-    let apiBase = (config.baseUrl || "https://openrouter.ai/api/v1").trim().replace(/\/+$/, '');
-    // Ensure /v1/chat/completions structure if not present but base implies it
-    // If user provided "https://openrouter.ai/api/v1", we append "/chat/completions"
-    if (!apiBase.endsWith('/chat/completions')) {
-      // Check if it ends in /v1
-      if (apiBase.endsWith('/v1')) {
-        apiBase = `${apiBase}/chat/completions`;
-      } else {
-        // Assume it might need v1
-        apiBase = `${apiBase}/v1/chat/completions`;
-      }
-    }
-
-    try {
-      const response = await fetch(apiBase, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-          // OpenRouter specific headers
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "eSheep"
+    const raw = await createQwenResponse(prompt, {
+      apiKey: resolveProviderApiKey("qwen", config.apiKey),
+      baseUrl: resolveResponsesBaseUrl("qwen", config.baseUrl),
+    }, {
+      model: config.model || QWEN_DEFAULT_MODEL,
+      inputItems: [
+        ...(systemInstruction?.trim()
+          ? [{ role: "system", content: [{ type: "input_text", text: systemInstruction.trim() }] }]
+          : []),
+        {
+          role: "user",
+          content: [{ type: "input_text", text: prompt }],
         },
-        body: JSON.stringify({
-          model: config.model || "google/gemini-2.0-flash-exp:free", // Fallback
-          messages: messages,
-          response_format: { type: "json_object" }, // Enforce JSON mode if supported
-          temperature: 0.7
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`OpenRouter Error ${response.status}: ${err}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "{}";
-
-      return {
-        text: content,
-        usage: {
-          promptTokens: data.usage?.prompt_tokens ?? 0,
-          responseTokens: data.usage?.completion_tokens ?? 0,
-          totalTokens: data.usage?.total_tokens ?? 0
-        }
-      };
-
-    } catch (e: any) {
-      console.error("OpenRouter API Error:", e);
-      throw new Error(`OpenRouter Error: ${e.message}`);
-    }
+      ],
+      textFormat: {
+        type: "json_schema",
+        name: "script2video_output",
+        schema: jsonSchema,
+        strict: true,
+      },
+    });
+    return {
+      text: raw.text || "{}",
+      usage: raw.usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
+      raw: raw.raw,
+    };
   }
-
-  // 3. QWEN (Aliyun DashScope)
-  else if (config.provider === 'qwen') {
-    const jsonSchema = googleSchemaToJsonSchema(schema);
-    const refinedPrompt = `${prompt}\n\nIMPORTANT: 返回满足此 JSON Schema 的对象：\n${JSON.stringify(jsonSchema, null, 2)}\n请仅输出 JSON。`;
-    const messages: Array<{ role: "system" | "user"; content: string }> = [];
-    if (systemInstruction) messages.push({ role: "system", content: systemInstruction });
-    messages.push({ role: "user", content: refinedPrompt });
-
-    const model = config.model || QWEN_DEFAULT_MODEL;
-
-    try {
-      const { text, usage, raw } = await QwenService.chatCompletion(messages, {
-        model,
-        responseFormat: "json_object",
-      });
-      return {
-        text: text || "{}",
-        usage: usage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 },
-        raw,
-      };
-    } catch (e: any) {
-      console.error("Qwen API Error:", e);
-      throw new Error(`Qwen Error: ${e.message}`);
-    }
-  }
-
   throw new Error(`Unknown provider: ${config.provider}`);
 };
 
@@ -222,18 +260,19 @@ const formatCharContext = (context: ProjectContext): string => {
 // Fetch Models for OpenRouter
 export const fetchTextModels = async (baseUrl: string, apiKey: string): Promise<string[]> => {
   let apiBase = baseUrl.trim().replace(/\/+$/, '');
-  // Remove /chat/completions if present to get to root
-  apiBase = apiBase.replace('/chat/completions', '');
-
-  // Ensure /v1/models
-  if (!apiBase.endsWith('/v1')) {
-    if (!apiBase.includes('/v1/')) apiBase = `${apiBase}/v1`;
+  apiBase = apiBase.replace(/\/responses$/, "");
+  if (!apiBase.endsWith("/v1")) {
+    if (!apiBase.includes("/v1/")) apiBase = `${apiBase}/v1`;
   }
 
   try {
     const response = await fetch(`${apiBase}/models`, {
       method: 'GET',
-      headers: { "Authorization": `Bearer ${apiKey}` }
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Script2Video",
+      }
     });
     if (!response.ok) return [];
     const data = await response.json();

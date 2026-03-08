@@ -18,8 +18,9 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { TextProvider } from "../../types";
 import {
   INITIAL_VIDU_CONFIG,
-  QWEN_CHAT_COMPLETIONS_ENDPOINT,
+  OPENROUTER_RESPONSES_BASE_URL,
   QWEN_DEFAULT_MODEL,
+  QWEN_RESPONSES_BASE_URL,
   QWEN_WAN_IMAGE_MODEL,
   QWEN_WAN_VIDEO_MODEL,
   SORA_DEFAULT_BASE_URL,
@@ -38,9 +39,8 @@ import {
   type AgentToolActivityRecord,
 } from "../../agents/runtime/activity";
 import { useWorkflowStore } from "../store/workflowStore";
-import * as GeminiService from "../../services/geminiService";
-import * as QwenService from "../../services/qwenService";
-import type { QwenModel } from "../../services/qwenService";
+import { fetchTextModels } from "../../services/responsesTextService";
+import { fetchQwenModels, type QwenModel } from "../../services/qwenResponsesService";
 import { createStableId } from "../../utils/id";
 
 type Props = {
@@ -123,7 +123,7 @@ const TOOL_ITEMS: ToolItem[] = [
   },
 ];
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const OPENROUTER_BASE_URL = OPENROUTER_RESPONSES_BASE_URL;
 
 const QwenIcon: React.FC<{ size?: number; className?: string }> = ({ size = 12, className }) => (
   <svg
@@ -465,23 +465,18 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [conversationState.activeId, conversationState.items, setConversationState]);
 
   useEffect(() => {
-    if (!config.textConfig.provider || config.textConfig.provider === "gemini") {
+    if (!config.textConfig.provider || (config.textConfig.provider === "qwen" && !config.textConfig.baseUrl)) {
       setConfig((prev) => ({
         ...prev,
         textConfig: {
           ...prev.textConfig,
           provider: "qwen" as TextProvider,
-          baseUrl: prev.textConfig.provider === "openrouter" ? (prev.textConfig.baseUrl || OPENROUTER_BASE_URL) : "",
-          model:
-            prev.textConfig.provider === "openrouter"
-              ? (prev.textConfig.model || "")
-              : (prev.textConfig.provider === "qwen" && prev.textConfig.model
-                  ? prev.textConfig.model
-                  : QWEN_DEFAULT_MODEL),
+          baseUrl: prev.textConfig.baseUrl || QWEN_RESPONSES_BASE_URL,
+          model: prev.textConfig.model || QWEN_DEFAULT_MODEL,
         },
       }));
     }
-  }, [config.textConfig.provider, setConfig]);
+  }, [config.textConfig.provider, config.textConfig.baseUrl, config.textConfig.model, setConfig]);
 
   const setProvider = (p: TextProvider) => {
     const nextConfig = { ...config.textConfig };
@@ -489,7 +484,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       nextConfig.baseUrl = nextConfig.baseUrl || OPENROUTER_BASE_URL;
       nextConfig.model = nextConfig.model || "";
     } else if (p === "qwen") {
-      nextConfig.baseUrl = "";
+      nextConfig.baseUrl = QWEN_RESPONSES_BASE_URL;
       nextConfig.model = nextConfig.model || QWEN_DEFAULT_MODEL;
     }
 
@@ -560,7 +555,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     setIsLoadingTextModels(true);
     setTextModelFetchMessage(null);
     try {
-      const models = await GeminiService.fetchTextModels(baseUrl, apiKey);
+      const models = await fetchTextModels(baseUrl, apiKey);
       if (models.length > 0) {
         setAvailableTextModels(models);
         setTextModelFetchMessage({ type: "success", text: `获取成功，${models.length} 个模型` });
@@ -578,7 +573,10 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     setIsLoadingQwenChatModels(true);
     setQwenChatFetchMessage(null);
     try {
-      const { models, raw } = await QwenService.fetchModels(QWEN_CHAT_COMPLETIONS_ENDPOINT, "GET");
+      const { models, raw } = await fetchQwenModels({
+        apiKey: config.textConfig.apiKey || undefined,
+        baseUrl: config.textConfig.baseUrl || QWEN_RESPONSES_BASE_URL,
+      });
       setQwenChatModels(models);
       setQwenModelsRaw(JSON.stringify(raw, null, 2));
       setQwenChatFetchMessage({
@@ -995,7 +993,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 ) : (
                   <input
                     type="text"
-                    placeholder="e.g. google/gemini-pro-1.5"
+                    placeholder="e.g. openai/gpt-4.1-mini"
                     value={config.textConfig.model}
                     onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
                     className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
@@ -1132,7 +1130,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
                 <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">multimodal-generation · 1</div>
                 <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[12px] text-[var(--app-text-secondary)]">
-                  固定模型：<span className="text-[var(--app-text-primary)] font-semibold">gemini-2.5-flash-image-preview</span>
+                  固定模型：<span className="text-[var(--app-text-primary)] font-semibold">openrouter-managed</span>
                 </div>
                 <div className="text-[11px] text-[var(--app-text-muted)]">用于多模态图片生成，占位可替换。</div>
               </div>

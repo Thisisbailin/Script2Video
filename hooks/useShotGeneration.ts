@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { AppConfig, ProjectData, WorkflowStep } from '../types';
-import * as GeminiService from '../services/geminiService';
+import * as ResponsesTextService from '../services/responsesTextService';
 
 type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats';
 
@@ -72,7 +72,7 @@ export const useShotGeneration = ({
           summary: ep.summary || "（暂无梗概）"
         }));
 
-      const result = await GeminiService.generateEpisodeShots(
+      const result = await ResponsesTextService.generateEpisodeShots(
         config.textConfig,
         episode.title,
         episode.content,

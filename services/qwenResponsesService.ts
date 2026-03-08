@@ -1,6 +1,7 @@
 import { AgentTool, AgentToolCall } from "./toolingTypes";
 import type { TokenUsage } from "../types";
 import { wrapWithProxy } from "../utils/api";
+import { QWEN_RESPONSES_BASE_URL } from "../constants";
 
 export interface QwenResponsesConfig {
   apiKey?: string;
@@ -12,6 +13,12 @@ export interface QwenResponsesOptions {
   tools?: AgentTool[];
   toolChoice?: "auto" | "none";
   parallelToolCalls?: boolean;
+  textFormat?: {
+    type: "json_schema";
+    name: string;
+    schema: Record<string, any>;
+    strict?: boolean;
+  };
   inputItems?: any[];
   inputContent?: Array<{
     type: "input_text";
@@ -26,15 +33,32 @@ export interface QwenResponsesResult<T = any> {
   toolCalls?: AgentToolCall[];
 }
 
-const DEFAULT_BASE = "https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1";
+export type QwenModel = {
+  id: string;
+  object?: string;
+  owned_by?: string;
+  name?: string;
+  description?: string;
+  modalities?: string[];
+  capabilities?: Record<string, any>;
+  context_length?: number;
+} & Record<string, any>;
+
+const DEFAULT_BASE = QWEN_RESPONSES_BASE_URL;
 
 const resolveApiKey = (config: QwenResponsesConfig) => {
   const envKey =
     (typeof import.meta !== "undefined"
-      ? (import.meta.env.QWEN_API_KEY || import.meta.env.VITE_QWEN_API_KEY)
+      ? (import.meta.env.QWEN_API_KEY ||
+        import.meta.env.VITE_QWEN_API_KEY ||
+        import.meta.env.DASHSCOPE_API_KEY ||
+        import.meta.env.VITE_DASHSCOPE_API_KEY)
       : undefined) ||
     (typeof process !== "undefined"
-      ? (process.env?.QWEN_API_KEY || process.env?.VITE_QWEN_API_KEY)
+      ? (process.env?.QWEN_API_KEY ||
+        process.env?.VITE_QWEN_API_KEY ||
+        process.env?.DASHSCOPE_API_KEY ||
+        process.env?.VITE_DASHSCOPE_API_KEY)
       : undefined);
   const key = (config.apiKey || envKey || "").trim();
   if (!key) throw new Error("Missing Qwen API key. 请配置 QWEN_API_KEY/VITE_QWEN_API_KEY 或在设置中填写。");
@@ -45,6 +69,13 @@ const resolveEndpoint = (baseUrl?: string) => {
   const base = (baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, "");
   if (base.endsWith("/responses")) return base;
   return `${base}/responses`;
+};
+
+const resolveModelsEndpoint = (baseUrl?: string) => {
+  const base = (baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, "");
+  if (base.endsWith("/responses")) return base.replace(/\/responses$/, "/models");
+  if (base.endsWith("/models")) return base;
+  return `${base}/models`;
 };
 
 const mapUsage = (usage: any): TokenUsage | undefined => {
@@ -190,6 +221,14 @@ export const createQwenResponse = async (
     parallel_tool_calls: options?.parallelToolCalls ?? true,
     stream: false,
   };
+  if (options?.textFormat) {
+    body.text = {
+      format: {
+        ...options.textFormat,
+        strict: options.textFormat.strict ?? true,
+      },
+    };
+  }
 
   const res = await fetch(wrapWithProxy(endpoint), {
     method: "POST",
@@ -209,5 +248,37 @@ export const createQwenResponse = async (
     usage: mapUsage(data?.usage),
     raw: data,
     toolCalls: collectToolCalls(data),
+  };
+};
+
+export const fetchQwenModels = async (
+  config: QwenResponsesConfig = {}
+): Promise<{ models: QwenModel[]; raw: any }> => {
+  const apiKey = resolveApiKey(config);
+  const endpoint = resolveModelsEndpoint(config.baseUrl);
+  const res = await fetch(wrapWithProxy(endpoint), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Qwen models fetch failed (${res.status}): ${err}`);
+  }
+  const raw = await res.json();
+  const models =
+    (Array.isArray(raw?.data) && raw.data) ||
+    (Array.isArray(raw?.models) && raw.models) ||
+    (Array.isArray(raw?.result) && raw.result) ||
+    [];
+  return {
+    raw,
+    models: models
+      .map((model: any) => ({
+        ...model,
+        id: model.id || model.model || model.name || model?.data?.id || "",
+      }))
+      .filter((model: QwenModel) => model.id),
   };
 };

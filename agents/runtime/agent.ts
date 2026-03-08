@@ -1,9 +1,10 @@
-import { Agent, run, setDefaultOpenAIClient } from "@openai/agents";
+import { Agent, run, setDefaultOpenAIClient, setOpenAIAPI } from "@openai/agents";
 import OpenAI from "openai";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import { createScript2VideoTools } from "../tools";
 import { normalizeQalamToolSettings } from "../../node-workspace/components/qalam/tooling";
 import { composeAgentInstructions } from "./instructions";
+import { OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import type {
   AgentExecutedToolCall,
   Script2VideoAgentRuntime,
@@ -25,19 +26,39 @@ type RuntimeDeps = {
   tracer?: Script2VideoAgentTracer;
 };
 
-const resolveApiKey = (apiKey?: string) => {
+const resolveApiKey = (provider: "qwen" | "openrouter" | undefined, apiKey?: string) => {
+  const env = typeof import.meta !== "undefined" ? import.meta.env : undefined;
+  const processEnv = typeof process !== "undefined" ? process.env : undefined;
   const envKey =
-    (typeof import.meta !== "undefined"
-      ? (import.meta.env.OPENAI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY)
-      : undefined) ||
-    (typeof process !== "undefined"
-      ? (process.env?.OPENAI_API_KEY || process.env?.VITE_OPENAI_API_KEY)
-      : undefined);
+    provider === "openrouter"
+      ? env?.OPENROUTER_API_KEY ||
+        env?.VITE_OPENROUTER_API_KEY ||
+        processEnv?.OPENROUTER_API_KEY ||
+        processEnv?.VITE_OPENROUTER_API_KEY
+      : env?.QWEN_API_KEY ||
+        env?.VITE_QWEN_API_KEY ||
+        env?.DASHSCOPE_API_KEY ||
+        env?.VITE_DASHSCOPE_API_KEY ||
+        processEnv?.QWEN_API_KEY ||
+        processEnv?.VITE_QWEN_API_KEY ||
+        processEnv?.DASHSCOPE_API_KEY ||
+        processEnv?.VITE_DASHSCOPE_API_KEY ||
+        env?.OPENAI_API_KEY ||
+        env?.VITE_OPENAI_API_KEY ||
+        processEnv?.OPENAI_API_KEY ||
+        processEnv?.VITE_OPENAI_API_KEY;
   const finalKey = (apiKey || envKey || "").trim();
   if (!finalKey) {
     throw new Error("缺少 OpenAI 兼容 API Key，无法运行新的 Agent runtime。");
   }
   return finalKey;
+};
+
+const resolveBaseUrl = (provider: "qwen" | "openrouter" | undefined, baseUrl?: string) => {
+  const configured = (baseUrl || "").trim();
+  if (configured) return configured;
+  if (provider === "openrouter") return OPENROUTER_RESPONSES_BASE_URL;
+  return QWEN_RESPONSES_BASE_URL;
 };
 
 const normalizeText = (value: unknown) => {
@@ -90,10 +111,13 @@ export const createScript2VideoAgentRuntime = ({
     tracer?.onRunStarted(input);
 
     const config = await configProvider.getConfig();
-    const apiKey = resolveApiKey(config.apiKey);
+    const provider = config.provider === "openrouter" ? "openrouter" : "qwen";
+    const apiKey = resolveApiKey(provider, config.apiKey);
+    const baseURL = resolveBaseUrl(provider, config.baseUrl);
+    setOpenAIAPI("responses");
     const client = new OpenAI({
       apiKey,
-      baseURL: config.baseUrl,
+      baseURL,
       dangerouslyAllowBrowser: true,
     });
     setDefaultOpenAIClient(client);

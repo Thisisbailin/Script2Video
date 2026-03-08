@@ -47,7 +47,7 @@ import { ProjectorModule } from './components/ProjectorModule';
 import { Dashboard } from './components/Dashboard';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
-import * as GeminiService from './services/geminiService';
+import * as ResponsesTextService from './services/responsesTextService';
 import * as SoraService from './services/soraService';
 import { useWorkflowStore } from './node-workspace/store/workflowStore';
 import defaultShotGuide from './guides/ShotGuide.md?raw';
@@ -1012,7 +1012,7 @@ const App: React.FC = () => {
     try {
       const dramaGuideText = projectData.dramaGuide || defaultDramaGuide;
 
-      const result = await GeminiService.generateDemoScript(config.textConfig, dramaGuideText);
+      const result = await ResponsesTextService.generateDemoScript(config.textConfig, dramaGuideText);
 
       const episodes = parseScriptToEpisodes(result.script);
 
@@ -1023,7 +1023,7 @@ const App: React.FC = () => {
         episodes: episodes,
         globalStyleGuide: result.styleGuide,
         dramaGuide: prev.dramaGuide || dramaGuideText || '',
-        contextUsage: GeminiService.addUsage(prev.contextUsage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, result.usage),
+        contextUsage: ResponsesTextService.addUsage(prev.contextUsage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, result.usage),
         stats: {
           ...prev.stats,
           context: {
@@ -1064,13 +1064,13 @@ const App: React.FC = () => {
     setProcessing(true, "Step 1/6: Analyzing Global Project Arc...");
     setActiveTab('assets');
     try {
-      const result = await GeminiService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
+      const result = await ResponsesTextService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
 
       setProjectData(prev => ({
         ...prev,
         context: { ...prev.context, projectSummary: result.projectSummary },
-        contextUsage: GeminiService.addUsage(prev.contextUsage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, result.usage),
-        phase1Usage: { ...prev.phase1Usage, projectSummary: GeminiService.addUsage(prev.phase1Usage.projectSummary, result.usage) }
+        contextUsage: ResponsesTextService.addUsage(prev.contextUsage || { promptTokens: 0, responseTokens: 0, totalTokens: 0 }, result.usage),
+        phase1Usage: { ...prev.phase1Usage, projectSummary: ResponsesTextService.addUsage(prev.phase1Usage.projectSummary, result.usage) }
       }));
 
       setProcessing(false);
@@ -1111,7 +1111,7 @@ const App: React.FC = () => {
     setProcessing(true, `Step 2/6: Analyzing Episode ${epId} (${analysisTotal - analysisQueue.length + 1}/${analysisTotal})...`);
 
     try {
-      const result = await GeminiService.generateEpisodeSummary(
+      const result = await ResponsesTextService.generateEpisodeSummary(
         config.textConfig,
         episode.title,
         episode.content,
@@ -1127,8 +1127,8 @@ const App: React.FC = () => {
           ...prev,
           episodes: updatedEps,
           context: { ...prev.context, episodeSummaries: updatedContextEpSummaries },
-          contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-          phase1Usage: { ...prev.phase1Usage, episodeSummaries: GeminiService.addUsage(prev.phase1Usage.episodeSummaries, result.usage) }
+          contextUsage: ResponsesTextService.addUsage(prev.contextUsage!, result.usage),
+          phase1Usage: { ...prev.phase1Usage, episodeSummaries: ResponsesTextService.addUsage(prev.phase1Usage.episodeSummaries, result.usage) }
         };
       });
 
@@ -1243,7 +1243,7 @@ const App: React.FC = () => {
           })),
         }));
 
-        briefResult = await GeminiService.generateCharacterRosterBriefs(
+        briefResult = await ResponsesTextService.generateCharacterRosterBriefs(
           config.textConfig,
           seedsForAI,
           projectData.rawScript,
@@ -1300,10 +1300,10 @@ const App: React.FC = () => {
       setProjectData(prev => ({
         ...prev,
         context: { ...prev.context, characters: finalCharacters },
-        contextUsage: briefResult?.usage ? GeminiService.addUsage(prev.contextUsage!, briefResult.usage) : prev.contextUsage,
+        contextUsage: briefResult?.usage ? ResponsesTextService.addUsage(prev.contextUsage!, briefResult.usage) : prev.contextUsage,
         phase1Usage: {
           ...prev.phase1Usage,
-          charList: briefResult?.usage ? GeminiService.addUsage(prev.phase1Usage.charList, briefResult.usage) : prev.phase1Usage.charList
+          charList: briefResult?.usage ? ResponsesTextService.addUsage(prev.phase1Usage.charList, briefResult.usage) : prev.phase1Usage.charList
         }
       }));
       setProcessing(false);
@@ -1344,7 +1344,7 @@ const App: React.FC = () => {
         setProcessing(false);
         return;
       }
-      const result = await GeminiService.analyzeCharacterDepth(
+      const result = await ResponsesTextService.analyzeCharacterDepth(
         config.textConfig,
         {
           name: targetCharacter.name,
@@ -1381,8 +1381,8 @@ const App: React.FC = () => {
         return {
           ...prev,
           context: { ...prev.context, characters: updatedChars },
-          contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-          phase1Usage: { ...prev.phase1Usage, charDeepDive: GeminiService.addUsage(prev.phase1Usage.charDeepDive, result.usage) }
+          contextUsage: ResponsesTextService.addUsage(prev.contextUsage!, result.usage),
+          phase1Usage: { ...prev.phase1Usage, charDeepDive: ResponsesTextService.addUsage(prev.phase1Usage.charDeepDive, result.usage) }
         };
       });
 
@@ -1460,7 +1460,7 @@ const App: React.FC = () => {
           })),
         }));
 
-        result = await GeminiService.generateLocationRosterBriefs(
+        result = await ResponsesTextService.generateLocationRosterBriefs(
           config.textConfig,
           seedsForAI,
           projectData.rawScript,
@@ -1512,10 +1512,10 @@ const App: React.FC = () => {
       setProjectData(prev => ({
         ...prev,
         context: { ...prev.context, locations: finalLocations },
-        contextUsage: result?.usage ? GeminiService.addUsage(prev.contextUsage!, result.usage) : prev.contextUsage,
+        contextUsage: result?.usage ? ResponsesTextService.addUsage(prev.contextUsage!, result.usage) : prev.contextUsage,
         phase1Usage: {
           ...prev.phase1Usage,
-          locList: result?.usage ? GeminiService.addUsage(prev.phase1Usage.locList, result.usage) : prev.phase1Usage.locList
+          locList: result?.usage ? ResponsesTextService.addUsage(prev.phase1Usage.locList, result.usage) : prev.phase1Usage.locList
         }
       }));
       setProcessing(false);
@@ -1560,7 +1560,7 @@ const App: React.FC = () => {
         setProcessing(false);
         return;
       }
-      const result = await GeminiService.analyzeLocationDepth(
+      const result = await ResponsesTextService.analyzeLocationDepth(
         config.textConfig,
         {
           name: targetLocation.name,
@@ -1591,8 +1591,8 @@ const App: React.FC = () => {
         return {
           ...prev,
           context: { ...prev.context, locations: updatedLocs },
-          contextUsage: GeminiService.addUsage(prev.contextUsage!, result.usage),
-          phase1Usage: { ...prev.phase1Usage, locDeepDive: GeminiService.addUsage(prev.phase1Usage.locDeepDive, result.usage) }
+          contextUsage: ResponsesTextService.addUsage(prev.contextUsage!, result.usage),
+          phase1Usage: { ...prev.phase1Usage, locDeepDive: ResponsesTextService.addUsage(prev.phase1Usage.locDeepDive, result.usage) }
         };
       });
 
@@ -1971,13 +1971,7 @@ const App: React.FC = () => {
     };
     return { label: agg.label, color: colorMap[agg.state] || "#a5b4fc" };
   })();
-  const providerLabel = config.textConfig.provider === 'gemini'
-    ? 'Gemini'
-    : config.textConfig.provider === 'openrouter'
-      ? 'OpenRouter'
-      : config.textConfig.provider === 'qwen'
-        ? 'Qwen'
-        : 'Custom';
+  const providerLabel = config.textConfig.provider === 'openrouter' ? 'OpenRouter' : config.textConfig.provider === 'qwen' ? 'Qwen' : 'Qwen';
   const activeModelLabel = `${providerLabel} | ${getActiveModelName()}`;
   const safeEpisode = currentEpisode || projectData.episodes[0];
   const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];

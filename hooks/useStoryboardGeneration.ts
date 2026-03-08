@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { AppConfig, ProjectData, Shot, TokenUsage, WorkflowStep } from "../types";
-import * as GeminiService from "../services/geminiService";
+import * as ResponsesTextService from "../services/responsesTextService";
 import { findNextStoryboardIndex, isEpisodeStoryboardComplete } from "../utils/episodes";
 
 type ActiveTab = "assets" | "script" | "understanding" | "table" | "visuals" | "video" | "stats";
@@ -106,7 +106,7 @@ export const useStoryboardGeneration = ({
 
           setStatus(`Episode ${episode.id}: Processing Scene ${sceneId} (${i + 1}/${shotChunks.length})...`);
 
-          const result = await GeminiService.generateStoryboardPrompts(
+          const result = await ResponsesTextService.generateStoryboardPrompts(
             config.textConfig,
             chunk,
             context,
@@ -114,7 +114,7 @@ export const useStoryboardGeneration = ({
             globalStyleGuide
           );
 
-          currentTotalUsage = GeminiService.addUsage(currentTotalUsage, result.usage);
+          currentTotalUsage = ResponsesTextService.addUsage(currentTotalUsage, result.usage);
 
           setProjectData((prev) => {
             const newEpisodes = [...prev.episodes];

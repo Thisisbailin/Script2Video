@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { AppConfig, ProjectData, TokenUsage, WorkflowStep } from '../types';
-import * as GeminiService from '../services/geminiService';
+import * as ResponsesTextService from '../services/responsesTextService';
 import { findNextSoraIndex, isEpisodeSoraComplete } from '../utils/episodes';
 import { Shot } from '../types';
 
@@ -103,7 +103,7 @@ export const useSoraGeneration = ({
 
         setStatus(`Episode ${episode.id}: Processing Scene ${sceneId} (${i + 1}/${shotChunks.length})...`);
 
-        const result = await GeminiService.generateSoraPrompts(
+        const result = await ResponsesTextService.generateSoraPrompts(
           config.textConfig,
           chunk,
           context,
@@ -111,7 +111,7 @@ export const useSoraGeneration = ({
           globalStyleGuide
         );
 
-        currentTotalUsage = GeminiService.addUsage(currentTotalUsage, result.usage);
+        currentTotalUsage = ResponsesTextService.addUsage(currentTotalUsage, result.usage);
 
         setProjectData(prev => {
           const newEpisodes = [...prev.episodes];
