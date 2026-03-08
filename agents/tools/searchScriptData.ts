@@ -1,11 +1,11 @@
 import { searchScriptData } from "../../node-workspace/components/qalam/toolActions";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
-import { searchScriptDataSchema } from "./schemas";
+import { searchScriptDataParameters, searchScriptDataSchema } from "./schemas";
 
 export const searchScriptDataToolDef = {
   name: "search_script_data",
   description: "Search parsed script content to locate relevant episodes or scenes.",
-  parameters: searchScriptDataSchema,
+  parameters: searchScriptDataParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = searchScriptDataSchema.parse(input);
     return searchScriptData(bridge.getProjectData(), args).result;

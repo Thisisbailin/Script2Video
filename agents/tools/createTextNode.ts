@@ -1,10 +1,10 @@
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
-import { createTextNodeSchema } from "./schemas";
+import { createTextNodeParameters, createTextNodeSchema } from "./schemas";
 
 export const createTextNodeToolDef = {
   name: "create_text_node",
   description: "Create a durable text node in NodeLab for synopsis, analysis, storyboard drafts, prompts, or notes.",
-  parameters: createTextNodeSchema,
+  parameters: createTextNodeParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = createTextNodeSchema.parse(input);
     const title = args.title?.trim() || "文本节点";

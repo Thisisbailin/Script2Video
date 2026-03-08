@@ -170,3 +170,10 @@ export const createNodeWorkflowSchema = z.object({
     )
     .optional(),
 });
+
+export const readProjectDataParameters = z.toJSONSchema(readProjectDataSchema);
+export const searchScriptDataParameters = z.toJSONSchema(searchScriptDataSchema);
+export const upsertCharacterParameters = z.toJSONSchema(upsertCharacterSchema);
+export const upsertLocationParameters = z.toJSONSchema(upsertLocationSchema);
+export const createTextNodeParameters = z.toJSONSchema(createTextNodeSchema);
+export const createNodeWorkflowParameters = z.toJSONSchema(createNodeWorkflowSchema);

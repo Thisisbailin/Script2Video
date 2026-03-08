@@ -1,11 +1,11 @@
 import { readProjectData } from "../../node-workspace/components/qalam/toolActions";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
-import { readProjectDataSchema } from "./schemas";
+import { readProjectDataParameters, readProjectDataSchema } from "./schemas";
 
 export const readProjectDataToolDef = {
   name: "read_project_data",
   description: "Read project data such as script, summaries, characters, locations, and scene content.",
-  parameters: readProjectDataSchema,
+  parameters: readProjectDataParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = readProjectDataSchema.parse(input);
     return readProjectData(bridge.getProjectData(), args).result;

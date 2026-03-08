@@ -1,11 +1,11 @@
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
-import { createNodeWorkflowSchema } from "./schemas";
+import { createNodeWorkflowParameters, createNodeWorkflowSchema } from "./schemas";
 
 export const createNodeWorkflowToolDef = {
   name: "create_node_workflow",
   description:
     "Create a multi-node NodeLab workflow skeleton with optional group wrapper and explicit edges. Use this for real workflow construction, not single note outputs.",
-  parameters: createNodeWorkflowSchema,
+  parameters: createNodeWorkflowParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = createNodeWorkflowSchema.parse(input);
     return bridge.createNodeWorkflow(args);

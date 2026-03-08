@@ -1,11 +1,11 @@
 import { upsertLocation } from "../../node-workspace/components/qalam/toolActions";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
-import { upsertLocationSchema } from "./schemas";
+import { upsertLocationParameters, upsertLocationSchema } from "./schemas";
 
 export const upsertLocationToolDef = {
   name: "upsert_location",
   description: "Create or update location understanding records and zones.",
-  parameters: upsertLocationSchema,
+  parameters: upsertLocationParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = upsertLocationSchema.parse(input);
     let result: any = null;
