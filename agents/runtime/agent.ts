@@ -18,6 +18,13 @@ import type {
   Script2VideoSkillLoader,
 } from "./types";
 
+const WRITE_TOOL_NAMES = new Set([
+  "create_text_node",
+  "create_node_workflow",
+  "upsert_character",
+  "upsert_location",
+]);
+
 type RuntimeDeps = {
   bridge: Script2VideoAgentBridge;
   skillLoader: Script2VideoSkillLoader;
@@ -91,6 +98,25 @@ const buildRunInputText = (input: Script2VideoRunInput, sessionText: string) => 
   }
   blocks.push(`[User Request]\n${input.userText.trim()}`);
   return blocks.join("\n\n");
+};
+
+const buildToolDrivenFinalOutput = (toolResults: any[]) => {
+  const writeResults = toolResults.filter(
+    (toolResult) => toolResult?.type === "function_output" && WRITE_TOOL_NAMES.has(toolResult?.tool?.name)
+  );
+  if (!writeResults.length) return null;
+  const lines = writeResults.map((toolResult) => {
+    const payload = toolResult.output;
+    if (typeof payload === "string") {
+      try {
+        const parsed = JSON.parse(payload);
+        if (parsed?.summary) return `- ${parsed.summary}`;
+      } catch {}
+      return `- ${toolResult.tool.name} 已完成`;
+    }
+    return `- ${toolResult.tool.name} 已完成`;
+  });
+  return ["操作已完成：", ...lines, "如需继续扩展，我可以基于当前结果继续处理。"].join("\n");
 };
 
 export const createScript2VideoAgentRuntime = ({
@@ -174,6 +200,21 @@ export const createScript2VideoAgentRuntime = ({
       }),
       handoffDescription: "Single all-purpose Script2Video creative agent.",
       model: config.model,
+      resetToolChoice: true,
+      toolUseBehavior: async (_context, toolResults) => {
+        const finalOutput = buildToolDrivenFinalOutput(toolResults as any[]);
+        if (!finalOutput) {
+          return {
+            isFinalOutput: false as const,
+            isInterrupted: undefined,
+          };
+        }
+        return {
+          isFinalOutput: true as const,
+          isInterrupted: undefined,
+          finalOutput,
+        };
+      },
       tools: createScript2VideoTools({
         bridge,
         emitEvent: emitToolEvent,
@@ -184,6 +225,7 @@ export const createScript2VideoAgentRuntime = ({
     try {
       const result = await run(agent, buildRunInputText(input, sessionText), {
         signal: options?.signal,
+        maxTurns: 8,
       });
       const finalText = normalizeText(result.finalOutput);
       const runResult: Script2VideoRunResult = {
@@ -214,7 +256,14 @@ export const createScript2VideoAgentRuntime = ({
       tracer?.onRunCompleted(runResult);
       return runResult;
     } catch (error: any) {
-      const message = error?.message || "Agent runtime 执行失败";
+      const isMaxTurns = error?.name === "MaxTurnsExceededError" || String(error?.message || "").includes("Max turns");
+      const toolTrace = toolEvents
+        .slice(-5)
+        .map((toolCall) => `${toolCall.name}:${toolCall.status}${toolCall.summary ? `(${toolCall.summary})` : ""}`)
+        .join(" -> ");
+      const message = isMaxTurns
+        ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
+        : error?.message || "Agent runtime 执行失败";
       await sessionStore.saveSession({
         id: input.sessionId,
         updatedAt: Date.now(),

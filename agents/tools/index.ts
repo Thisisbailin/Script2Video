@@ -44,14 +44,20 @@ export const createScript2VideoTools = ({
         emitEvent?.({ type: "tool_called", call: runningCall });
         try {
           const output = await toolDef.execute(input, bridge);
+          const summary = toolDef.summarize(output);
           const completedCall: AgentExecutedToolCall = {
             ...runningCall,
             status: "success",
             output,
-            summary: toolDef.summarize(output),
+            summary,
           };
           emitEvent?.({ type: "tool_completed", call: completedCall });
-          return JSON.stringify(output);
+          return JSON.stringify({
+            status: "success",
+            tool: toolDef.name,
+            summary,
+            output,
+          });
         } catch (error: any) {
           const failedCall: AgentExecutedToolCall = {
             ...runningCall,
