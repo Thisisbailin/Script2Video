@@ -827,18 +827,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
   }, [messages, isSending]);
 
   return (
-    <div ref={messagesRef} className="qalam-chat-scroll flex-1 overflow-y-auto px-4 py-3 space-y-3">
-      {messages.length === 0 && (
-        <div className="qalam-empty-state rounded-[24px] border border-[var(--app-border)] px-4 py-4">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--app-text-muted)]">Workspace Assistant</div>
-          <div className="mt-2 text-[15px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">
-            让 Qalam 帮你查阅、理解和操作当前项目
-          </div>
-          <div className="mt-2 text-[12px] leading-6 text-[var(--app-text-secondary)]">
-            可直接问剧情、角色、场景，也可以要求它生成工作流骨架。
-          </div>
-        </div>
-      )}
+    <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
       {messages.map((m, idx) => {
         const isUser = m.role === "user";
         const isAssistantPanel = !isUser && !isToolMessage(m) && !isTraceMessage(m);
@@ -854,20 +843,18 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
             ) : isToolMessage(m) ? (
               renderToolCard(m)
             ) : isUser ? (
-              <div className="qalam-user-bubble max-w-[85%] rounded-[22px] px-3.5 py-2.5 text-[13px] leading-relaxed border">
+              <div className="max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]">
                 {m.text}
               </div>
             ) : (
-              <div className="qalam-assistant-bubble max-w-[88%] rounded-[24px] border px-3.5 py-3">
-                {renderAssistantPanel(m, {
-                  reasoningOpen,
-                  onToggleReasoning: (open) =>
-                    setOpenPanels((prev) => ({
-                      ...prev,
-                      [reasoningKey]: open,
-                    })),
-                })}
-              </div>
+              renderAssistantPanel(m, {
+                reasoningOpen,
+                onToggleReasoning: (open) =>
+                  setOpenPanels((prev) => ({
+                    ...prev,
+                    [reasoningKey]: open,
+                  })),
+              })
             )}
           </div>
         );
