@@ -149,13 +149,13 @@ export const FloatingActionBar: React.FC<Props> = ({
     "inline-flex items-center justify-center h-9 px-3 rounded-full bg-emerald-500 text-white text-[12px] font-semibold hover:bg-emerald-400 transition";
 
   const nodeActions = [
-    { label: "Text", hint: "Input text", onClick: onAddText, Icon: MessageSquare },
-    { label: "Group", hint: "Organize nodes", onClick: onAddGroup, Icon: BoxSelect },
-    { label: "Image", hint: "Add an input image", onClick: onAddImage, Icon: ImageIcon },
-    { label: "Img Gen", hint: "Create images", onClick: onAddImageGen, Icon: Sparkles },
-    { label: "WAN Img", hint: "Wan 2.6 image", onClick: onAddWanImageGen, Icon: Sparkles },
-    { label: "Sora Video", hint: "Generate Sora clips", onClick: onAddVideoGen, Icon: Video },
-    { label: "WAN Vid", hint: "Wan 2.6 video", onClick: onAddWanVideoGen, Icon: Video },
+    { label: "Text", hint: "Draft prompts, notes, and structure", meta: "Writing", onClick: onAddText, Icon: MessageSquare, tone: "text-sky-300", surface: "bg-sky-500/12" },
+    { label: "Group", hint: "Frame a reusable block of nodes", meta: "Layout", onClick: onAddGroup, Icon: BoxSelect, tone: "text-amber-300", surface: "bg-amber-500/12" },
+    { label: "Image", hint: "Upload a reference image or still", meta: "Input", onClick: onAddImage, Icon: ImageIcon, tone: "text-emerald-300", surface: "bg-emerald-500/12" },
+    { label: "Img Gen", hint: "Generate concept imagery", meta: "Generation", onClick: onAddImageGen, Icon: Sparkles, tone: "text-cyan-300", surface: "bg-cyan-500/12" },
+    { label: "WAN Img", hint: "Wan 2.6 image workflow", meta: "Generation", onClick: onAddWanImageGen, Icon: Sparkles, tone: "text-teal-300", surface: "bg-teal-500/12" },
+    { label: "Sora Video", hint: "Build Sora motion clips", meta: "Motion", onClick: onAddVideoGen, Icon: Video, tone: "text-rose-300", surface: "bg-rose-500/12" },
+    { label: "WAN Vid", hint: "Wan 2.6 video workflow", meta: "Motion", onClick: onAddWanVideoGen, Icon: Video, tone: "text-violet-300", surface: "bg-violet-500/12" },
   ];
   const projectModules = [
     { key: "assets" as ModuleKey, label: "Assets", desc: "资产与设定", Icon: FolderOpen, tone: "text-emerald-300", surface: "bg-emerald-500/10" },
@@ -350,27 +350,41 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
-            className={`absolute bottom-16 left-0 w-80 animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
+            className={`absolute bottom-16 left-0 w-[360px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
             style={panelStyle}
           >
-            <div className="p-4 space-y-3">
-              <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)] px-2">Add Nodes</div>
+            <div className="p-4 space-y-4">
+              <div className="px-1">
+                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Add Nodes</div>
+                <div className="mt-1 text-[13px] leading-relaxed text-[var(--app-text-secondary)]">
+                  选择一个节点起点，快速补齐输入、生成或组织结构。
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                {nodeActions.map(({ label, hint, onClick, Icon }) => (
+                {nodeActions.map(({ label, hint, meta, onClick, Icon, tone, surface }) => (
                   <button
                     key={label}
                     onClick={() => {
                       onClick();
                       closeMenus();
                     }}
-                    className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition-all group/node"
+                    className="group/node relative overflow-hidden rounded-[22px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent)] px-3 py-3 text-left hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition-all"
                   >
-                    <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-[var(--app-panel-muted)] ring-1 ring-white/8 group-hover/node:bg-[var(--app-panel-soft)] group-hover/node:ring-white/12 transition-all">
-                      <Icon size={18} className="text-[var(--app-text-primary)]" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={`h-10 w-10 flex items-center justify-center rounded-2xl border border-[var(--app-border)] ${surface} ${tone}`}>
+                        <Icon size={18} />
+                      </div>
+                      <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                        {meta}
+                      </div>
                     </div>
-                    <div className="text-left overflow-hidden">
-                      <div className="text-[13px] font-bold text-[var(--app-text-primary)]">{label}</div>
-                      <div className="text-[11px] text-[var(--app-text-secondary)] truncate">{hint}</div>
+                    <div className="mt-3 min-w-0">
+                      <div className="text-[14px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{label}</div>
+                      <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">{hint}</div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
+                      <span>Click to add</span>
+                      <ChevronRight size={14} className="translate-x-0 transition-transform group-hover/node:translate-x-0.5" />
                     </div>
                   </button>
                 ))}

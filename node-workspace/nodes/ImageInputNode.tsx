@@ -196,6 +196,10 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [pickerPos, setPickerPos] = useState<{ left: number; top: number } | null>(null);
   const lastRatioRef = useRef<number | null>(null);
+  const dimensionLabel = useMemo(() => {
+    if (!data.dimensions?.width || !data.dimensions?.height) return null;
+    return `${data.dimensions.width} × ${data.dimensions.height}`;
+  }, [data.dimensions?.height, data.dimensions?.width]);
 
   const mentionTargets = useMemo(() => {
     const chars = labContext?.context?.characters || [];
@@ -530,32 +534,42 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
       <div ref={shellRef} className="image-input-shell relative w-full h-full">
         {data.image ? (
           <div
-            className="image-input-frame"
+            className="image-input-frame group"
             onClick={() => fileInputRef.current?.click()}
           >
             <img src={data.image} alt="preview" className="image-input-img" />
-            <div className="image-input-label">
-              <div
-                ref={editorRef}
-                className="image-input-editor nodrag"
-                contentEditable
-                suppressContentEditableWarning
-                data-placeholder={data.filename ? "Image" : "Name"}
-                onInput={handleInput}
-                onBeforeInput={(e) => {
-                  const native = e.nativeEvent as InputEvent;
-                  if (!native || typeof native.inputType !== "string") return;
-                  if (native.inputType === "insertParagraph" || native.inputType === "insertLineBreak") {
-                    e.preventDefault();
-                  }
-                }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    (e.currentTarget as HTMLDivElement).blur();
-                  }
-                }}
+            <div className="image-input-overlay" />
+            <div className="image-input-topbar">
+              <div className="image-input-meta">
+                <div className="image-input-meta-kicker">Source</div>
+                <div className="image-input-meta-value">{data.filename || "Uploaded image"}</div>
+              </div>
+              {dimensionLabel ? <div className="image-input-badge">{dimensionLabel}</div> : null}
+            </div>
+            <div className="image-input-bottom">
+              <div className="image-input-replace">Replace image</div>
+              <div className="image-input-label">
+                <div
+                  ref={editorRef}
+                  className="image-input-editor nodrag"
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder={data.filename ? "Add a caption" : "Name"}
+                  onInput={handleInput}
+                  onBeforeInput={(e) => {
+                    const native = e.nativeEvent as InputEvent;
+                    if (!native || typeof native.inputType !== "string") return;
+                    if (native.inputType === "insertParagraph" || native.inputType === "insertLineBreak") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLDivElement).blur();
+                    }
+                  }}
                 onKeyUp={() => {
                   if (skipNextCursorUpdateRef.current) {
                     skipNextCursorUpdateRef.current = false;
@@ -564,30 +578,33 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
                   updateCursor();
                   updatePickerPosition();
                 }}
-                onClick={() => {
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
                   updateCursor();
                   updatePickerPosition();
                 }}
-                onFocus={() => {
-                  setIsFocused(true);
-                  updateCursor();
-                  updatePickerPosition();
-                }}
-                onBlur={() => {
-                  setIsFocused(false);
-                  if (!isComposingRef.current && labelDraft !== data.label) {
-                    isLocalUpdateRef.current = true;
-                    commitLabel(labelDraft);
-                  }
-                }}
-                onCompositionStart={() => {
-                  isComposingRef.current = true;
-                }}
-                onCompositionEnd={() => {
-                  isComposingRef.current = false;
-                  handleInput();
-                }}
-              />
+                  onFocus={() => {
+                    setIsFocused(true);
+                    updateCursor();
+                    updatePickerPosition();
+                  }}
+                  onBlur={() => {
+                    setIsFocused(false);
+                    if (!isComposingRef.current && labelDraft !== data.label) {
+                      isLocalUpdateRef.current = true;
+                      commitLabel(labelDraft);
+                    }
+                  }}
+                  onCompositionStart={() => {
+                    isComposingRef.current = true;
+                  }}
+                  onCompositionEnd={() => {
+                    isComposingRef.current = false;
+                    handleInput();
+                  }}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -599,7 +616,12 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
             <div className="image-input-empty-icon">
               <ImagePlus size={22} />
             </div>
-            <div className="image-input-empty-text">Upload</div>
+            <div className="image-input-empty-copy">
+              <div className="image-input-empty-kicker">Image Input</div>
+              <div className="image-input-empty-title">Drop or choose image</div>
+              <div className="image-input-empty-subtitle">JPG, PNG, WebP · click to upload</div>
+            </div>
+            <div className="image-input-empty-cta">Select File</div>
           </button>
         )}
 
