@@ -109,19 +109,16 @@ export interface TextNodeData extends BaseNodeData {
 
 export interface ImageGenNodeData extends BaseNodeData {
   inputImages: string[];
-  inputPrompt: string | null;
   outputImage: string | null;
   status: 'idle' | 'loading' | 'complete' | 'error';
   error: string | null;
   model?: string;
   aspectRatio: string;
   quality?: string;
-  negativePrompt?: string;
   enableInterleave?: boolean;
   outputCount?: number;
   maxImages?: number;
   seed?: number;
-  promptExtend?: boolean;
   watermark?: boolean;
   size?: string;
   designCategory?: "form" | "zone";
@@ -131,7 +128,6 @@ export interface ImageGenNodeData extends BaseNodeData {
 
 export interface VideoGenNodeData extends BaseNodeData {
   inputImages: string[];
-  inputPrompt: string | null;
   videoId?: string;
   videoUrl?: string; // For polling result
   status: 'idle' | 'loading' | 'complete' | 'error';
@@ -142,10 +138,8 @@ export interface VideoGenNodeData extends BaseNodeData {
   quality?: string;
   resolution?: string;
   size?: string;
-  negativePrompt?: string;
   seed?: number;
   watermark?: boolean;
-  promptExtend?: boolean;
   shotType?: "single" | "multi";
   audioEnabled?: boolean;
   audioUrl?: string;
@@ -153,7 +147,6 @@ export interface VideoGenNodeData extends BaseNodeData {
 
 export interface ViduVideoGenNodeData extends BaseNodeData {
   inputImages: string[];
-  inputPrompt?: string | null;
   videoId?: string;
   videoUrl?: string;
   status: 'idle' | 'loading' | 'complete' | 'error';

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Taste Frontend"
+  short_description: "High-taste frontend design and implementation guidance"
+  default_prompt: "Design and implement expressive frontend interfaces with strict design quality, interaction, and performance rules."

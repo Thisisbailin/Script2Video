@@ -18,7 +18,6 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const [progress, setProgress] = useState(0);
 
   const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
-  const showPromptInput = !connectedText;
   const isLoading = data.status === "loading";
   const formMentions = useMemo(
     () => (atMentions || []).filter((m) => !m.kind || m.kind === "form"),
@@ -165,19 +164,6 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                 重试
               </button>
             )}
-          </div>
-        )}
-
-        {showPromptInput && (
-          <div className="group/prompt relative nodrag">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
-              placeholder="输入 Vidu 提示词..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
           </div>
         )}
 

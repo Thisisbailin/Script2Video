@@ -472,7 +472,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "imageGen":
       return {
         inputImages: [],
-        inputPrompt: null,
         outputImage: null,
         status: "idle",
         error: null,
@@ -481,21 +480,18 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "wanImageGen":
       return {
         inputImages: [],
-        inputPrompt: null,
         outputImage: null,
         status: "idle",
         error: null,
         aspectRatio: "1:1",
         model: "wan2.6-image",
         enableInterleave: false,
-        promptExtend: false,
         watermark: false,
         outputCount: 1,
       } as ImageGenNodeData;
     case "soraVideoGen":
       return {
         inputImages: [],
-        inputPrompt: null,
         videoId: undefined,
         videoUrl: undefined,
         status: "idle",
@@ -505,7 +501,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "wanVideoGen":
       return {
         inputImages: [],
-        inputPrompt: null,
         videoId: undefined,
         videoUrl: undefined,
         status: "idle",
@@ -516,7 +511,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         quality: "standard",
         resolution: "720P",
         shotType: "multi",
-        promptExtend: false,
         watermark: false,
         audioEnabled: false,
         audioUrl: "",
@@ -524,7 +518,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "viduVideoGen":
       return {
         inputImages: [],
-        inputPrompt: null,
         videoId: undefined,
         videoUrl: undefined,
         status: "idle",
@@ -1066,7 +1059,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         offPeak: true,
         model: "viduq2-pro",
         subjects: [],
-        inputPrompt: promptText,
         status: "idle",
         error: null,
         inputImages: imageUrls.map((i) => i.url),

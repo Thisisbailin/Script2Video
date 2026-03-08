@@ -23,8 +23,7 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
     await runImageGen(id);
   };
 
-  const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
-  const showPromptInput = !connectedText;
+  const { images: connectedImages } = getConnectedInputs(id);
   const enableInterleave = data.enableInterleave ?? false;
   const effectiveInterleave = enableInterleave || connectedImages.length === 0;
   const outputCount = Math.max(1, Math.min(4, data.outputCount ?? 1));
@@ -159,28 +158,6 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           </div>
         )}
 
-        {showPromptInput && (
-          <div className="group/prompt relative">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
-
-        <div className="group/prompt relative">
-          <textarea
-            className="node-textarea w-full text-[10px] leading-relaxed outline-none transition-all resize-none min-h-[48px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
-            placeholder="Negative prompt (可选)..."
-            value={data.negativePrompt || ""}
-            onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
-        </div>
-
         {forms.length > 0 && (
           <div className="node-panel space-y-2 p-3">
             <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
@@ -274,15 +251,6 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
                 }}
               />
             </div>
-          </div>
-          <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
-            <span>提示词扩展</span>
-            <button
-              className={`h-5 w-9 rounded-full border transition-all ${data.promptExtend !== false ? "bg-emerald-500/20 border-emerald-400/40" : "bg-white/5 border-white/10"}`}
-              onClick={() => updateNodeData(id, { promptExtend: data.promptExtend === false })}
-            >
-              <span className={`block h-4 w-4 rounded-full bg-white/70 transition-all ${data.promptExtend !== false ? "translate-x-4" : "translate-x-1"}`} />
-            </button>
           </div>
           <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
             <span>添加水印</span>

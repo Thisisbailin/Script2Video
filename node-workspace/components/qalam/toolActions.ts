@@ -46,6 +46,9 @@ const mergeCharacterForms = (
       designRationale: form.designRationale,
       styleRef: form.styleRef,
       genPrompts: form.genPrompts,
+      voiceId: form.voiceId,
+      voicePrompt: form.voicePrompt,
+      previewAudioUrl: form.previewAudioUrl,
     }));
     return next.filter((form) => !deleteSet.has(form.id));
   }
@@ -79,6 +82,9 @@ const mergeCharacterForms = (
       if (hasKey(incoming, "designRationale")) updated.designRationale = incoming.designRationale;
       if (hasKey(incoming, "styleRef")) updated.styleRef = incoming.styleRef;
       if (hasKey(incoming, "genPrompts")) updated.genPrompts = incoming.genPrompts;
+      if (hasKey(incoming, "voiceId")) updated.voiceId = incoming.voiceId;
+      if (hasKey(incoming, "voicePrompt")) updated.voicePrompt = incoming.voicePrompt;
+      if (hasKey(incoming, "previewAudioUrl")) updated.previewAudioUrl = incoming.previewAudioUrl;
       nextForms[idx] = updated;
       return;
     }
@@ -104,6 +110,9 @@ const mergeCharacterForms = (
       designRationale: incoming.designRationale,
       styleRef: incoming.styleRef,
       genPrompts: incoming.genPrompts,
+      voiceId: incoming.voiceId,
+      voicePrompt: incoming.voicePrompt,
+      previewAudioUrl: incoming.previewAudioUrl,
     });
   });
 
@@ -237,6 +246,9 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
     matchIndex = chars.findIndex((c) => c.name === name);
   }
   const existing = matchIndex >= 0 ? chars[matchIndex] : null;
+  if (!existing && !name) {
+    throw new Error("缺少角色名称，无法创建角色。");
+  }
   const id = input.id || existing?.id || createStableId("char");
 
   let next: Character = existing
@@ -820,6 +832,9 @@ export const upsertLocation = (prev: ProjectData, args: any): UpsertResult => {
     matchIndex = locations.findIndex((l) => l.name === name);
   }
   const existing = matchIndex >= 0 ? locations[matchIndex] : null;
+  if (!existing && !name) {
+    throw new Error("缺少场景名称，无法创建场景。");
+  }
   const id = input.id || existing?.id || createStableId("loc");
 
   let next: Location = existing

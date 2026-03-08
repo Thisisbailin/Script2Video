@@ -318,7 +318,6 @@ export interface ViduReferenceRequest {
 
 export interface ViduVideoGenNodeData extends BaseNodeData {
   inputImages: string[];
-  inputPrompt?: string | null;
   videoId?: string;
   videoUrl?: string;
   status: 'idle' | 'loading' | 'complete' | 'error';
@@ -354,6 +353,9 @@ export interface TextServiceConfig {
 
 export type QalamToolSettings = {
   projectData?: {
+    enabled?: boolean;
+  };
+  workflowBuilder?: {
     enabled?: boolean;
   };
   characterLocation?: {

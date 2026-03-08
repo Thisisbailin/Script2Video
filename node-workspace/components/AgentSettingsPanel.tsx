@@ -12,13 +12,11 @@ import {
   Sparkles,
   Video,
   X,
-  Zap,
 } from "lucide-react";
 import { useConfig } from "../../hooks/useConfig";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { TextProvider } from "../../types";
 import {
-  AVAILABLE_MODELS,
   INITIAL_VIDU_CONFIG,
   QWEN_CHAT_COMPLETIONS_ENDPOINT,
   QWEN_DEFAULT_MODEL,
@@ -28,6 +26,7 @@ import {
   SORA_DEFAULT_MODEL,
   DEFAULT_QALAM_TOOL_SETTINGS,
 } from "../../constants";
+import { clearPersistedAgentSession } from "../../agents/runtime/session";
 import { useWorkflowStore } from "../store/workflowStore";
 import * as GeminiService from "../../services/geminiService";
 import * as QwenService from "../../services/qwenService";
@@ -56,36 +55,60 @@ type ToolKey = "project-data" | "asset-library" | "workflow-builder";
 
 type ToolItem = {
   key: ToolKey;
+  capability: string;
   label: string;
+  title: string;
   description: string;
+  tools: string[];
+  surfaces: string[];
+  boundary: string;
+  artifact: string;
   note: string;
-  status: "ready" | "placeholder";
+  status: "ready";
   Icon: React.ComponentType<{ size?: number; className?: string }>;
 };
 
 const TOOL_ITEMS: ToolItem[] = [
   {
     key: "project-data",
-    label: "项目数据查询",
-    description: "用于读取剧本或项目数据片段，供 Agent 作为证据或上下文。",
-    note: "已接入：read_project_data / search_script_data。",
+    capability: "查阅",
+    label: "Inspect",
+    title: "项目数据查询",
+    description: "Agent 根据需求检索剧本、分集、角色、场景与理解摘要，为回答和后续动作提供证据。",
+    tools: ["read_project_data", "search_script_data"],
+    surfaces: ["raw script", "episode / scene", "project summary", "character library", "location library"],
+    boundary: "只读，不允许直接修改项目状态。",
+    artifact: "返回证据、摘要和结构化片段，作为理解与操作的前置输入。",
+    note: "对应第一类能力：查阅。",
     status: "ready",
     Icon: Eye,
   },
   {
     key: "asset-library",
-    label: "资产库写入",
-    description: "将角色与场景这一致的结构写回统一资产库，支持局部更新与合并。",
-    note: "已接入：工具接口为 upsert_character / upsert_location。",
+    capability: "理解",
+    label: "Understand",
+    title: "资产库持久化",
+    description: "Agent 将对项目的理解写回角色库与场景库，让这些理解成为后续可复用、可检索的长期事实层。",
+    tools: ["upsert_character", "upsert_location"],
+    surfaces: ["character records", "character forms", "location records", "location zones"],
+    boundary: "只允许通过结构化 upsert 写入，不允许绕过 schema 直接改 store。",
+    artifact: "形成可持续迭代的理解资产，供后续查阅、分镜和 workflow 创建继续使用。",
+    note: "对应第二类能力：理解。",
     status: "ready",
     Icon: Layers,
   },
   {
     key: "workflow-builder",
-    label: "节点工作流构建",
-    description: "让 Agent 自动搭建可执行的节点工作流。",
-    note: "占位：后续接入工作流编排与节点连接能力。",
-    status: "placeholder",
+    capability: "操作",
+    label: "Operate",
+    title: "节点工作流构建",
+    description: "Agent 不只写单个文本节点，而是可以创建 group、节点、连线和暂停边，搭出可执行的 NodeLab 工作流骨架。",
+    tools: ["create_text_node", "create_node_workflow"],
+    surfaces: ["text node", "group wrapper", "multi-node workflow", "typed edges", "pause edges"],
+    boundary: "创建前先校验 handle 与连线合法性；失败会回滚，不留下半成品。",
+    artifact: "输出可继续编辑和执行的 workflow scaffold，承接“查阅”和“理解”的结果。",
+    note: "对应第三类能力：操作。",
+    status: "ready",
     Icon: Code2,
   },
 ];
@@ -231,11 +254,16 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     const current = config.textConfig.qalamTools || {};
     const baseProject = base.projectData || {};
     const currentProject = current.projectData || {};
+    const baseWorkflow = base.workflowBuilder || {};
+    const currentWorkflow = current.workflowBuilder || {};
     const baseCharacter = base.characterLocation || {};
     const currentCharacter = current.characterLocation || {};
     return {
       projectData: {
         enabled: currentProject.enabled ?? baseProject.enabled ?? true,
+      },
+      workflowBuilder: {
+        enabled: currentWorkflow.enabled ?? baseWorkflow.enabled ?? true,
       },
       characterLocation: {
         enabled: currentCharacter.enabled ?? baseCharacter.enabled ?? true,
@@ -254,6 +282,15 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     [activeTool]
   );
   const ActiveToolIcon = activeToolItem.Icon;
+  const toolEnabledCount = useMemo(
+    () =>
+      [
+        qalamToolSettings.projectData.enabled,
+        qalamToolSettings.characterLocation.enabled,
+        qalamToolSettings.workflowBuilder.enabled,
+      ].filter(Boolean).length,
+    [qalamToolSettings]
+  );
   const updateProjectToolSettings = (patch: Partial<typeof qalamToolSettings.projectData>) => {
     setConfig((prev) => {
       const existing = prev.textConfig.qalamTools?.projectData || {};
@@ -282,6 +319,23 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           qalamTools: {
             ...(prev.textConfig.qalamTools || {}),
             characterLocation: next,
+          },
+        },
+      };
+    });
+  };
+
+  const updateWorkflowToolSettings = (patch: Partial<typeof qalamToolSettings.workflowBuilder>) => {
+    setConfig((prev) => {
+      const existing = prev.textConfig.qalamTools?.workflowBuilder || {};
+      const next = { ...existing, ...patch };
+      return {
+        ...prev,
+        textConfig: {
+          ...prev.textConfig,
+          qalamTools: {
+            ...(prev.textConfig.qalamTools || {}),
+            workflowBuilder: next,
           },
         },
       };
@@ -322,20 +376,27 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [conversationState.activeId, conversationState.items, setConversationState]);
 
   useEffect(() => {
-    if (!config.textConfig.provider) {
+    if (!config.textConfig.provider || config.textConfig.provider === "gemini") {
       setConfig((prev) => ({
         ...prev,
-        textConfig: { ...prev.textConfig, provider: "gemini" as TextProvider },
+        textConfig: {
+          ...prev.textConfig,
+          provider: "qwen" as TextProvider,
+          baseUrl: prev.textConfig.provider === "openrouter" ? (prev.textConfig.baseUrl || OPENROUTER_BASE_URL) : "",
+          model:
+            prev.textConfig.provider === "openrouter"
+              ? (prev.textConfig.model || "")
+              : (prev.textConfig.provider === "qwen" && prev.textConfig.model
+                  ? prev.textConfig.model
+                  : QWEN_DEFAULT_MODEL),
+        },
       }));
     }
   }, [config.textConfig.provider, setConfig]);
 
   const setProvider = (p: TextProvider) => {
     const nextConfig = { ...config.textConfig };
-    if (p === "gemini") {
-      nextConfig.baseUrl = "";
-      nextConfig.model = "gemini-2.5-flash";
-    } else if (p === "openrouter") {
+    if (p === "openrouter") {
       nextConfig.baseUrl = nextConfig.baseUrl || OPENROUTER_BASE_URL;
       nextConfig.model = nextConfig.model || "";
     } else if (p === "qwen") {
@@ -374,6 +435,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   const handleClearConversation = (id: string) => {
+    clearPersistedAgentSession(id);
     setConversationState((prev) => {
       const remaining = prev.items.filter((item) => item.id !== id);
       const nextActive =
@@ -584,24 +646,22 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
 
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-widest app-text-muted">Agents</div>
-                <div className="flex flex-wrap gap-2">
-                  {["主Agent · 制片人", "导演", "分镜导演", "美术设计", "指令师"].map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1 rounded-full border border-[var(--app-border)] text-[11px] text-[var(--app-text-secondary)]"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="text-[11px] app-text-muted">规划中，敬请期待。</div>
-              </div>
-
-              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
                 <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
+                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">单一 Agent 能力面板</div>
+                      <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                        按“查阅 / 理解 / 操作”三类能力组织，而不是按旧架构零散堆工具。
+                      </div>
+                    </div>
+                    <div className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                      {toolEnabledCount}/3 已启用
+                    </div>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-2">
-                  {TOOL_ITEMS.map(({ key, label, Icon, status }) => {
+                  {TOOL_ITEMS.map(({ key, capability, title, description, Icon, status, tools }) => {
                     const active = activeTool === key;
                     return (
                       <button
@@ -617,15 +677,24 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                             : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
                         }`}
                       >
-                        <span className="flex items-center gap-2">
-                          <Icon size={14} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
-                          {label}
+                        <span className="flex items-start gap-3 text-left">
+                          <span className={`mt-0.5 h-8 w-8 rounded-2xl border flex items-center justify-center ${active ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)]" : "border-[var(--app-border)] bg-transparent"}`}>
+                            <Icon size={14} className={active ? "text-[var(--app-text-primary)]" : "text-[var(--app-text-secondary)]"} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-2">
+                              <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">{capability}</span>
+                              <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[10px] text-[var(--app-text-secondary)]">
+                                {tools.length} tools
+                              </span>
+                            </span>
+                            <span className="mt-1 block text-[12px] font-semibold text-[var(--app-text-primary)]">{title}</span>
+                            <span className="mt-1 block text-[11px] leading-relaxed text-[var(--app-text-secondary)] line-clamp-2">{description}</span>
+                          </span>
                         </span>
-                        {status === "placeholder" ? (
-                          <span className="text-[10px] text-[var(--app-text-muted)]">占位</span>
-                        ) : (
-                          <span className="text-[10px] text-emerald-300">已接入</span>
-                        )}
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${status === "ready" ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "text-[var(--app-text-muted)]"}`}>
+                          已接入
+                        </span>
                       </button>
                     );
                   })}
@@ -707,9 +776,11 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   {activeType === "chat" && (
                     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
                       <div className="text-[11px] uppercase tracking-widest app-text-muted">Chat Providers</div>
+                      <div className="text-[11px] text-[var(--app-text-muted)]">
+                        Qalam Agent 已切换到 OpenAI Agents SDK runtime。`Qwen` 是主选路线，`OpenRouter` 作为 OpenAI 兼容备用路线保留；图片附件暂未接入。
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {[
-                          { key: "gemini" as TextProvider, label: "Gemini", Icon: Zap },
                           { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
                           { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
                         ].map(({ key, label, Icon }) => {
@@ -796,28 +867,6 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
 
-          {activeType === "chat" && config.textConfig.provider === "gemini" && (
-            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-              <div>
-                <label className="block text-xs text-[var(--app-text-secondary)] mb-2">Gemini Model</label>
-                <select
-                  value={config.textConfig.model}
-                  onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
-                  className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
-                >
-                  {AVAILABLE_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="text-[11px] text-[var(--app-text-muted)]">
-                使用环境变量 GEMINI_API_KEY / VITE_GEMINI_API_KEY。
-              </div>
-            </div>
-          )}
-
           {activeType === "chat" && config.textConfig.provider === "openrouter" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div>
@@ -865,7 +914,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 )}
               </div>
               <div className="text-[11px] text-[var(--app-text-muted)]">
-                使用环境变量 OPENROUTER_API_KEY / VITE_OPENROUTER_API_KEY。
+                备用路线。使用环境变量 OPENROUTER_API_KEY / VITE_OPENROUTER_API_KEY。
               </div>
             </div>
           )}
@@ -876,7 +925,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
               </div>
               <div className="text-[11px] text-[var(--app-text-muted)]">
-                使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
+                主选路线。使用环境变量 QWEN_API_KEY / VITE_QWEN_API_KEY。
               </div>
 
               <div className="space-y-4">
@@ -1079,59 +1128,180 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               )}
 
               {selectedPanel === "tools" && (
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                  <div className="text-[11px] uppercase tracking-widest app-text-muted">Tools</div>
-                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                        <ActiveToolIcon size={14} className="text-[var(--app-text-primary)]" />
-                        {activeToolItem.label}
-                      </div>
-                      {activeToolItem.status === "placeholder" ? (
-                        <span className="text-[10px] text-[var(--app-text-muted)]">占位</span>
-                      ) : (
-                        <span className="text-[10px] text-emerald-300">已接入</span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.description}</div>
-                    {activeTool === "project-data" ? (
-                      <>
-                        <div className="text-[12px] text-[var(--app-text-secondary)]">
-                          接口：<span className="text-[var(--app-text-primary)]">read_project_data</span> /
-                          <span className="text-[var(--app-text-primary)]"> search_script_data</span>
-                        </div>
-                        <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
-                          <input
-                            type="checkbox"
-                            checked={qalamToolSettings.projectData.enabled}
-                            onChange={(e) => updateProjectToolSettings({ enabled: e.target.checked })}
-                            className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                          />
-                          启用项目数据查询工具
-                        </label>
-                        <div className="text-[11px] text-[var(--app-text-muted)]">
-                          覆盖范围：剧本、理解摘要、角色库、场景库、分集摘要。证据仅引用集-场景（如 1-1）。
-                        </div>
-                      </>
-                    ) : activeTool === "asset-library" ? (
-                      <>
-                        <div className="text-[12px] text-[var(--app-text-secondary)]">
-                          接口：<span className="text-[var(--app-text-primary)]">upsert_character</span> /
-                          <span className="text-[var(--app-text-primary)]"> upsert_location</span>
-                        </div>
-                        <div className="text-[11px] text-[var(--app-text-muted)]">下列选项作为默认值，仅在工具参数缺省时生效。</div>
-                        <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
-                          <input
-                            type="checkbox"
-                            checked={qalamToolSettings.characterLocation.enabled}
-                            onChange={(e) => updateAssetToolSettings({ enabled: e.target.checked })}
-                            className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
-                          />
-                          启用资产库写入工具
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                            <ActiveToolIcon size={16} className="text-[var(--app-text-primary)]" />
+                          </div>
                           <div>
-                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">合并策略</label>
+                            <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--app-text-muted)]">
+                              {activeToolItem.capability} capability
+                            </div>
+                            <div className="text-[13px] font-semibold text-[var(--app-text-primary)]">
+                              {activeToolItem.title}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="max-w-[62ch] text-[12px] leading-relaxed text-[var(--app-text-secondary)]">
+                          {activeToolItem.description}
+                        </div>
+                      </div>
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                        已接入
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">Tool Contract</div>
+                        <div className="mt-2 text-[16px] font-semibold text-[var(--app-text-primary)]">{activeToolItem.tools.length}</div>
+                        <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">真实 runtime tools</div>
+                      </div>
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">Persistence</div>
+                        <div className="mt-2 text-[16px] font-semibold text-[var(--app-text-primary)]">
+                          {activeTool === "project-data" ? "Read-only" : activeTool === "asset-library" ? "Asset-backed" : "Workflow-backed"}
+                        </div>
+                        <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.artifact}</div>
+                      </div>
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">Boundary</div>
+                        <div className="mt-2 text-[16px] font-semibold text-[var(--app-text-primary)]">{activeToolItem.capability}</div>
+                        <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">{activeToolItem.boundary}</div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">Runtime Tools</div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {activeToolItem.tools.map((toolName) => (
+                            <span
+                              key={toolName}
+                              className="px-3 py-1.5 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[11px] text-[var(--app-text-primary)]"
+                            >
+                              {toolName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">作用对象</div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {activeToolItem.surfaces.map((surface) => (
+                            <span
+                              key={surface}
+                              className="px-3 py-1.5 rounded-full border border-[var(--app-border)] text-[11px] text-[var(--app-text-secondary)]"
+                            >
+                              {surface}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {activeTool === "project-data" ? (
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">查阅开关</div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                              控制 Agent 是否可以读取项目事实层，并以证据驱动回答与后续理解。
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
+                            <input
+                              type="checkbox"
+                              checked={qalamToolSettings.projectData.enabled}
+                              onChange={(e) => updateProjectToolSettings({ enabled: e.target.checked })}
+                              className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
+                            />
+                            启用
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Evidence Rule</div>
+                            <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                              回答优先引用剧本、分集、场景、角色库和场景库，而不是仅依赖短期对话记忆。
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Return Shape</div>
+                            <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                              返回结构化片段、检索命中和 evidence-friendly 摘要，供理解与操作继续消费。
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : activeTool === "workflow-builder" ? (
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">操作开关</div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                              控制 Agent 是否可以把理解转成 NodeLab 中的真实节点与 workflow scaffold。
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
+                            <input
+                              type="checkbox"
+                              checked={qalamToolSettings.workflowBuilder.enabled}
+                              onChange={(e) => updateWorkflowToolSettings({ enabled: e.target.checked })}
+                              className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
+                            />
+                            启用
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Single Node</div>
+                            <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                              `create_text_node` 负责单个理解文档、提示词包或说明节点。
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Workflow Scaffold</div>
+                            <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                              `create_node_workflow` 负责 group、多节点、typed edges 与 pause edges。
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Safety</div>
+                            <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                              连线先校验；若创建失败会回滚，不留下半成品 workflow。
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : activeTool === "asset-library" ? (
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">理解写回开关</div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                              控制 Agent 是否可以把对角色、形态、场景、分区的理解持久化到资产库。
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
+                            <input
+                              type="checkbox"
+                              checked={qalamToolSettings.characterLocation.enabled}
+                              onChange={(e) => updateAssetToolSettings({ enabled: e.target.checked })}
+                              className="h-4 w-4 text-emerald-400 border-[var(--app-border)] rounded bg-[var(--app-panel-muted)]"
+                            />
+                            启用
+                          </label>
+                        </div>
+                        <div className="text-[11px] text-[var(--app-text-muted)]">
+                          下列选项作为默认行为，仅在 tool 参数未显式覆盖时生效。
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">记录合并策略</label>
                             <select
                               value={qalamToolSettings.characterLocation.mergeStrategy}
                               onChange={(e) => updateAssetToolSettings({ mergeStrategy: e.target.value as any })}
@@ -1142,7 +1312,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">形态合并</label>
+                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">角色形态合并</label>
                             <select
                               value={qalamToolSettings.characterLocation.formsMode}
                               onChange={(e) => updateAssetToolSettings({ formsMode: e.target.value as any })}
@@ -1153,7 +1323,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">分区合并</label>
+                            <label className="block text-[11px] text-[var(--app-text-secondary)] mb-1">场景分区合并</label>
                             <select
                               value={qalamToolSettings.characterLocation.zonesMode}
                               onChange={(e) => updateAssetToolSettings({ zonesMode: e.target.value as any })}
@@ -1164,10 +1334,54 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                             </select>
                           </div>
                         </div>
-                      </>
-                    ) : (
-                      <div className="text-[11px] text-[var(--app-text-muted)]">{activeToolItem.note}</div>
-                    )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-widest app-text-muted">Capability Map</div>
+                      <div className="mt-2 text-[12px] leading-relaxed text-[var(--app-text-secondary)]">
+                        单一全能型 Agent 沿着查阅、理解、操作三种动作推进工作，而不是通过多个子 Agent 分工。
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {TOOL_ITEMS.map((item, index) => {
+                        const active = item.key === activeTool;
+                        return (
+                          <div
+                            key={item.key}
+                            className={`rounded-2xl border px-3 py-3 transition ${
+                              active
+                                ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)]"
+                                : "border-[var(--app-border)] bg-transparent"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="h-7 w-7 rounded-full border border-[var(--app-border)] flex items-center justify-center text-[11px] font-semibold text-[var(--app-text-primary)]">
+                                  {index + 1}
+                                </div>
+                                <div>
+                                  <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">{item.capability}</div>
+                                  <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">{item.title}</div>
+                                </div>
+                              </div>
+                              <div className="text-[10px] text-[var(--app-text-muted)]">{item.tools.length} tools</div>
+                            </div>
+                            <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                              {item.note}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">Execution Principle</div>
+                      <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                        Agent 的状态变更必须通过 tools 完成。查阅负责取证，理解负责沉淀事实，操作负责把事实转成节点工作流。
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

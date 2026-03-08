@@ -4,6 +4,7 @@ import type { ProjectData } from "../../../types";
 import type { Message, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { buildToolMessages, buildToolCallMeta, buildToolSummary, normalizeQalamToolSettings } from "./tooling";
 import { readProjectData, searchScriptData, upsertCharacter, upsertLocation } from "./toolActions";
+import { useWorkflowStore } from "../../store/workflowStore";
 
 type Options = {
   setMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
@@ -23,6 +24,11 @@ export const useQalamTooling = ({
   toolSettings,
 }: Options) => {
   const settings = normalizeQalamToolSettings(toolSettings);
+  const { addNode, nodes, viewport } = useWorkflowStore((state) => ({
+    addNode: state.addNode,
+    nodes: state.nodes,
+    viewport: state.viewport,
+  }));
   const updateToolStatus = useCallback(
     (callId: string, status: ToolStatus, summary?: string) => {
       setMessages((prev) =>
@@ -80,9 +86,24 @@ export const useQalamTooling = ({
         });
         return result;
       }
+      if (call.name === "create_text_node") {
+        const text = typeof args?.text === "string" ? args.text.trim() : "";
+        if (!text) {
+          throw new Error("文本节点内容为空，无法创建。");
+        }
+        const title = typeof args?.title === "string" && args.title.trim() ? args.title.trim() : "文本节点";
+        const hasXY = typeof args?.x === "number" && typeof args?.y === "number";
+        const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;
+        const baseY = viewport ? (-viewport.y + 120) / viewport.zoom : 120;
+        const offset = (nodes.length % 5) * 24;
+        const position = hasXY ? { x: args.x, y: args.y } : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
+        const parentId = typeof args?.parentId === "string" && args.parentId.trim() ? args.parentId.trim() : undefined;
+        const nodeId = addNode("text", position, parentId, { title, text });
+        return { kind: "text_node", id: nodeId, title };
+      }
       throw new Error(`未知工具: ${call.name || "unknown"}`);
     },
-    [setProjectData]
+    [addNode, nodes.length, setProjectData, viewport, settings]
   );
 
   const handleToolCalls = useCallback(
@@ -101,7 +122,8 @@ export const useQalamTooling = ({
             tc.name !== "upsert_location" &&
             tc.name !== "read_project_data" &&
             tc.name !== "read_script_data" &&
-            tc.name !== "search_script_data"
+            tc.name !== "search_script_data" &&
+            tc.name !== "create_text_node"
           ) {
             updateToolStatus(callId, "success");
             appendToolResult({
@@ -138,6 +160,16 @@ export const useQalamTooling = ({
               status: "success",
               summary,
               evidence: Array.isArray(args?.evidence) ? args.evidence : undefined,
+              callId,
+              output,
+            });
+          } else if (tc.name === "create_text_node") {
+            const output = JSON.stringify(result || {});
+            outputs.push({ name: tc.name || "tool", callId, output });
+            appendToolResult({
+              name: tc.name || "tool",
+              status: "success",
+              summary,
               callId,
               output,
             });

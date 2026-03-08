@@ -20,8 +20,7 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ensureSeed = () => Math.floor(Math.random() * 1_000_000_000);
 
-  const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
-  const showPromptInput = !connectedText;
+  const { images: connectedImages } = getConnectedInputs(id);
   const hasConnectedImages = connectedImages.length > 0;
   const isLoading = data.status === "loading";
   const currentResolution = (data.resolution || "720P").toUpperCase();
@@ -241,19 +240,6 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           </div>
         )}
 
-        {showPromptInput && (
-          <div className="group/prompt relative nodrag">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
-
         {hasConnectedImages && (
           <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/70">
             {connectedImages.length} image reference{connectedImages.length > 1 ? "s" : ""} connected
@@ -322,7 +308,6 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
               className="node-control node-control--tight text-[9px] font-bold px-2 text-[var(--node-text-secondary)] outline-none appearance-none cursor-pointer transition-colors w-full nodrag"
               value={data.shotType || "multi"}
               onChange={(e) => updateNodeData(id, { shotType: e.target.value as "single" | "multi" })}
-              disabled={data.promptExtend === false}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <option value="single">Single Shot</option>
@@ -333,15 +318,6 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
 
         <div className="node-panel space-y-2 p-3 nodrag">
           <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">WAN 参数</label>
-          <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
-            <span>提示词扩展</span>
-            <button
-              className={`h-5 w-9 rounded-full border transition-all ${data.promptExtend !== false ? "bg-emerald-500/20 border-emerald-400/40" : "bg-white/5 border-white/10"}`}
-              onClick={() => updateNodeData(id, { promptExtend: data.promptExtend === false })}
-            >
-              <span className={`block h-4 w-4 rounded-full bg-white/70 transition-all ${data.promptExtend !== false ? "translate-x-4" : "translate-x-1"}`} />
-            </button>
-          </div>
           <div className="flex items-center justify-between text-[9px] font-semibold text-[var(--node-text-secondary)]">
             <span>添加水印</span>
             <button
@@ -362,17 +338,6 @@ export const WanVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
                 const next = e.target.value === "" ? undefined : Number(e.target.value);
                 updateNodeData(id, { seed: Number.isFinite(next) ? next : undefined });
               }}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[8px] uppercase tracking-widest text-[var(--node-text-secondary)]">负向提示词</label>
-            <textarea
-              className="node-textarea w-full text-[10px] leading-relaxed outline-none transition-all resize-none min-h-[44px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
-              placeholder="Negative prompt (可选)..."
-              value={data.negativePrompt || ""}
-              onChange={(e) => updateNodeData(id, { negativePrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             />
           </div>

@@ -162,12 +162,11 @@ export const useLabExecutor = () => {
     if (!node) return;
     const { images, text: connectedText, atMentions, imageRefs } = store.getConnectedInputs(nodeId);
     const data = node.data as any; // Cast for easier access to new fields
-    const manualPrompt = data.inputPrompt;
-    const text = connectedText || manualPrompt;
+    const text = (connectedText || "").trim();
     const isWanImageNode = node.type === "wanImageGen";
 
     if (!text && images.length === 0) {
-      store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)" });
+      store.updateNodeData(nodeId, { status: "error", error: "Missing text input (connect a text node)." });
       return;
     }
 
@@ -275,11 +274,9 @@ export const useLabExecutor = () => {
           aspectRatio,
           inputImages: normalizedImages,
           enableInterleave: data.enableInterleave,
-          negativePrompt: data.negativePrompt,
           outputCount: data.outputCount,
           maxImages: data.maxImages,
           seed: data.seed,
-          promptExtend: data.promptExtend,
           watermark: data.watermark,
           size: data.size,
         });
@@ -393,7 +390,12 @@ export const useLabExecutor = () => {
     if (!node || !config) return;
     const { images, text: connectedText, atMentions, imageRefs } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
-    const prompt = (connectedText || data.inputPrompt || "").trim() || "The astronaut waved and the camera moved up.";
+    const prompt = (connectedText || "").trim();
+
+    if (!prompt) {
+      store.updateNodeData(nodeId, { status: "error", error: "Missing text input (connect a text node)." });
+      return;
+    }
 
     const viduConfig = {
       baseUrl: INITIAL_VIDU_CONFIG.baseUrl,
@@ -574,7 +576,7 @@ export const useLabExecutor = () => {
     }
     const { images, text: connectedText } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
-    const prompt = (connectedText || data.inputPrompt || "").trim();
+    const prompt = (connectedText || "").trim();
 
     if (images.length === 0 && !prompt) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)." });
@@ -614,12 +616,8 @@ export const useLabExecutor = () => {
         const fallbackResolution = data.quality === "high" ? "1080P" : "720P";
         const resolution = data.resolution || fallbackResolution;
         params.size = mapWanVideoSize(data.aspectRatio, resolution);
-        params.promptExtend = data.promptExtend;
-        if (data.promptExtend !== false) {
-          params.shotType = data.shotType;
-        }
+        params.shotType = data.shotType;
         params.watermark = data.watermark;
-        params.negativePrompt = data.negativePrompt;
         params.seed = data.seed;
         if (data.audioEnabled && data.audioUrl) {
           const audioUrl = data.audioUrl.trim();

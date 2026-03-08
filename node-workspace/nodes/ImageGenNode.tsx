@@ -11,7 +11,7 @@ type Props = {
 };
 
 export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs, availableImageModels, labContext, appConfig } = useWorkflowStore();
+  const { updateNodeData, availableImageModels, labContext, appConfig } = useWorkflowStore();
   const { runImageGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -22,8 +22,6 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
     await runImageGen(id);
   };
 
-  const { text: connectedText } = getConnectedInputs(id);
-  const showPromptInput = !connectedText;
   const isLoading = data.status === "loading";
 
   const forms = useMemo(() => {
@@ -152,18 +150,6 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
                 重试
               </button>
             )}
-          </div>
-        )}
-
-        {showPromptInput && (
-          <div className="group/prompt relative">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
           </div>
         )}
 

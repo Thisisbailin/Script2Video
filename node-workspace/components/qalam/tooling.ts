@@ -72,6 +72,22 @@ export const TOOL_DEFS: AgentTool[] = [
   },
   {
     type: "function",
+    name: "create_text_node",
+    description: "Create a text node in NodeLab. Use for drafting prompts or notes.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Text node title (optional)." },
+        text: { type: "string", description: "Text node content." },
+        x: { type: "number", description: "X position in canvas coordinates (optional)." },
+        y: { type: "number", description: "Y position in canvas coordinates (optional)." },
+        parentId: { type: "string", description: "Optional parent group node id." },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    type: "function",
     name: "upsert_character",
     description: "Create or update a character (with forms). Supports partial updates.",
     parameters: {
@@ -164,10 +180,14 @@ export const TOOL_DEFS: AgentTool[] = [
 
 export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined) => {
   const projectData = value?.projectData || {};
+  const workflowBuilder = value?.workflowBuilder || {};
   const characterLocation = value?.characterLocation || {};
   return {
     projectData: {
       enabled: projectData.enabled ?? true,
+    },
+    workflowBuilder: {
+      enabled: workflowBuilder.enabled ?? true,
     },
     characterLocation: {
       enabled: characterLocation.enabled ?? true,
@@ -180,10 +200,12 @@ export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined)
 
 export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolSettings>) => {
   const allowProjectData = settings.projectData.enabled !== false;
+  const allowWorkflowBuilder = settings.workflowBuilder.enabled !== false;
   const allowCharacterLocation = settings.characterLocation.enabled !== false;
   return TOOL_DEFS.filter((tool) => {
     if (tool.type !== "function") return true;
     if (!allowProjectData && (tool.name === "read_project_data" || tool.name === "search_script_data")) return false;
+    if (!allowWorkflowBuilder && tool.name === "create_text_node") return false;
     if (!allowCharacterLocation && (tool.name === "upsert_character" || tool.name === "upsert_location")) return false;
     return true;
   });
@@ -219,6 +241,10 @@ export const buildToolSummary = (name: string, args: any) => {
     return ep
       ? `剧本搜索：${String(q).slice(0, 24)} · 集 ${ep}`
       : `剧本搜索：${String(q).slice(0, 32)}`;
+  }
+  if (name === "create_text_node") {
+    const title = args?.title || "文本节点";
+    return `新建文本节点：${String(title).slice(0, 24)}`;
   }
   if (name === "upsert_character") {
     const target = args?.character?.name || args?.character?.id || "未命名角色";

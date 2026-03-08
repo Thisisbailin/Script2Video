@@ -1,0 +1,617 @@
+# Script2Video Agent Architecture
+
+## Goal
+
+Use `OpenAI Agents SDK JS` as the runtime foundation for a single general-purpose creative agent inside Script2Video.
+
+The agent's product role is:
+
+- analyze needs and provide grounded advice
+- inspect existing project data such as script and project context
+- write durable understanding documents as the foundation for downstream work
+- create and modify node workflows to execute actual work
+
+This is not a multi-agent system.
+This is one primary agent with domain tools and optional skills.
+
+## Product Position
+
+The agent should not be a generic chat assistant.
+It should behave like a domain-native creative operating layer for:
+
+- demand analysis and production guidance
+- project data inspection
+- understanding document writing
+- node-based workflow creation
+
+## Capability Model
+
+The agent should be designed around three primary capability classes, plus one baseline conversational layer.
+
+### Baseline layer: analysis and advice
+
+The baseline layer is always available.
+It covers:
+
+- requirement analysis
+- tradeoff discussion
+- production suggestions
+- planning support
+
+This layer does not need tool use for every response, but should use tools when project facts matter.
+
+### Capability 1: inspect existing data
+
+The agent must be able to read what already exists in the project, including:
+
+- raw script
+- episode and scene content
+- project summary and episode summaries
+- character library
+- location library
+- existing NodeLab context when relevant
+
+This capability is the retrieval foundation for all grounded work.
+
+### Capability 2: write understanding documents
+
+The agent must be able to produce durable documents derived from project data.
+These documents are not casual chat replies.
+They are working artifacts that become the foundation for later steps.
+
+Examples:
+
+- plot synopsis
+- episode summary
+- character analysis
+- location analysis
+- storyboard draft
+- prompt draft
+
+For V1, these artifacts can be persisted as text nodes.
+Later, the project may introduce a dedicated document registry, but the conceptual capability should already be explicit now.
+
+### Capability 3: node workflow operations
+
+The agent must be able to create node-based workflows that turn understanding into executable work.
+
+Examples:
+
+- create a text node with a storyboard draft
+- create a text node with a shot prompt pack
+- create workflow scaffolding for downstream generation work
+
+The agent should eventually do more than create isolated nodes.
+Its long-term workflow role is to assemble practical working structures inside NodeLab.
+
+The system should prefer LLM autonomy in reasoning and planning, while restricting execution to a small, reliable tool surface.
+
+## Why OpenAI Agents SDK JS
+
+`OpenAI Agents SDK JS` matches the target philosophy better than graph-first frameworks:
+
+- agent-first instead of workflow-first
+- tool-based autonomy without forcing explicit state graphs
+- easy to keep a single all-purpose agent
+- natural fit for TypeScript and the existing frontend stack
+- supports incremental hardening with sessions, guardrails, tracing, and tool contracts
+
+This project should let the LLM decide:
+
+- when to inspect project data
+- when to search script content
+- when to write an understanding artifact
+- when to update a character or location
+- when to create or extend a node workflow
+- when to answer directly without tool use
+
+But the project should not let the LLM mutate app state outside explicit tools.
+
+## Core Principles
+
+1. One agent only
+
+There is exactly one primary agent runtime for the product.
+No planner agent, no writer agent, no critic agent.
+Specialization is provided through skills, not separate agents.
+
+2. Thin orchestration
+
+Do not recreate a custom reasoning loop like the current Qalam implementation.
+The runtime should mostly be:
+
+- agent instructions
+- tools
+- session context
+- run invocation
+- UI rendering of outputs and tool activity
+
+3. Strict action boundary
+
+All state mutations must happen through tools.
+The agent never writes directly into React state or store internals.
+
+4. Skills are capability overlays
+
+Skills are not agents.
+A skill is a package of:
+
+- domain instructions
+- optional examples
+- optional tool preferences
+- optional output style constraints
+
+5. Grounded output over freeform invention
+
+When the user asks about script or project content, the agent should prefer using tools and citing episode/scene evidence rather than answering from loose memory.
+
+## Target Runtime Architecture
+
+### Layer 1: UI Layer
+
+Keep the visible UI responsibility in the current frontend:
+
+- chat panel
+- conversation history
+- attachment UI
+- tool activity display
+- settings panel
+
+This layer should become presentation-only.
+It should not contain agent reasoning logic.
+
+Suggested ownership:
+
+- `QalamAgent.tsx`: becomes a UI shell and event bridge
+- `AgentSettingsPanel.tsx`: provider/model/runtime settings only
+
+### Layer 2: Agent Runtime Layer
+
+Add a dedicated runtime module, for example:
+
+- `agents/runtime/agent.ts`
+- `agents/runtime/session.ts`
+- `agents/runtime/skills.ts`
+
+Responsibilities:
+
+- create the OpenAI agent
+- load base instructions
+- inject enabled skills
+- register tools
+- execute runs
+- stream or collect outputs
+- return structured events to UI
+
+This is the replacement for the current hand-written loop in `QalamAgent.tsx`.
+
+### Layer 3: Tool Layer
+
+Move tool implementations out of UI-specific folders into stable runtime-facing modules.
+
+Suggested destination:
+
+- `agents/tools/readProjectData.ts`
+- `agents/tools/searchScriptData.ts`
+- `agents/tools/upsertCharacter.ts`
+- `agents/tools/upsertLocation.ts`
+- `agents/tools/createTextNode.ts`
+
+These can reuse logic from the current:
+
+- `node-workspace/components/qalam/toolActions.ts`
+
+But they should no longer be defined as UI helpers.
+
+### Layer 4: App Bridge Layer
+
+Some tools need access to live app state and store mutation.
+That should go through a bridge interface rather than importing React components directly.
+
+Example bridge shape:
+
+```ts
+export interface Script2VideoAgentBridge {
+  getProjectData(): ProjectData;
+  setProjectData(updater: (prev: ProjectData) => ProjectData): void;
+  addTextNode(input: {
+    title: string;
+    text: string;
+    x?: number;
+    y?: number;
+    parentId?: string;
+  }): { id: string; title: string };
+  getViewport(): WorkflowViewport | null;
+  getNodeCount(): number;
+}
+```
+
+The agent runtime depends on this bridge, not on React or Zustand internals.
+
+## Tool Set V1
+
+The first version should stay small.
+
+### Class 1: inspect existing data
+
+1. `read_project_data`
+
+Purpose:
+
+- inspect episode content
+- inspect scene content
+- inspect summaries
+- inspect character data
+- inspect location data
+
+Notes:
+
+- preserve current argument model where possible
+- return structured JSON only
+- keep warnings explicit
+
+2. `search_script_data`
+
+Purpose:
+
+- locate relevant episodes/scenes before deeper reads
+
+Notes:
+
+- useful as the first retrieval step for broad questions
+
+### Class 2: write understanding documents
+
+3. `upsert_character`
+
+Purpose:
+
+- create or patch durable character understanding records and forms
+
+Requirements:
+
+- idempotent behavior where possible
+- preserve all form fields including voice-related fields
+- return exact mutation summary
+
+4. `upsert_location`
+
+Purpose:
+
+- create or patch durable location understanding records and zones
+
+Requirements:
+
+- idempotent behavior where possible
+- preserve all zone fields
+
+5. `create_text_node`
+
+Purpose:
+
+- persist understanding artifacts such as synopsis, analysis, storyboard drafts, prompt drafts, and notes into NodeLab
+
+Requirements:
+
+- explicit content required
+- clear node creation result
+- no hidden side effects beyond node creation
+
+### Class 3: node workflow operations
+
+For V1, node workflow operations are intentionally narrow:
+
+- create text nodes as durable work artifacts
+
+For later phases, this class should expand toward:
+
+- workflow scaffolding
+- template instantiation
+- structured node bundle creation
+- agent-authored execution chains inside NodeLab
+
+## Skill Model
+
+Skills should be stored as local assets and loaded dynamically.
+
+Suggested structure:
+
+- `skills/<skill-id>/SKILL.md`
+- `skills/<skill-id>/agents/openai.yaml`
+- optional examples or references
+
+Each skill should define:
+
+- purpose
+- activation hints
+- output style
+- preferred capability class and preferred tools
+- constraints
+
+### Example skill categories for Script2Video
+
+1. `script-analysis`
+
+Focus:
+
+- summarize plot
+- identify dramatic beats
+- find scene conflicts
+
+2. `storyboard-writer`
+
+Focus:
+
+- convert scenes into shot-oriented storyboard drafts
+- maintain visual continuity
+
+3. `character-bible-editor`
+
+Focus:
+
+- maintain forms, visual states, and design rationale
+
+4. `prompt-polish`
+
+Focus:
+
+- rewrite prompts for image/video generation
+- improve specificity without changing intent
+
+### How skills should affect runtime
+
+Skills should modify:
+
+- instruction blocks
+- examples
+- allowed or preferred tools
+- answer style
+
+Skills should not create independent agent identities.
+
+## Session and Memory Model
+
+The agent should use session memory, but keep long-term project truth in project data.
+
+### Session memory
+
+Use for:
+
+- recent conversation turns
+- current user intent
+- current drafting context
+
+Do not use session memory as canonical project storage.
+
+### Project memory
+
+Canonical truth stays in:
+
+- `ProjectData`
+- character library
+- location library
+- NodeLab nodes
+
+The model may remember a draft in session, but any approved artifact should be written via tools.
+
+## Attachments
+
+Attachment support should be redesigned instead of patched.
+
+Current issue:
+
+- the UI accepts images
+- the runtime does not truly pass them into the model
+
+Target design:
+
+1. If the model/runtime supports image input, pass normalized attachment content explicitly.
+2. If not supported, disable image attachments for that provider/runtime path.
+3. Never imply the model has seen an image when only filename metadata was sent.
+
+## Guardrails
+
+The project should keep guardrails light, not heavy.
+
+Recommended guardrails:
+
+1. Grounding guardrail
+
+When answering about script/project facts, prefer tool-backed evidence.
+
+2. Write-action guardrail
+
+Before mutating character/location libraries or creating nodes, the action should be explicit in the tool call and visible in UI.
+
+3. Schema guardrail
+
+All tool IO must be validated.
+Invalid tool output should fail visibly, not silently degrade to fake success.
+
+4. No hidden success
+
+Unknown or unavailable tools must return errors, never synthetic success placeholders.
+
+## Replacement Plan For Current QalamAgent
+
+### Keep
+
+- visual shell and panel layout in `QalamAgent.tsx`
+- settings UI in `AgentSettingsPanel.tsx`
+- project schemas in `types.ts`
+- useful tool logic from `toolActions.ts`
+- workflow store integration points
+
+### Replace
+
+- custom mode detection loop
+- manual multi-step tool orchestration
+- tool-call success simulation
+- attachment pseudo-support
+- UI-owned agent logic
+
+### Deprecate
+
+- `node-workspace/components/qalam/useQalamTooling.ts`
+- most of the orchestration code inside `QalamAgent.tsx`
+
+### Extract
+
+Move these into runtime-oriented directories:
+
+- tool schemas
+- tool execution layer
+- skills loader
+- agent bootstrap
+
+## Suggested Directory Layout
+
+```txt
+agents/
+  runtime/
+    agent.ts
+    session.ts
+    instructions.ts
+    skills.ts
+    types.ts
+  tools/
+    index.ts
+    readProjectData.ts
+    searchScriptData.ts
+    upsertCharacter.ts
+    upsertLocation.ts
+    createTextNode.ts
+  bridge/
+    script2videoBridge.ts
+skills/
+  script-analysis/
+    SKILL.md
+    agents/openai.yaml
+  storyboard-writer/
+    SKILL.md
+    agents/openai.yaml
+  character-bible-editor/
+    SKILL.md
+    agents/openai.yaml
+```
+
+## Migration Stages
+
+### Stage 1: Runtime skeleton
+
+Goal:
+
+- introduce OpenAI Agents SDK JS runtime
+- no behavior change in UI yet
+
+Deliverables:
+
+- agent bootstrap
+- session wiring
+- empty skill loader
+- tool registration shell
+
+### Stage 2: Tool migration
+
+Goal:
+
+- move current tools to runtime-safe modules
+
+Deliverables:
+
+- bridge interface
+- read/search tools
+- write tools
+- strict tool validation
+
+### Stage 3: UI integration
+
+Goal:
+
+- make `QalamAgent.tsx` call the new runtime
+
+Deliverables:
+
+- chat send path migrated
+- tool events surfaced in UI
+- conversation persistence preserved
+
+### Stage 4: Skill activation
+
+Goal:
+
+- load domain skills
+
+Deliverables:
+
+- skill registry
+- per-run skill selection
+- instruction composition
+
+### Stage 5: Hardening
+
+Goal:
+
+- remove legacy orchestration
+- add tracing and action visibility
+
+Deliverables:
+
+- runtime logs
+- better error reporting
+- attachment path correctness
+
+## Recommended First Build Scope
+
+Do not try to rebuild the full agent at once.
+
+The first useful vertical slice should be:
+
+1. user asks a script question
+2. agent decides whether to call `search_script_data`
+3. agent calls `read_project_data` if needed
+4. agent produces a grounded understanding artifact or answer
+5. optionally persists that artifact as a text node if the user asks to save the result
+
+This proves:
+
+- runtime integration
+- tool autonomy
+- project grounding
+- understanding-document write flow
+- basic node operation flow
+
+without rebuilding the entire Qalam surface area immediately.
+
+## Non-Goals
+
+The new architecture should explicitly avoid:
+
+- multi-agent orchestration
+- graph-first runtime design
+- hidden automatic writes to project state
+- provider-specific hacks inside UI components
+- pretending unsupported attachments were understood
+
+## Decision Summary
+
+Chosen foundation:
+
+- `OpenAI Agents SDK JS`
+
+Rejected as primary foundation:
+
+- `LangGraph.js` for now, because the project prefers agent autonomy over graph-first control
+- `OpenClaw`, because it is too product-heavy for embedding into Script2Video
+- `Nanobot`, because it is not mature enough to serve as the core runtime here
+
+## Immediate Next Step
+
+Create a technical design for:
+
+- agent runtime API
+- bridge contract
+- v1 tool schemas
+- skill loading contract
+
+That document should directly drive implementation.

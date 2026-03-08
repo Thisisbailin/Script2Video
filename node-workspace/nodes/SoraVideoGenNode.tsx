@@ -16,8 +16,7 @@ export const SoraVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id,
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const { text: connectedText, images: connectedImages } = getConnectedInputs(id);
-  const showPromptInput = !connectedText;
+  const { images: connectedImages } = getConnectedInputs(id);
   const hasConnectedImages = connectedImages.length > 0;
   const isLoading = data.status === "loading";
 
@@ -133,19 +132,6 @@ export const SoraVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id,
                 重试
               </button>
             )}
-          </div>
-        )}
-
-        {showPromptInput && (
-          <div className="group/prompt relative nodrag">
-            <textarea
-              className="node-textarea w-full text-[11px] leading-relaxed outline-none transition-all resize-none min-h-[60px] placeholder:text-[var(--node-text-secondary)]/40 font-medium nodrag"
-              placeholder="Enter prompt..."
-              value={data.inputPrompt || ""}
-              onChange={(e) => updateNodeData(id, { inputPrompt: e.target.value })}
-              onKeyDown={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            />
           </div>
         )}
 

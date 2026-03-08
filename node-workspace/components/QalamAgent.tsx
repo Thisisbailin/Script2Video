@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, ChevronUp, X, Plus, ArrowUp, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns, AtSign } from "lucide-react";
-import * as GeminiService from "../../services/geminiService";
-import { createQwenResponse } from "../../services/qwenResponsesService";
-import type { AgentTool } from "../../services/toolingTypes";
+import { Bot, Loader2, ChevronUp, X, ArrowUp, Lightbulb, Sparkles, CircleHelp, ChevronDown as CaretDown, Globe, Columns, AtSign } from "lucide-react";
 import { useConfig } from "../../hooks/useConfig";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { ProjectData, Character, Location } from "../../types";
+import { ProjectData } from "../../types";
 import { AVAILABLE_MODELS } from "../../constants";
 import { createStableId } from "../../utils/id";
-import { buildApiUrl } from "../../utils/api";
 import { QalamChatContent } from "./qalam/QalamChatContent";
-import { isToolMessage } from "./qalam/types";
 import type { ChatMessage, Message } from "./qalam/types";
-import { getQalamToolDefs, normalizeQalamToolSettings } from "./qalam/tooling";
-import { useQalamTooling } from "./qalam/useQalamTooling";
+import { useWorkflowStore } from "../store/workflowStore";
+import { inferRequestedOutcome } from "../../agents/adapters/qalamMessageAdapter";
+import type { Script2VideoAgentBridge } from "../../agents/bridge/script2videoBridge";
+import { createNodeWorkflowWithBridge } from "../../agents/bridge/workflowBuilder";
+import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
+import { LocalSkillLoader } from "../../agents/runtime/skills";
+import { LocalStorageSessionStore } from "../../agents/runtime/session";
+import { useScript2VideoAgent } from "../../agents/react/useScript2VideoAgent";
 
 type Props = {
   projectData: ProjectData;
@@ -48,6 +49,9 @@ const WORK_HINT_KEYWORDS = [
   "优化",
   "Prompt",
   "Sora",
+  "节点",
+  "工作流",
+  "workflow",
 ];
 
 const toSearch = (value: string) => value.toLowerCase().replace(/\s+/g, "");
@@ -108,155 +112,6 @@ type ConversationState = {
   items: ConversationRecord[];
 };
 
-
-const parsePlanFromText = (text: string) => {
-  const lines = (text || "").split("\n");
-  const planItems: string[] = [];
-  let inPlan = false;
-
-  const headingRegex = /^\s*(计划|Plan)\b\s*[:：]?\s*$/i;
-  const listRegex = /^\s*(?:[-*•]|\\d+\\.|\\d+、)\\s*(.+)$/;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (!inPlan && headingRegex.test(line)) {
-      inPlan = true;
-      continue;
-    }
-    if (inPlan) {
-      if (!line.trim()) {
-        if (planItems.length > 0) {
-          inPlan = false;
-          continue;
-        }
-        continue;
-      }
-      const match = line.match(listRegex);
-      if (match) {
-        planItems.push(match[1].trim());
-        continue;
-      }
-      inPlan = false;
-    }
-  }
-
-  return {
-    text: (text || "").trim(),
-    planItems: planItems.length ? planItems : undefined,
-  };
-};
-
-const extractReasoningSection = (text: string) => {
-  const lines = (text || "").split("\n");
-  let start = -1;
-  let end = -1;
-  let inlineReasoning = "";
-
-  const normalizeHeadingLine = (line: string) => {
-    let cleaned = line.trim().replace(/^#{1,4}\s*/, "");
-    if (cleaned.startsWith("**")) {
-      const endBold = cleaned.indexOf("**", 2);
-      if (endBold !== -1) {
-        const inside = cleaned.slice(2, endBold);
-        const rest = cleaned.slice(endBold + 2);
-        cleaned = `${inside}${rest}`;
-      }
-    }
-    return cleaned.trim();
-  };
-
-  const matchReasoningHeading = (line: string) => {
-    const cleaned = normalizeHeadingLine(line);
-    const match = cleaned.match(/^(思考过程|思考|Reasoning|Thoughts)(?:\s*[\(（][^)）]+[\)）])?\s*[:：]?\s*(.*)$/i);
-    if (!match) return null;
-    return { inline: match[2]?.trim() || "" };
-  };
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const match = matchReasoningHeading(lines[i]);
-    if (match) {
-      start = i;
-      inlineReasoning = match.inline;
-      break;
-    }
-  }
-  if (start === -1) {
-    return { text: (text || "").trim(), reasoning: undefined };
-  }
-
-  end = start + 1;
-  while (end < lines.length) {
-    const line = lines[end];
-    if (!line.trim()) break;
-    if (line.match(/^(#{1,4})\s+/)) break;
-    if (line.match(/^\s*\*\*(.+)\*\*\s*$/)) break;
-    if (inlineReasoning) {
-      if (!line.match(/^\s*(?:[-*•]|\d+\.|\d+、)\s+/) && !line.match(/^\s{2,}/)) {
-        break;
-      }
-    }
-    end += 1;
-  }
-
-  const reasoningLines = [
-    ...(inlineReasoning ? [inlineReasoning] : []),
-    ...lines.slice(start + 1, end),
-  ];
-  const reasoning = reasoningLines.join("\n").trim();
-  const cleaned = [...lines.slice(0, start), ...lines.slice(end)].join("\n").trim();
-  return { text: cleaned, reasoning: reasoning || undefined };
-};
-
-const uploadAgentImage = async (source: string, contentType?: string) => {
-  const response = await fetch(source);
-  const blob = await response.blob();
-  const finalType = blob.type || contentType || "image/png";
-  const ext = finalType.split("/")[1] || "png";
-  const fileName = `agent-inputs/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-  const signedRes = await fetch(buildApiUrl("/api/upload-url"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileName, bucket: "assets", contentType: finalType }),
-  });
-  if (!signedRes.ok) {
-    const err = await signedRes.text();
-    throw new Error(`上传 URL 获取失败 (${signedRes.status}): ${err}`);
-  }
-  const signedData = await signedRes.json();
-  if (!signedData?.signedUrl) {
-    throw new Error("上传失败：未返回签名 URL。");
-  }
-
-  const uploadRes = await fetch(signedData.signedUrl, {
-    method: "PUT",
-    headers: { "Content-Type": finalType },
-    body: blob,
-  });
-  if (!uploadRes.ok) {
-    const err = await uploadRes.text();
-    throw new Error(`上传失败 (${uploadRes.status}): ${err}`);
-  }
-
-  if (signedData.publicUrl) return signedData.publicUrl as string;
-  if (signedData.path) {
-    const downloadRes = await fetch(buildApiUrl("/api/download-url"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: signedData.path, bucket: signedData.bucket || "assets" }),
-    });
-    if (!downloadRes.ok) {
-      const err = await downloadRes.text();
-      throw new Error(`下载 URL 获取失败 (${downloadRes.status}): ${err}`);
-    }
-    const downloadData = await downloadRes.json();
-    if (downloadData?.signedUrl) return downloadData.signedUrl as string;
-  }
-
-  throw new Error("上传失败：无法获取可访问的图片 URL。");
-};
-
-
 const buildContext = (projectData: ProjectData, selected: Record<string, boolean>) => {
   const parts: string[] = [];
   if (selected.script && projectData.rawScript) parts.push(`[Script]\n${projectData.rawScript.slice(0, 6000)}`);
@@ -267,20 +122,6 @@ const buildContext = (projectData: ProjectData, selected: Record<string, boolean
   if (selected.guides && projectData.dramaGuide) parts.push(`[Drama Guide]\n${projectData.dramaGuide.slice(0, 2000)}`);
   if (selected.summary && projectData.context?.projectSummary) parts.push(`[Project Summary]\n${projectData.context.projectSummary.slice(0, 2000)}`);
   return parts.join("\n\n");
-};
-
-const buildConversationMemory = (messages: Message[], limit = 8) => {
-  const history = messages
-    .filter((m) => !isToolMessage(m))
-    .map((m) => {
-      const text = (m as ChatMessage).text?.trim();
-      if (!text) return null;
-      const clipped = text.length > 800 ? `${text.slice(0, 800)}...` : text;
-      const label = m.role === "user" ? "用户" : "助手";
-      return `${label}: ${clipped}`;
-    })
-    .filter(Boolean) as string[];
-  return history.slice(-limit).join("\n");
 };
 
 const buildConversationTitle = (messages: Message[]) => {
@@ -304,6 +145,16 @@ const createConversationRecord = (messages: Message[] = []): ConversationRecord 
 
 export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpenStats, onToggleAgentSettings }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
+  const { addNode, updateNodeStyle, onConnect, toggleEdgePause, removeNode, removeEdge, nodes, viewport } = useWorkflowStore((state) => ({
+    addNode: state.addNode,
+    updateNodeStyle: state.updateNodeStyle,
+    onConnect: state.onConnect,
+    toggleEdgePause: state.toggleEdgePause,
+    removeNode: state.removeNode,
+    removeEdge: state.removeEdge,
+    nodes: state.nodes,
+    viewport: state.viewport,
+  }));
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
@@ -382,10 +233,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     guides: false,
     summary: false,
   });
-  const [attachments, setAttachments] = useState<{ name: string; url: string; size: number; type: string; remoteUrl?: string }[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const attachmentUrlsRef = useRef<string[]>([]);
   const [layoutMode, setLayoutMode] = useState<"floating" | "split">("floating");
   const [splitWidth, setSplitWidth] = useState(560);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -393,15 +241,66 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const qalamToolSettings = useMemo(
-    () => normalizeQalamToolSettings(config.textConfig?.qalamTools),
-    [config.textConfig?.qalamTools]
+  const skillLoaderRef = useRef(new LocalSkillLoader());
+  const sessionStoreRef = useRef(new LocalStorageSessionStore());
+  const bridge = useMemo<Script2VideoAgentBridge>(
+    () => ({
+      getProjectData: () => projectData,
+      updateProjectData: (updater) => setProjectData((prev) => updater(prev)),
+      addTextNode: ({ title, text, x, y, parentId }) => {
+        const hasXY = typeof x === "number" && typeof y === "number";
+        const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;
+        const baseY = viewport ? (-viewport.y + 120) / viewport.zoom : 120;
+        const offset = (nodes.length % 5) * 24;
+        const position = hasXY
+          ? { x: x as number, y: y as number }
+          : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
+        const nodeId = addNode("text", position, parentId, { title, text });
+        return { id: nodeId, title };
+      },
+      createNodeWorkflow: (input) => {
+        const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;
+        const baseY = viewport ? (-viewport.y + 120) / viewport.zoom : 120;
+        const offset = (nodes.length % 5) * 24;
+        return createNodeWorkflowWithBridge(
+          {
+            ...input,
+            originX: input.originX ?? Math.round(baseX + offset),
+            originY: input.originY ?? Math.round(baseY + offset),
+          },
+          {
+            addNode,
+            updateNodeStyle,
+            onConnect,
+            toggleEdgePause,
+            removeNode,
+            removeEdge,
+          }
+        );
+      },
+      getViewport: () => viewport,
+      getNodeCount: () => nodes.length,
+    }),
+    [addNode, nodes.length, onConnect, projectData, removeEdge, removeNode, setProjectData, toggleEdgePause, updateNodeStyle, viewport]
   );
-  const { handleToolCalls } = useQalamTooling({
-    setMessages,
-    setProjectData,
-    toolSettings: config.textConfig?.qalamTools,
-  });
+  const runtime = useMemo(
+    () =>
+      createScript2VideoAgentRuntime({
+        bridge,
+        skillLoader: skillLoaderRef.current,
+        sessionStore: sessionStoreRef.current,
+        configProvider: {
+          getConfig: () => ({
+            apiKey: config.textConfig?.apiKey,
+            baseUrl: config.textConfig?.baseUrl || undefined,
+            model: config.textConfig?.model || "gpt-4.1",
+            qalamTools: config.textConfig?.qalamTools,
+            tracingDisabled: true,
+          }),
+        },
+      }),
+    [bridge, config.textConfig?.apiKey, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.qalamTools]
+  );
   const mentionTargets = useMemo(() => {
     const targets: Array<{ kind: "character" | "location"; name: string; label: string; search: string; id?: string }> = [];
     (projectData.context?.characters || []).forEach((c) => {
@@ -460,6 +359,11 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       .filter(Boolean) as Array<{ kind: "character" | "location"; name: string; label: string; id?: string }>;
   }, [input, mentionIndex]);
   const canSend = input.trim().length > 0 && !isSending;
+  const { sendMessage: runAgentMessage } = useScript2VideoAgent({
+    runtime,
+    sessionId: activeConversation?.id || conversationState.activeId || "qalam-default",
+    setMessages,
+  });
   const splitMinWidth = Math.min(360, Math.max(280, Math.round(viewportWidth * 0.4)));
   const splitMaxWidth = viewportWidth;
   const splitThreshold = 0.72;
@@ -542,41 +446,7 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
 
   useEffect(() => {
     setInput("");
-    setAttachments([]);
   }, [activeConversation?.id]);
-
-  const resolveAttachmentUrls = useCallback(async () => {
-    if (!attachments.length) return [];
-    const updated = [...attachments];
-    const results: string[] = [];
-    let changed = false;
-    for (let i = 0; i < attachments.length; i += 1) {
-      const item = attachments[i];
-      if (item.remoteUrl) {
-        results.push(item.remoteUrl);
-        continue;
-      }
-      if (item.url.startsWith("http://") || item.url.startsWith("https://")) {
-        results.push(item.url);
-        updated[i] = { ...item, remoteUrl: item.url };
-        changed = true;
-        continue;
-      }
-      try {
-        const remoteUrl = await uploadAgentImage(item.url, item.type);
-        results.push(remoteUrl);
-        updated[i] = { ...item, remoteUrl };
-        changed = true;
-      } catch (err: any) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", text: `图片上传失败：${item.name}。${err?.message || ""}`.trim(), kind: "chat" },
-        ]);
-      }
-    }
-    if (changed) setAttachments(updated);
-    return results;
-  }, [attachments, setAttachments, setMessages]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -597,17 +467,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     };
   }, [layoutMode, splitWidth, isFullscreen, viewportWidth, collapsed]);
   const contextText = useMemo(() => {
-    const base = buildContext(projectData, ctxSelection);
-    const attachText =
-      attachments.length > 0
-        ? `\n[Images]\n${attachments
-            .map(
-              (item, i) => `#${i + 1}: ${item.name} (${item.type}, ${(item.size / 1024).toFixed(1)} KB)`
-            )
-            .join("\n")}`
-        : "";
-    return `${base}${attachText}`;
-  }, [projectData, ctxSelection, attachments]);
+    return buildContext(projectData, ctxSelection);
+  }, [projectData, ctxSelection]);
 
   const sendMessage = async () => {
     if (!canSend) return;
@@ -620,183 +481,26 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     setInput("");
     setInputMode("auto");
     setIsSending(true);
-    const isQwen = config.textConfig.provider === "qwen";
     try {
-      const wantsWork = forcedMode === "work"
-        ? true
-        : forcedMode === "chat"
-        ? false
-        : detectWorkIntent(cleanedInput, attachments.length > 0);
-      const useWorkMode = isQwen && wantsWork;
-      const activeContext = useWorkMode ? contextText : "";
-      const systemInstruction =
-        "You are Qalam, a creative agent helping build this project. Keep responses concise. You can use Markdown. Do not include chain-of-thought or internal reasoning; respond with final answers only.";
-      const toolHint = useWorkMode
-        ? "\n[Tooling]\n- 当用户描述内容不够明确时，先调用 search_script_data 搜索，再决定要读取的剧集/场景。\n- 当用户提到具体剧集/场景/剧情片段，或需要理解/角色/场景库信息时，调用 read_project_data 获取对应内容再回答。\n- 当用户要求创建/更新角色或场景时，优先调用对应工具。\n- 证据仅给出剧集-场景（如 1-1）。\n- 允许局部更新，不要重复未变化字段。"
-        : "";
-      const mentionContext = (() => {
-        if (!mentionTags.length) return "";
-        const rows = mentionTags.map((tag) => `- @${tag.name} => ${tag.kind}${tag.id ? ` (${tag.id})` : ""}`);
-        return `[Mentions]\n${rows.join("\n")}`;
-      })();
-      const memoryText = buildConversationMemory(messages);
-      const memoryBlock = memoryText ? `[Conversation]\n${memoryText}\n\n` : "";
-      const mentionBlock = mentionContext ? `${mentionContext}\n\n` : "";
-      const prompt = `${activeContext ? activeContext + "\n\n" : ""}${mentionBlock}${memoryBlock}[System]\n${systemInstruction}${toolHint}\n\n${userMsg.text}\n\n请直接回答问题，简洁输出。`;
+      const wantsWork =
+        forcedMode === "work"
+          ? true
+          : forcedMode === "chat"
+            ? false
+            : detectWorkIntent(cleanedInput, false);
 
-      if (useWorkMode) {
-        if (attachments.length > 0) {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: "提示：Qwen Responses 当前仅支持文本输入，已忽略图片附件。", kind: "chat" },
-          ]);
-        }
-        const toolsFromConfig = Array.isArray(config.textConfig.tools) ? config.textConfig.tools : [];
-        const mergedTools: AgentTool[] = [];
-        const seen = new Set<string>();
-        [...getQalamToolDefs(qalamToolSettings), ...toolsFromConfig].forEach((tool) => {
-          const key = tool.type === "function" ? `function:${tool.name}` : tool.type;
-          if (seen.has(key)) return;
-          seen.add(key);
-          mergedTools.push(tool);
-        });
-
-        const workModel = config.textConfig.workModel || "qwen3-max";
-        const workBaseUrl = config.textConfig.workBaseUrl || config.textConfig.baseUrl || undefined;
-
-        const firstRes = await createQwenResponse(
-          prompt,
-          { apiKey: config.textConfig.apiKey, baseUrl: workBaseUrl },
-          {
-            model: workModel,
-            tools: mergedTools,
-            toolChoice: "auto",
-          }
-        );
-
-        const toolCalls = firstRes.toolCalls || [];
-        if (!toolCalls.length && firstRes.text && firstRes.text.trim()) {
-          const extracted = extractReasoningSection(firstRes.text || "");
-          const parsed = parsePlanFromText(extracted.text || "");
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: parsed.text || firstRes.text, kind: "chat", meta: { planItems: parsed.planItems } },
-          ]);
-          setIsSending(false);
-          setMood("thinking");
-          return;
-        }
-
-        const toolOutputs = toolCalls.length ? await handleToolCalls(toolCalls) : [];
-        if (!toolOutputs.length) {
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", text: firstRes.text || "（未返回有效结果）", kind: "chat" },
-          ]);
-          setIsSending(false);
-          setMood("thinking");
-          return;
-        }
-
-        const inputItems = [
-          { role: "user", content: [{ type: "input_text", text: prompt }] },
-          ...toolOutputs.map((item) => ({
-            type: "function_call_output",
-            call_id: item.callId,
-            output: item.output,
+      await runAgentMessage({
+        userText: cleanedInput,
+        requestedOutcome: inferRequestedOutcome(cleanedInput, forcedMode),
+        uiContext: {
+          supplementalContextText: wantsWork ? contextText : "",
+          mentionTags: mentionTags.map((tag) => ({
+            kind: tag.kind,
+            name: tag.name,
+            id: tag.id,
           })),
-        ];
-
-        const followToolChoice = toolCalls.some((tc) => tc.name === "search_script_data") &&
-          !toolCalls.some((tc) => tc.name === "read_project_data" || tc.name === "read_script_data")
-          ? "auto"
-          : "none";
-
-        const followRes = await createQwenResponse(
-          prompt,
-          { apiKey: config.textConfig.apiKey, baseUrl: workBaseUrl },
-          {
-            model: workModel,
-            tools: mergedTools,
-            toolChoice: followToolChoice,
-            inputItems,
-          }
-        );
-
-        const followToolCalls = followRes.toolCalls || [];
-        if (followToolCalls.length) {
-          const secondOutputs = await handleToolCalls(followToolCalls);
-          if (secondOutputs.length) {
-            const finalItems = [
-              { role: "user", content: [{ type: "input_text", text: prompt }] },
-              ...toolOutputs.map((item) => ({
-                type: "function_call_output",
-                call_id: item.callId,
-                output: item.output,
-              })),
-              ...secondOutputs.map((item) => ({
-                type: "function_call_output",
-                call_id: item.callId,
-                output: item.output,
-              })),
-            ];
-            const finalRes = await createQwenResponse(
-              prompt,
-              { apiKey: config.textConfig.apiKey, baseUrl: workBaseUrl },
-              {
-                model: workModel,
-                tools: mergedTools,
-                toolChoice: "none",
-                inputItems: finalItems,
-              }
-            );
-            const finalExtracted = extractReasoningSection(finalRes.text || "");
-            const finalParsed = parsePlanFromText(finalExtracted.text || "");
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                text: finalParsed.text || finalRes.text || "",
-                kind: "chat",
-                meta: { planItems: finalParsed.planItems },
-              },
-            ]);
-            setIsSending(false);
-            setMood("thinking");
-            return;
-          }
-        }
-
-        const followExtracted = extractReasoningSection(followRes.text || "");
-        const followParsed = parsePlanFromText(followExtracted.text || "");
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            text: followParsed.text || followRes.text || "",
-            kind: "chat",
-            meta: { planItems: followParsed.planItems },
-          },
-        ]);
-        setIsSending(false);
-        setMood("thinking");
-        return;
-      }
-
-      const res = await GeminiService.generateFreeformText(
-        config.textConfig,
-        prompt,
-        systemInstruction
-      );
-      try {
-        console.log("[Agent] Raw response", res);
-      } catch {}
-      const extracted = extractReasoningSection(res.outputText || "");
-      const parsed = parsePlanFromText(extracted.text || "");
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: parsed.text || "", kind: "chat", meta: { planItems: parsed.planItems } },
-      ]);
+        },
+      });
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -885,33 +589,6 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     }, 6000);
     return () => clearInterval(timer);
   }, [isSending]);
-
-  const handleUploadClick = () => fileInputRef.current?.click();
-  const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const images = Array.from(files).filter((file) => file.type?.startsWith("image/"));
-    if (images.length === 0) {
-      setMessages((prev) => [...prev, { role: "assistant", text: "仅支持图片文件作为上下文附件。" }]);
-      return;
-    }
-    const mapped = images.map((file) => {
-      const url = URL.createObjectURL(file);
-      attachmentUrlsRef.current.push(url);
-      return {
-        name: file.name,
-        url,
-        size: file.size,
-        type: file.type || "image/*",
-      };
-    });
-    setAttachments((prev) => [...prev, ...mapped].slice(-5)); // 最多保留 5 个
-  };
-
-  useEffect(() => {
-    return () => {
-      attachmentUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, []);
 
   if (collapsed) {
     return (
@@ -1162,13 +839,12 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
             </div>
           )}
           <div className="flex items-center gap-2 text-[12px] text-[var(--app-text-secondary)]">
-            <button
-              onClick={handleUploadClick}
-              className="h-8 w-8 flex items-center justify-center rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition"
-              title="上传图片作为上下文"
+            <div
+              className="h-8 px-3 flex items-center justify-center rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] text-[11px] text-[var(--app-text-secondary)]"
+              title="图片附件将在多模态 runtime 接入后重新开放"
             >
-              <Plus size={14} />
-            </button>
+              附件功能待接入
+            </div>
             <div className="relative h-8 px-3 rounded-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] transition flex items-center gap-2 min-w-[140px]">
               <span className="truncate text-[var(--app-text-primary)]">{currentModelLabel}</span>
               <CaretDown size={12} className="text-[var(--app-text-muted)] pointer-events-none" />
@@ -1203,32 +879,8 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
               {isSending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} />}
             </button>
           </div>
-          {attachments.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {attachments.map((item, idx) => (
-                <span
-                  key={`${item.name}-${idx}`}
-                  className="inline-flex items-center gap-2 px-2 py-1.5 rounded-full border border-[var(--app-border)] bg-white/8 text-[11px]"
-                  title={`${item.name} (${(item.size / 1024).toFixed(1)} KB)`}
-                >
-                  <div className="h-7 w-7 rounded-md overflow-hidden border border-[var(--app-border)] bg-[var(--app-panel-muted)]">
-                    <img src={item.url} alt={item.name} className="h-full w-full object-cover" />
-                  </div>
-                  <span className="truncate max-w-[120px]">{item.name}</span>
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
-      />
     </div>
   );
 };

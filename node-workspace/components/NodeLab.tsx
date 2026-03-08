@@ -461,7 +461,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       addToGlobalHistory({
         type: "video",
         src: data.videoUrl,
-        prompt: data.inputPrompt || "Video Output",
+        prompt: "Video Output",
         model: data.model,
         aspectRatio: data.aspectRatio,
         sourceId: node.id,
@@ -766,11 +766,9 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         data: {
           title: `WAN Vid: ${shot.id}`,
           inputImages: [],
-          inputPrompt: shot.soraPrompt || null,
           status: 'idle',
           error: null,
           aspectRatio: '16:9',
-          promptExtend: false,
         } as VideoGenNodeData,
       });
 
@@ -783,12 +781,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         data: {
           title: `WAN Img: ${shot.id}`,
           inputImages: [],
-          inputPrompt: shot.storyboardPrompt || null,
           outputImage: null,
           status: 'idle',
           error: null,
           aspectRatio: '16:9',
-          promptExtend: false,
         } as ImageGenNodeData,
       });
 

@@ -55,6 +55,9 @@ export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
   projectData: {
     enabled: true,
   },
+  workflowBuilder: {
+    enabled: true,
+  },
   characterLocation: {
     enabled: true,
     mergeStrategy: "patch",
