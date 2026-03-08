@@ -390,7 +390,7 @@ export const createScript2VideoAgentRuntime = ({
     });
     emitTrace("runtime", "info", "Agent created", agent.name, `model=${config.model}`);
 
-    const useStreaming = provider !== "qwen";
+    const useStreaming = true;
 
     try {
       emitTrace(
@@ -455,6 +455,12 @@ export const createScript2VideoAgentRuntime = ({
             }
             if (rawType === "output_text_delta" && typeof (streamEvent.data as any)?.delta === "string") {
               streamedTextDelta += (streamEvent.data as any).delta;
+              options?.onEvent?.({
+                type: "message_delta",
+                runId,
+                delta: (streamEvent.data as any).delta,
+                accumulatedText: streamedTextDelta,
+              });
               debugLog(runId, "raw output_text_delta", {
                 delta: (streamEvent.data as any).delta,
                 accumulated: streamedTextDelta,

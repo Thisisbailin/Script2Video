@@ -68,6 +68,7 @@ export interface Script2VideoAgentRuntime {
 export type AgentRuntimeEvent =
   | { type: "run_started"; sessionId: string; runId: string }
   | { type: "trace"; runId: string; entry: AgentTraceEntry }
+  | { type: "message_delta"; runId: string; delta: string; accumulatedText: string }
   | { type: "tool_called"; call: AgentExecutedToolCall }
   | { type: "tool_completed"; call: AgentExecutedToolCall }
   | { type: "tool_failed"; call: AgentExecutedToolCall; error: string }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Globe } from "lucide-react";
 import type { ChatMessage, Message, StatusMessage, ToolMessage, ToolPayload, ToolStatus } from "./types";
 import { isStatusMessage, isToolMessage } from "./types";
@@ -398,27 +398,24 @@ const renderToolOutput = (tool: ToolPayload) => {
     return (
       <div className="space-y-2">
         {simpleFields.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <dl className="grid gap-x-4 gap-y-1 text-[12px] text-[var(--app-text-secondary)] sm:grid-cols-2">
             {simpleFields.map((item) => (
-              <div
-                key={`${item.label}-${item.value}`}
-                className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2"
-              >
-                <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">{item.label}</div>
-                <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{item.value}</div>
+              <div key={`${item.label}-${item.value}`} className="min-w-0">
+                <dt className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">{item.label}</dt>
+                <dd className="mt-0.5 whitespace-pre-wrap text-[var(--app-text-primary)]">{item.value}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         ) : null}
         {typeof parsed.summary === "string" ? (
-          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">摘要</div>
+          <div className="border-l border-[var(--app-border)] pl-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">摘要</div>
             <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{parsed.summary}</div>
           </div>
         ) : null}
         {typeof parsed.content === "string" ? (
-          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">正文</div>
+          <div className="border-l border-[var(--app-border)] pl-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">正文</div>
             <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{parsed.content}</div>
           </div>
         ) : null}
@@ -436,8 +433,8 @@ const renderToolOutput = (tool: ToolPayload) => {
   const locationList = Array.isArray(data.locations) ? data.locations : [];
 
   const renderSection = (title: string, content: React.ReactNode) => (
-    <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 space-y-1">
-      <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">{title}</div>
+    <div className="border-l border-[var(--app-border)] pl-3 space-y-1">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">{title}</div>
       {content}
     </div>
   );
@@ -629,115 +626,104 @@ const renderToolOutput = (tool: ToolPayload) => {
   return <div className="space-y-2">{blocks}</div>;
 };
 
-const renderToolCard = (message: ToolMessage) => {
-  const isResult = message.kind === "tool_result";
-  const summaryText = message.tool.summary || message.tool.name;
-  const label = isResult ? "结果反馈" : "执行行为";
-  if (!isResult) {
+const READ_TOOL_NAMES = new Set(["get_episode_script", "get_scene_script", "read_project_data", "read_script_data", "search_script_data"]);
+const WRITE_TOOL_NAMES = new Set(["create_text_node", "upsert_character", "upsert_location"]);
+
+const trimToolSummary = (summary?: string, fallback?: string) => {
+  if (!summary?.trim()) return fallback || "工具";
+  const cleaned = summary.replace(/^[^：:]+[：:]\s*/, "").trim();
+  return cleaned || summary;
+};
+
+const buildToolActionLabel = (tool: ToolPayload) => {
+  const subject = trimToolSummary(tool.summary, tool.name);
+  if (READ_TOOL_NAMES.has(tool.name)) return `查看 ${subject}`;
+  if (WRITE_TOOL_NAMES.has(tool.name)) return `编辑 ${subject}`;
+  return `操作 ${subject}`;
+};
+
+type ToolThread = {
+  key: string;
+  request?: ToolMessage;
+  result?: ToolMessage;
+};
+
+const renderToolThread = (thread: ToolThread) => {
+  const effectiveTool = thread.result?.tool || thread.request?.tool;
+  if (!effectiveTool) return null;
+  const hasDetails =
+    !!thread.result?.tool.output ||
+    !!thread.result?.tool.summary ||
+    !!thread.result?.tool.evidence?.length;
+  const actionLabel = buildToolActionLabel(effectiveTool);
+  const status = thread.result?.tool.status || thread.request?.tool.status || "queued";
+  const statusText = toolStatusLabel[status];
+
+  if (!hasDetails && !thread.result) {
     return (
-      <div className="max-w-[78%] rounded-2xl border border-amber-400/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(17,24,39,0.12))] px-3 py-2 shadow-[0_12px_28px_-22px_rgba(245,158,11,0.6)]">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-amber-200/90">
-          <span className="inline-block h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
-          <span>{label}</span>
-          <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
-        </div>
-        <div className="mt-1 text-[13px] font-semibold text-[var(--app-text-primary)]">{summaryText}</div>
-        <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">
-          Agent 正在执行 `{message.tool.name}`。
-        </div>
+      <div className="max-w-[88%] text-[13px] leading-relaxed text-[var(--app-text-secondary)]">
+        <span className="font-medium text-[var(--app-text-primary)]">{actionLabel}</span>
+        <span className={`ml-2 text-[11px] ${toolStatusClass[status]}`}>{statusText}</span>
       </div>
     );
   }
 
   return (
-    <details className="max-w-[88%] rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] shadow-[0_16px_32px_-24px_rgba(0,0,0,0.42)]">
-      <summary className="cursor-pointer list-none px-4 py-3">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
-          <span>{label}</span>
-          <span className={toolStatusClass[message.tool.status]}>{toolStatusLabel[message.tool.status]}</span>
-        </div>
-        <div className="mt-1 text-[13px] font-semibold text-[var(--app-text-primary)]">{summaryText}</div>
-        <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">
-          {message.tool.name}
-        </div>
+    <details className="max-w-[90%] text-[13px] leading-relaxed text-[var(--app-text-secondary)]">
+      <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
+        <span className="font-medium text-[var(--app-text-primary)]">{actionLabel}</span>
+        <span className={`ml-2 text-[11px] ${toolStatusClass[status]}`}>{statusText}</span>
       </summary>
-      <div className="border-t border-[var(--app-border)] px-4 py-3 space-y-3">
-        {message.tool.summary ? (
-          <div className="text-[12px] text-[var(--app-text-secondary)]">{message.tool.summary}</div>
+      <div className="mt-2 ml-4 space-y-2 border-l border-[var(--app-border)] pl-3">
+        {thread.result?.tool.summary ? (
+          <div className="text-[12px] text-[var(--app-text-secondary)]">{thread.result.tool.summary}</div>
         ) : null}
-        {message.tool.evidence && message.tool.evidence.length > 0 ? (
-          <div className="text-[11px] text-[var(--app-text-secondary)]">
-            证据：{message.tool.evidence.join(", ")}
+        {thread.result?.tool.evidence && thread.result.tool.evidence.length > 0 ? (
+          <div className="text-[11px] text-[var(--app-text-muted)]">
+            {thread.result.tool.evidence.join(" · ")}
           </div>
         ) : null}
-        {renderToolOutput(message.tool)}
+        {thread.result ? renderToolOutput(thread.result.tool) : null}
       </div>
     </details>
   );
 };
 
-const renderStatusCard = (message: StatusMessage) => {
+const renderStatusLine = (message: StatusMessage) => {
   const status = message.statusCard;
-  const headerClass =
+  const toneClass =
     status.status === "error"
-      ? "border-rose-400/25 bg-[linear-gradient(135deg,rgba(244,63,94,0.12),rgba(17,24,39,0.08))]"
+      ? "text-rose-400"
       : status.status === "success"
-        ? "border-emerald-400/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(17,24,39,0.08))]"
-        : "border-sky-400/20 bg-[linear-gradient(135deg,rgba(56,189,248,0.10),rgba(17,24,39,0.10))]";
-  return (
-    <div className={`w-full max-w-[92%] rounded-2xl border px-4 py-3 shadow-[0_18px_36px_-28px_rgba(0,0,0,0.45)] ${headerClass}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${
-                status.status === "error"
-                  ? "bg-rose-400"
-                  : status.status === "success"
-                    ? "bg-emerald-400"
-                    : "bg-sky-300 animate-pulse"
-              }`}
-            />
-            <span>Agent 状态</span>
-            {status.isThinking ? <span className="text-sky-200/90">思考中</span> : null}
-          </div>
-          <div className="mt-1 text-[14px] font-semibold text-[var(--app-text-primary)]">{status.headline}</div>
-          {status.detail ? (
-            <div className="mt-1 text-[12px] leading-relaxed text-[var(--app-text-secondary)]">{status.detail}</div>
-          ) : null}
-        </div>
-        <div className="text-[10px] text-[var(--app-text-muted)] whitespace-nowrap">
-          {new Date(status.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-        </div>
+        ? "text-emerald-400"
+        : "text-sky-400";
+
+  if (!status.steps.length && !status.detail) {
+    return (
+      <div className="max-w-[88%] text-[12px] text-[var(--app-text-secondary)]">
+        <span className={`font-medium ${toneClass}`}>{status.headline}</span>
       </div>
-      {status.steps.length > 0 ? (
-        <div className="mt-3 space-y-2">
-          {status.steps.map((step) => (
-            <div key={step.id} className="grid grid-cols-[auto_1fr] gap-3">
-              <div className="pt-1">
-                <span
-                  className={`inline-block h-2.5 w-2.5 rounded-full ${
-                    step.status === "error"
-                      ? "bg-rose-400"
-                      : step.status === "success"
-                        ? "bg-emerald-400"
-                        : "bg-amber-300 animate-pulse"
-                  }`}
-                />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[12px] font-medium text-[var(--app-text-primary)]">{step.label}</div>
-                {step.detail ? (
-                  <div className="mt-0.5 text-[11px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                    {step.detail}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    );
+  }
+
+  return (
+    <details className="max-w-[90%] text-[12px] text-[var(--app-text-secondary)]">
+      <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
+        <span className={`font-medium ${toneClass}`}>{status.headline}</span>
+        <span className="ml-2 text-[11px] text-[var(--app-text-muted)]">
+          {new Date(status.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      </summary>
+      <div className="mt-2 ml-4 space-y-2 border-l border-[var(--app-border)] pl-3">
+        {status.detail ? <div className="whitespace-pre-wrap">{status.detail}</div> : null}
+        {status.steps.map((step) => (
+          <div key={step.id} className="space-y-0.5">
+            <div className="text-[12px] font-medium text-[var(--app-text-primary)]">{step.label}</div>
+            {step.detail ? <div className="text-[11px] text-[var(--app-text-muted)] whitespace-pre-wrap">{step.detail}</div> : null}
+          </div>
+        ))}
+      </div>
+    </details>
   );
 };
 
@@ -777,27 +763,27 @@ const renderAssistantPanel = (
         <details
           open={options.reasoningOpen}
           onToggle={(event) => options.onToggleReasoning((event.currentTarget as HTMLDetailsElement).open)}
-          className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2"
+          className="text-[12px] text-[var(--app-text-secondary)]"
         >
-          <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+          <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
             思考摘要（系统）
           </summary>
-          <div className="mt-2 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
+          <div className="mt-2 ml-4 border-l border-[var(--app-border)] pl-3 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
             {renderMarkdownLite(reasoningSummary)}
           </div>
         </details>
       ) : null}
       {showNoSummary && (
-        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 text-[12px] text-[var(--app-text-secondary)]">
+        <div className="text-[12px] text-[var(--app-text-secondary)]">
           当前模型未提供思考摘要。
         </div>
       )}
       {searchQueries.length > 0 && (
-        <details className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
-          <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">
+        <details className="text-[12px] text-[var(--app-text-secondary)]">
+          <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
             搜索记录
           </summary>
-          <ul className="mt-2 text-[12px] space-y-1 text-[var(--app-text-secondary)] list-disc pl-4">
+          <ul className="mt-2 ml-4 list-disc space-y-1 border-l border-[var(--app-border)] pl-6 text-[12px] text-[var(--app-text-secondary)]">
             {searchQueries.map((q, idx) => (
               <li key={`${idx}-${q.slice(0, 8)}`}>{q}</li>
             ))}
@@ -805,14 +791,14 @@ const renderAssistantPanel = (
         </details>
       )}
       {planItems.length > 0 ? (
-        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-secondary)]">Plan</div>
-          <ul className="text-[12px] leading-relaxed text-[var(--app-text-primary)] list-decimal pl-4 space-y-1">
+        <details className="text-[12px] text-[var(--app-text-secondary)]">
+          <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">查看计划</summary>
+          <ul className="mt-2 ml-4 list-decimal space-y-1 border-l border-[var(--app-border)] pl-6 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
             {planItems.map((item, idx) => (
               <li key={`${idx}-${item.slice(0, 8)}`}>{renderInlineMarkdown(item)}</li>
             ))}
           </ul>
-        </div>
+        </details>
       ) : null}
       {message.text ? renderMarkdownLite(message.text) : null}
     </div>
@@ -823,6 +809,64 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
+  const displayMessages = useMemo(() => {
+    const consumed = new Set<number>();
+    const items: Array<
+      | { kind: "status"; key: string; message: StatusMessage }
+      | { kind: "tool"; key: string; thread: ToolThread }
+      | { kind: "chat"; key: string; message: ChatMessage }
+    > = [];
+
+    for (let i = 0; i < messages.length; i += 1) {
+      if (consumed.has(i)) continue;
+      const message = messages[i];
+
+      if (isToolMessage(message)) {
+        if (message.kind === "tool") {
+          const resultIndex = messages.findIndex(
+            (candidate, idx) =>
+              idx > i &&
+              isToolMessage(candidate) &&
+              candidate.kind === "tool_result" &&
+              candidate.tool.callId &&
+              candidate.tool.callId === message.tool.callId
+          );
+          const result =
+            resultIndex >= 0 && isToolMessage(messages[resultIndex]) ? (messages[resultIndex] as ToolMessage) : undefined;
+          if (resultIndex >= 0) consumed.add(resultIndex);
+          items.push({
+            kind: "tool",
+            key: message.tool.callId || `tool-${i}`,
+            thread: {
+              key: message.tool.callId || `tool-${i}`,
+              request: message,
+              result,
+            },
+          });
+          continue;
+        }
+
+        items.push({
+          kind: "tool",
+          key: message.tool.callId || `tool-result-${i}`,
+          thread: {
+            key: message.tool.callId || `tool-result-${i}`,
+            result: message,
+          },
+        });
+        continue;
+      }
+
+      if (isStatusMessage(message)) {
+        items.push({ kind: "status", key: `${message.statusCard.runId}-${i}`, message });
+        continue;
+      }
+
+      items.push({ kind: "chat", key: `chat-${i}`, message });
+    }
+
+    return items;
+  }, [messages]);
 
   useEffect(() => {
     if (!messagesRef.current) return;
@@ -834,26 +878,26 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
 
   return (
     <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-      {messages.map((m, idx) => {
-        const isUser = m.role === "user";
-        const isAssistantPanel = !isUser && !isToolMessage(m) && !isStatusMessage(m);
-        const reasoningKey = `reasoning-${idx}`;
+      {displayMessages.map((item, idx) => {
+        const isUser = item.kind === "chat" && item.message.role === "user";
+        const isAssistantPanel = item.kind === "chat" && !isUser;
+        const reasoningKey = `reasoning-${item.key}-${idx}`;
         const reasoningOpen = openPanels[reasoningKey] ?? true;
         return (
           <div
-            key={idx}
+            key={item.key}
             className={`flex ${isUser ? "justify-end" : "justify-start"} ${isAssistantPanel ? "w-full" : ""}`}
           >
-            {isStatusMessage(m) ? (
-              renderStatusCard(m)
-            ) : isToolMessage(m) ? (
-              renderToolCard(m)
+            {item.kind === "status" ? (
+              renderStatusLine(item.message)
+            ) : item.kind === "tool" ? (
+              renderToolThread(item.thread)
             ) : isUser ? (
-              <div className="max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed border bg-[var(--app-text-primary)] text-[var(--app-bg)] border-[var(--app-border-strong)]">
-                {m.text}
+              <div className="max-w-[82%] rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3 text-[13px] leading-relaxed text-[var(--app-text-primary)] shadow-[0_10px_24px_-20px_rgba(0,0,0,0.28)]">
+                {item.message.text}
               </div>
             ) : (
-              renderAssistantPanel(m, {
+              renderAssistantPanel(item.message, {
                 reasoningOpen,
                 onToggleReasoning: (open) =>
                   setOpenPanels((prev) => ({

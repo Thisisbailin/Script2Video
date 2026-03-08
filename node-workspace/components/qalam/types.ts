@@ -17,6 +17,8 @@ export type ChatMessage = {
   text: string;
   kind?: "chat";
   meta?: {
+    runId?: string;
+    isStreaming?: boolean;
     planItems?: string[];
     reasoningSummary?: string;
     thinkingStatus?: "active" | "done";

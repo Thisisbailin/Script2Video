@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Message, StatusMessage, StatusStep } from "../../node-workspace/components/qalam/types";
+import type { ChatMessage, Message, StatusMessage, StatusStep } from "../../node-workspace/components/qalam/types";
 import { buildAssistantChatMessage } from "../adapters/qalamMessageAdapter";
 import {
   recordAgentToolCalled,
@@ -39,6 +39,24 @@ const upsertStatusMessage = (
 ) => {
   const index = messages.findIndex((message) => message.kind === "status" && message.statusCard.runId === runId);
   const current = index >= 0 ? (messages[index] as StatusMessage) : null;
+  const next = updater(current);
+  if (index >= 0) {
+    const clone = [...messages];
+    clone[index] = next;
+    return clone;
+  }
+  return [...messages, next];
+};
+
+const upsertStreamingAssistantMessage = (
+  messages: Message[],
+  runId: string,
+  updater: (current: ChatMessage | null) => ChatMessage
+) => {
+  const index = messages.findIndex(
+    (message) => message.role === "assistant" && (message.kind === "chat" || message.kind == null) && message.meta?.runId === runId
+  );
+  const current = index >= 0 ? (messages[index] as ChatMessage) : null;
   const next = updater(current);
   if (index >= 0) {
     const clone = [...messages];
@@ -242,6 +260,43 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
         return;
       }
 
+      if (event.type === "message_delta") {
+        setMessages((prev) =>
+          upsertStreamingAssistantMessage(prev, event.runId, (current) => ({
+            role: "assistant",
+            kind: "chat",
+            text: event.accumulatedText,
+            meta: {
+              ...current?.meta,
+              runId: event.runId,
+              isStreaming: true,
+              thinkingStatus: "active",
+            },
+          }))
+        );
+        setMessages((prev) =>
+          upsertStatusMessage(prev, event.runId, (current) => ({
+            role: "assistant",
+            kind: "status",
+            statusCard: {
+              runId: event.runId,
+              status: current?.statusCard.status || "running",
+              headline: "正在生成回复",
+              detail: "回答内容正在持续输出。",
+              steps: appendOrReplaceRunningStep(current?.statusCard.steps || [], {
+                id: "streaming-response",
+                label: "流式生成回复",
+                status: "running",
+              }),
+              startedAt: current?.statusCard.startedAt || Date.now(),
+              updatedAt: Date.now(),
+              isThinking: true,
+            },
+          }))
+        );
+        return;
+      }
+
       if (event.type === "tool_called") {
         recordAgentToolCalled(event.call);
         const actionLabel = humanizeToolName(event.call.name);
@@ -380,7 +435,30 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
 
       if (event.type === "message_completed") {
         setMessages((prev) => {
-          const withStatus = prev.map((message) => {
+          const withStreamedAnswer = upsertStreamingAssistantMessage(prev, event.runId, (current) => {
+            const built = buildAssistantChatMessage(event.text);
+            return current
+              ? {
+                  ...current,
+                  text: event.text || current.text,
+                  meta: {
+                    ...current.meta,
+                    runId: event.runId,
+                    isStreaming: false,
+                    thinkingStatus: "done",
+                  },
+                }
+              : {
+                  ...built,
+                  meta: {
+                    ...built.meta,
+                    runId: event.runId,
+                    isStreaming: false,
+                    thinkingStatus: "done",
+                  },
+                };
+          });
+          return withStreamedAnswer.map((message) => {
             if (message.kind !== "status" || message.statusCard.runId !== event.runId) return message;
             return {
               ...message,
@@ -398,7 +476,6 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
               },
             };
           });
-          return [...withStatus, buildAssistantChatMessage(event.text)];
         });
         return;
       }
