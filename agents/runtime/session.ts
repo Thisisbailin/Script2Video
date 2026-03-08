@@ -1,6 +1,49 @@
-import type { Script2VideoSessionRecord, Script2VideoSessionStore } from "./types";
+import type { AgentSessionMessage, Script2VideoSessionRecord, Script2VideoSessionStore } from "./types";
 
 export const DEFAULT_AGENT_SESSION_STORAGE_KEY = "script2video_agent_sessions_v1";
+export const AGENT_SESSION_STORAGE_UPDATED_EVENT = "script2video:agent-session-storage-updated";
+
+const normalizeSessionMessage = (message: any): AgentSessionMessage | null => {
+  if (!message || typeof message !== "object") return null;
+  const createdAt = typeof message.createdAt === "number" ? message.createdAt : Date.now();
+  if (message.role === "tool") {
+    if (typeof message.toolName !== "string" || typeof message.toolCallId !== "string") return null;
+    return {
+      role: "tool",
+      text: typeof message.text === "string" ? message.text : "",
+      createdAt,
+      toolName: message.toolName,
+      toolCallId: message.toolCallId,
+      toolStatus: message.toolStatus === "error" ? "error" : "success",
+      toolOutput: message.toolOutput,
+    };
+  }
+  if (message.role === "user" || message.role === "assistant") {
+    return {
+      role: message.role,
+      text: typeof message.text === "string" ? message.text : "",
+      createdAt,
+    };
+  }
+  return null;
+};
+
+const normalizeSessionRecord = (value: any): Script2VideoSessionRecord | null => {
+  if (!value || typeof value !== "object" || typeof value.id !== "string") return null;
+  const messages = Array.isArray(value.messages)
+    ? value.messages.map(normalizeSessionMessage).filter(Boolean) as AgentSessionMessage[]
+    : [];
+  return {
+    id: value.id,
+    messages,
+    updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : Date.now(),
+  };
+};
+
+const emitStorageUpdated = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(AGENT_SESSION_STORAGE_UPDATED_EVENT));
+};
 
 const readLocalStorageSessions = (storageKey: string): Record<string, Script2VideoSessionRecord> => {
   if (typeof window === "undefined") return {};
@@ -8,7 +51,12 @@ const readLocalStorageSessions = (storageKey: string): Record<string, Script2Vid
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .map(([key, record]) => [key, normalizeSessionRecord(record)])
+        .filter((entry): entry is [string, Script2VideoSessionRecord] => !!entry[1])
+    );
   } catch {
     return {};
   }
@@ -17,7 +65,18 @@ const readLocalStorageSessions = (storageKey: string): Record<string, Script2Vid
 const writeLocalStorageSessions = (storageKey: string, records: Record<string, Script2VideoSessionRecord>) => {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(storageKey, JSON.stringify(records));
+  emitStorageUpdated();
 };
+
+export const listPersistedAgentSessions = (
+  storageKey = DEFAULT_AGENT_SESSION_STORAGE_KEY
+): Script2VideoSessionRecord[] =>
+  Object.values(readLocalStorageSessions(storageKey)).sort((a, b) => b.updatedAt - a.updatedAt);
+
+export const readPersistedAgentSession = (
+  sessionId: string,
+  storageKey = DEFAULT_AGENT_SESSION_STORAGE_KEY
+): Script2VideoSessionRecord | null => readLocalStorageSessions(storageKey)[sessionId] || null;
 
 export const clearPersistedAgentSession = (
   sessionId: string,

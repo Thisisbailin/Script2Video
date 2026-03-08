@@ -26,7 +26,17 @@ import {
   SORA_DEFAULT_MODEL,
   DEFAULT_QALAM_TOOL_SETTINGS,
 } from "../../constants";
-import { clearPersistedAgentSession } from "../../agents/runtime/session";
+import {
+  AGENT_SESSION_STORAGE_UPDATED_EVENT,
+  clearPersistedAgentSession,
+  listPersistedAgentSessions,
+  readPersistedAgentSession,
+} from "../../agents/runtime/session";
+import {
+  AGENT_ACTIVITY_STORAGE_UPDATED_EVENT,
+  readAgentToolActivity,
+  type AgentToolActivityRecord,
+} from "../../agents/runtime/activity";
 import { useWorkflowStore } from "../store/workflowStore";
 import * as GeminiService from "../../services/geminiService";
 import * as QwenService from "../../services/qwenService";
@@ -207,6 +217,40 @@ const formatTimestamp = (value?: number) => {
   return date.toLocaleString();
 };
 
+const formatRelativeTime = (value?: number) => {
+  if (!value) return "暂无";
+  const diff = Date.now() - value;
+  if (diff < 60_000) return "刚刚";
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} 分钟前`;
+  if (diff < 86_400_000) return `${Math.max(1, Math.floor(diff / 3_600_000))} 小时前`;
+  return `${Math.max(1, Math.floor(diff / 86_400_000))} 天前`;
+};
+
+const getLatestActivityTimestamp = (records: AgentToolActivityRecord[]) =>
+  records.reduce((latest, record) => Math.max(latest, record.lastFailedAt || 0, record.lastCompletedAt || 0, record.lastCalledAt || 0), 0);
+
+const getLastFailure = (records: AgentToolActivityRecord[]) =>
+  records
+    .filter((record) => record.lastFailedAt && record.lastError)
+    .sort((a, b) => (b.lastFailedAt || 0) - (a.lastFailedAt || 0))[0];
+
+const getLastArtifact = (records: AgentToolActivityRecord[]) =>
+  records
+    .filter((record) => record.lastCompletedAt && record.lastArtifact)
+    .sort((a, b) => (b.lastCompletedAt || 0) - (a.lastCompletedAt || 0))[0];
+
+const summarizeRuntimeToolOutput = (value: unknown) => {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized.length > 220 ? `${serialized.slice(0, 220)}...` : serialized;
+  } catch {
+    return "tool output";
+  }
+};
+
 const buildConversationTitle = (messages: Array<{ role?: string; text?: string }>) => {
   const firstUser = messages.find((m) => m.role === "user" && m.text && m.text.trim());
   if (!firstUser?.text) return "新对话";
@@ -222,6 +266,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [activeVideoProvider, setActiveVideoProvider] = useState<"sora" | "qwen" | "vidu">("sora");
   const [selectedPanel, setSelectedPanel] = useState<"provider" | "tools" | "history">("provider");
   const [activeTool, setActiveTool] = useState<ToolKey>("asset-library");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "user" | "assistant" | "tool">("all");
   const [isLoadingTextModels, setIsLoadingTextModels] = useState(false);
   const [textModelFetchMessage, setTextModelFetchMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [availableTextModels, setAvailableTextModels] = useState<string[]>([]);
@@ -232,6 +277,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [qwenModelsRaw, setQwenModelsRaw] = useState<string>("");
   const [showQwenRaw, setShowQwenRaw] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [runtimeMetaVersion, setRuntimeMetaVersion] = useState(0);
   const [conversationState, setConversationState] = usePersistedState<ConversationState>({
     key: "script2video_qalam_conversations_v1",
     initialValue: { activeId: "", items: [] },
@@ -281,6 +327,39 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     () => TOOL_ITEMS.find((item) => item.key === activeTool) || TOOL_ITEMS[0],
     [activeTool]
   );
+  const runtimeSession = useMemo(
+    () => (activeConversation?.id ? readPersistedAgentSession(activeConversation.id) : null),
+    [activeConversation?.id, runtimeMetaVersion]
+  );
+  const allRuntimeSessions = useMemo(() => listPersistedAgentSessions(), [runtimeMetaVersion]);
+  const toolActivityMap = useMemo(() => readAgentToolActivity(), [runtimeMetaVersion]);
+  const activeToolActivity = useMemo(() => {
+    const records = activeToolItem.tools
+      .map((toolName) => toolActivityMap[toolName])
+      .filter(Boolean) as AgentToolActivityRecord[];
+    const latest = getLatestActivityTimestamp(records);
+    const lastFailure = getLastFailure(records);
+    const lastArtifact = getLastArtifact(records);
+    return {
+      records,
+      totalCalls: records.reduce((sum, record) => sum + record.totalCalls, 0),
+      totalSuccesses: records.reduce((sum, record) => sum + record.totalSuccesses, 0),
+      totalFailures: records.reduce((sum, record) => sum + record.totalFailures, 0),
+      latest,
+      lastFailure,
+      lastArtifact,
+    };
+  }, [activeToolItem.tools, toolActivityMap]);
+  const filteredConversationMessages = useMemo(() => {
+    const messages = activeConversation?.messages || [];
+    if (historyFilter === "all") return messages;
+    return messages.filter((message) => message.role === historyFilter);
+  }, [activeConversation?.messages, historyFilter]);
+  const filteredRuntimeMessages = useMemo(() => {
+    const messages = runtimeSession?.messages || [];
+    if (historyFilter === "all") return messages;
+    return messages.filter((message) => message.role === historyFilter);
+  }, [runtimeSession?.messages, historyFilter]);
   const ActiveToolIcon = activeToolItem.Icon;
   const toolEnabledCount = useMemo(
     () =>
@@ -291,6 +370,16 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       ].filter(Boolean).length,
     [qalamToolSettings]
   );
+  useEffect(() => {
+    const onUpdated = () => setRuntimeMetaVersion((value) => value + 1);
+    if (typeof window === "undefined") return;
+    window.addEventListener(AGENT_SESSION_STORAGE_UPDATED_EVENT, onUpdated);
+    window.addEventListener(AGENT_ACTIVITY_STORAGE_UPDATED_EVENT, onUpdated);
+    return () => {
+      window.removeEventListener(AGENT_SESSION_STORAGE_UPDATED_EVENT, onUpdated);
+      window.removeEventListener(AGENT_ACTIVITY_STORAGE_UPDATED_EVENT, onUpdated);
+    };
+  }, []);
   const updateProjectToolSettings = (patch: Partial<typeof qalamToolSettings.projectData>) => {
     setConfig((prev) => {
       const existing = prev.textConfig.qalamTools?.projectData || {};
@@ -1345,6 +1434,63 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                         单一全能型 Agent 沿着查阅、理解、操作三种动作推进工作，而不是通过多个子 Agent 分工。
                       </div>
                     </div>
+                    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">Runtime Activity</div>
+                          <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                            当前能力卡对应的真实 tool 调用轨迹与产物摘要。
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2.5 py-1 text-[10px] text-[var(--app-text-secondary)]">
+                          {activeToolActivity.records.length}/{activeToolItem.tools.length} 已记录
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">最近调用</div>
+                          <div className="mt-2 text-[14px] font-semibold text-[var(--app-text-primary)]">
+                            {formatRelativeTime(activeToolActivity.latest)}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">累计调用</div>
+                          <div className="mt-2 text-[14px] font-semibold text-[var(--app-text-primary)]">
+                            {activeToolActivity.totalCalls}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">成功</div>
+                          <div className="mt-2 text-[14px] font-semibold text-emerald-300">
+                            {activeToolActivity.totalSuccesses}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">失败</div>
+                          <div className="mt-2 text-[14px] font-semibold text-rose-300">
+                            {activeToolActivity.totalFailures}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">最近失败</div>
+                          <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                            {activeToolActivity.lastFailure?.lastError
+                              ? `${activeToolActivity.lastFailure.toolName} · ${activeToolActivity.lastFailure.lastError}`
+                              : "暂无失败记录。"}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">最近产物</div>
+                          <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
+                            {activeToolActivity.lastArtifact?.lastArtifact
+                              ? `${activeToolActivity.lastArtifact.toolName} · ${activeToolActivity.lastArtifact.lastArtifact}`
+                              : "暂无持久化或节点产物。"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                     <div className="space-y-3">
                       {TOOL_ITEMS.map((item, index) => {
                         const active = item.key === activeTool;
@@ -1387,40 +1533,182 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               )}
 
               {selectedPanel === "history" && (
-                <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-                  <div className="text-[11px] uppercase tracking-widest app-text-muted">History</div>
-                  {activeConversation ? (
-                    <div className="space-y-3">
-                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-1">
-                        <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">
-                          {activeConversation.title || buildConversationTitle(activeConversation.messages || [])}
-                        </div>
-                        <div className="text-[10px] text-[var(--app-text-muted)]">
-                          更新 {formatTimestamp(activeConversation.updatedAt || activeConversation.createdAt)}
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-widest app-text-muted">History</div>
+                        <div className="mt-2 text-[12px] leading-relaxed text-[var(--app-text-secondary)]">
+                          当前面板同时展示用户可见的聊天时间线，以及 Agent runtime 持久化的 session memory。
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        {(activeConversation.messages || []).length ? (
-                          activeConversation.messages.map((message, index) => (
-                            <div
-                              key={`${activeConversation.id}-${index}`}
-                              className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2"
-                            >
-                              <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
-                                {message.role || "unknown"}
-                              </div>
-                              <div className="mt-1 text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-                                {message.text || "（空消息）"}
-                              </div>
+                      <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-1 text-[10px] text-[var(--app-text-secondary)]">
+                        {allRuntimeSessions.length} sessions
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { key: "all", label: "全部" },
+                        { key: "user", label: "User" },
+                        { key: "assistant", label: "Assistant" },
+                        { key: "tool", label: "Tool" },
+                      ].map((item) => {
+                        const active = historyFilter === item.key;
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setHistoryFilter(item.key as typeof historyFilter)}
+                            className={`rounded-full px-3 py-1.5 text-[11px] transition ${
+                              active
+                                ? "border border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]"
+                                : "border border-[var(--app-border)] bg-transparent text-[var(--app-text-secondary)] hover:bg-[var(--app-panel-soft)]"
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {activeConversation ? (
+                      <>
+                        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-1">
+                          <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">
+                            {activeConversation.title || buildConversationTitle(activeConversation.messages || [])}
+                          </div>
+                          <div className="text-[10px] text-[var(--app-text-muted)]">
+                            聊天更新 {formatTimestamp(activeConversation.updatedAt || activeConversation.createdAt)}
+                          </div>
+                          <div className="text-[10px] text-[var(--app-text-muted)]">
+                            Runtime 更新 {runtimeSession ? formatTimestamp(runtimeSession.updatedAt) : "尚未建立 session memory"}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Chat Timeline</div>
+                            <div className="mt-2 text-[16px] font-semibold text-[var(--app-text-primary)]">
+                              {filteredConversationMessages.length}
                             </div>
-                          ))
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">用户可见消息</div>
+                          </div>
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Runtime Memory</div>
+                            <div className="mt-2 text-[16px] font-semibold text-[var(--app-text-primary)]">
+                              {filteredRuntimeMessages.length}
+                            </div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">含 tool 事件与持久化摘要</div>
+                          </div>
+                          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">最近同步</div>
+                            <div className="mt-2 text-[16px] font-semibold text-[var(--app-text-primary)]">
+                              {formatRelativeTime(runtimeSession?.updatedAt)}
+                            </div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">基于 local runtime storage</div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-[var(--app-text-muted)]">请选择一条对话。</div>
+                    )}
+                  </div>
+
+                  {activeConversation && (
+                    <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-widest app-text-muted">Chat Timeline</div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                              用户在聊天面板可直接看到的消息历史。
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-1 text-[10px] text-[var(--app-text-secondary)]">
+                            {filteredConversationMessages.length} msgs
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {filteredConversationMessages.length ? (
+                            filteredConversationMessages.map((message, index) => (
+                              <div
+                                key={`${activeConversation.id}-${index}`}
+                                className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3"
+                              >
+                                <div className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                                  {message.role || "unknown"}
+                                </div>
+                                <div className="mt-1 text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                                  {message.text || "（空消息）"}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-4 text-[11px] text-[var(--app-text-muted)]">
+                              暂无对话内容。
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-widest app-text-muted">Runtime Memory</div>
+                            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+                              Agent 真实保留的 session memory，包含 user、assistant 与 tool 事件。
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-1 text-[10px] text-[var(--app-text-secondary)]">
+                            {filteredRuntimeMessages.length} entries
+                          </span>
+                        </div>
+                        {filteredRuntimeMessages.length ? (
+                          <div className="space-y-2">
+                            {filteredRuntimeMessages.map((message, index) => (
+                              <div
+                                key={`${runtimeSession.id}-${index}`}
+                                className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-[10px] uppercase tracking-widest text-[var(--app-text-muted)]">
+                                        {message.role === "tool" ? message.toolName : message.role}
+                                      </span>
+                                      {message.role === "tool" && (
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                            message.toolStatus === "success"
+                                              ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+                                              : "border border-rose-400/30 bg-rose-500/10 text-rose-300"
+                                          }`}
+                                        >
+                                          {message.toolStatus}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+                                      {message.text || "（空消息）"}
+                                    </div>
+                                    {message.role === "tool" && message.toolOutput != null && (
+                                      <div className="rounded-xl border border-[var(--app-border)] bg-black/20 px-3 py-2 text-[10px] leading-relaxed text-[var(--app-text-muted)] whitespace-pre-wrap">
+                                        {summarizeRuntimeToolOutput(message.toolOutput)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-right text-[10px] text-[var(--app-text-muted)]">
+                                    {formatTimestamp(message.createdAt)}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
-                          <div className="text-[11px] text-[var(--app-text-muted)]">暂无对话内容。</div>
+                          <div className="rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-4 text-[11px] text-[var(--app-text-muted)]">
+                            该对话尚未形成 runtime session memory。
+                          </div>
                         )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-[11px] text-[var(--app-text-muted)]">请选择一条对话。</div>
                   )}
                   <div className="text-[11px] text-[var(--app-text-muted)]">仅对 Qalam 对话生效。</div>
                 </div>

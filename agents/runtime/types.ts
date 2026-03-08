@@ -93,11 +93,21 @@ export interface Script2VideoSkillLoader {
   getSkill(id: string): Promise<Script2VideoSkillDefinition | null> | Script2VideoSkillDefinition | null;
 }
 
-export type AgentSessionMessage = {
-  role: "user" | "assistant";
-  text: string;
-  createdAt: number;
-};
+export type AgentSessionMessage =
+  | {
+      role: "user" | "assistant";
+      text: string;
+      createdAt: number;
+    }
+  | {
+      role: "tool";
+      text: string;
+      createdAt: number;
+      toolName: string;
+      toolCallId: string;
+      toolStatus: "success" | "error";
+      toolOutput?: unknown;
+    };
 
 export type Script2VideoSessionRecord = {
   id: string;

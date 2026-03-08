@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import type { Message } from "../../node-workspace/components/qalam/types";
 import { buildAssistantChatMessage } from "../adapters/qalamMessageAdapter";
+import {
+  recordAgentToolCalled,
+  recordAgentToolCompleted,
+  recordAgentToolFailed,
+} from "../runtime/activity";
 import type {
   AgentRuntimeEvent,
   Script2VideoAgentRuntime,
@@ -34,6 +39,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
   const handleEvent = useCallback(
     (event: AgentRuntimeEvent) => {
       if (event.type === "tool_called") {
+        recordAgentToolCalled(event.call);
         setMessages((prev) => [
           ...prev,
           {
@@ -49,6 +55,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
         ]);
       }
       if (event.type === "tool_completed") {
+        recordAgentToolCompleted(event.call);
         setMessages((prev) => [
           ...upsertToolStatus(prev, event.call.callId, "success", event.call.summary),
           {
@@ -65,6 +72,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
         ]);
       }
       if (event.type === "tool_failed") {
+        recordAgentToolFailed(event.call, event.error);
         setMessages((prev) => [
           ...upsertToolStatus(prev, event.call.callId, "error", event.error),
           {

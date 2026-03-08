@@ -50,6 +50,16 @@ const normalizeText = (value: unknown) => {
   }
 };
 
+const toSessionToolMessage = (toolCall: AgentExecutedToolCall) => ({
+  role: "tool" as const,
+  text: toolCall.summary || toolCall.error || toolCall.name,
+  createdAt: Date.now(),
+  toolName: toolCall.name,
+  toolCallId: toolCall.callId,
+  toolStatus: toolCall.status === "error" ? "error" as const : "success" as const,
+  toolOutput: toolCall.output ?? toolCall.error,
+});
+
 const buildRunInputText = (input: Script2VideoRunInput, sessionText: string) => {
   const blocks: string[] = [];
   if (sessionText.trim()) {
@@ -168,6 +178,9 @@ export const createScript2VideoAgentRuntime = ({
         messages: [
           ...previousSession.messages,
           { role: "user", text: input.userText, createdAt: Date.now() },
+          ...toolEvents
+            .filter((toolCall) => toolCall.status === "success" || toolCall.status === "error")
+            .map(toSessionToolMessage),
           { role: "assistant", text: finalText, createdAt: Date.now() },
         ].slice(-120),
       });
@@ -178,6 +191,18 @@ export const createScript2VideoAgentRuntime = ({
       return runResult;
     } catch (error: any) {
       const message = error?.message || "Agent runtime 执行失败";
+      await sessionStore.saveSession({
+        id: input.sessionId,
+        updatedAt: Date.now(),
+        messages: [
+          ...previousSession.messages,
+          { role: "user", text: input.userText, createdAt: Date.now() },
+          ...toolEvents
+            .filter((toolCall) => toolCall.status === "success" || toolCall.status === "error")
+            .map(toSessionToolMessage),
+          { role: "assistant", text: `运行失败: ${message}`, createdAt: Date.now() },
+        ].slice(-120),
+      });
       options?.onEvent?.({ type: "run_failed", error: message });
       tracer?.onRunFailed(message);
       throw error;
