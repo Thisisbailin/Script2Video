@@ -26,6 +26,9 @@ const WRITE_TOOL_NAMES = new Set([
   "upsert_location",
 ]);
 const STABILIZATION_DISABLED_TOOLS = [
+  "get_episode_script",
+  "get_scene_script",
+  "read_project_data",
   "search_script_data",
   "upsert_character",
   "upsert_location",
@@ -331,10 +334,12 @@ export const createScript2VideoAgentRuntime = ({
       bridge,
       disabledTools,
     }).map((tool) => tool.name);
+    const resolvedToolChoice = enabledToolNames.length > 0 ? "auto" : "none";
     debugLog(runId, "tool catalog", {
       enabled: enabledToolNames,
       disabled: Array.from(new Set(disabledTools)),
       toolSettings,
+      toolChoice: resolvedToolChoice,
     });
     emitTrace(
       "tool",
@@ -353,7 +358,7 @@ export const createScript2VideoAgentRuntime = ({
       handoffDescription: "Single all-purpose Script2Video creative agent.",
       model: config.model,
       modelSettings: {
-        toolChoice: "auto",
+        toolChoice: resolvedToolChoice,
         parallelToolCalls: false,
       },
       resetToolChoice: true,
@@ -380,7 +385,7 @@ export const createScript2VideoAgentRuntime = ({
     debugLog(runId, "agent created", {
       name: agent.name,
       model: config.model,
-      toolChoice: "auto",
+      toolChoice: resolvedToolChoice,
       parallelToolCalls: false,
     });
     emitTrace("runtime", "info", "Agent created", agent.name, `model=${config.model}`);
