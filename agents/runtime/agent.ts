@@ -25,6 +25,17 @@ const WRITE_TOOL_NAMES = new Set([
   "upsert_location",
 ]);
 
+const DIRECT_REPLY_PATTERNS = [
+  /^你好[！!，,。.\s]*$/i,
+  /^您好[！!，,。.\s]*$/i,
+  /^hi[！!，,。.\s]*$/i,
+  /^hello[！!，,。.\s]*$/i,
+  /^在吗[？?！!\s]*$/i,
+  /^你是谁[？?\s]*$/i,
+  /^你能做什么[？?\s]*$/i,
+  /^介绍一下你自己[？?\s]*$/i,
+];
+
 type RuntimeDeps = {
   bridge: Script2VideoAgentBridge;
   skillLoader: Script2VideoSkillLoader;
@@ -119,6 +130,14 @@ const buildToolDrivenFinalOutput = (toolResults: any[]) => {
   return ["操作已完成：", ...lines, "如需继续扩展，我可以基于当前结果继续处理。"].join("\n");
 };
 
+const shouldForceDirectReply = (input: Script2VideoRunInput) => {
+  const text = input.userText.trim();
+  if (!text) return false;
+  if (input.attachments?.length) return false;
+  if (input.uiContext?.supplementalContextText?.trim()) return false;
+  return DIRECT_REPLY_PATTERNS.some((pattern) => pattern.test(text));
+};
+
 export const createScript2VideoAgentRuntime = ({
   bridge,
   skillLoader,
@@ -158,6 +177,7 @@ export const createScript2VideoAgentRuntime = ({
       updatedAt: Date.now(),
     };
     const sessionText = previousSession.messages
+      .filter((message) => message.role === "user" || message.role === "assistant")
       .slice(-8)
       .map((message) => `${message.role === "user" ? "用户" : "助手"}: ${message.text}`)
       .join("\n");
@@ -181,7 +201,18 @@ export const createScript2VideoAgentRuntime = ({
     };
 
     const toolSettings = normalizeQalamToolSettings(config.qalamTools);
+    const forceDirectReply = shouldForceDirectReply(input);
     const disabledTools = enabledSkills.flatMap((skill) => skill?.disabledTools || []);
+    if (forceDirectReply) {
+      disabledTools.push(
+        "read_project_data",
+        "search_script_data",
+        "upsert_character",
+        "upsert_location",
+        "create_text_node",
+        "create_node_workflow"
+      );
+    }
     if (!toolSettings.projectData.enabled) {
       disabledTools.push("read_project_data", "search_script_data");
     }
