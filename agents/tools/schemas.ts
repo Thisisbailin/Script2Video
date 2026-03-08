@@ -1,5 +1,39 @@
 import { z } from "zod";
 
+const sanitizeOpenAICompatibleJsonSchema = (schema: unknown): unknown => {
+  if (Array.isArray(schema)) {
+    return schema.map(sanitizeOpenAICompatibleJsonSchema);
+  }
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (
+      key === "$schema" ||
+      key === "default" ||
+      key === "examples" ||
+      key === "title" ||
+      key === "deprecated" ||
+      key === "readOnly" ||
+      key === "writeOnly"
+    ) {
+      continue;
+    }
+    // Zod emits JS safe-integer bounds for `int()`. They are not needed for tool calling
+    // and some OpenAI-compatible providers reject verbose numeric constraints.
+    if (key === "minimum" || key === "maximum") {
+      continue;
+    }
+    next[key] = sanitizeOpenAICompatibleJsonSchema(value);
+  }
+  return next;
+};
+
+const toOpenAICompatibleParameters = <T extends z.ZodTypeAny>(schema: T) =>
+  sanitizeOpenAICompatibleJsonSchema(z.toJSONSchema(schema)) as Record<string, unknown>;
+
 export const readProjectDataSchema = z.object({
   episodeId: z.number().int().optional(),
   episodeTitle: z.string().optional(),
@@ -192,11 +226,11 @@ export const createNodeWorkflowSchema = z.object({
     .optional(),
 });
 
-export const readProjectDataParameters = z.toJSONSchema(readProjectDataSchema);
-export const searchScriptDataParameters = z.toJSONSchema(searchScriptDataSchema);
-export const getEpisodeScriptParameters = z.toJSONSchema(getEpisodeScriptSchema);
-export const getSceneScriptParameters = z.toJSONSchema(getSceneScriptSchema);
-export const upsertCharacterParameters = z.toJSONSchema(upsertCharacterSchema);
-export const upsertLocationParameters = z.toJSONSchema(upsertLocationSchema);
-export const createTextNodeParameters = z.toJSONSchema(createTextNodeSchema);
-export const createNodeWorkflowParameters = z.toJSONSchema(createNodeWorkflowSchema);
+export const readProjectDataParameters = toOpenAICompatibleParameters(readProjectDataSchema);
+export const searchScriptDataParameters = toOpenAICompatibleParameters(searchScriptDataSchema);
+export const getEpisodeScriptParameters = toOpenAICompatibleParameters(getEpisodeScriptSchema);
+export const getSceneScriptParameters = toOpenAICompatibleParameters(getSceneScriptSchema);
+export const upsertCharacterParameters = toOpenAICompatibleParameters(upsertCharacterSchema);
+export const upsertLocationParameters = toOpenAICompatibleParameters(upsertLocationSchema);
+export const createTextNodeParameters = toOpenAICompatibleParameters(createTextNodeSchema);
+export const createNodeWorkflowParameters = toOpenAICompatibleParameters(createNodeWorkflowSchema);
