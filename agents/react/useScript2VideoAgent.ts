@@ -79,22 +79,6 @@ const appendOrReplaceRunningStep = (steps: StatusStep[], step: StatusStep) => {
   return next.slice(-8);
 };
 
-const updateToolStep = (
-  steps: StatusStep[],
-  callId: string,
-  status: "running" | "success" | "error",
-  label: string,
-  detail?: string
-) => {
-  const existingIndex = steps.findIndex((step) => step.id === callId);
-  if (existingIndex >= 0) {
-    const clone = [...steps];
-    clone[existingIndex] = { ...clone[existingIndex], status, label, detail };
-    return clone;
-  }
-  return [...steps, { id: callId, status, label, detail }].slice(-8);
-};
-
 const humanizeToolName = (name: string) => {
   switch (name) {
     case "get_episode_script":
@@ -300,136 +284,56 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       if (event.type === "tool_called") {
         recordAgentToolCalled(event.call);
         const actionLabel = humanizeToolName(event.call.name);
-        setMessages((prev) => {
-          const withStatus =
-            activeRunIdRef.current
-              ? upsertStatusMessage(prev, activeRunIdRef.current, (current) => {
-                  const existing = current?.statusCard;
-                  return {
-                    role: "assistant",
-                    kind: "status",
-                    statusCard: {
-                      runId: activeRunIdRef.current || "unknown-run",
-                      status: existing?.status || "running",
-                      headline: "正在执行工具",
-                      detail: actionLabel,
-                      steps: updateToolStep(
-                        existing?.steps || [],
-                        event.call.callId || event.call.name,
-                        "running",
-                        actionLabel,
-                        event.call.summary
-                      ),
-                      startedAt: existing?.startedAt || Date.now(),
-                      updatedAt: Date.now(),
-                      isThinking: false,
-                    },
-                  };
-                })
-              : prev;
-          return [
-            ...withStatus,
-            {
-              role: "assistant",
-              kind: "tool",
-              tool: {
-                callId: event.call.callId,
-                name: event.call.name,
-                status: "running",
-                summary: event.call.summary || actionLabel,
-              },
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            kind: "tool",
+            tool: {
+              callId: event.call.callId,
+              name: event.call.name,
+              status: "running",
+              summary: event.call.summary || actionLabel,
             },
-          ];
-        });
+          },
+        ]);
         return;
       }
 
       if (event.type === "tool_completed") {
         recordAgentToolCompleted(event.call);
-        const resultLabel = humanizeToolName(event.call.name);
-        setMessages((prev) => {
-          const withStatus =
-            activeRunIdRef.current
-              ? upsertStatusMessage(prev, activeRunIdRef.current, (current) => ({
-                  role: "assistant",
-                  kind: "status",
-                  statusCard: {
-                    runId: activeRunIdRef.current || "unknown-run",
-                    status: current?.statusCard.status || "running",
-                    headline: "已收到工具结果",
-                    detail: resultLabel,
-                    steps: updateToolStep(
-                      current?.statusCard.steps || [],
-                      event.call.callId || event.call.name,
-                      "success",
-                      resultLabel,
-                      event.call.summary
-                    ),
-                    startedAt: current?.statusCard.startedAt || Date.now(),
-                    updatedAt: Date.now(),
-                    isThinking: true,
-                  },
-                }))
-              : prev;
-          return [
-            ...upsertToolStatus(withStatus, event.call.callId, "success", event.call.summary),
-            {
-              role: "assistant",
-              kind: "tool_result",
-              tool: {
-                callId: event.call.callId,
-                name: event.call.name,
-                status: "success",
-                summary: event.call.summary,
-                output: typeof event.call.output === "string" ? event.call.output : JSON.stringify(event.call.output || {}),
-              },
+        setMessages((prev) => [
+          ...upsertToolStatus(prev, event.call.callId, "success", event.call.summary),
+          {
+            role: "assistant",
+            kind: "tool_result",
+            tool: {
+              callId: event.call.callId,
+              name: event.call.name,
+              status: "success",
+              summary: event.call.summary,
+              output: typeof event.call.output === "string" ? event.call.output : JSON.stringify(event.call.output || {}),
             },
-          ];
-        });
+          },
+        ]);
         return;
       }
 
       if (event.type === "tool_failed") {
         recordAgentToolFailed(event.call, event.error);
-        const resultLabel = humanizeToolName(event.call.name);
-        setMessages((prev) => {
-          const withStatus =
-            activeRunIdRef.current
-              ? upsertStatusMessage(prev, activeRunIdRef.current, (current) => ({
-                  role: "assistant",
-                  kind: "status",
-                  statusCard: {
-                    runId: activeRunIdRef.current || "unknown-run",
-                    status: current?.statusCard.status || "running",
-                    headline: "工具执行失败",
-                    detail: resultLabel,
-                    steps: updateToolStep(
-                      current?.statusCard.steps || [],
-                      event.call.callId || event.call.name,
-                      "error",
-                      resultLabel,
-                      event.error
-                    ),
-                    startedAt: current?.statusCard.startedAt || Date.now(),
-                    updatedAt: Date.now(),
-                    isThinking: false,
-                  },
-                }))
-              : prev;
-          return [
-            ...upsertToolStatus(withStatus, event.call.callId, "error", event.error),
-            {
-              role: "assistant",
-              kind: "tool_result",
-              tool: {
-                callId: event.call.callId,
-                name: event.call.name,
-                status: "error",
-                summary: event.error,
-              },
+        setMessages((prev) => [
+          ...upsertToolStatus(prev, event.call.callId, "error", event.error),
+          {
+            role: "assistant",
+            kind: "tool_result",
+            tool: {
+              callId: event.call.callId,
+              name: event.call.name,
+              status: "error",
+              summary: event.error,
             },
-          ];
-        });
+          },
+        ]);
         return;
       }
 

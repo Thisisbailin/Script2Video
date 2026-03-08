@@ -627,7 +627,8 @@ const renderToolOutput = (tool: ToolPayload) => {
 };
 
 const READ_TOOL_NAMES = new Set(["get_episode_script", "get_scene_script", "read_project_data", "read_script_data", "search_script_data"]);
-const WRITE_TOOL_NAMES = new Set(["create_text_node", "upsert_character", "upsert_location"]);
+const WRITE_TOOL_NAMES = new Set(["write_project_summary", "write_episode_summary", "upsert_character", "upsert_location"]);
+const OPERATE_TOOL_NAMES = new Set(["create_text_node", "create_node_workflow"]);
 
 const trimToolSummary = (summary?: string, fallback?: string) => {
   if (!summary?.trim()) return fallback || "工具";
@@ -637,10 +638,19 @@ const trimToolSummary = (summary?: string, fallback?: string) => {
 
 const buildToolActionLabel = (tool: ToolPayload) => {
   const subject = trimToolSummary(tool.summary, tool.name);
-  if (READ_TOOL_NAMES.has(tool.name)) return `查看 ${subject}`;
+  if (READ_TOOL_NAMES.has(tool.name)) return `查阅 ${subject}`;
   if (WRITE_TOOL_NAMES.has(tool.name)) return `编辑 ${subject}`;
+  if (OPERATE_TOOL_NAMES.has(tool.name)) return `操作 ${subject}`;
   return `操作 ${subject}`;
 };
+
+const renderFoldoutSurface = (title: string, children: React.ReactNode, footer?: React.ReactNode) => (
+  <div className="mt-2 ml-4 rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(193,201,211,0.16),rgba(138,148,160,0.12))] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_28px_-24px_rgba(0,0,0,0.48)] backdrop-blur-md">
+    <div className="text-[10px] uppercase tracking-[0.18em] text-[rgba(230,235,241,0.64)]">{title}</div>
+    <div className="mt-2 space-y-2 text-[12px] leading-relaxed text-[var(--app-text-primary)]">{children}</div>
+    {footer ? <div className="mt-3 border-t border-white/8 pt-2 text-[11px] text-[rgba(230,235,241,0.56)]">{footer}</div> : null}
+  </div>
+);
 
 type ToolThread = {
   key: string;
@@ -674,19 +684,41 @@ const renderToolThread = (thread: ToolThread) => {
         <span className="font-medium text-[var(--app-text-primary)]">{actionLabel}</span>
         <span className={`ml-2 text-[11px] ${toolStatusClass[status]}`}>{statusText}</span>
       </summary>
-      <div className="mt-2 ml-4 space-y-2 border-l border-[var(--app-border)] pl-3">
-        {thread.result?.tool.summary ? (
-          <div className="text-[12px] text-[var(--app-text-secondary)]">{thread.result.tool.summary}</div>
-        ) : null}
-        {thread.result?.tool.evidence && thread.result.tool.evidence.length > 0 ? (
-          <div className="text-[11px] text-[var(--app-text-muted)]">
-            {thread.result.tool.evidence.join(" · ")}
-          </div>
-        ) : null}
-        {thread.result ? renderToolOutput(thread.result.tool) : null}
-      </div>
+      {renderFoldoutSurface(
+        thread.result ? "结果反馈" : "执行上下文",
+        <>
+          {thread.request?.tool.summary ? (
+            <div className="text-[12px] text-[var(--app-text-secondary)]">{thread.request.tool.summary}</div>
+          ) : null}
+          {thread.result?.tool.summary ? (
+            <div className="text-[12px] text-[var(--app-text-secondary)]">{thread.result.tool.summary}</div>
+          ) : null}
+          {thread.result?.tool.evidence && thread.result.tool.evidence.length > 0 ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">
+              {thread.result.tool.evidence.join(" · ")}
+            </div>
+          ) : null}
+          {thread.result ? renderToolOutput(thread.result.tool) : <div className="text-[12px] text-[var(--app-text-secondary)]">等待工具返回结果。</div>}
+        </>,
+        `${effectiveTool.name} · ${statusText}`
+      )}
     </details>
   );
+};
+
+const buildThinkingLabel = (status: StatusMessage["statusCard"]) => {
+  const latestStep = status.steps.at(-1);
+  if (latestStep?.label) {
+    if (latestStep.label === "生成最终回复") return "思考 完成回复整理";
+    if (latestStep.label === "流式生成回复") return "思考 生成回复";
+    return `思考 ${latestStep.label}`;
+  }
+  if (status.headline === "已接收请求") return "思考 理解请求";
+  if (status.headline === "正在规划处理方式") return "思考 规划处理方式";
+  if (status.headline === "已载入当前会话") return "思考 关联会话上下文";
+  if (status.headline === "处理完成") return "思考 完成处理";
+  if (status.headline === "处理失败") return "思考 处理中断";
+  return `思考 ${status.headline}`;
 };
 
 const renderStatusLine = (message: StatusMessage) => {
@@ -709,20 +741,43 @@ const renderStatusLine = (message: StatusMessage) => {
   return (
     <details className="max-w-[90%] text-[12px] text-[var(--app-text-secondary)]">
       <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
-        <span className={`font-medium ${toneClass}`}>{status.headline}</span>
+        <span className={`font-medium ${toneClass}`}>{buildThinkingLabel(status)}</span>
         <span className="ml-2 text-[11px] text-[var(--app-text-muted)]">
           {new Date(status.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </span>
       </summary>
-      <div className="mt-2 ml-4 space-y-2 border-l border-[var(--app-border)] pl-3">
-        {status.detail ? <div className="whitespace-pre-wrap">{status.detail}</div> : null}
-        {status.steps.map((step) => (
-          <div key={step.id} className="space-y-0.5">
-            <div className="text-[12px] font-medium text-[var(--app-text-primary)]">{step.label}</div>
-            {step.detail ? <div className="text-[11px] text-[var(--app-text-muted)] whitespace-pre-wrap">{step.detail}</div> : null}
-          </div>
-        ))}
-      </div>
+      {renderFoldoutSurface(
+        "思考摘要",
+        <>
+          {status.detail ? <div className="whitespace-pre-wrap text-[var(--app-text-secondary)]">{status.detail}</div> : null}
+          {status.steps.length > 0 ? (
+            <div className="space-y-2">
+              {status.steps.map((step) => (
+                <div key={step.id} className="rounded-xl border border-white/8 bg-black/10 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        step.status === "error"
+                          ? "bg-rose-400"
+                          : step.status === "success"
+                            ? "bg-emerald-400"
+                            : "bg-amber-300 animate-pulse"
+                      }`}
+                    />
+                    <div className="text-[12px] font-medium text-[var(--app-text-primary)]">{step.label}</div>
+                  </div>
+                  {step.detail ? (
+                    <div className="mt-1 text-[11px] text-[var(--app-text-muted)] whitespace-pre-wrap">{step.detail}</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[12px] text-[var(--app-text-secondary)]">当前尚未产生更多可展示的思考摘要。</div>
+          )}
+        </>,
+        `${status.status === "running" ? "处理中" : status.status === "success" ? "已完成" : "失败"} · ${status.isThinking ? "思考中" : "待机"}`
+      )}
     </details>
   );
 };
@@ -768,9 +823,7 @@ const renderAssistantPanel = (
           <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
             思考摘要（系统）
           </summary>
-          <div className="mt-2 ml-4 border-l border-[var(--app-border)] pl-3 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
-            {renderMarkdownLite(reasoningSummary)}
-          </div>
+          {renderFoldoutSurface("系统思考摘要", <>{renderMarkdownLite(reasoningSummary)}</>, thinkingStatus === "done" ? "已完成" : "处理中")}
         </details>
       ) : null}
       {showNoSummary && (
@@ -783,21 +836,27 @@ const renderAssistantPanel = (
           <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
             搜索记录
           </summary>
-          <ul className="mt-2 ml-4 list-disc space-y-1 border-l border-[var(--app-border)] pl-6 text-[12px] text-[var(--app-text-secondary)]">
-            {searchQueries.map((q, idx) => (
-              <li key={`${idx}-${q.slice(0, 8)}`}>{q}</li>
-            ))}
-          </ul>
+          {renderFoldoutSurface(
+            "搜索记录",
+            <ul className="list-disc space-y-1 pl-5 text-[12px] text-[var(--app-text-secondary)]">
+              {searchQueries.map((q, idx) => (
+                <li key={`${idx}-${q.slice(0, 8)}`}>{q}</li>
+              ))}
+            </ul>
+          )}
         </details>
       )}
       {planItems.length > 0 ? (
         <details className="text-[12px] text-[var(--app-text-secondary)]">
           <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">查看计划</summary>
-          <ul className="mt-2 ml-4 list-decimal space-y-1 border-l border-[var(--app-border)] pl-6 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
-            {planItems.map((item, idx) => (
-              <li key={`${idx}-${item.slice(0, 8)}`}>{renderInlineMarkdown(item)}</li>
-            ))}
-          </ul>
+          {renderFoldoutSurface(
+            "计划",
+            <ul className="list-decimal space-y-1 pl-5 text-[12px] leading-relaxed text-[var(--app-text-primary)]">
+              {planItems.map((item, idx) => (
+                <li key={`${idx}-${item.slice(0, 8)}`}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ul>
+          )}
         </details>
       ) : null}
       {message.text ? renderMarkdownLite(message.text) : null}
