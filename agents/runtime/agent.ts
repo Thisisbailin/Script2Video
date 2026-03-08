@@ -86,6 +86,26 @@ const normalizeText = (value: unknown) => {
   }
 };
 
+const debugLog = (runId: string, label: string, payload?: unknown) => {
+  if (typeof console === "undefined") return;
+  const prefix = `[Qalam][${runId}] ${label}`;
+  if (payload === undefined) {
+    console.debug(prefix);
+    return;
+  }
+  console.debug(prefix, payload);
+};
+
+const debugGroupStart = (runId: string, label: string) => {
+  if (typeof console === "undefined" || typeof console.groupCollapsed !== "function") return;
+  console.groupCollapsed(`[Qalam][${runId}] ${label}`);
+};
+
+const debugGroupEnd = () => {
+  if (typeof console === "undefined" || typeof console.groupEnd !== "function") return;
+  console.groupEnd();
+};
+
 const createTraceEntry = (
   stage: AgentTraceEntry["stage"],
   status: AgentTraceEntry["status"],
@@ -191,6 +211,18 @@ export const createScript2VideoAgentRuntime = ({
       throw new Error(message);
     }
 
+    debugGroupStart(runId, "Agent run");
+    debugLog(runId, "input", {
+      sessionId: input.sessionId,
+      userText: input.userText,
+      requestedOutcome: input.requestedOutcome || "auto",
+      uiContext: {
+        supplementalContextChars: input.uiContext?.supplementalContextText?.length || 0,
+        mentionTags: input.uiContext?.mentionTags || [],
+      },
+      attachments: input.attachments?.length || 0,
+      enabledSkillIds: input.enabledSkillIds || [],
+    });
     options?.onEvent?.({ type: "run_started", sessionId: input.sessionId, runId });
     emitTrace("runtime", "running", "Run started", `session=${input.sessionId}`);
     tracer?.onRunStarted(input);
@@ -199,6 +231,13 @@ export const createScript2VideoAgentRuntime = ({
     const provider = config.provider === "openrouter" ? "openrouter" : "qwen";
     const apiKey = resolveApiKey(provider, config.apiKey);
     const baseURL = resolveBaseUrl(provider, config.baseUrl);
+    debugLog(runId, "provider resolved", {
+      provider,
+      model: config.model,
+      baseURL,
+      apiKeySource: config.apiKey ? "config" : "env",
+      apiKeyPresent: Boolean(apiKey),
+    });
     emitTrace("runtime", "info", "Config resolved", `${provider} · ${config.model}`, baseURL);
     setOpenAIAPI("responses");
     const client = new OpenAI({
@@ -211,6 +250,7 @@ export const createScript2VideoAgentRuntime = ({
     const enabledSkills = (
       await Promise.all((input.enabledSkillIds || []).map((skillId) => skillLoader.getSkill(skillId)))
     ).filter(Boolean);
+    debugLog(runId, "skills resolved", enabledSkills);
     emitTrace(
       "runtime",
       "info",
@@ -221,12 +261,18 @@ export const createScript2VideoAgentRuntime = ({
     const session = await sessionStore.getSession(input.sessionId);
     const sessionId = await session.getSessionId();
     const sessionItems = await session.getItems(12);
+    debugLog(runId, "session attached", {
+      sessionId,
+      itemCount: sessionItems.length,
+      items: sessionItems,
+    });
     emitTrace("session", "info", "Session attached", `id=${sessionId} · items=${sessionItems.length}`);
 
     const toolEvents: AgentExecutedToolCall[] = [];
     let streamedTextDelta = "";
     let streamedResponseText = "";
     const emitToolEvent = (event: AgentRuntimeEvent) => {
+      debugLog(runId, `tool event: ${event.type}`, event);
       if (event.type === "tool_called") {
         toolEvents.push(event.call);
         tracer?.onToolCalled(event.call);
@@ -259,6 +305,11 @@ export const createScript2VideoAgentRuntime = ({
       bridge,
       disabledTools,
     }).map((tool) => tool.name);
+    debugLog(runId, "tool catalog", {
+      enabled: enabledToolNames,
+      disabled: Array.from(new Set(disabledTools)),
+      toolSettings,
+    });
     emitTrace(
       "tool",
       "info",
@@ -300,10 +351,21 @@ export const createScript2VideoAgentRuntime = ({
         disabledTools,
       }),
     });
+    debugLog(runId, "agent created", {
+      name: agent.name,
+      model: config.model,
+      toolChoice: "auto",
+      parallelToolCalls: false,
+    });
     emitTrace("runtime", "info", "Agent created", agent.name, `model=${config.model}`);
 
     try {
       emitTrace("model", "running", "Streaming started", input.userText.trim());
+      debugLog(runId, "run() invoked", {
+        input: input.userText.trim(),
+        maxTurns: 8,
+        stream: true,
+      });
       const result = await run(agent, input.userText.trim(), {
         signal: options?.signal,
         maxTurns: 8,
@@ -311,6 +373,7 @@ export const createScript2VideoAgentRuntime = ({
         stream: true,
       });
       await consumeRunStream(result, (streamEvent) => {
+        debugLog(runId, "stream event", streamEvent);
         if (streamEvent.type === "agent_updated_stream_event") {
           emitTrace("runtime", "info", "Agent updated", streamEvent.agent.name);
           return;
@@ -354,6 +417,13 @@ export const createScript2VideoAgentRuntime = ({
         }
       });
       await result.completed;
+      debugLog(runId, "stream completed", {
+        lastResponseId: result.lastResponseId,
+        rawResponses: result.rawResponses,
+        streamedTextDelta,
+        streamedResponseText,
+        finalOutput: result.finalOutput,
+      });
       const finalText = normalizeText(result.finalOutput) || streamedTextDelta.trim() || streamedResponseText.trim();
       const runResult: Script2VideoRunResult = {
         finalText,
@@ -372,6 +442,7 @@ export const createScript2VideoAgentRuntime = ({
           : undefined,
       };
 
+      debugLog(runId, "run result", runResult);
       emitTrace(
         "result",
         "success",
@@ -382,6 +453,7 @@ export const createScript2VideoAgentRuntime = ({
       options?.onEvent?.({ type: "message_completed", text: finalText });
       options?.onEvent?.({ type: "run_completed", runId, result: runResult });
       tracer?.onRunCompleted(runResult);
+      debugGroupEnd();
       return runResult;
     } catch (error: any) {
       const isMaxTurns = error?.name === "MaxTurnsExceededError" || String(error?.message || "").includes("Max turns");
@@ -390,6 +462,15 @@ export const createScript2VideoAgentRuntime = ({
         .map((toolCall) => `${toolCall.name}:${toolCall.status}${toolCall.summary ? `(${toolCall.summary})` : ""}`)
         .join(" -> ");
       const fallbackText = streamedTextDelta.trim() || streamedResponseText.trim();
+      debugLog(runId, "run error", {
+        error,
+        isMaxTurns,
+        toolEvents,
+        toolTrace,
+        streamedTextDelta,
+        streamedResponseText,
+        fallbackText,
+      });
       if (isMaxTurns && !toolEvents.length && fallbackText) {
         const runResult: Script2VideoRunResult = {
           finalText: fallbackText,
@@ -397,10 +478,12 @@ export const createScript2VideoAgentRuntime = ({
           outputItems: [{ kind: "text", text: fallbackText }],
           toolCalls: [],
         };
+        debugLog(runId, "fallback text recovered", runResult);
         emitTrace("result", "success", "Fallback text recovered", "SDK 未识别 finalOutput，已从 raw response 恢复文本。", fallbackText);
         options?.onEvent?.({ type: "message_completed", text: fallbackText });
         options?.onEvent?.({ type: "run_completed", runId, result: runResult });
         tracer?.onRunCompleted(runResult);
+        debugGroupEnd();
         return runResult;
       }
       const message = isMaxTurns
@@ -409,6 +492,7 @@ export const createScript2VideoAgentRuntime = ({
       emitTrace("result", "error", "Run failed", message);
       options?.onEvent?.({ type: "run_failed", runId, error: message });
       tracer?.onRunFailed(message);
+      debugGroupEnd();
       throw new Error(message);
     }
   },
