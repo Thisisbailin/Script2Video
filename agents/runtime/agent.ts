@@ -141,6 +141,31 @@ const buildToolDrivenFinalOutput = (toolResults: any[]) => {
   return ["操作已完成：", ...lines, "如需继续扩展，我可以基于当前结果继续处理。"].join("\n");
 };
 
+const instrumentOpenAIResponsesClient = (client: OpenAI, runId: string) => {
+  const responsesApi = client.responses as OpenAI["responses"] & {
+    create: (...args: any[]) => Promise<any>;
+  };
+  const originalCreate = responsesApi.create.bind(responsesApi);
+  responsesApi.create = (async (...args: any[]) => {
+    const [request, options] = args;
+    debugLog(runId, "responses.create request", request);
+    if (options) {
+      debugLog(runId, "responses.create options", options);
+    }
+    const response = await originalCreate(...args);
+    if (request?.stream) {
+      debugLog(runId, "responses.create response(stream)", {
+        constructor: response?.constructor?.name,
+        hasAsyncIterator: typeof response?.[Symbol.asyncIterator] === "function",
+        hasWithResponse: typeof response?.withResponse === "function",
+      });
+    } else {
+      debugLog(runId, "responses.create response", response);
+    }
+    return response;
+  }) as typeof responsesApi.create;
+};
+
 const consumeRunStream = async (
   streamResult: Awaited<ReturnType<typeof run>>,
   onEvent: (streamEvent: any) => void
@@ -245,6 +270,7 @@ export const createScript2VideoAgentRuntime = ({
       baseURL,
       dangerouslyAllowBrowser: true,
     });
+    instrumentOpenAIResponsesClient(client, runId);
     setDefaultOpenAIClient(client);
 
     const enabledSkills = (
@@ -359,71 +385,110 @@ export const createScript2VideoAgentRuntime = ({
     });
     emitTrace("runtime", "info", "Agent created", agent.name, `model=${config.model}`);
 
+    const useStreaming = provider !== "qwen";
+
     try {
-      emitTrace("model", "running", "Streaming started", input.userText.trim());
+      emitTrace(
+        "model",
+        "running",
+        useStreaming ? "Streaming started" : "Model request started",
+        input.userText.trim(),
+        useStreaming ? "mode=stream" : "mode=non-stream"
+      );
       debugLog(runId, "run() invoked", {
         input: input.userText.trim(),
         maxTurns: 8,
-        stream: true,
+        stream: useStreaming,
       });
-      const result = await run(agent, input.userText.trim(), {
-        signal: options?.signal,
-        maxTurns: 8,
-        session,
-        stream: true,
-      });
-      await consumeRunStream(result, (streamEvent) => {
-        debugLog(runId, "stream event", streamEvent);
-        if (streamEvent.type === "agent_updated_stream_event") {
-          emitTrace("runtime", "info", "Agent updated", streamEvent.agent.name);
-          return;
-        }
-        if (streamEvent.type === "run_item_stream_event") {
-          const itemType = (streamEvent.item as any)?.type || (streamEvent.item as any)?.rawItem?.type || "unknown";
-          const rawItem = (streamEvent.item as any)?.rawItem;
-          const detail =
-            itemType === "function_call"
-              ? `${rawItem?.name || "tool"}`
-              : itemType === "function_call_result"
-                ? `${rawItem?.name || "tool"} · ${rawItem?.status || "completed"}`
-                : streamEvent.name;
-          const payload =
-            itemType === "function_call"
-              ? rawItem?.arguments
-              : itemType === "function_call_result"
-                ? normalizeText(rawItem?.output)
-                : undefined;
-          emitTrace(
-            itemType === "function_call" || itemType === "function_call_result" ? "tool" : "model",
-            itemType === "function_call_result" ? "success" : "info",
-            `Stream item: ${streamEvent.name}`,
-            detail,
-            payload
-          );
-          return;
-        }
-        if (streamEvent.type === "raw_model_stream_event") {
-          const rawType = (streamEvent.data as any)?.type || "raw_event";
-          if (rawType === "output_text_delta" && typeof (streamEvent.data as any)?.delta === "string") {
-            streamedTextDelta += (streamEvent.data as any).delta;
+      const result = useStreaming
+        ? await run(agent, input.userText.trim(), {
+            signal: options?.signal,
+            maxTurns: 8,
+            session,
+            stream: true,
+          })
+        : await run(agent, input.userText.trim(), {
+            signal: options?.signal,
+            maxTurns: 8,
+            session,
+          });
+      if (useStreaming) {
+        await consumeRunStream(result as Awaited<ReturnType<typeof run>>, (streamEvent) => {
+          debugLog(runId, "stream event", streamEvent);
+          if (streamEvent.type === "agent_updated_stream_event") {
+            emitTrace("runtime", "info", "Agent updated", streamEvent.agent.name);
+            return;
           }
-          if (rawType === "response_done") {
-            const candidate = extractTextFromResponseOutput((streamEvent.data as any)?.response?.output);
-            if (candidate) {
-              streamedResponseText = candidate;
+          if (streamEvent.type === "run_item_stream_event") {
+            const itemType = (streamEvent.item as any)?.type || (streamEvent.item as any)?.rawItem?.type || "unknown";
+            const rawItem = (streamEvent.item as any)?.rawItem;
+            const detail =
+              itemType === "function_call"
+                ? `${rawItem?.name || "tool"}`
+                : itemType === "function_call_result"
+                  ? `${rawItem?.name || "tool"} · ${rawItem?.status || "completed"}`
+                  : streamEvent.name;
+            const payload =
+              itemType === "function_call"
+                ? rawItem?.arguments
+                : itemType === "function_call_result"
+                  ? normalizeText(rawItem?.output)
+                  : undefined;
+            emitTrace(
+              itemType === "function_call" || itemType === "function_call_result" ? "tool" : "model",
+              itemType === "function_call_result" ? "success" : "info",
+              `Stream item: ${streamEvent.name}`,
+              detail,
+              payload
+            );
+            return;
+          }
+          if (streamEvent.type === "raw_model_stream_event") {
+            const rawType = (streamEvent.data as any)?.type || "raw_event";
+            if (rawType === "response_started") {
+              debugLog(runId, "raw response_started", (streamEvent.data as any)?.providerData || streamEvent.data);
             }
+            if (rawType === "output_text_delta" && typeof (streamEvent.data as any)?.delta === "string") {
+              streamedTextDelta += (streamEvent.data as any).delta;
+              debugLog(runId, "raw output_text_delta", {
+                delta: (streamEvent.data as any).delta,
+                accumulated: streamedTextDelta,
+                providerData: (streamEvent.data as any)?.providerData,
+              });
+            }
+            if (rawType === "response_done") {
+              const responsePayload = (streamEvent.data as any)?.response;
+              debugLog(runId, "raw response_done", responsePayload);
+              const candidate = extractTextFromResponseOutput(responsePayload?.output);
+              if (candidate) {
+                streamedResponseText = candidate;
+              }
+            }
+            if (rawType === "model") {
+              debugLog(runId, "raw model event", (streamEvent.data as any)?.event || streamEvent.data);
+            }
+            emitTrace("model", "info", `Raw event: ${rawType}`);
           }
-          emitTrace("model", "info", `Raw event: ${rawType}`);
-        }
-      });
-      await result.completed;
-      debugLog(runId, "stream completed", {
+        });
+        await (result as Awaited<ReturnType<typeof run>> & { completed: Promise<void> }).completed;
+      }
+      debugLog(runId, useStreaming ? "stream completed" : "non-stream completed", {
         lastResponseId: result.lastResponseId,
         rawResponses: result.rawResponses,
         streamedTextDelta,
         streamedResponseText,
         finalOutput: result.finalOutput,
       });
+      if (!useStreaming) {
+        const latestRawResponse = result.rawResponses?.at(-1);
+        emitTrace(
+          "model",
+          "info",
+          "Raw response received",
+          `status=${latestRawResponse?.providerData?.status || "unknown"} · output=${latestRawResponse?.output?.length || 0}`,
+          normalizeText(latestRawResponse?.providerData || latestRawResponse)
+        );
+      }
       const finalText = normalizeText(result.finalOutput) || streamedTextDelta.trim() || streamedResponseText.trim();
       const runResult: Script2VideoRunResult = {
         finalText,
@@ -487,7 +552,9 @@ export const createScript2VideoAgentRuntime = ({
         return runResult;
       }
       const message = isMaxTurns
-        ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
+        ? toolEvents.length
+          ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
+          : "Agent 未产出可识别的最终输出，已在 8 个回合后中止。"
         : error?.message || "Agent runtime 执行失败";
       emitTrace("result", "error", "Run failed", message);
       options?.onEvent?.({ type: "run_failed", runId, error: message });
