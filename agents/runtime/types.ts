@@ -1,3 +1,4 @@
+import type { Session } from "@openai/agents";
 import type { QalamToolSettings } from "../../types";
 
 export type AgentAttachment = {
@@ -117,8 +118,7 @@ export type Script2VideoSessionRecord = {
 };
 
 export interface Script2VideoSessionStore {
-  getSession(sessionId: string): Promise<Script2VideoSessionRecord | null> | Script2VideoSessionRecord | null;
-  saveSession(record: Script2VideoSessionRecord): Promise<void> | void;
+  getSession(sessionId: string): Promise<Session> | Session;
 }
 
 export interface Script2VideoAgentTracer {

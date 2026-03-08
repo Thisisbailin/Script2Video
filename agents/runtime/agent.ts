@@ -24,17 +24,13 @@ const WRITE_TOOL_NAMES = new Set([
   "upsert_character",
   "upsert_location",
 ]);
-
-const DIRECT_REPLY_PATTERNS = [
-  /^你好[！!，,。.\s]*$/i,
-  /^您好[！!，,。.\s]*$/i,
-  /^hi[！!，,。.\s]*$/i,
-  /^hello[！!，,。.\s]*$/i,
-  /^在吗[？?！!\s]*$/i,
-  /^你是谁[？?\s]*$/i,
-  /^你能做什么[？?\s]*$/i,
-  /^介绍一下你自己[？?\s]*$/i,
-];
+const STABILIZATION_DISABLED_TOOLS = [
+  "search_script_data",
+  "upsert_character",
+  "upsert_location",
+  "create_text_node",
+  "create_node_workflow",
+] as const;
 
 type RuntimeDeps = {
   bridge: Script2VideoAgentBridge;
@@ -89,28 +85,6 @@ const normalizeText = (value: unknown) => {
   }
 };
 
-const toSessionToolMessage = (toolCall: AgentExecutedToolCall) => ({
-  role: "tool" as const,
-  text: toolCall.summary || toolCall.error || toolCall.name,
-  createdAt: Date.now(),
-  toolName: toolCall.name,
-  toolCallId: toolCall.callId,
-  toolStatus: toolCall.status === "error" ? "error" as const : "success" as const,
-  toolOutput: toolCall.output ?? toolCall.error,
-});
-
-const buildRunInputText = (input: Script2VideoRunInput, sessionText: string) => {
-  const blocks: string[] = [];
-  if (sessionText.trim()) {
-    blocks.push(`[Conversation Memory]\n${sessionText.trim()}`);
-  }
-  if (input.uiContext?.supplementalContextText?.trim()) {
-    blocks.push(`[Supplemental Context]\n${input.uiContext.supplementalContextText.trim()}`);
-  }
-  blocks.push(`[User Request]\n${input.userText.trim()}`);
-  return blocks.join("\n\n");
-};
-
 const buildToolDrivenFinalOutput = (toolResults: any[]) => {
   const writeResults = toolResults.filter(
     (toolResult) => toolResult?.type === "function_output" && WRITE_TOOL_NAMES.has(toolResult?.tool?.name)
@@ -128,14 +102,6 @@ const buildToolDrivenFinalOutput = (toolResults: any[]) => {
     return `- ${toolResult.tool.name} 已完成`;
   });
   return ["操作已完成：", ...lines, "如需继续扩展，我可以基于当前结果继续处理。"].join("\n");
-};
-
-const shouldForceDirectReply = (input: Script2VideoRunInput) => {
-  const text = input.userText.trim();
-  if (!text) return false;
-  if (input.attachments?.length) return false;
-  if (input.uiContext?.supplementalContextText?.trim()) return false;
-  return DIRECT_REPLY_PATTERNS.some((pattern) => pattern.test(text));
 };
 
 export const createScript2VideoAgentRuntime = ({
@@ -171,16 +137,7 @@ export const createScript2VideoAgentRuntime = ({
       await Promise.all((input.enabledSkillIds || []).map((skillId) => skillLoader.getSkill(skillId)))
     ).filter(Boolean);
 
-    const previousSession = (await sessionStore.getSession(input.sessionId)) || {
-      id: input.sessionId,
-      messages: [],
-      updatedAt: Date.now(),
-    };
-    const sessionText = previousSession.messages
-      .filter((message) => message.role === "user" || message.role === "assistant")
-      .slice(-8)
-      .map((message) => `${message.role === "user" ? "用户" : "助手"}: ${message.text}`)
-      .join("\n");
+    const session = await sessionStore.getSession(input.sessionId);
 
     const toolEvents: AgentExecutedToolCall[] = [];
     const emitToolEvent = (event: AgentRuntimeEvent) => {
@@ -201,18 +158,8 @@ export const createScript2VideoAgentRuntime = ({
     };
 
     const toolSettings = normalizeQalamToolSettings(config.qalamTools);
-    const forceDirectReply = shouldForceDirectReply(input);
     const disabledTools = enabledSkills.flatMap((skill) => skill?.disabledTools || []);
-    if (forceDirectReply) {
-      disabledTools.push(
-        "read_project_data",
-        "search_script_data",
-        "upsert_character",
-        "upsert_location",
-        "create_text_node",
-        "create_node_workflow"
-      );
-    }
+    disabledTools.push(...STABILIZATION_DISABLED_TOOLS);
     if (!toolSettings.projectData.enabled) {
       disabledTools.push("read_project_data", "search_script_data");
     }
@@ -231,6 +178,10 @@ export const createScript2VideoAgentRuntime = ({
       }),
       handoffDescription: "Single all-purpose Script2Video creative agent.",
       model: config.model,
+      modelSettings: {
+        toolChoice: "auto",
+        parallelToolCalls: false,
+      },
       resetToolChoice: true,
       toolUseBehavior: async (_context, toolResults) => {
         const finalOutput = buildToolDrivenFinalOutput(toolResults as any[]);
@@ -254,9 +205,10 @@ export const createScript2VideoAgentRuntime = ({
     });
 
     try {
-      const result = await run(agent, buildRunInputText(input, sessionText), {
+      const result = await run(agent, input.userText.trim(), {
         signal: options?.signal,
         maxTurns: 8,
+        session,
       });
       const finalText = normalizeText(result.finalOutput);
       const runResult: Script2VideoRunResult = {
@@ -268,19 +220,6 @@ export const createScript2VideoAgentRuntime = ({
         ],
         toolCalls: toolEvents,
       };
-
-      await sessionStore.saveSession({
-        id: input.sessionId,
-        updatedAt: Date.now(),
-        messages: [
-          ...previousSession.messages,
-          { role: "user", text: input.userText, createdAt: Date.now() },
-          ...toolEvents
-            .filter((toolCall) => toolCall.status === "success" || toolCall.status === "error")
-            .map(toSessionToolMessage),
-          { role: "assistant", text: finalText, createdAt: Date.now() },
-        ].slice(-120),
-      });
 
       options?.onEvent?.({ type: "message_completed", text: finalText });
       options?.onEvent?.({ type: "run_completed", result: runResult });
@@ -295,21 +234,9 @@ export const createScript2VideoAgentRuntime = ({
       const message = isMaxTurns
         ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
         : error?.message || "Agent runtime 执行失败";
-      await sessionStore.saveSession({
-        id: input.sessionId,
-        updatedAt: Date.now(),
-        messages: [
-          ...previousSession.messages,
-          { role: "user", text: input.userText, createdAt: Date.now() },
-          ...toolEvents
-            .filter((toolCall) => toolCall.status === "success" || toolCall.status === "error")
-            .map(toSessionToolMessage),
-          { role: "assistant", text: `运行失败: ${message}`, createdAt: Date.now() },
-        ].slice(-120),
-      });
       options?.onEvent?.({ type: "run_failed", error: message });
       tracer?.onRunFailed(message);
-      throw error;
+      throw new Error(message);
     }
   },
 });

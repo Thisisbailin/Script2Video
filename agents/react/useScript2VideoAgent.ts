@@ -90,6 +90,16 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       if (event.type === "message_completed") {
         setMessages((prev) => [...prev, buildAssistantChatMessage(event.text)]);
       }
+      if (event.type === "run_failed") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            kind: "chat",
+            text: `请求失败: ${event.error}`,
+          },
+        ]);
+      }
     },
     [setMessages]
   );

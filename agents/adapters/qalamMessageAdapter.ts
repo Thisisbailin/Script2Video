@@ -27,17 +27,6 @@ const UNDERSTANDING_DOCUMENT_HINTS = [
   "文档",
 ];
 
-const DIRECT_REPLY_HINTS = [
-  "你好",
-  "您好",
-  "hi",
-  "hello",
-  "在吗",
-  "你是谁",
-  "你能做什么",
-  "介绍一下你自己",
-];
-
 const normalizeHeadingLine = (line: string) => {
   let cleaned = line.trim().replace(/^#{1,4}\s*/, "");
   if (cleaned.startsWith("**")) {
@@ -153,9 +142,6 @@ export const inferRequestedOutcome = (
 ): Script2VideoRunInput["requestedOutcome"] => {
   if (forcedMode === "chat") return "answer";
   const lowered = text.trim().toLowerCase();
-  if (DIRECT_REPLY_HINTS.some((hint) => lowered === hint.toLowerCase() || lowered.startsWith(`${hint.toLowerCase()} `))) {
-    return "answer";
-  }
   if (NODE_WORKFLOW_HINTS.some((hint) => lowered.includes(hint.toLowerCase()))) {
     return "node_workflow";
   }
