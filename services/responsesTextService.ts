@@ -96,6 +96,57 @@ const googleSchemaToJsonSchema = (schema: Schema): any => {
   return res;
 };
 
+const describeSchema = (schema: Schema, depth = 0): string[] => {
+  const indent = "  ".repeat(depth);
+  const lines: string[] = [];
+  const schemaType = schema.type || "string";
+  if (schemaType === Type.OBJECT && schema.properties) {
+    lines.push(`${indent}{`);
+    const required = new Set(schema.required || []);
+    for (const [key, prop] of Object.entries(schema.properties)) {
+      const propType = prop.type || "string";
+      const requiredMark = required.has(key) ? "required" : "optional";
+      if (propType === Type.OBJECT || propType === Type.ARRAY) {
+        lines.push(`${indent}  "${key}" (${propType}, ${requiredMark})`);
+        lines.push(...describeSchema(prop, depth + 2));
+      } else {
+        const description = prop.description ? ` - ${prop.description}` : "";
+        lines.push(`${indent}  "${key}": ${propType} (${requiredMark})${description}`);
+      }
+    }
+    lines.push(`${indent}}`);
+    return lines;
+  }
+  if (schemaType === Type.ARRAY && schema.items) {
+    lines.push(`${indent}[`);
+    lines.push(...describeSchema(schema.items, depth + 1));
+    lines.push(`${indent}]`);
+    return lines;
+  }
+  lines.push(`${indent}${schemaType}`);
+  return lines;
+};
+
+const buildStructuredOutputContract = (schema: Schema) => {
+  const schemaDescription = describeSchema(schema).join("\n");
+  return `
+
+[STRUCTURED OUTPUT CONTRACT]
+You must return exactly one valid JSON value that conforms to the required schema.
+- Do not output prose before or after the JSON.
+- Do not output markdown.
+- Do not output code fences.
+- Do not output tables.
+- Do not output explanations, notes, or headings.
+- Do not rename keys.
+- Do not omit required keys.
+- If a field is unavailable, use an empty string, empty array, false, or null only when the schema permits it.
+
+Expected JSON shape:
+${schemaDescription}
+`;
+};
+
 const extractResponsesText = (data: any): string => {
   const outputText = typeof data?.output_text === "string" ? data.output_text : "";
   if (outputText) return outputText;
@@ -284,8 +335,11 @@ const generateText = async (
   schema: Schema,
   systemInstruction?: string
 ): Promise<{ text: string; usage: TokenUsage; raw?: any }> => {
+  const structuredPrompt = `${prompt.trim()}\n${buildStructuredOutputContract(schema)}`;
+  const structuredSystemInstruction = `${systemInstruction || "Role: Structured Output Assistant."}
+You are operating in strict structured-output mode. Return only valid JSON that conforms to the provided schema.`;
   if (config.provider === "openrouter") {
-    return createOpenRouterResponse(config, prompt, schema, systemInstruction);
+    return createOpenRouterResponse(config, structuredPrompt, schema, structuredSystemInstruction);
   }
   if (config.provider === "qwen") {
     const jsonSchema = googleSchemaToJsonSchema(schema);
@@ -295,12 +349,12 @@ const generateText = async (
     }, {
       model: config.model || QWEN_DEFAULT_MODEL,
       inputItems: [
-        ...(systemInstruction?.trim()
-          ? [{ role: "system", content: [{ type: "input_text", text: systemInstruction.trim() }] }]
+        ...(structuredSystemInstruction.trim()
+          ? [{ role: "system", content: [{ type: "input_text", text: structuredSystemInstruction.trim() }] }]
           : []),
         {
           role: "user",
-          content: [{ type: "input_text", text: prompt }],
+          content: [{ type: "input_text", text: structuredPrompt }],
         },
       ],
       textFormat: {
@@ -449,6 +503,8 @@ export const generateProjectSummary = async (
     1. **Project Summary**: A comprehensive overview of the entire story arc, themes, and emotional tone.
     2. Focus on the "Big Picture" - the central conflict and resolution.
     3. Language: Chinese.
+    4. Return a JSON object with exactly one key: "projectSummary".
+    5. Do not return plain prose outside the JSON object.
   `;
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
@@ -533,6 +589,8 @@ ${recentSummaryText}
     1. Focus on key plot points, character development, and cliffhangers within this episode.
     2. Be concise but comprehensive (approx 150-300 words).
     3. Language: Chinese.
+    4. Return a JSON object with exactly one key: "summary".
+    5. Do not return plain prose outside the JSON object.
   `;
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
@@ -1251,12 +1309,14 @@ export const generateEpisodeShots = async (
     【输出要求 (CRITICAL)】：
     1. **语言**：除专有名词（如 Dutch Angle, Rim Light）外，全流程使用**中文**。
     2. **格式**：分镜号格式必须为：**场景号-本场镜号**。例如：第12集第2场的第1个镜头，ID应为 **"12-2-01"**。
-    3. **表格列严格对齐**：必须按以下字段输出（对应表头）：
-       - 镜号(id)｜时长(duration)｜景别(shotType)｜焦段建议(focalLength)｜运镜(movement)
-       - 机位/构图(composition)｜演员调度/动作表演(blocking)｜台词/OS(dialogue)
-       - 声音(sound)｜光色/VFX(lightingVfx)｜剪辑维度(editingNotes)｜备注(notes)
-    4. **每列“可执行”**：避免散文化，尽量用专业术语 + 动作动词开头；多条信息用中文分号 “；” 分隔。
-    5. **soraPrompt/storyboardPrompt**：字段请务必保持为空字符串。
+    3. **不要输出表格**。必须返回一个 JSON 对象，顶层为 "shots" 数组。
+    4. 每个 shot 对象必须严格包含以下字段：
+       - id, duration, shotType, focalLength, movement
+       - composition, blocking, dialogue
+       - sound, lightingVfx, editingNotes, notes
+       - soraPrompt, storyboardPrompt
+    5. **每个字段都要可执行**：避免散文化，尽量用专业术语 + 动作动词开头；多条信息用中文分号 “；” 分隔。
+    6. **soraPrompt/storyboardPrompt**：字段请务必保持为空字符串。
   `;
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
@@ -1363,6 +1423,7 @@ export const generateSoraPrompts = async (
     1. 语言：中文。
     2. 格式：返回一个 JSON 对象，包含 "prompts" 数组。
     3. Sora Prompt内容：包含主体、动作、环境、光影、摄影风格。
+    4. 不要输出 JSON 之外的任何说明文字。
   `;
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
@@ -1459,6 +1520,7 @@ export const generateStoryboardPrompts = async (
        - 强调“分镜草图”的表达方式：手绘、线稿、素描、结构清晰、便于导演/摄影/动画理解。
        - 避免参数化/模型私有语法（如 --ar、权重符号等）。
        - 允许模型在理解剧情的前提下进行合理的视觉创作，但不得偏离剧情事实。
+    4. 不要输出 JSON 之外的任何说明文字。
   `;
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
