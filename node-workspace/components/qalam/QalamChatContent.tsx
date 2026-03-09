@@ -24,10 +24,7 @@ const toolStatusClass: Record<ToolStatus, string> = {
 
 const foldedSurfaceClass =
   "mt-2 ml-4 rounded-[20px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent),var(--app-panel-muted)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
-const assistantBubbleClass =
-  "qalam-subtle-surface rounded-[24px] px-4 py-3 shadow-[0_14px_34px_-28px_rgba(0,0,0,0.2)]";
-const lineSummaryClass =
-  "max-w-[92%] rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2.5 text-[12px] text-[var(--app-text-secondary)]";
+const lineSummaryClass = "max-w-[92%] text-[12px] leading-relaxed text-[var(--app-text-muted)]";
 
 const sanitizeUrl = (value: string) => {
   let url = value.trim();
@@ -798,16 +795,16 @@ const renderToolThread = (thread: ToolThread) => {
   if (!hasDetails && !thread.result) {
     return (
       <div className={lineSummaryClass}>
-        <span className="font-medium text-[var(--app-text-primary)]">{actionLabel}</span>
+        <span className="font-medium text-[var(--app-text-secondary)]">{actionLabel}</span>
         <span className={`ml-2 text-[11px] ${toolStatusClass[status]}`}>{statusText}</span>
       </div>
     );
   }
 
   return (
-    <details className={`${lineSummaryClass} max-w-[92%]`}>
+    <details className={lineSummaryClass}>
       <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
-        <span className="font-medium text-[var(--app-text-primary)]">{actionLabel}</span>
+        <span className="font-medium text-[var(--app-text-secondary)]">{actionLabel}</span>
         <span className={`ml-2 text-[11px] ${toolStatusClass[status]}`}>{statusText}</span>
       </summary>
       {renderFoldoutSurface(
@@ -854,9 +851,9 @@ const renderStatusLine = (message: StatusMessage) => {
   }
 
   return (
-    <details className={`${lineSummaryClass} max-w-[92%]`}>
+    <details className={lineSummaryClass}>
       <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
-        <span className={`font-medium ${toneClass}`}>{buildThinkingLabel(status)}</span>
+        <span className={`font-medium ${status.status === "error" ? toneClass : "text-[var(--app-text-secondary)]"}`}>{buildThinkingLabel(status)}</span>
         <span className="ml-2 text-[11px] text-[var(--app-text-muted)]">
           {new Date(status.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </span>
@@ -908,7 +905,7 @@ const renderAssistantPanel = (message: ChatMessage) => {
   const searchUsed = message.meta?.searchUsed;
   const searchQueries = message.meta?.searchQueries || [];
   return (
-    <div className={`${assistantBubbleClass} w-full space-y-3`}>
+    <div className="w-full space-y-3 text-[13px] leading-7 text-[var(--app-text-primary)]">
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
           Qalam
@@ -1026,7 +1023,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
   }, [messages, isSending]);
 
   return (
-    <div ref={messagesRef} className="qalam-scrollbar flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div ref={messagesRef} className="qalam-scrollbar flex-1 overflow-y-auto px-4 pb-4 pt-20 space-y-3">
       {displayMessages.map((item, idx) => {
         const isUser = item.kind === "chat" && item.message.role === "user";
         const isAssistantPanel = item.kind === "chat" && !isUser;
@@ -1040,7 +1037,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
             ) : item.kind === "tool" ? (
               renderToolThread(item.thread)
             ) : isUser ? (
-              <div className="qalam-bubble-user max-w-[82%] rounded-[22px] px-4 py-3 text-[13px] leading-relaxed text-[var(--app-text-primary)]">
+              <div className="max-w-[82%] rounded-[20px] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] leading-relaxed text-[var(--app-text-primary)] shadow-[0_10px_24px_-22px_rgba(0,0,0,0.22)]">
                 {item.message.text}
               </div>
             ) : (

@@ -34,8 +34,8 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(18,22,27,0.9),rgba(10,13,17,0.96))] p-1.5 shadow-[0_16px_30px_-24px_rgba(0,0,0,0.82)] backdrop-blur-xl">
-      <div className="flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-1">
+    <div className="qalam-surface inline-flex items-center gap-2 rounded-[24px] p-1.5">
+      <div className="qalam-subtle-surface flex items-center gap-1 rounded-full p-1">
         {syncIndicator && (
           <button
             type="button"
@@ -45,7 +45,7 @@ export const ViewportControls: React.FC<Props> = ({
           >
             <Palette size={14} />
             <span
-              className="absolute right-[8px] top-[8px] h-2 w-2 rounded-full block ring-2 ring-[rgba(10,13,17,0.96)]"
+              className="absolute right-[8px] top-[8px] h-2 w-2 rounded-full block ring-2 ring-[var(--app-panel)]"
               style={{ backgroundColor: syncIndicator.color }}
             />
           </button>
@@ -71,7 +71,7 @@ export const ViewportControls: React.FC<Props> = ({
           <Map size={14} className={showMiniMap ? "text-sky-300" : "text-sky-300/70"} />
         </button>
       </div>
-      <div className="flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-1">
+      <div className="qalam-subtle-surface flex items-center gap-1 rounded-full p-1">
         <button
           type="button"
           onClick={handleMinus}
@@ -81,21 +81,9 @@ export const ViewportControls: React.FC<Props> = ({
         >
           <Minus size={14} className="text-[var(--app-text-secondary)]" />
         </button>
-        <button
-          type="button"
-          disabled
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)]"
-          title={`当前缩放 ${zoomPercent}%`}
-        >
-          <span
-            className="block rounded-full bg-[var(--app-text-primary)] transition-all"
-            style={{
-              width: `${Math.max(7, Math.min(15, 7 + ((zoomPercent - minZoom * 100) / ((maxZoom - minZoom) * 100 || 1)) * 8))}px`,
-              height: `${Math.max(7, Math.min(15, 7 + ((zoomPercent - minZoom * 100) / ((maxZoom - minZoom) * 100 || 1)) * 8))}px`,
-              opacity: 0.82,
-            }}
-          />
-        </button>
+        <div className="inline-flex h-9 min-w-[56px] items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[11px] font-medium text-[var(--app-text-secondary)]">
+          {zoomPercent}%
+        </div>
         <button
           type="button"
           onClick={handlePlus}

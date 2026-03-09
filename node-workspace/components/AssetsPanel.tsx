@@ -121,7 +121,7 @@ export const AssetsPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="flex h-10 items-center gap-2 rounded-full app-panel px-3"
+          className="qalam-surface flex h-10 items-center gap-2 rounded-full px-3"
           title={`Assets (${totalCount})`}
         >
           <span className="flex items-center gap-1">
@@ -138,7 +138,7 @@ export const AssetsPanel: React.FC<Props> = ({
   }
 
   const panelCore = (
-    <div className="w-[380px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl app-panel flex flex-col">
+    <div className="qalam-surface flex w-[380px] max-h-[calc(100vh-140px)] flex-col overflow-hidden rounded-[24px]">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500/30 via-blue-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">

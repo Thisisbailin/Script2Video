@@ -34,6 +34,7 @@ type Props = {
   onOpenStats?: () => void;
   onToggleAgentSettings?: () => void;
   openRequest?: number;
+  submitRequest?: { id: number; text: string } | null;
   onCollapsedChange?: (collapsed: boolean) => void;
   renderCollapsedTrigger?: boolean;
 };
@@ -149,6 +150,7 @@ export const QalamAgent: React.FC<Props> = ({
   onOpenStats,
   onToggleAgentSettings,
   openRequest = 0,
+  submitRequest = null,
   onCollapsedChange,
   renderCollapsedTrigger = true,
 }) => {
@@ -434,13 +436,16 @@ export const QalamAgent: React.FC<Props> = ({
     return mentionTargets.filter((item) => item.search.includes(query));
   }, [mentionState, mentionTargets]);
   const showMentionPicker = isInputFocused && !!mentionState;
-  const mentionTags = useMemo(() => {
-    const names = parseMentions(input);
-    return names
-      .map((name) => mentionIndex.get(toSearch(name)) || null)
-      .filter(Boolean) as Array<{ kind: "character" | "location"; name: string; label: string; id?: string }>;
-  }, [input, mentionIndex]);
+  const buildMentionTags = useCallback(
+    (text: string) =>
+      parseMentions(text)
+        .map((name) => mentionIndex.get(toSearch(name)) || null)
+        .filter(Boolean) as Array<{ kind: "character" | "location"; name: string; label: string; id?: string }>,
+    [mentionIndex]
+  );
+  const mentionTags = useMemo(() => buildMentionTags(input), [buildMentionTags, input]);
   const canSend = input.trim().length > 0 && !isSending;
+  const currentModelLabel = config.textConfig?.model || "qwen-plus";
   const resizeInput = useCallback((el?: HTMLTextAreaElement | null) => {
     if (!el) return;
     el.style.height = "0px";
@@ -563,10 +568,11 @@ export const QalamAgent: React.FC<Props> = ({
       root.style.removeProperty("--qalam-split-width");
     };
   }, [layoutMode, splitWidth, isFullscreen, viewportWidth, collapsed]);
-  const sendMessage = async () => {
-    if (!canSend) return;
+  const sendAgentText = useCallback(async (rawInput: string) => {
+    const cleanedInput = rawInput.trim();
+    if (!cleanedInput || isSending) return;
+    const resolvedMentionTags = buildMentionTags(cleanedInput);
     setMood("loading");
-    const cleanedInput = input.trim();
     setMessages((prev) => {
       const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
       const userMsg: Message = { role: "user", text: cleanedInput, kind: "chat", order: nextOrder };
@@ -579,7 +585,7 @@ export const QalamAgent: React.FC<Props> = ({
         userText: cleanedInput,
         requestedOutcome: inferRequestedOutcome(cleanedInput),
         uiContext: {
-          mentionTags: mentionTags.map((tag) => ({
+          mentionTags: resolvedMentionTags.map((tag) => ({
             kind: tag.kind,
             name: tag.name,
             id: tag.id,
@@ -598,6 +604,12 @@ export const QalamAgent: React.FC<Props> = ({
       setIsSending(false);
       setMood("thinking");
     }
+  }, [buildMentionTags, isSending, runAgentMessage, setMessages]);
+  const sendMessage = async () => {
+    if (!canSend) return;
+    const cleanedInput = input.trim();
+    setInput("");
+    await sendAgentText(cleanedInput);
   };
 
   const moodVisual = () => {
@@ -619,7 +631,7 @@ export const QalamAgent: React.FC<Props> = ({
   const isSplit = layoutMode === "split";
   const panelClassName = isSplit
     ? "pointer-events-auto qalam-surface flex flex-col overflow-hidden qalam-panel border-r border-[var(--app-border)] rounded-none"
-    : "pointer-events-auto qalam-surface w-[420px] max-w-[95vw] h-[min(82dvh,900px)] max-h-[calc(100vh-32px)] rounded-[30px] flex flex-col overflow-hidden qalam-panel";
+    : "pointer-events-auto qalam-surface w-[420px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-[30px] flex flex-col overflow-hidden qalam-panel";
   const panelStyle: React.CSSProperties | undefined = isSplit
     ? {
         position: "fixed",
@@ -667,6 +679,17 @@ export const QalamAgent: React.FC<Props> = ({
     });
   }, [openRequest, resizeInput]);
 
+  useEffect(() => {
+    if (!submitRequest?.id || !submitRequest.text.trim()) return;
+    setCollapsed(false);
+    setInput("");
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      resizeInput(inputRef.current);
+    });
+    void sendAgentText(submitRequest.text);
+  }, [resizeInput, sendAgentText, submitRequest]);
+
   if (collapsed) {
     if (!renderCollapsedTrigger) return null;
     return (
@@ -706,60 +729,42 @@ export const QalamAgent: React.FC<Props> = ({
           }}
         />
       )}
-      <div className="border-b border-[var(--app-border)] px-4 pb-4 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="qalam-subtle-surface flex h-11 w-11 items-center justify-center rounded-[16px]">
-              <Robot size={18} className="text-[var(--app-accent-strong)]" weight="regular" />
-            </div>
-            <div className="min-w-0">
-              <div className="theme-modal-eyebrow">Workspace Agent</div>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="text-[20px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">Qalam</div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-secondary)]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--app-accent-strong)]" />
-                  Live
-                </span>
-              </div>
-              <div className="mt-1.5 max-w-[24ch] text-[12px] leading-5 text-[var(--app-text-secondary)]">
-                面向当前画布、节点和项目上下文的工作代理。
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onOpenStats}
-                  className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2.5 py-1 text-[11px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)]"
-                  title="查看 Dashboard"
-                >
-                  Tokens · {formatNumber(tokenUsage)}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleAgentSettings}
-              className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
-              title="服务商设置"
-            >
-              <GlobeHemisphereWest size={14} className="mx-auto" weight="regular" />
-            </button>
-            <button
-              onClick={handleSplitToggle}
-              className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
-              title={isSplit ? "Exit Split View" : "Split View"}
-            >
-              <SidebarSimple size={14} className="mx-auto" weight="regular" />
-            </button>
-            <button
-              onClick={() => setCollapsed(true)}
-              className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
-              title="Close"
-            >
-              <X size={14} className="mx-auto" weight="bold" />
-            </button>
-          </div>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-[linear-gradient(180deg,var(--app-panel)_0%,rgba(18,20,24,0.84)_52%,transparent_100%)]" />
+      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-4 pt-4">
+        <div className="pointer-events-auto flex items-center gap-2">
+          <div className="text-[18px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">Qalam</div>
+          <button
+            type="button"
+            onClick={onOpenStats}
+            className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2.5 py-1 text-[10px] text-[var(--app-text-muted)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-secondary)]"
+            title="查看 Dashboard"
+          >
+            Tokens · {formatNumber(tokenUsage)}
+          </button>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleAgentSettings}
+            className="h-9 w-9 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]/80 text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
+            title="服务商设置"
+          >
+            <GlobeHemisphereWest size={14} className="mx-auto" weight="regular" />
+          </button>
+          <button
+            onClick={handleSplitToggle}
+            className="h-9 w-9 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]/80 text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
+            title={isSplit ? "Exit Split View" : "Split View"}
+          >
+            <SidebarSimple size={14} className="mx-auto" weight="regular" />
+          </button>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="h-9 w-9 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]/80 text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
+            title="Close"
+          >
+            <X size={14} className="mx-auto" weight="bold" />
+          </button>
         </div>
       </div>
 
@@ -772,17 +777,6 @@ export const QalamAgent: React.FC<Props> = ({
             boxShadow: "0 18px 40px -30px rgba(44, 72, 47, 0.24), inset 0 1px 0 rgba(255,255,255,0.08)",
           }}
         >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <div className="theme-modal-eyebrow">Compose</div>
-              <div className="mt-1 text-[12px] leading-5 text-[var(--app-text-secondary)]">
-                直接基于当前画布发起编辑、查阅或工作流操作。
-              </div>
-            </div>
-            <span className="inline-flex h-8 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
-              Enter Send
-            </span>
-          </div>
           <textarea
             ref={inputRef}
             className="w-full min-h-[96px] bg-transparent text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
@@ -861,10 +855,14 @@ export const QalamAgent: React.FC<Props> = ({
             </div>
           )}
 
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--app-border)]/80 pt-3">
-            <div className="text-[11px] text-[var(--app-text-muted)]">
-              支持剧本、角色、场景、节点与工作流上下文。
+          <div className="mt-3 flex items-center gap-2">
+            <div className="inline-flex h-8 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
+              Attachments offline
             </div>
+            <div className="inline-flex h-8 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
+              {currentModelLabel}
+            </div>
+            <div className="flex-1" />
             <button
               onClick={sendMessage}
               disabled={!canSend}
