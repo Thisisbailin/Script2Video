@@ -14,6 +14,7 @@ import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
 import { LocalSkillLoader } from "../../agents/runtime/skills";
 import { LocalStorageSessionStore } from "../../agents/runtime/session";
 import { useScript2VideoAgent } from "../../agents/react/useScript2VideoAgent";
+import { getNodeHandles, isValidConnection } from "../utils/handles";
 
 type Props = {
   projectData: ProjectData;
@@ -54,6 +55,9 @@ const WORK_HINT_KEYWORDS = [
 ];
 
 const toSearch = (value: string) => value.toLowerCase().replace(/\s+/g, "");
+
+const edgeIdFromConnection = (sourceNodeId: string, targetNodeId: string, sourceHandle: string, targetHandle: string) =>
+  `edge-${sourceNodeId}-${targetNodeId}-${sourceHandle || "default"}-${targetHandle || "default"}`;
 
 const parseMentions = (text: string) => {
   const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
@@ -236,6 +240,69 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
         const nodeId = addNode("text", position, parentId, { title, text });
         return { id: nodeId, title };
+      },
+      createWorkflowNode: ({ type, title, text, aspectRatio, x, y, parentId }) => {
+        const hasXY = typeof x === "number" && typeof y === "number";
+        const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;
+        const baseY = viewport ? (-viewport.y + 120) / viewport.zoom : 120;
+        const offset = (nodes.length % 5) * 24;
+        const position = hasXY
+          ? { x: x as number, y: y as number }
+          : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
+        if (type !== "text" && type !== "imageGen") {
+          throw new Error("createWorkflowNode 当前仅支持 text 和 imageGen。");
+        }
+        const resolvedTitle = (title || "").trim() || (type === "text" ? "文本节点" : "Img Gen");
+        const extraData =
+          type === "text"
+            ? {
+                title: resolvedTitle,
+                text: (text || "").trim(),
+              }
+            : {
+                title: resolvedTitle,
+                aspectRatio: (aspectRatio || "1:1").trim() || "1:1",
+              };
+        if (type === "text" && !String(extraData.text || "").trim()) {
+          throw new Error("createWorkflowNode 创建文本节点时缺少 text。");
+        }
+        const nodeId = addNode(type, position, parentId, extraData);
+        return { nodeId, nodeType: type, title: resolvedTitle };
+      },
+      connectWorkflowNodes: ({ sourceNodeId, targetNodeId, sourceHandle, targetHandle }) => {
+        const sourceNode = nodes.find((node) => node.id === sourceNodeId);
+        const targetNode = nodes.find((node) => node.id === targetNodeId);
+        if (!sourceNode || !targetNode) {
+          throw new Error("connectWorkflowNodes 引用了不存在的节点。");
+        }
+        const sourceHandles = getNodeHandles(sourceNode.type).outputs;
+        const targetHandles = getNodeHandles(targetNode.type).inputs;
+        if (sourceHandles.length === 0 || targetHandles.length === 0) {
+          throw new Error("当前节点类型不存在可用的输入/输出 handle。");
+        }
+        const resolvedSourceHandle =
+          sourceHandle || (targetHandle && sourceHandles.includes(targetHandle) ? targetHandle : sourceHandles[0]);
+        const resolvedTargetHandle =
+          targetHandle || (sourceHandle && targetHandles.includes(sourceHandle) ? sourceHandle : targetHandles[0]);
+        if (!sourceHandles.includes(resolvedSourceHandle) || !targetHandles.includes(resolvedTargetHandle)) {
+          throw new Error("connectWorkflowNodes 收到无效的 handle。");
+        }
+        if (!isValidConnection({ sourceHandle: resolvedSourceHandle, targetHandle: resolvedTargetHandle })) {
+          throw new Error("connectWorkflowNodes 收到不合法的连线类型。");
+        }
+        onConnect({
+          source: sourceNodeId,
+          target: targetNodeId,
+          sourceHandle: resolvedSourceHandle,
+          targetHandle: resolvedTargetHandle,
+        });
+        return {
+          edgeId: edgeIdFromConnection(sourceNodeId, targetNodeId, resolvedSourceHandle, resolvedTargetHandle),
+          sourceNodeId,
+          targetNodeId,
+          sourceHandle: resolvedSourceHandle as "image" | "text",
+          targetHandle: resolvedTargetHandle as "image" | "text",
+        };
       },
       createNodeWorkflow: (input) => {
         const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;

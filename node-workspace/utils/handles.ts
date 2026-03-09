@@ -6,6 +6,8 @@ export const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: s
       return { inputs: ["image"], outputs: ["image"] };
     case "prompt":
       return { inputs: [], outputs: ["text"] };
+    case "text":
+      return { inputs: ["text"], outputs: ["text"] };
     case "imageGen":
       return { inputs: ["image", "text"], outputs: ["image"] };
     case "wanImageGen":

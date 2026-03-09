@@ -381,18 +381,49 @@ const renderToolOutput = (tool: ToolPayload) => {
     );
   }
 
+  const payload =
+    parsed && typeof parsed === "object" && parsed.output && typeof parsed.output === "object"
+      ? parsed.output
+      : parsed;
+
   const simpleFields: Array<{ label: string; value: string }> = [];
-  if (typeof parsed.episode_label === "string") simpleFields.push({ label: "剧集", value: parsed.episode_label });
-  if (typeof parsed.episode_id === "number") simpleFields.push({ label: "集数", value: `第${parsed.episode_id}集` });
-  if (typeof parsed.scene_id === "string") simpleFields.push({ label: "场景", value: parsed.scene_id });
-  if (typeof parsed.scene_title === "string") simpleFields.push({ label: "场景标题", value: parsed.scene_title });
-  if (typeof parsed.field === "string") simpleFields.push({ label: "写入字段", value: parsed.field });
-  if (typeof parsed.chars === "number") simpleFields.push({ label: "字数", value: String(parsed.chars) });
-  if (typeof parsed.nodeId === "string") simpleFields.push({ label: "节点 ID", value: parsed.nodeId });
+  if (typeof payload.resource_type === "string") simpleFields.push({ label: "资源类型", value: payload.resource_type });
+  if (typeof payload.action_type === "string") simpleFields.push({ label: "操作类型", value: payload.action_type });
+  if (typeof payload.created === "boolean") simpleFields.push({ label: "写入动作", value: payload.created ? "已创建" : "已更新" });
+  if (typeof payload.name === "string") simpleFields.push({ label: "名称", value: payload.name });
+  if (typeof payload.workflow_title === "string") simpleFields.push({ label: "工作流", value: payload.workflow_title });
+  if (typeof payload.episode_label === "string") simpleFields.push({ label: "剧集", value: payload.episode_label });
+  if (typeof payload.episode_id === "number") simpleFields.push({ label: "集数", value: `第${payload.episode_id}集` });
+  if (typeof payload.scene_id === "string") simpleFields.push({ label: "场景", value: payload.scene_id });
+  if (typeof payload.scene_title === "string") simpleFields.push({ label: "场景标题", value: payload.scene_title });
+  if (typeof payload.field === "string") simpleFields.push({ label: "写入字段", value: payload.field });
+  if (typeof payload.chars === "number") simpleFields.push({ label: "字数", value: String(payload.chars) });
+  if (typeof payload.nodeId === "string") simpleFields.push({ label: "节点 ID", value: payload.nodeId });
+  if (typeof payload.nodeType === "string") simpleFields.push({ label: "节点类型", value: payload.nodeType });
+  if (typeof payload.node_id === "string") simpleFields.push({ label: "节点 ID", value: payload.node_id });
+  if (typeof payload.node_type === "string") simpleFields.push({ label: "节点类型", value: payload.node_type });
+  if (typeof payload.edgeId === "string") simpleFields.push({ label: "连线 ID", value: payload.edgeId });
+  if (typeof payload.sourceNodeId === "string") simpleFields.push({ label: "起点节点", value: payload.sourceNodeId });
+  if (typeof payload.targetNodeId === "string") simpleFields.push({ label: "终点节点", value: payload.targetNodeId });
+  if (typeof payload.sourceHandle === "string") simpleFields.push({ label: "起点 Handle", value: payload.sourceHandle });
+  if (typeof payload.targetHandle === "string") simpleFields.push({ label: "终点 Handle", value: payload.targetHandle });
+  if (typeof payload.group_id === "string") simpleFields.push({ label: "分组节点", value: payload.group_id });
+  if (typeof payload.text_node_id === "string") simpleFields.push({ label: "文本节点", value: payload.text_node_id });
+  if (typeof payload.image_node_id === "string") simpleFields.push({ label: "图像节点", value: payload.image_node_id });
+  if (typeof payload.edge_id === "string") simpleFields.push({ label: "连线 ID", value: payload.edge_id });
+  if (typeof payload.source_node_id === "string") simpleFields.push({ label: "起点节点", value: payload.source_node_id });
+  if (typeof payload.target_node_id === "string") simpleFields.push({ label: "终点节点", value: payload.target_node_id });
+  if (typeof payload.source_handle === "string") simpleFields.push({ label: "起点 Handle", value: payload.source_handle });
+  if (typeof payload.target_handle === "string") simpleFields.push({ label: "终点 Handle", value: payload.target_handle });
+  if (typeof payload.edge_count === "number") simpleFields.push({ label: "连线数", value: String(payload.edge_count) });
+  if (typeof payload.aspect_ratio === "string") simpleFields.push({ label: "画幅", value: payload.aspect_ratio });
 
   if (
-    typeof parsed.content === "string" ||
-    typeof parsed.summary === "string" ||
+    typeof payload.content === "string" ||
+    typeof payload.summary === "string" ||
+    typeof payload.bio === "string" ||
+    typeof payload.description === "string" ||
+    typeof payload.visuals === "string" ||
     simpleFields.length > 0
   ) {
     return (
@@ -407,24 +438,42 @@ const renderToolOutput = (tool: ToolPayload) => {
             ))}
           </dl>
         ) : null}
-        {typeof parsed.summary === "string" ? (
+        {typeof payload.summary === "string" ? (
           <div className="border-l border-[var(--app-border)] pl-3">
             <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">摘要</div>
-            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{parsed.summary}</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{payload.summary}</div>
           </div>
         ) : null}
-        {typeof parsed.content === "string" ? (
+        {typeof payload.bio === "string" ? (
+          <div className="border-l border-[var(--app-border)] pl-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">角色分析</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{payload.bio}</div>
+          </div>
+        ) : null}
+        {typeof payload.description === "string" ? (
+          <div className="border-l border-[var(--app-border)] pl-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">场景描述</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{payload.description}</div>
+          </div>
+        ) : null}
+        {typeof payload.visuals === "string" ? (
+          <div className="border-l border-[var(--app-border)] pl-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">视觉说明</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{payload.visuals}</div>
+          </div>
+        ) : null}
+        {typeof payload.content === "string" ? (
           <div className="border-l border-[var(--app-border)] pl-3">
             <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">正文</div>
-            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{parsed.content}</div>
+            <div className="mt-1 text-[12px] text-[var(--app-text-primary)] whitespace-pre-wrap">{payload.content}</div>
           </div>
         ) : null}
       </div>
     );
   }
 
-  const data = parsed.data || {};
-  const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
+  const data = payload.data || {};
+  const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
   const matches = Array.isArray(data.matches) ? data.matches : [];
   const sceneList = Array.isArray(data.sceneList) ? data.sceneList : [];
   const episodeCharacters = Array.isArray(data.episodeCharacters) ? data.episodeCharacters : [];
@@ -512,54 +561,54 @@ const renderToolOutput = (tool: ToolPayload) => {
       )
     );
   }
-  if (parsed.resource_type === "project_summary") {
+  if (payload.resource_type === "project_summary") {
     blocks.push(
       renderSection(
         "Project Summary",
         <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-          {parsed.summary || (parsed.exists ? "Summary exists." : "No summary yet.")}
+          {payload.summary || (payload.exists ? "Summary exists." : "No summary yet.")}
         </div>
       )
     );
   }
-  if (parsed.resource_type === "episode_summary") {
+  if (payload.resource_type === "episode_summary") {
     blocks.push(
       renderSection(
         "Episode Summary",
         <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
-          <div className="text-[11px] text-[var(--app-text-muted)]">Ep {parsed.episode_id}</div>
-          <div>{parsed.summary || (parsed.exists ? "Summary exists." : "No summary yet.")}</div>
+          <div className="text-[11px] text-[var(--app-text-muted)]">Ep {payload.episode_id}</div>
+          <div>{payload.summary || (payload.exists ? "Summary exists." : "No summary yet.")}</div>
         </div>
       )
     );
   }
-  if (parsed.resource_type === "character_profile") {
+  if (payload.resource_type === "character_profile") {
     blocks.push(
       renderSection(
         "Character Profile",
         <div className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
-          <div className="font-semibold text-[var(--app-text-primary)]">{parsed.name || "Unknown Character"}</div>
-          {parsed.role ? <div>Role: {parsed.role}</div> : null}
-          {typeof parsed.is_main === "boolean" ? <div>Main: {parsed.is_main ? "Yes" : "No"}</div> : null}
-          {parsed.bio ? <div className="whitespace-pre-wrap">{parsed.bio}</div> : null}
-          {typeof parsed.forms_count === "number" ? (
-            <div className="text-[11px] text-[var(--app-text-muted)]">Forms: {parsed.forms_count}</div>
+          <div className="font-semibold text-[var(--app-text-primary)]">{payload.name || "Unknown Character"}</div>
+          {payload.role ? <div>Role: {payload.role}</div> : null}
+          {typeof payload.is_main === "boolean" ? <div>Main: {payload.is_main ? "Yes" : "No"}</div> : null}
+          {payload.bio ? <div className="whitespace-pre-wrap">{payload.bio}</div> : null}
+          {typeof payload.forms_count === "number" ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">Forms: {payload.forms_count}</div>
           ) : null}
         </div>
       )
     );
   }
-  if (parsed.resource_type === "scene_profile") {
+  if (payload.resource_type === "scene_profile") {
     blocks.push(
       renderSection(
         "Scene Profile",
         <div className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
-          <div className="font-semibold text-[var(--app-text-primary)]">{parsed.name || "Unknown Scene"}</div>
-          {parsed.type ? <div>Type: {parsed.type}</div> : null}
-          {parsed.description ? <div className="whitespace-pre-wrap">{parsed.description}</div> : null}
-          {parsed.visuals ? <div className="whitespace-pre-wrap">Visuals: {parsed.visuals}</div> : null}
-          {typeof parsed.zones_count === "number" ? (
-            <div className="text-[11px] text-[var(--app-text-muted)]">Zones: {parsed.zones_count}</div>
+          <div className="font-semibold text-[var(--app-text-primary)]">{payload.name || "Unknown Scene"}</div>
+          {payload.type ? <div>Type: {payload.type}</div> : null}
+          {payload.description ? <div className="whitespace-pre-wrap">{payload.description}</div> : null}
+          {payload.visuals ? <div className="whitespace-pre-wrap">Visuals: {payload.visuals}</div> : null}
+          {typeof payload.zones_count === "number" ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">Zones: {payload.zones_count}</div>
           ) : null}
         </div>
       )
@@ -679,9 +728,15 @@ const renderToolOutput = (tool: ToolPayload) => {
   return <div className="space-y-2">{blocks}</div>;
 };
 
-const READ_TOOL_NAMES = new Set(["list_project_resources", "read_project_resource", "get_episode_script", "get_scene_script", "read_project_data", "read_script_data", "search_script_data"]);
+const READ_TOOL_NAMES = new Set(["list_project_resources", "read_project_resource", "search_project_resource", "get_episode_script", "get_scene_script", "read_project_data", "read_script_data", "search_script_data"]);
 const WRITE_TOOL_NAMES = new Set(["write_understanding_resource", "write_project_summary", "write_episode_summary", "upsert_character", "upsert_location"]);
-const OPERATE_TOOL_NAMES = new Set(["create_text_node", "create_node_workflow"]);
+const OPERATE_TOOL_NAMES = new Set([
+  "create_workflow_node",
+  "connect_workflow_nodes",
+  "operate_project_workflow",
+  "create_text_node",
+  "create_node_workflow",
+]);
 
 const trimToolSummary = (summary?: string, fallback?: string) => {
   if (!summary?.trim()) return fallback || "工具";

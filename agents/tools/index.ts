@@ -1,12 +1,16 @@
 import { tool } from "@openai/agents";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import type { AgentExecutedToolCall, AgentRuntimeEvent } from "../runtime/types";
+import { connectWorkflowNodesToolDef } from "./connectWorkflowNodes";
 import { createNodeWorkflowToolDef } from "./createNodeWorkflow";
+import { operateProjectWorkflowToolDef } from "./operateProjectWorkflow";
+import { createWorkflowNodeToolDef } from "./createWorkflowNode";
 import { createTextNodeToolDef } from "./createTextNode";
 import { listProjectResourcesToolDef } from "./listProjectResources";
 import { pingToolDef } from "./ping";
 import { readProjectDataToolDef } from "./readProjectData";
 import { readProjectResourceToolDef } from "./readProjectResource";
+import { searchProjectResourceToolDef } from "./searchProjectResource";
 import { searchScriptDataToolDef } from "./searchScriptData";
 import { upsertCharacterToolDef } from "./upsertCharacter";
 import { upsertLocationToolDef } from "./upsertLocation";
@@ -16,7 +20,11 @@ const TOOL_DEFS = [
   pingToolDef,
   listProjectResourcesToolDef,
   readProjectResourceToolDef,
+  searchProjectResourceToolDef,
   writeUnderstandingResourceToolDef,
+  createWorkflowNodeToolDef,
+  connectWorkflowNodesToolDef,
+  operateProjectWorkflowToolDef,
   readProjectDataToolDef,
   searchScriptDataToolDef,
   upsertCharacterToolDef,

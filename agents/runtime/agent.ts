@@ -27,6 +27,8 @@ const STABILIZATION_DISABLED_TOOLS = [
   "upsert_location",
   "write_project_summary",
   "write_episode_summary",
+  "operate_project_workflow",
+  "create_text_node",
   "create_node_workflow",
 ] as const;
 
@@ -347,7 +349,13 @@ export const createScript2VideoAgentRuntime = ({
       disabledTools.push("upsert_character", "upsert_location");
     }
     if (!toolSettings.workflowBuilder.enabled) {
-      disabledTools.push("create_text_node", "create_node_workflow");
+      disabledTools.push(
+        "create_workflow_node",
+        "connect_workflow_nodes",
+        "operate_project_workflow",
+        "create_text_node",
+        "create_node_workflow"
+      );
     }
     const enabledToolNames = createScript2VideoTools({
       bridge,

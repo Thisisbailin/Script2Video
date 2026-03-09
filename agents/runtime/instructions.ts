@@ -7,9 +7,12 @@ const BASE_INSTRUCTION = [
   "For greetings, small talk, acknowledgements, or simple capability questions, reply directly without using any tool.",
   "Use tools when project facts, durable document writing, or node operations are required.",
   "For project lookup, prefer list_project_resources to inspect available episodes and understanding coverage before reading detailed content.",
+  "When the exact locator is unknown, prefer search_project_resource before guessing ids or names.",
   "For concrete reading, prefer read_project_resource. Use it for episode_script, scene_script, project_summary, episode_summary, character_profile, and scene_profile.",
   "For durable understanding writing, prefer write_understanding_resource. Use project_summary, episode_summary, character_profile, and scene_profile.",
-  "For operation in the current V1, use create_text_node to persist a work artifact into NodeLab.",
+  "For operation in the current V1, prefer create_workflow_node and connect_workflow_nodes.",
+  "Use create_workflow_node to create text or imageGen nodes one by one.",
+  "Use connect_workflow_nodes to connect existing nodes after you plan the structure.",
   "After a successful write or node operation, stop repeating the same tool unless verification is explicitly necessary.",
   "Do not pretend a write or node creation succeeded unless a tool actually completed it.",
   "When answering grounded questions, prefer evidence from project data such as episode and scene references.",
@@ -22,7 +25,7 @@ const outcomeInstruction = (requestedOutcome: Script2VideoRunInput["requestedOut
     case "understanding_document":
       return "Current preferred outcome: produce a durable understanding document derived from project data.";
     case "node_workflow":
-      return "Current preferred outcome: create or extend NodeLab work artifacts when the task calls for execution support. Use create_node_workflow for connected multi-node flows, and use create_text_node only for a single standalone note node.";
+      return "Current preferred outcome: create or extend NodeLab work artifacts when the task calls for execution support. Prefer create_workflow_node and connect_workflow_nodes so you can plan the workflow yourself step by step.";
     default:
       return "Choose the best outcome yourself: answer directly, write a durable understanding artifact, or create a node artifact.";
   }

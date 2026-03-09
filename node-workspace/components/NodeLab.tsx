@@ -1029,68 +1029,74 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
       <MultiSelectToolbar />
       <AgentSettingsPanel isOpen={showAgentSettings} onClose={() => setShowAgentSettings(false)} />
-      <div className="fixed bottom-4 left-4 right-4 z-30 flex items-end justify-between gap-4 pointer-events-none qalam-bottom-bar">
-        <div className="flex items-end gap-3 pointer-events-auto qalam-bottom-left">
-          <QalamAgent
-            projectData={projectData}
-            setProjectData={setProjectData}
-            onOpenStats={onOpenStats}
-            onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
-          />
-          <FloatingActionBar
-            onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
-            onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
-            onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
-            onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
-            onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
-            onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
-            onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
-            onImport={() => fileInputRef.current?.click()}
-            onExport={() => saveWorkflow()}
-            onRun={runAll}
-            templates={groupTemplates}
-            canCreateTemplate={!!selectedGroup}
-            onCreateTemplate={handleCreateTemplate}
-            onLoadTemplate={handleLoadTemplate}
-            onDeleteTemplate={handleDeleteTemplate}
-            floating={false}
-            onOpenModule={onOpenModule}
-            onExportCsv={onExportCsv}
-            onExportXls={onExportXls}
-            onExportUnderstandingJson={onExportUnderstandingJson}
-            onOpenStats={onOpenStats}
-            onToggleTheme={onToggleTheme}
-            isDarkMode={isDarkMode}
-            onOpenSyncPanel={onOpenSyncPanel}
-            onOpenInfoPanel={onOpenInfoPanel}
-            onResetProject={onResetProject}
-            onSignOut={onSignOut}
-            onAssetLoad={onAssetLoad}
-            accountInfo={accountInfo}
-            onToggleWorkflow={onToggleWorkflow}
-          />
-        </div>
-        <div className="flex items-center gap-3 pointer-events-auto qalam-bottom-right">
-          <ViewportControls
-            zoom={zoomValue}
-            minZoom={minZoom}
-            maxZoom={maxZoom}
-            onZoomChange={handleZoomChange}
-            isLocked={isLocked}
-            onToggleLock={handleToggleLock}
-            showMiniMap={showMiniMap}
-            onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
-            syncIndicator={syncIndicator}
-            onOpenTheme={() => setShowThemeModal(true)}
-          />
-          <div className="h-12 flex items-center">
-            <AssetsPanel
+      <div className="fixed bottom-4 left-4 right-4 z-30 pointer-events-none qalam-bottom-bar">
+        <div className="relative flex items-end justify-between gap-4">
+          <div className="pointer-events-auto qalam-bottom-agent">
+            <QalamAgent
               projectData={projectData}
-              onInsertTextNode={handleInsertTextNode}
-              onImportEpisodeShots={handleImportEpisode}
-              floating={false}
-              inlineAnchor
+              setProjectData={setProjectData}
+              onOpenStats={onOpenStats}
+              onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
             />
+          </div>
+          <div className="pointer-events-auto absolute left-1/2 bottom-0 -translate-x-1/2 qalam-bottom-center">
+            <FloatingActionBar
+              onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+              onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
+              onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+              onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
+              onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
+              onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
+              onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
+              onImport={() => fileInputRef.current?.click()}
+              onExport={() => saveWorkflow()}
+              onRun={runAll}
+              templates={groupTemplates}
+              canCreateTemplate={!!selectedGroup}
+              onCreateTemplate={handleCreateTemplate}
+              onLoadTemplate={handleLoadTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              floating={false}
+              onOpenModule={onOpenModule}
+              onExportCsv={onExportCsv}
+              onExportXls={onExportXls}
+              onExportUnderstandingJson={onExportUnderstandingJson}
+              onOpenStats={onOpenStats}
+              onToggleTheme={onToggleTheme}
+              isDarkMode={isDarkMode}
+              onOpenSyncPanel={onOpenSyncPanel}
+              onOpenInfoPanel={onOpenInfoPanel}
+              onResetProject={onResetProject}
+              onSignOut={onSignOut}
+              onAssetLoad={onAssetLoad}
+              accountInfo={accountInfo}
+              onToggleWorkflow={onToggleWorkflow}
+            />
+          </div>
+          <div className="pointer-events-auto ml-auto qalam-bottom-assets">
+            <div className="relative h-12 flex items-center group/assetsdock">
+              <div className="absolute right-[calc(100%+12px)] bottom-0 z-20 origin-right translate-x-3 scale-[0.98] opacity-0 pointer-events-none transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/assetsdock:pointer-events-auto group-hover/assetsdock:translate-x-0 group-hover/assetsdock:scale-100 group-hover/assetsdock:opacity-100 group-focus-within/assetsdock:pointer-events-auto group-focus-within/assetsdock:translate-x-0 group-focus-within/assetsdock:scale-100 group-focus-within/assetsdock:opacity-100 qalam-bottom-accessories">
+                <ViewportControls
+                  zoom={zoomValue}
+                  minZoom={minZoom}
+                  maxZoom={maxZoom}
+                  onZoomChange={handleZoomChange}
+                  isLocked={isLocked}
+                  onToggleLock={handleToggleLock}
+                  showMiniMap={showMiniMap}
+                  onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
+                  syncIndicator={syncIndicator}
+                  onOpenTheme={() => setShowThemeModal(true)}
+                />
+              </div>
+              <AssetsPanel
+                projectData={projectData}
+                onInsertTextNode={handleInsertTextNode}
+                onImportEpisodeShots={handleImportEpisode}
+                floating={false}
+                inlineAnchor
+              />
+            </div>
           </div>
         </div>
       </div>

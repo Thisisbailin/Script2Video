@@ -14,6 +14,37 @@ export type CreateTextNodeResult = {
   title: string;
 };
 
+export type CreateWorkflowNodeInput = {
+  type: Extract<NodeType, "text" | "imageGen">;
+  title?: string;
+  text?: string;
+  aspectRatio?: string;
+  x?: number;
+  y?: number;
+  parentId?: string;
+};
+
+export type CreateWorkflowNodeResult = {
+  nodeId: string;
+  nodeType: CreateWorkflowNodeInput["type"];
+  title: string;
+};
+
+export type ConnectWorkflowNodesInput = {
+  sourceNodeId: string;
+  targetNodeId: string;
+  sourceHandle?: WorkflowBuilderHandle;
+  targetHandle?: WorkflowBuilderHandle;
+};
+
+export type ConnectWorkflowNodesResult = {
+  edgeId: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  sourceHandle: WorkflowBuilderHandle;
+  targetHandle: WorkflowBuilderHandle;
+};
+
 export type WorkflowBuilderHandle = "image" | "text";
 
 export type CreateNodeWorkflowNodeInput = {
@@ -66,6 +97,8 @@ export interface Script2VideoAgentBridge {
   getProjectData(): ProjectData;
   updateProjectData(updater: (prev: ProjectData) => ProjectData): void;
   addTextNode(input: CreateTextNodeInput): CreateTextNodeResult;
+  createWorkflowNode(input: CreateWorkflowNodeInput): CreateWorkflowNodeResult;
+  connectWorkflowNodes(input: ConnectWorkflowNodesInput): ConnectWorkflowNodesResult;
   createNodeWorkflow(input: CreateNodeWorkflowInput): CreateNodeWorkflowResult;
   getViewport(): WorkflowViewport | null;
   getNodeCount(): number;

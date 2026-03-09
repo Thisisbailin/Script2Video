@@ -154,6 +154,10 @@ export const FloatingActionBar: React.FC<Props> = ({
     "group w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:text-[var(--app-text-muted)] disabled:hover:border-[var(--app-border)] disabled:hover:bg-[var(--app-panel-muted)]";
   const compactTabClass =
     "inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition active:translate-y-px";
+  const deckClusterClass =
+    "flex items-center gap-1 rounded-[18px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-1";
+  const deckButtonClass =
+    "group flex h-10 items-center gap-2 rounded-[14px] px-3 text-[11px] font-semibold tracking-[0.08em] uppercase text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px";
 
   const nodeActions = [
     { label: "Text", hint: "Draft prompts, notes, and structure", meta: "Writing", onClick: onAddText, Icon: MessageSquare, tone: "text-sky-300", surface: "bg-sky-500/12" },
@@ -936,79 +940,98 @@ export const FloatingActionBar: React.FC<Props> = ({
         )}
 
         {/* Main Bar */}
-        <div className="inline-flex items-center gap-1 h-10 px-3 rounded-full app-panel">
-          {/* Account / Share */}
-          <button
-            onClick={() => {
-              setShowFileMenu((v) => !v);
-              setShowPalette(false);
-              setShowTemplate(false);
-              setShowWip(false);
-            }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showFileMenu ? 'bg-[var(--app-panel-soft)]' : 'hover:bg-[var(--app-panel-muted)]'}`}
-          >
-            <User size={16} className="text-[var(--app-text-secondary)]" />
-          </button>
+        <div className="inline-flex items-center gap-2 rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(20,24,29,0.88),rgba(12,15,18,0.94))] p-2 shadow-[0_18px_40px_-26px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+          <div className={deckClusterClass}>
+            <button
+              onClick={() => {
+                setShowFileMenu((v) => !v);
+                setShowPalette(false);
+                setShowTemplate(false);
+                setShowWip(false);
+              }}
+              className={`${deckButtonClass} min-w-[108px] justify-start ${showFileMenu ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-[10px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] text-emerald-300">
+                <User size={14} />
+              </span>
+              <span className="leading-none">Account</span>
+            </button>
 
-          {/* Template */}
-          <button
-            onClick={() => {
-              setShowTemplate((v) => !v);
-              setShowPalette(false);
-              setShowFileMenu(false);
-              setShowWip(false);
-            }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showTemplate ? 'bg-[var(--app-panel-soft)]' : 'hover:bg-[var(--app-panel-muted)]'}`}
-          >
-            <Library size={14} className="text-[var(--app-text-secondary)]" />
-          </button>
+            <button
+              onClick={() => {
+                setShowTemplate((v) => !v);
+                setShowPalette(false);
+                setShowFileMenu(false);
+                setShowWip(false);
+              }}
+              className={`${deckButtonClass} min-w-[108px] justify-start ${showTemplate ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-[10px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] text-amber-200">
+                <Library size={14} />
+              </span>
+              <span className="leading-none">Project</span>
+            </button>
+          </div>
 
-          {/* Workflow (Layers) */}
-          <button
-            onClick={() => {
-              setShowPalette(false);
-              setShowTemplate(false);
-              setShowFileMenu(false);
-              const rect = workflowButtonRef.current?.getBoundingClientRect();
-              onToggleWorkflow?.(rect);
-            }}
-            ref={workflowButtonRef}
-            data-workflow-trigger
-            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-[var(--app-panel-muted)]"
-            title="Workflow Actions"
-          >
-            <Layers size={14} className="text-[var(--app-text-secondary)]" />
-          </button>
+          <div className={deckClusterClass}>
+            <button
+              onClick={() => {
+                setShowPalette(false);
+                setShowTemplate(false);
+                setShowFileMenu(false);
+                const rect = workflowButtonRef.current?.getBoundingClientRect();
+                onToggleWorkflow?.(rect);
+              }}
+              ref={workflowButtonRef}
+              data-workflow-trigger
+              className={`${deckButtonClass} min-w-[104px] justify-start`}
+              title="Workflow Actions"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-[10px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] text-sky-200">
+                <Layers size={14} />
+              </span>
+              <span className="leading-none">Workflow</span>
+            </button>
 
-          {/* Plus */}
-          <button
-            onClick={() => {
-              setShowPalette((v) => !v);
-              setShowFileMenu(false);
-              setShowTemplate(false);
-              setShowWip(false);
-            }}
-            className={`h-8 w-8 flex items-center justify-center rounded-full transition ${showPalette ? 'bg-[var(--app-panel-soft)]' : 'hover:bg-[var(--app-panel-muted)]'}`}
-          >
-            <Plus size={14} className={`text-[var(--app-text-secondary)] transition-transform ${showPalette ? 'rotate-45' : ''}`} />
-          </button>
+            <button
+              onClick={() => {
+                setShowPalette((v) => !v);
+                setShowFileMenu(false);
+                setShowTemplate(false);
+                setShowWip(false);
+              }}
+              className={`${deckButtonClass} min-w-[104px] justify-start ${showPalette ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+            >
+              <span className={`flex h-7 w-7 items-center justify-center rounded-[10px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] text-cyan-200 transition-transform ${showPalette ? "rotate-45" : ""}`}>
+                <Plus size={14} />
+              </span>
+              <span className="leading-none">Add Nodes</span>
+            </button>
 
-          {/* Projector / WIP */}
-          <button
-            onClick={() => setShowWip((v) => !v)}
-            className="h-8 w-8 flex items-center justify-center rounded-full transition hover:bg-[var(--app-panel-muted)]"
-            title="施工中"
-          >
-            <Projector size={14} className="text-[var(--app-text-secondary)]" />
-          </button>
+            <button
+              onClick={() => setShowWip((v) => !v)}
+              className={`${deckButtonClass} min-w-[84px] justify-start ${showWip ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+              title="施工中"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-[10px] border border-[var(--app-border)] bg-[rgba(255,255,255,0.04)] text-rose-200">
+                <Projector size={14} />
+              </span>
+              <span className="leading-none">Lab</span>
+            </button>
+          </div>
 
-          {/* Run */}
           <button
             onClick={onRun}
-            className="h-8 w-8 flex items-center justify-center rounded-full text-emerald-400 hover:text-emerald-300 transition-all"
+            className="group flex h-12 items-center gap-2 rounded-[18px] border border-emerald-400/20 bg-[linear-gradient(180deg,rgba(42,109,78,0.88),rgba(28,77,55,0.96))] px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-50 shadow-[0_14px_30px_-18px_rgba(32,88,63,0.85)] transition hover:border-emerald-300/30 hover:brightness-105 active:translate-y-px"
             aria-label="Run"
           >
-            <Play size={16} fill="currentColor" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-[12px] bg-white/10 text-emerald-50">
+              <Play size={16} fill="currentColor" />
+            </span>
+            <span className="text-left leading-none">
+              <span className="block text-[10px] text-emerald-100/72">Execute</span>
+              <span className="mt-0.5 block tracking-[0.16em]">Run</span>
+            </span>
           </button>
         </div>
 
