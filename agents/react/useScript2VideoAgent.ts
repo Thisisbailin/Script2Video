@@ -71,14 +71,12 @@ const nextMessageOrder = (messages: Message[]) =>
 
 const humanizeToolName = (name: string) => {
   switch (name) {
-    case "get_episode_script":
-      return "查阅整集正文";
-    case "get_scene_script":
-      return "查阅场景正文";
-    case "write_project_summary":
-      return "写入项目摘要";
-    case "write_episode_summary":
-      return "写入分集摘要";
+    case "list_project_resources":
+      return "查看项目目录";
+    case "read_project_resource":
+      return "查阅项目内容";
+    case "write_understanding_resource":
+      return "写入理解资产";
     case "create_text_node":
       return "创建文本节点";
     default:

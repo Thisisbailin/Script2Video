@@ -6,6 +6,7 @@ import { createCustomVoice } from "../../services/qwenAudioService";
 type Props = {
   projectData: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
+  initialSelectionType?: "character" | "scene";
 };
 
 type Selection =
@@ -60,6 +61,7 @@ const formatList = (items: string[]) => Array.from(new Set(items.filter(Boolean)
 export const CharacterSceneLibraryPanel: React.FC<Props> = ({
   projectData,
   setProjectData,
+  initialSelectionType = "character",
 }) => {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null);
@@ -156,6 +158,10 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
 
   useEffect(() => {
     if (!selection) {
+      if (initialSelectionType === "scene" && sceneEntries.length) {
+        setSelection({ type: "scene", key: sceneEntries[0].key });
+        return;
+      }
       if (characters.length) {
         setSelection({ type: "character", key: characters[0].id });
         return;

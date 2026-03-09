@@ -29,8 +29,6 @@ import {
   LogOut,
   Upload,
   Share,
-  Users,
-  MapPin,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
 import type { ModuleKey } from "./ModuleBar";
@@ -170,8 +168,6 @@ export const FloatingActionBar: React.FC<Props> = ({
     { key: "assets" as ModuleKey, label: "Assets", desc: "资产与设定", Icon: FolderOpen, tone: "text-emerald-300", surface: "bg-emerald-500/10" },
     { key: "script" as ModuleKey, label: "Script", desc: "剧本与解析", Icon: FileText, tone: "text-sky-300", surface: "bg-sky-500/10" },
     { key: "shots" as ModuleKey, label: "Shots", desc: "分镜与镜头", Icon: List, tone: "text-amber-300", surface: "bg-amber-500/10" },
-    { key: "characters" as ModuleKey, label: "Characters", desc: "Character Library", Icon: Users, tone: "text-emerald-200", surface: "bg-emerald-500/10" },
-    { key: "scenes" as ModuleKey, label: "Scenes", desc: "Scene Library", Icon: MapPin, tone: "text-cyan-200", surface: "bg-cyan-500/10" },
     { key: "understanding" as ModuleKey, label: "理解", desc: "理解快照", Icon: BookOpen, tone: "text-yellow-200", surface: "bg-yellow-500/10" },
     { key: "materials" as ModuleKey, label: "素材", desc: "生成素材库", Icon: Sparkles, tone: "text-blue-200", surface: "bg-blue-500/10" },
     { key: "projector" as ModuleKey, label: "放映机", desc: "视听实验室", Icon: Projector, tone: "text-rose-300", surface: "bg-rose-500/10" },

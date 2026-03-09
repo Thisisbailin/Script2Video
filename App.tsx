@@ -38,7 +38,6 @@ import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
-import { CharacterSceneLibraryPanel } from './node-workspace/components/CharacterSceneLibraryPanel';
 import { MaterialsPanel } from './node-workspace/components/MaterialsPanel';
 import { UnderstandingPanel } from './node-workspace/components/UnderstandingPanel';
 import { SyncPanel } from './node-workspace/components/SyncPanel';
@@ -473,6 +472,7 @@ const App: React.FC = () => {
   const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
   const [openLabModal, setOpenLabModal] = useState<ModuleKey | null>(null);
+  const [understandingSection, setUnderstandingSection] = useState<"overview" | "episodes" | "characters" | "scenes">("overview");
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [isSyncBannerDismissed, setIsSyncBannerDismissed] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
@@ -506,6 +506,19 @@ const App: React.FC = () => {
   const closeAccountPanel = useCallback(() => setAccountPanel(null), []);
 
   const handleOpenLabModule = useCallback((key: ModuleKey) => {
+    if (key === 'characters') {
+      setUnderstandingSection('characters');
+      setOpenLabModal('understanding');
+      return;
+    }
+    if (key === 'scenes') {
+      setUnderstandingSection('scenes');
+      setOpenLabModal('understanding');
+      return;
+    }
+    if (key === 'understanding') {
+      setUnderstandingSection('overview');
+    }
     setOpenLabModal(key);
   }, []);
 
@@ -2128,22 +2141,16 @@ const App: React.FC = () => {
         showStoryboard={showStoryboard}
       />
     );
-  } else if (openLabModal === "characters") {
-    labModalTitle = "Characters & Scenes";
-    labModalWidth = 960;
-    labModalContent = (
-      <CharacterSceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
-    );
-  } else if (openLabModal === "scenes") {
-    labModalTitle = "Characters & Scenes";
-    labModalWidth = 960;
-    labModalContent = (
-      <CharacterSceneLibraryPanel projectData={projectData} setProjectData={setProjectData} />
-    );
   } else if (openLabModal === "understanding") {
     labModalTitle = "理解";
     labModalWidth = 980;
-    labModalContent = <UnderstandingPanel projectData={projectData} />;
+    labModalContent = (
+      <UnderstandingPanel
+        projectData={projectData}
+        setProjectData={setProjectData}
+        initialSection={understandingSection}
+      />
+    );
   } else if (openLabModal === "materials") {
     labModalTitle = "素材";
     labModalWidth = 980;

@@ -7,10 +7,8 @@ import {
   FileText,
   Film,
   Image as ImageIcon,
-  MapPin,
   Sparkles,
   Trash2,
-  Users,
   X,
 } from "lucide-react";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -21,9 +19,7 @@ type AssetTab =
   | "videos"
   | "guides"
   | "scripts"
-  | "shots"
-  | "characters"
-  | "scenes";
+  | "shots";
 
 type InsertTextPayload = {
   title: string;
@@ -106,8 +102,6 @@ export const AssetsPanel: React.FC<Props> = ({
     [projectData.episodes]
   );
 
-  const characterItems = projectData.context.characters || [];
-  const sceneItems = projectData.context.locations || [];
 
   const tabs = [
     { key: "images" as const, label: "Images", count: imageAssets.length },
@@ -115,8 +109,6 @@ export const AssetsPanel: React.FC<Props> = ({
     { key: "guides" as const, label: "Guides", count: guideItems.length },
     { key: "scripts" as const, label: "Scripts", count: scriptItems.length },
     { key: "shots" as const, label: "Shots", count: projectData.episodes.length },
-    { key: "characters" as const, label: "Characters", count: characterItems.length },
-    { key: "scenes" as const, label: "Scenes", count: sceneItems.length },
   ];
 
   const totalCount = tabs.reduce((sum, tab) => sum + tab.count, 0);
@@ -430,96 +422,6 @@ export const AssetsPanel: React.FC<Props> = ({
           </>
         )}
 
-        {activeTab === "characters" && (
-          <>
-            {characterItems.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-[var(--app-border)] text-center text-xs text-[var(--app-text-muted)]">
-                No characters yet.
-              </div>
-            ) : (
-              characterItems.map((character) => {
-                const parts = [
-                  character.role ? `Role: ${character.role}` : "",
-                  character.archetype ? `Archetype: ${character.archetype}` : "",
-                  character.episodeUsage ? `Usage: ${character.episodeUsage}` : "",
-                  character.bio ? `Bio: ${character.bio}` : "",
-                ].filter(Boolean);
-                const text = parts.join("\n");
-                return (
-                  <div
-                    key={character.id}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)] transition"
-                  >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--app-panel-muted)] border border-[var(--app-border)] flex items-center justify-center shrink-0">
-                      <Users size={16} className="text-purple-300" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-[var(--app-text-primary)] truncate">{character.name}</div>
-                        <div className="text-[10px] text-[var(--app-text-muted)] truncate">
-                          {character.role || "Character"}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => insertCharacter(character.id, character.name, text)}
-                      className="px-2.5 py-1 rounded-full border border-[var(--app-border)] text-[10px] uppercase tracking-wide text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
-                    >
-                      Insert
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </>
-        )}
-
-        {activeTab === "scenes" && (
-          <>
-            {sceneItems.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-[var(--app-border)] text-center text-xs text-[var(--app-text-muted)]">
-                No scenes yet.
-              </div>
-            ) : (
-              sceneItems.map((scene) => {
-                const parts = [
-                  scene.type ? `Type: ${scene.type}` : "",
-                  scene.assetPriority ? `Priority: ${scene.assetPriority}` : "",
-                  scene.episodeUsage ? `Usage: ${scene.episodeUsage}` : "",
-                  scene.description ? `Description: ${scene.description}` : "",
-                  scene.visuals ? `Visuals: ${scene.visuals}` : "",
-                ].filter(Boolean);
-                const text = parts.join("\n");
-                return (
-                  <div
-                    key={scene.id}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)] transition"
-                  >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--app-panel-muted)] border border-[var(--app-border)] flex items-center justify-center shrink-0">
-                      <MapPin size={16} className="text-amber-300" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-[var(--app-text-primary)] truncate">{scene.name}</div>
-                        <div className="text-[10px] text-[var(--app-text-muted)] truncate">
-                          {scene.type === "core" ? "Core scene" : "Secondary scene"}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => insertScene(scene.id, scene.name, text)}
-                      className="px-2.5 py-1 rounded-full border border-[var(--app-border)] text-[10px] uppercase tracking-wide text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
-                    >
-                      Insert
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </>
-        )}
       </div>
     </div>
   );

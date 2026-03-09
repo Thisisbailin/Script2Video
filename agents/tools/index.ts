@@ -3,22 +3,20 @@ import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import type { AgentExecutedToolCall, AgentRuntimeEvent } from "../runtime/types";
 import { createNodeWorkflowToolDef } from "./createNodeWorkflow";
 import { createTextNodeToolDef } from "./createTextNode";
-import { getEpisodeScriptToolDef } from "./getEpisodeScript";
-import { getSceneScriptToolDef } from "./getSceneScript";
+import { listProjectResourcesToolDef } from "./listProjectResources";
 import { pingToolDef } from "./ping";
 import { readProjectDataToolDef } from "./readProjectData";
+import { readProjectResourceToolDef } from "./readProjectResource";
 import { searchScriptDataToolDef } from "./searchScriptData";
 import { upsertCharacterToolDef } from "./upsertCharacter";
 import { upsertLocationToolDef } from "./upsertLocation";
-import { writeEpisodeSummaryToolDef } from "./writeEpisodeSummary";
-import { writeProjectSummaryToolDef } from "./writeProjectSummary";
+import { writeUnderstandingResourceToolDef } from "./writeUnderstandingResource";
 
 const TOOL_DEFS = [
   pingToolDef,
-  getEpisodeScriptToolDef,
-  getSceneScriptToolDef,
-  writeProjectSummaryToolDef,
-  writeEpisodeSummaryToolDef,
+  listProjectResourcesToolDef,
+  readProjectResourceToolDef,
+  writeUnderstandingResourceToolDef,
   readProjectDataToolDef,
   searchScriptDataToolDef,
   upsertCharacterToolDef,

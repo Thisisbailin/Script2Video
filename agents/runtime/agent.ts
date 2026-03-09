@@ -25,6 +25,8 @@ const STABILIZATION_DISABLED_TOOLS = [
   "search_script_data",
   "upsert_character",
   "upsert_location",
+  "write_project_summary",
+  "write_episode_summary",
   "create_node_workflow",
 ] as const;
 
