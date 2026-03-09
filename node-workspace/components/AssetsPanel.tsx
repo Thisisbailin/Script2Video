@@ -138,7 +138,7 @@ export const AssetsPanel: React.FC<Props> = ({
   }
 
   const panelCore = (
-    <div className="qalam-surface flex w-[380px] max-h-[calc(100vh-140px)] flex-col overflow-hidden rounded-[24px]">
+    <div className="qalam-surface flex max-h-[calc(100vh-140px)] w-[380px] flex-col overflow-hidden rounded-[26px]">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500/30 via-blue-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">

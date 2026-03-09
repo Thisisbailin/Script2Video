@@ -40,6 +40,7 @@ import { AnnotationModal } from "./AnnotationModal";
 import { ProjectData } from "../../types";
 import type { ModuleKey } from "./ModuleBar";
 import { FolderOpen, FileText, List } from "lucide-react";
+import { ArrowUp } from "@phosphor-icons/react";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -394,6 +395,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [isQalamCollapsed, setIsQalamCollapsed] = useState(true);
   const [qalamOpenRequest, setQalamOpenRequest] = useState(0);
   const [qalamSubmitRequest, setQalamSubmitRequest] = useState<{ id: number; text: string } | null>(null);
+  const [composerInput, setComposerInput] = useState("");
   const {
     nodes,
     edges,
@@ -1046,9 +1048,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
               renderCollapsedTrigger={false}
             />
           </div>
-          {isQalamCollapsed ? (
-            <div className="pointer-events-auto absolute left-1/2 bottom-0 -translate-x-1/2 qalam-bottom-center">
-              <div className="flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2">
+          <div
+            className={`pointer-events-auto absolute left-1/2 bottom-0 -translate-x-1/2 qalam-bottom-center transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isQalamCollapsed ? "opacity-100 translate-y-0" : "pointer-events-none opacity-0 translate-y-4"
+            }`}
+          >
+            <div className="flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2">
               <FloatingActionBar
                 onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
                 onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
@@ -1080,16 +1085,41 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                 onAssetLoad={onAssetLoad}
                 accountInfo={accountInfo}
                 onToggleWorkflow={onToggleWorkflow}
-                onSubmitQalamPrompt={(text) => {
-                  const id = Date.now();
-                  setQalamSubmitRequest({ id, text });
-                  setQalamOpenRequest((prev) => prev + 1);
-                }}
+                onOpenQalam={() => setQalamOpenRequest((prev) => prev + 1)}
                 variant="embedded"
               />
+              {isQalamCollapsed && (
+                <div
+                  className="qalam-surface w-full rounded-[24px] px-4 py-3"
+                  style={{ fontFamily: '"Geist", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif' }}
+                >
+                  <div className="flex items-end gap-3">
+                    <textarea
+                      value={composerInput}
+                      onChange={(e) => setComposerInput(e.target.value)}
+                      rows={1}
+                      className="min-h-[46px] flex-1 resize-none bg-transparent py-2 text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] focus:outline-none"
+                      placeholder="Ask Qalam about scenes, roles, nodes, assets, or workflow changes."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = composerInput.trim();
+                        if (!text) return;
+                        setComposerInput("");
+                        setQalamSubmitRequest({ id: Date.now(), text });
+                      }}
+                      disabled={!composerInput.trim()}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent-strong)] text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Send to Qalam"
+                    >
+                      <ArrowUp size={16} weight="bold" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            </div>
-          ) : null}
+          </div>
           <div className="pointer-events-auto ml-auto qalam-bottom-assets">
             <div className="relative h-12 flex items-center group/assetsdock">
               <div className="absolute right-[calc(100%+12px)] bottom-0 z-20 origin-right translate-x-3 scale-[0.98] opacity-0 pointer-events-none transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/assetsdock:pointer-events-auto group-hover/assetsdock:translate-x-0 group-hover/assetsdock:scale-100 group-hover/assetsdock:opacity-100 group-focus-within/assetsdock:pointer-events-auto group-focus-within/assetsdock:translate-x-0 group-focus-within/assetsdock:scale-100 group-focus-within/assetsdock:opacity-100 qalam-bottom-accessories">

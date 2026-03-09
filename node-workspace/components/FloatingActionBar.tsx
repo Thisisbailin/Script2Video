@@ -1,6 +1,5 @@
 import React, { useRef, useState } from "react";
 import {
-  ArrowUp,
   Plus,
   User,
   Projector,
@@ -76,7 +75,6 @@ type Props = {
   onTryMe?: () => void;
   onToggleWorkflow?: (anchorRect?: DOMRect) => void;
   onOpenQalam?: () => void;
-  onSubmitQalamPrompt?: (text: string) => void;
   variant?: "dock" | "embedded";
   onAssetLoad?: (
     type:
@@ -125,7 +123,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   onTryMe,
   onToggleWorkflow,
   onOpenQalam,
-  onSubmitQalamPrompt,
   variant = "dock",
   onAssetLoad,
 }) => {
@@ -134,7 +131,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   const [showWip, setShowWip] = useState(false);
-  const [qalamDraft, setQalamDraft] = useState("");
   const [ioPane, setIoPane] = useState<"project" | "guides" | "export">("project");
   const scriptInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -228,13 +224,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   };
 
   const ioActions: { label: string; desc: string; Icon: any; onClick?: () => void; color: string }[] = [];
-  const canSubmitQalam = qalamDraft.trim().length > 0;
-  const submitQalamDraft = () => {
-    const next = qalamDraft.trim();
-    if (!next) return;
-    onSubmitQalamPrompt?.(next);
-    setQalamDraft("");
-  };
 
 
   return (
@@ -961,10 +950,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
         {/* Main Bar */}
         {isEmbedded ? (
-          <div
-            className="qalam-surface w-full rounded-[28px] p-3"
-            style={{ boxShadow: "0 16px 34px -28px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.04)" }}
-          >
+          <div className="w-full">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => {
@@ -1038,35 +1024,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                 <Projector size={13} />
                 <span>Lab</span>
               </button>
-            </div>
-            <div className="mt-3 rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <input
-                type="text"
-                value={qalamDraft}
-                onChange={(e) => setQalamDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                  }
-                }}
-                className="w-full bg-transparent text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] outline-none"
-                placeholder="Ask Qalam about scenes, roles, nodes, assets, or workflow changes."
-              />
-              <div className="mt-3 flex items-center gap-2">
-                <div className="inline-flex h-8 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
-                  Qalam
-                </div>
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  onClick={submitQalamDraft}
-                  disabled={!canSubmitQalam}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--app-accent-strong)] text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:bg-[var(--app-accent)]/50 disabled:text-white/72"
-                  title="Send"
-                >
-                  <ArrowUp size={16} />
-                </button>
-              </div>
             </div>
           </div>
         ) : (

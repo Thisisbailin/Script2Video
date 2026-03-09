@@ -34,7 +34,7 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="qalam-surface inline-flex items-center gap-2 rounded-[24px] p-1.5">
+    <div className="qalam-surface inline-flex items-center gap-1.5 rounded-full p-1.5">
       <div className="qalam-subtle-surface flex items-center gap-1 rounded-full p-1">
         {syncIndicator && (
           <button
@@ -45,8 +45,8 @@ export const ViewportControls: React.FC<Props> = ({
           >
             <Palette size={14} />
             <span
-              className="absolute right-[8px] top-[8px] h-2 w-2 rounded-full block ring-2 ring-[var(--app-panel)]"
-              style={{ backgroundColor: syncIndicator.color }}
+              className="absolute right-[8px] top-[8px] h-2 w-2 rounded-full block ring-2"
+              style={{ backgroundColor: syncIndicator.color, boxShadow: "0 0 0 3px var(--app-panel)" }}
             />
           </button>
         )}
@@ -57,9 +57,9 @@ export const ViewportControls: React.FC<Props> = ({
           title={isLocked ? "解锁画布" : "锁定画布"}
         >
           {isLocked ? (
-            <LockKeyhole size={14} className="text-amber-300" />
+            <LockKeyhole size={14} className="text-[var(--app-accent-strong)]" />
           ) : (
-            <UnlockKeyhole size={14} className="text-amber-300" />
+            <UnlockKeyhole size={14} className="text-[var(--app-accent-strong)]" />
           )}
         </button>
         <button
@@ -68,7 +68,7 @@ export const ViewportControls: React.FC<Props> = ({
           className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px"
           title={showMiniMap ? "隐藏地图" : "显示地图"}
         >
-          <Map size={14} className={showMiniMap ? "text-sky-300" : "text-sky-300/70"} />
+          <Map size={14} className={showMiniMap ? "text-[var(--app-accent-strong)]" : "text-[var(--app-text-secondary)]"} />
         </button>
       </div>
       <div className="qalam-subtle-surface flex items-center gap-1 rounded-full p-1">
@@ -81,9 +81,21 @@ export const ViewportControls: React.FC<Props> = ({
         >
           <Minus size={14} className="text-[var(--app-text-secondary)]" />
         </button>
-        <div className="inline-flex h-9 min-w-[56px] items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[11px] font-medium text-[var(--app-text-secondary)]">
-          {zoomPercent}%
-        </div>
+        <button
+          type="button"
+          disabled
+          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]"
+          title={`当前缩放 ${zoomPercent}%`}
+        >
+          <span
+            className="block rounded-full bg-[var(--app-text-primary)] transition-all"
+            style={{
+              width: `${Math.max(7, Math.min(15, 7 + ((zoomPercent - minZoom * 100) / ((maxZoom - minZoom) * 100 || 1)) * 8))}px`,
+              height: `${Math.max(7, Math.min(15, 7 + ((zoomPercent - minZoom * 100) / ((maxZoom - minZoom) * 100 || 1)) * 8))}px`,
+              opacity: 0.82,
+            }}
+          />
+        </button>
         <button
           type="button"
           onClick={handlePlus}
