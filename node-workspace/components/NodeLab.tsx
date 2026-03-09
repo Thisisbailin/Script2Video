@@ -1048,7 +1048,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       <AgentSettingsPanel isOpen={showAgentSettings} onClose={() => setShowAgentSettings(false)} />
       <div className="fixed bottom-4 left-4 right-4 z-30 pointer-events-none qalam-bottom-bar">
         <div className="relative flex items-end justify-between gap-4">
-          <div className="pointer-events-auto qalam-bottom-agent">
+          <div className="pointer-events-auto flex items-end gap-3 qalam-bottom-agent">
             <QalamAgent
               projectData={projectData}
               setProjectData={setProjectData}
@@ -1059,6 +1059,20 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
               onCollapsedChange={setIsQalamCollapsed}
               renderCollapsedTrigger={false}
             />
+            <div className="qalam-bottom-controls">
+              <ViewportControls
+                zoom={zoomValue}
+                minZoom={minZoom}
+                maxZoom={maxZoom}
+                onZoomChange={handleZoomChange}
+                isLocked={isLocked}
+                onToggleLock={handleToggleLock}
+                showMiniMap={showMiniMap}
+                onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
+                syncIndicator={syncIndicator}
+                onOpenTheme={() => setShowThemeModal(true)}
+              />
+            </div>
           </div>
           <div
             className={`pointer-events-auto absolute left-1/2 bottom-0 -translate-x-1/2 qalam-bottom-center transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -1103,7 +1117,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
               />
               {isQalamCollapsed && (
                 <div
-                  className="qalam-surface w-full rounded-[24px] px-4 py-3"
+                  className="qalam-surface w-full rounded-[34px] px-5 py-3.5"
                   style={{ fontFamily: '"Geist", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif' }}
                 >
                   <div className="flex items-end gap-3">
@@ -1138,21 +1152,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             </div>
           </div>
           <div className="pointer-events-auto ml-auto qalam-bottom-assets">
-            <div className="relative h-12 flex items-center group/assetsdock">
-              <div className="absolute right-[calc(100%+12px)] bottom-0 z-20 origin-right translate-x-3 scale-[0.98] opacity-0 pointer-events-none transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/assetsdock:pointer-events-auto group-hover/assetsdock:translate-x-0 group-hover/assetsdock:scale-100 group-hover/assetsdock:opacity-100 group-focus-within/assetsdock:pointer-events-auto group-focus-within/assetsdock:translate-x-0 group-focus-within/assetsdock:scale-100 group-focus-within/assetsdock:opacity-100 qalam-bottom-accessories">
-                <ViewportControls
-                  zoom={zoomValue}
-                  minZoom={minZoom}
-                  maxZoom={maxZoom}
-                  onZoomChange={handleZoomChange}
-                  isLocked={isLocked}
-                  onToggleLock={handleToggleLock}
-                  showMiniMap={showMiniMap}
-                  onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
-                  syncIndicator={syncIndicator}
-                  onOpenTheme={() => setShowThemeModal(true)}
-                />
-              </div>
+            <div className="relative h-12 flex items-center">
               <AssetsPanel
                 projectData={projectData}
                 onInsertTextNode={handleInsertTextNode}

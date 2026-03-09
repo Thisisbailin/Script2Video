@@ -34,8 +34,8 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="qalam-surface inline-flex h-11 items-center gap-1 rounded-full p-1">
-      <div className="qalam-subtle-surface flex h-full items-center gap-1 rounded-full px-1">
+    <div className="flex items-center gap-2">
+      <div className="qalam-surface inline-flex h-11 items-center gap-1 rounded-full p-1">
         {syncIndicator && (
           <button
             type="button"
@@ -71,7 +71,7 @@ export const ViewportControls: React.FC<Props> = ({
           <Map size={14} className={showMiniMap ? "text-[var(--app-accent-strong)]" : "text-[var(--app-text-secondary)]"} />
         </button>
       </div>
-      <div className="qalam-subtle-surface flex h-full items-center gap-1 rounded-full px-1">
+      <div className="qalam-surface inline-flex h-11 items-center gap-1 rounded-full p-1">
         <button
           type="button"
           onClick={handleMinus}

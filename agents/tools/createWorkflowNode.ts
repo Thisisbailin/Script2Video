@@ -3,6 +3,11 @@ import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 const createWorkflowNodeParameters = {
   type: "object",
   properties: {
+    node_ref: {
+      type: "string",
+      description:
+        "Stable semantic reference for this node, such as bull_prompt or poster_image. Reuse this ref in later connect_workflow_nodes calls.",
+    },
     node_type: {
       type: "string",
       enum: ["text", "imageGen"],
@@ -22,7 +27,7 @@ const createWorkflowNodeParameters = {
       description: "Optional aspect ratio for image generation nodes.",
     },
   },
-  required: ["node_type"],
+  required: ["node_type", "node_ref"],
 } as const;
 
 const normalizeString = (value: unknown) => {
@@ -35,11 +40,15 @@ const parseArgs = (input: unknown) => {
     throw new Error("create_workflow_node 需要对象参数。");
   }
   const raw = input as Record<string, unknown>;
+  const nodeRef = normalizeString(raw.node_ref ?? raw.nodeRef);
   const nodeType = normalizeString(raw.node_type ?? raw.nodeType);
   const title = normalizeString(raw.title);
   const text = normalizeString(raw.text);
   const aspectRatio = normalizeString(raw.aspect_ratio ?? raw.aspectRatio);
 
+  if (!nodeRef) {
+    throw new Error("create_workflow_node 需要稳定的 node_ref，供后续连接节点时复用。");
+  }
   if (nodeType !== "text" && nodeType !== "imageGen") {
     throw new Error("create_workflow_node 当前仅支持 node_type=text 或 imageGen。");
   }
@@ -51,6 +60,7 @@ const parseArgs = (input: unknown) => {
   }
 
   return {
+    nodeRef,
     nodeType: nodeType as "text" | "imageGen",
     title: title || (nodeType === "text" ? "文本节点" : "Img Gen"),
     text,
@@ -61,17 +71,18 @@ const parseArgs = (input: unknown) => {
 export const createWorkflowNodeToolDef = {
   name: "create_workflow_node",
   description:
-    "Create a workflow node in NodeLab. In the current V1, only text nodes and image generation nodes are supported.",
+    "Create a workflow node in NodeLab. Always provide a stable node_ref so later connections can refer to the node semantically. In the current V1, only text nodes and image generation nodes are supported.",
   parameters: createWorkflowNodeParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);
     return bridge.createWorkflowNode({
       type: args.nodeType,
+      nodeRef: args.nodeRef,
       title: args.title,
       text: args.nodeType === "text" ? args.text : undefined,
       aspectRatio: args.nodeType === "imageGen" ? args.aspectRatio : undefined,
     });
   },
   summarize: (output: any) =>
-    `已创建 ${output?.nodeType || output?.node_type || "节点"} ${output?.title || ""}${output?.nodeId || output?.node_id ? `（${output?.nodeId || output?.node_id}）` : ""}`.trim(),
+    `已创建 ${output?.nodeType || output?.node_type || "节点"} ${output?.title || ""}${output?.nodeRef || output?.node_ref ? `（ref:${output?.nodeRef || output?.node_ref}）` : ""}${output?.nodeId || output?.node_id ? `（${output?.nodeId || output?.node_id}）` : ""}`.trim(),
 };

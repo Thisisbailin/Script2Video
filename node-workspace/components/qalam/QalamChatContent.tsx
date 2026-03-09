@@ -406,11 +406,23 @@ const renderToolOutput = (tool: ToolPayload) => {
   if (typeof payload.chars === "number") simpleFields.push({ label: "字数", value: String(payload.chars) });
   if (typeof payload.nodeId === "string") simpleFields.push({ label: "节点 ID", value: payload.nodeId });
   if (typeof payload.nodeType === "string") simpleFields.push({ label: "节点类型", value: payload.nodeType });
+  if (typeof payload.nodeRef === "string") simpleFields.push({ label: "节点引用", value: payload.nodeRef });
+  if (typeof payload.defaultOutputHandle === "string") simpleFields.push({ label: "默认尾端端口", value: payload.defaultOutputHandle });
+  if (Array.isArray(payload.defaultInputHandles) && payload.defaultInputHandles.length > 0) {
+    simpleFields.push({ label: "默认首端端口", value: payload.defaultInputHandles.join(", ") });
+  }
   if (typeof payload.node_id === "string") simpleFields.push({ label: "节点 ID", value: payload.node_id });
   if (typeof payload.node_type === "string") simpleFields.push({ label: "节点类型", value: payload.node_type });
+  if (typeof payload.node_ref === "string") simpleFields.push({ label: "节点引用", value: payload.node_ref });
+  if (typeof payload.default_output_handle === "string") simpleFields.push({ label: "默认尾端端口", value: payload.default_output_handle });
+  if (Array.isArray(payload.default_input_handles) && payload.default_input_handles.length > 0) {
+    simpleFields.push({ label: "默认首端端口", value: payload.default_input_handles.join(", ") });
+  }
   if (typeof payload.edgeId === "string") simpleFields.push({ label: "连线 ID", value: payload.edgeId });
   if (typeof payload.sourceNodeId === "string") simpleFields.push({ label: "尾端节点", value: payload.sourceNodeId });
   if (typeof payload.targetNodeId === "string") simpleFields.push({ label: "首端节点", value: payload.targetNodeId });
+  if (typeof payload.sourceRef === "string") simpleFields.push({ label: "尾端引用", value: payload.sourceRef });
+  if (typeof payload.targetRef === "string") simpleFields.push({ label: "首端引用", value: payload.targetRef });
   if (typeof payload.sourceHandle === "string") simpleFields.push({ label: "尾端端口", value: payload.sourceHandle });
   if (typeof payload.targetHandle === "string") simpleFields.push({ label: "首端端口", value: payload.targetHandle });
   if (typeof payload.group_id === "string") simpleFields.push({ label: "分组节点", value: payload.group_id });
@@ -419,6 +431,8 @@ const renderToolOutput = (tool: ToolPayload) => {
   if (typeof payload.edge_id === "string") simpleFields.push({ label: "连线 ID", value: payload.edge_id });
   if (typeof payload.source_node_id === "string") simpleFields.push({ label: "尾端节点", value: payload.source_node_id });
   if (typeof payload.target_node_id === "string") simpleFields.push({ label: "首端节点", value: payload.target_node_id });
+  if (typeof payload.source_ref === "string") simpleFields.push({ label: "尾端引用", value: payload.source_ref });
+  if (typeof payload.target_ref === "string") simpleFields.push({ label: "首端引用", value: payload.target_ref });
   if (typeof payload.source_handle === "string") simpleFields.push({ label: "尾端端口", value: payload.source_handle });
   if (typeof payload.target_handle === "string") simpleFields.push({ label: "首端端口", value: payload.target_handle });
   if (typeof payload.edge_count === "number") simpleFields.push({ label: "连线数", value: String(payload.edge_count) });

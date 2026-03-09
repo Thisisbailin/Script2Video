@@ -16,6 +16,7 @@ export type CreateTextNodeResult = {
 
 export type CreateWorkflowNodeInput = {
   type: Extract<NodeType, "text" | "imageGen">;
+  nodeRef?: string;
   title?: string;
   text?: string;
   aspectRatio?: string;
@@ -26,13 +27,18 @@ export type CreateWorkflowNodeInput = {
 
 export type CreateWorkflowNodeResult = {
   nodeId: string;
+  nodeRef?: string;
   nodeType: CreateWorkflowNodeInput["type"];
   title: string;
+  defaultOutputHandle?: WorkflowBuilderHandle | null;
+  defaultInputHandles?: WorkflowBuilderHandle[];
 };
 
 export type ConnectWorkflowNodesInput = {
-  sourceNodeId: string;
-  targetNodeId: string;
+  sourceNodeId?: string;
+  targetNodeId?: string;
+  sourceRef?: string;
+  targetRef?: string;
   sourceHandle?: WorkflowBuilderHandle;
   targetHandle?: WorkflowBuilderHandle;
 };
@@ -41,6 +47,8 @@ export type ConnectWorkflowNodesResult = {
   edgeId: string;
   sourceNodeId: string;
   targetNodeId: string;
+  sourceRef?: string;
+  targetRef?: string;
   sourceHandle: WorkflowBuilderHandle;
   targetHandle: WorkflowBuilderHandle;
 };

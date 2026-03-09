@@ -28,6 +28,7 @@ import {
   LogOut,
   Upload,
   Share,
+  Globe,
 } from "lucide-react";
 import { WorkflowTemplate } from "../types";
 import type { ModuleKey } from "./ModuleBar";
@@ -541,7 +542,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                         }}
                       >
                         <span className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-text-secondary)]">
-                          <GlobeHemisphereWest size={16} />
+                          <Globe size={16} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[12px] font-semibold text-[var(--app-text-primary)]">Agent Settings</span>
@@ -1029,19 +1030,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                 <span>Add Nodes</span>
               </button>
 
-              <button
-                onClick={() => {
-                  setShowWip((v) => !v);
-                  setShowPalette(false);
-                  setShowTemplate(false);
-                  setShowFileMenu(false);
-                }}
-                className={`${toolbarChipClass} sm:ml-auto ${showWip ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-                title="Lab"
-              >
-                <Projector size={13} />
-                <span>Lab</span>
-              </button>
             </div>
           </div>
         ) : (
@@ -1108,14 +1096,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                 <span>Add Nodes</span>
               </button>
 
-              <button
-                onClick={() => setShowWip((v) => !v)}
-                className={`${embeddedLabelClass} ml-auto ${showWip ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-                title="Lab"
-              >
-                <Projector size={13} />
-                <span>Lab</span>
-              </button>
             </div>
 
             <button

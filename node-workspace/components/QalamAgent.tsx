@@ -78,6 +78,11 @@ const edgeIdFromConnection = (sourceNodeId: string, targetNodeId: string, source
 
 const getWorkflowSnapshot = () => useWorkflowStore.getState();
 
+const normalizeNodeRef = (value?: string | null) => {
+  if (typeof value !== "string") return "";
+  return value.trim();
+};
+
 const resolvePreferredConnectionHandles = (sourceType: string, targetType: string) => {
   if (sourceType === "text" && targetType === "text") {
     return { sourceHandle: "text" as const, targetHandle: "text" as const };
@@ -245,6 +250,7 @@ export const QalamAgent: React.FC<Props> = ({
   const handledSubmitRequestRef = useRef<number>(0);
   const skillLoaderRef = useRef(new LocalSkillLoader());
   const sessionStoreRef = useRef(new LocalStorageSessionStore());
+  const workflowNodeRefsRef = useRef<Record<string, string>>({});
   const bridge = useMemo<Script2VideoAgentBridge>(
     () => ({
       getProjectData: () => projectData,
@@ -262,7 +268,7 @@ export const QalamAgent: React.FC<Props> = ({
         const nodeId = addNode("text", position, parentId, { title, text });
         return { id: nodeId, title };
       },
-      createWorkflowNode: ({ type, title, text, aspectRatio, x, y, parentId }) => {
+      createWorkflowNode: ({ type, nodeRef, title, text, aspectRatio, x, y, parentId }) => {
         const snapshot = getWorkflowSnapshot();
         const hasXY = typeof x === "number" && typeof y === "number";
         const activeViewport = snapshot.viewport || viewport;
@@ -290,18 +296,40 @@ export const QalamAgent: React.FC<Props> = ({
           throw new Error("createWorkflowNode 创建文本节点时缺少 text。");
         }
         const nodeId = addNode(type, position, parentId, extraData);
+        const resolvedNodeRef = normalizeNodeRef(nodeRef);
+        if (resolvedNodeRef) {
+          workflowNodeRefsRef.current[resolvedNodeRef] = nodeId;
+        }
+        const nodeHandles = getNodeHandles(type);
         return {
           nodeId,
           node_id: nodeId,
+          nodeRef: resolvedNodeRef || undefined,
+          node_ref: resolvedNodeRef || undefined,
           nodeType: type,
           node_type: type,
           title: resolvedTitle,
+          defaultOutputHandle: nodeHandles.outputs[0] ?? null,
+          default_output_handle: nodeHandles.outputs[0] ?? null,
+          defaultInputHandles: nodeHandles.inputs,
+          default_input_handles: nodeHandles.inputs,
         };
       },
-      connectWorkflowNodes: ({ sourceNodeId, targetNodeId, sourceHandle, targetHandle }) => {
+      connectWorkflowNodes: ({ sourceNodeId, targetNodeId, sourceRef, targetRef, sourceHandle, targetHandle }) => {
         const snapshot = getWorkflowSnapshot();
-        const sourceNode = snapshot.nodes.find((node) => node.id === sourceNodeId);
-        const targetNode = snapshot.nodes.find((node) => node.id === targetNodeId);
+        const resolvedSourceRef = normalizeNodeRef(sourceRef);
+        const resolvedTargetRef = normalizeNodeRef(targetRef);
+        const resolvedSourceNodeId = resolvedSourceRef
+          ? workflowNodeRefsRef.current[resolvedSourceRef]
+          : sourceNodeId;
+        const resolvedTargetNodeId = resolvedTargetRef
+          ? workflowNodeRefsRef.current[resolvedTargetRef]
+          : targetNodeId;
+        if (!resolvedSourceNodeId || !resolvedTargetNodeId) {
+          throw new Error("connectWorkflowNodes 引用了不存在的节点。请确认 source_ref/target_ref 已由 create_workflow_node 返回。");
+        }
+        const sourceNode = snapshot.nodes.find((node) => node.id === resolvedSourceNodeId);
+        const targetNode = snapshot.nodes.find((node) => node.id === resolvedTargetNodeId);
         if (!sourceNode || !targetNode) {
           throw new Error("connectWorkflowNodes 引用了不存在的节点。");
         }
@@ -325,18 +353,22 @@ export const QalamAgent: React.FC<Props> = ({
           throw new Error("connectWorkflowNodes 收到不合法的连线类型。");
         }
         onConnect({
-          source: sourceNodeId,
-          target: targetNodeId,
+          source: resolvedSourceNodeId,
+          target: resolvedTargetNodeId,
           sourceHandle: resolvedSourceHandle,
           targetHandle: resolvedTargetHandle,
         });
         return {
-          edgeId: edgeIdFromConnection(sourceNodeId, targetNodeId, resolvedSourceHandle, resolvedTargetHandle),
-          edge_id: edgeIdFromConnection(sourceNodeId, targetNodeId, resolvedSourceHandle, resolvedTargetHandle),
-          sourceNodeId,
-          source_node_id: sourceNodeId,
-          targetNodeId,
-          target_node_id: targetNodeId,
+          edgeId: edgeIdFromConnection(resolvedSourceNodeId, resolvedTargetNodeId, resolvedSourceHandle, resolvedTargetHandle),
+          edge_id: edgeIdFromConnection(resolvedSourceNodeId, resolvedTargetNodeId, resolvedSourceHandle, resolvedTargetHandle),
+          sourceNodeId: resolvedSourceNodeId,
+          source_node_id: resolvedSourceNodeId,
+          targetNodeId: resolvedTargetNodeId,
+          target_node_id: resolvedTargetNodeId,
+          sourceRef: resolvedSourceRef || undefined,
+          source_ref: resolvedSourceRef || undefined,
+          targetRef: resolvedTargetRef || undefined,
+          target_ref: resolvedTargetRef || undefined,
           sourceHandle: resolvedSourceHandle as "image" | "text",
           source_handle: resolvedSourceHandle as "image" | "text",
           targetHandle: resolvedTargetHandle as "image" | "text",
