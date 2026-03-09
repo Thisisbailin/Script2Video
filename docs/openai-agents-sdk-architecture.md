@@ -240,83 +240,97 @@ The first version should stay small.
 
 ### Class 1: inspect existing data
 
-1. `get_episode_script`
+1. `list_project_resources`
 
 Purpose:
 
-- read one episode body by `episode_id`
+- inspect available project resources before detailed reading
 
 Notes:
 
-- intentionally minimal schema
-- no title-based selection
-- no broad include flags
+- first use should reduce blind guessing
+- currently covers episodes and understanding coverage
+- later it should expand to workflow and richer project resource catalogs
 
-2. `get_scene_script`
+2. `read_project_resource`
 
 Purpose:
 
-- read one scene body by `scene_id`
-- or by `episode_id + scene_index`
+- read a concrete project resource by typed locator
 
 Notes:
 
-- intentionally minimal schema
-- scene lookup is exact, not fuzzy
-- this keeps Qwen function calling stable
+- current stabilized resources:
+  - `episode_script`
+  - `scene_script`
+  - `project_summary`
+  - `episode_summary`
+  - `character_profile`
+  - `scene_profile`
+  - `guide_document`
+
+3. `search_project_resource`
+
+Purpose:
+
+- locate unknown or fuzzy resources before exact reads
+
+Notes:
+
+- current stabilized scopes:
+  - `script`
+  - `understanding`
+  - `characters`
+  - `scenes`
+  - `guides`
 
 ### Class 2: write understanding documents
 
-3. `write_project_summary`
+4. `write_understanding_resource`
 
 Purpose:
 
-- persist a project-level understanding summary into project data
+- persist durable understanding artifacts into project data
 
 Requirements:
 
-- explicit summary text required
-- overwrite current `context.projectSummary`
-- return exact mutation summary
-
-4. `write_episode_summary`
-
-Purpose:
-
-- persist one episode-level understanding summary into project data
-
-Requirements:
-
-- explicit `episode_id` and `summary` required
-- update both `episodes[].summary` and `context.episodeSummaries[]`
-- return exact mutation summary
-
-5. `create_text_node`
-
-Purpose:
-
-- persist understanding artifacts such as synopsis, analysis, storyboard drafts, prompt drafts, and notes into NodeLab
-
-Requirements:
-
-- explicit content required
-- clear node creation result
-- no hidden side effects beyond node creation
+- current stabilized resource types:
+  - `project_summary`
+  - `episode_summary`
+  - `character_profile`
+  - `scene_profile`
+- the write surface is now unified by resource type instead of many separate write tools
 
 ### Class 3: node workflow operations
 
-For the current implementation, node workflow operations are intentionally narrow:
+5. `create_workflow_node`
 
-- create a single text node as an operational artifact
+Purpose:
 
-`create_node_workflow` exists in the codebase but is currently outside the stabilized tool surface.
+- create a single workflow node the agent can later connect into a working graph
 
-For later phases, this class should expand toward:
+Requirements:
 
-- workflow scaffolding
-- template instantiation
-- structured node bundle creation
-- agent-authored execution chains inside NodeLab
+- explicit `node_ref` required
+- current stabilized node types:
+  - `text`
+  - `imageGen`
+- return `node_ref`, `node_id`, and default head/tail handle metadata
+
+6. `connect_workflow_nodes`
+
+Purpose:
+
+- connect the tail of one existing node to the head of another
+
+Requirements:
+
+- prefer `source_ref` and `target_ref`
+- support fallback `source_node_id` and `target_node_id`
+- current default connection matrix:
+  - `text -> text` uses `text/text`
+  - `text -> imageGen` uses `text/text`
+- the graph itself may later support one-to-many and many-to-one edges without requiring new tools
 
 ## Current Implementation Snapshot
 
@@ -331,11 +345,12 @@ It is a single-agent runtime built around:
 
 The currently stabilized tool surface is:
 
-- `get_episode_script`
-- `get_scene_script`
-- `write_project_summary`
-- `write_episode_summary`
-- `create_text_node`
+- `list_project_resources`
+- `read_project_resource`
+- `search_project_resource`
+- `write_understanding_resource`
+- `create_workflow_node`
+- `connect_workflow_nodes`
 
 The following tools exist but are not part of the stabilized runtime surface yet:
 
@@ -343,6 +358,9 @@ The following tools exist but are not part of the stabilized runtime surface yet
 - `search_script_data`
 - `upsert_character`
 - `upsert_location`
+- `write_project_summary`
+- `write_episode_summary`
+- `create_text_node`
 - `create_node_workflow`
 
 This means the project has completed the first runnable milestone:
@@ -358,6 +376,45 @@ But it has not yet completed:
 - skill productization
 - workflow scaffold stabilization
 - guardrails
+- Cloudflare Pages Functions runtime migration
+- session compaction and deterministic input shaping
+- production-grade tracing and policy enforcement
+
+## Cloudflare Deployment Target
+
+The industrialized deployment target is:
+
+- frontend UI on Cloudflare Pages
+- agent runtime on Cloudflare Pages Functions
+- browser acting only as presentation and event-consumer
+- provider secrets stored in Cloudflare environment bindings
+
+This project does not need a self-managed server to become production-shaped.
+But it does need to stop running the primary agent runtime inside the browser.
+
+The migration target should therefore be:
+
+1. `QalamAgent` becomes a client of `/api/agent`
+2. the main `run()` invocation moves into a Pages Function
+3. sessions, audit, and later tracing move to Cloudflare-managed storage and observability primitives
+
+## Industrialization Roadmap
+
+The recommended order is:
+
+1. Move runtime execution from the browser to Cloudflare Pages Functions.
+2. Introduce session hardening:
+   - trim
+   - compaction
+   - deterministic session input shaping
+3. Add guardrails:
+   - input classification
+   - tool input validation
+   - tool output validation
+   - write/operation tripwires
+4. Add production tracing instead of relying mainly on browser debug logs.
+5. Separate stable tools from legacy tools in the registry and docs.
+6. Continue expanding understanding and workflow capabilities only after the execution substrate is controlled.
 - formal tracing integration
 
 ## Skill Model

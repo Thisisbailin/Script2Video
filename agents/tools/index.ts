@@ -1,6 +1,7 @@
 import { tool } from "@openai/agents";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import type { AgentExecutedToolCall, AgentRuntimeEvent } from "../runtime/types";
+import { createScript2VideoToolInputGuardrails } from "../runtime/guardrails";
 import { connectWorkflowNodesToolDef } from "./connectWorkflowNodes";
 import { createNodeWorkflowToolDef } from "./createNodeWorkflow";
 import { operateProjectWorkflowToolDef } from "./operateProjectWorkflow";
@@ -49,6 +50,7 @@ export const createScript2VideoTools = ({
       name: toolDef.name,
       description: toolDef.description,
       parameters: toolDef.parameters,
+      inputGuardrails: createScript2VideoToolInputGuardrails(toolDef.name, bridge),
       execute: async (input) => {
         const callId = `${toolDef.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const runningCall: AgentExecutedToolCall = {

@@ -1,8 +1,18 @@
-import { Agent, run, setDefaultOpenAIClient, setOpenAIAPI } from "@openai/agents";
+import {
+  Agent,
+  InputGuardrailTripwireTriggered,
+  OutputGuardrailTripwireTriggered,
+  ToolInputGuardrailTripwireTriggered,
+  ToolOutputGuardrailTripwireTriggered,
+  run,
+  setDefaultOpenAIClient,
+  setOpenAIAPI,
+} from "@openai/agents";
 import OpenAI from "openai";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import { createScript2VideoTools } from "../tools";
 import { normalizeQalamToolSettings } from "../../node-workspace/components/qalam/tooling";
+import { createScript2VideoInputGuardrails, createScript2VideoOutputGuardrails } from "./guardrails";
 import { composeAgentInstructions } from "./instructions";
 import { OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import type {
@@ -388,6 +398,8 @@ export const createScript2VideoAgentRuntime = ({
         toolChoice: resolvedToolChoice,
         parallelToolCalls: false,
       },
+      inputGuardrails: createScript2VideoInputGuardrails(),
+      outputGuardrails: createScript2VideoOutputGuardrails(),
       resetToolChoice: true,
       tools: createScript2VideoTools({
         bridge,
@@ -420,15 +432,23 @@ export const createScript2VideoAgentRuntime = ({
       });
       const result = useStreaming
         ? await run(agent, input.userText.trim(), {
-            signal: options?.signal,
-            maxTurns: 8,
-            session,
-            stream: true,
-          })
+          signal: options?.signal,
+          maxTurns: 8,
+          session,
+          context: {
+            runtimeMode: "browser",
+            requestedOutcome: input.requestedOutcome || "auto",
+          },
+          stream: true,
+        })
         : await run(agent, input.userText.trim(), {
             signal: options?.signal,
             maxTurns: 8,
             session,
+            context: {
+              runtimeMode: "browser",
+              requestedOutcome: input.requestedOutcome || "auto",
+            },
           });
       if (useStreaming) {
         await consumeRunStream(result as Awaited<ReturnType<typeof run>>, (streamEvent) => {
@@ -579,6 +599,11 @@ export const createScript2VideoAgentRuntime = ({
       return runResult;
     } catch (error: any) {
       const isMaxTurns = error?.name === "MaxTurnsExceededError" || String(error?.message || "").includes("Max turns");
+      const isGuardrailError =
+        error instanceof InputGuardrailTripwireTriggered ||
+        error instanceof OutputGuardrailTripwireTriggered ||
+        error instanceof ToolInputGuardrailTripwireTriggered ||
+        error instanceof ToolOutputGuardrailTripwireTriggered;
       const toolTrace = toolEvents
         .slice(-5)
         .map((toolCall) => `${toolCall.name}:${toolCall.status}${toolCall.summary ? `(${toolCall.summary})` : ""}`)
@@ -608,11 +633,13 @@ export const createScript2VideoAgentRuntime = ({
         debugGroupEnd();
         return runResult;
       }
-      const message = isMaxTurns
-        ? toolEvents.length
-          ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
-          : "Agent 未产出可识别的最终输出，已在 8 个回合后中止。"
-        : error?.message || "Agent runtime 执行失败";
+      const message = isGuardrailError
+        ? `Guardrail 已拦截当前请求：${error?.message || "请求不符合运行边界。"}`
+        : isMaxTurns
+          ? toolEvents.length
+            ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
+            : "Agent 未产出可识别的最终输出，已在 8 个回合后中止。"
+          : error?.message || "Agent runtime 执行失败";
       emitTrace("result", "error", "Run failed", message);
       options?.onEvent?.({ type: "run_failed", runId, error: message });
       tracer?.onRunFailed(message);

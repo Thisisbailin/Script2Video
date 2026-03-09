@@ -338,6 +338,7 @@ export type TextProvider = 'openrouter' | 'qwen';
 
 export interface TextServiceConfig {
   provider: TextProvider;
+  agentRuntimeTarget?: 'browser' | 'edge';
   apiKey: string;
   baseUrl: string;
   model: string;

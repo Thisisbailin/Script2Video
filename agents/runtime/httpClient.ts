@@ -1,0 +1,92 @@
+import type { Script2VideoAgentRuntime, Script2VideoRunInput, Script2VideoRunOptions, Script2VideoRunResult } from "./types";
+import {
+  AGENT_HTTP_STREAM_CONTENT_TYPE,
+  type AgentHttpRunRequest,
+  parseAgentStreamPacket,
+} from "./httpProtocol";
+
+type HttpRuntimeDeps = {
+  endpoint: string;
+  getRuntimeConfig: () => AgentHttpRunRequest["runtime"];
+  getProjectDataSnapshot?: () => AgentHttpRunRequest["projectData"];
+};
+
+const decodeStreamChunks = async (
+  stream: ReadableStream<Uint8Array>,
+  onPacket: (rawPacket: string) => void
+) => {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() || "";
+      for (const frame of frames) {
+        const dataLine = frame
+          .split("\n")
+          .map((line) => line.trim())
+          .find((line) => line.startsWith("data:"));
+        if (!dataLine) continue;
+        onPacket(dataLine.slice(5).trim());
+      }
+    }
+    if (buffer.trim().startsWith("data:")) {
+      onPacket(buffer.trim().slice(5).trim());
+    }
+  } finally {
+    reader.releaseLock();
+  }
+};
+
+export const createHttpScript2VideoAgentRuntime = ({
+  endpoint,
+  getRuntimeConfig,
+  getProjectDataSnapshot,
+}: HttpRuntimeDeps): Script2VideoAgentRuntime => ({
+  async run(input: Script2VideoRunInput, options?: Script2VideoRunOptions): Promise<Script2VideoRunResult> {
+    const requestBody: AgentHttpRunRequest = {
+      run: input,
+      runtime: getRuntimeConfig(),
+      projectData: getProjectDataSnapshot?.(),
+    };
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: AGENT_HTTP_STREAM_CONTENT_TYPE,
+      },
+      body: JSON.stringify(requestBody),
+      signal: options?.signal,
+    });
+
+    if (!response.ok || !response.body) {
+      const message = await response.text().catch(() => "");
+      throw new Error(message || `Agent 请求失败：HTTP ${response.status}`);
+    }
+
+    let finalResult: Script2VideoRunResult | null = null;
+    await decodeStreamChunks(response.body, (rawPacket) => {
+      const packet = parseAgentStreamPacket(rawPacket);
+      if (packet.kind === "event") {
+        options?.onEvent?.(packet.event);
+        return;
+      }
+      if (packet.kind === "result") {
+        finalResult = packet.result;
+        return;
+      }
+      if (packet.kind === "error") {
+        throw new Error(packet.error);
+      }
+    });
+
+    if (!finalResult) {
+      throw new Error("远端 Agent 没有返回最终结果。");
+    }
+    return finalResult;
+  },
+});

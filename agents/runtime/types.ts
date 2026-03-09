@@ -54,6 +54,10 @@ export type Script2VideoRunResult = {
   sessionId: string;
   outputItems: AgentOutputItem[];
   toolCalls: AgentExecutedToolCall[];
+  tracing?: {
+    enabled: boolean;
+    traceId?: string;
+  };
   usage?: {
     inputTokens?: number;
     outputTokens?: number;
@@ -66,7 +70,7 @@ export interface Script2VideoAgentRuntime {
 }
 
 export type AgentRuntimeEvent =
-  | { type: "run_started"; sessionId: string; runId: string }
+  | { type: "run_started"; sessionId: string; runId: string; traceId?: string; tracingEnabled?: boolean }
   | { type: "trace"; runId: string; entry: AgentTraceEntry }
   | { type: "message_delta"; runId: string; delta: string; accumulatedText: string }
   | { type: "reasoning_delta"; runId: string; delta: string; accumulatedText: string }
@@ -85,6 +89,7 @@ export type Script2VideoRunOptions = {
 
 export type Script2VideoAgentConfig = {
   provider?: "qwen" | "openrouter";
+  runtimeTarget?: "browser" | "edge";
   apiKey?: string;
   baseUrl?: string;
   model: string;

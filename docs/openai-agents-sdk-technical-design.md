@@ -324,33 +324,41 @@ The V1 tool layer should map directly to the product capability model.
 
 Tools:
 
-- `get_episode_script`
-- `get_scene_script`
+- `list_project_resources`
+- `read_project_resource`
+- `search_project_resource`
 
 ### Class 2: write understanding documents
 
 Tools:
 
-- `write_project_summary`
-- `write_episode_summary`
-- `create_text_node`
+- `write_understanding_resource`
 
-For the current implementation, the first durable understanding documents are persisted directly into project data through:
+For the current implementation, durable understanding documents are persisted directly into project data through one unified tool:
 
-- `write_project_summary`
-- `write_episode_summary`
+- `write_understanding_resource`
 
-`create_text_node` is still part of the write surface, but it currently belongs more to the operational artifact path inside NodeLab than to project summary persistence.
+Supported resource types in the stabilized surface are:
+
+- `project_summary`
+- `episode_summary`
+- `character_profile`
+- `scene_profile`
 
 ### Class 3: node workflow operations
 
 Tools:
 
-- `create_text_node`
+- `create_workflow_node`
+- `connect_workflow_nodes`
 
-For the current implementation, node operations are intentionally narrow.
-`create_node_workflow` exists in the codebase but is not yet part of the stabilized runtime surface.
-Future versions may add explicit workflow-building tools back into the primary tool catalog.
+For the current implementation, node operations are intentionally atomic.
+The agent is expected to plan a workflow by:
+
+1. creating nodes one by one
+2. connecting nodes one by one
+
+instead of relying on a broad workflow template tool.
 
 ## V1 Tool Schemas
 
@@ -365,34 +373,48 @@ That means:
 - it should be saveable
 - it should not be treated as ordinary assistant chatter
 
-### `get_episode_script`
+### `list_project_resources`
 
 Input:
 
 ```ts
-export type GetEpisodeScriptInput = {
-  episode_id: number;
-  max_chars?: number;
+export type ListProjectResourcesInput = {
+  resource_type:
+    | "episodes"
+    | "understanding_project"
+    | "understanding_episodes"
+    | "understanding_characters"
+    | "understanding_scenes"
+    | "understanding_guides";
 };
 ```
 
 Output:
 
 ```ts
-export type GetEpisodeScriptOutput = {
-  found: boolean;
-  episode_id: number;
-  episode_label: string;
-  content: string;
+export type ListProjectResourcesOutput = {
+  resource_type: string;
+  total?: number;
+  items?: unknown[];
 };
 ```
 
-### `get_scene_script`
+### `read_project_resource`
 
 Input:
 
 ```ts
-export type GetSceneScriptInput = {
+export type ReadProjectResourceInput = {
+  resource_type:
+    | "episode_script"
+    | "scene_script"
+    | "project_summary"
+    | "episode_summary"
+    | "character_profile"
+    | "scene_profile"
+    | "guide_document";
+  name?: string;
+  guide_type?: string;
   scene_id?: string;
   episode_id?: number;
   scene_index?: number;
@@ -403,97 +425,146 @@ export type GetSceneScriptInput = {
 Output:
 
 ```ts
-export type GetSceneScriptOutput = {
+export type ReadProjectResourceOutput = {
+  resource_type: string;
   found: boolean;
-  episode_id: number;
-  scene_id: string;
-  scene_title: string;
-  content: string;
+  content?: string;
+  summary?: string;
+  name?: string;
+  scene_id?: string;
+  scene_title?: string;
+  episode_id?: number;
+  episode_label?: string;
 };
 ```
 
-### `write_project_summary`
+### `search_project_resource`
 
 Input:
 
 ```ts
-export type WriteProjectSummaryInput = {
-  summary: string;
+export type SearchProjectResourceInput = {
+  query: string;
+  resource_scopes?: Array<"script" | "understanding" | "characters" | "scenes" | "guides">;
+  episode_id?: number;
+  max_matches?: number;
+  max_chars?: number;
 };
 ```
 
 Output:
 
 ```ts
-export type WriteProjectSummaryOutput = {
-  updated: true;
-  field: "context.projectSummary";
-  chars: number;
-  summary: string;
+export type SearchProjectResourceOutput = {
+  query: string;
+  matches: Array<{
+    scope: string;
+    episode_id?: number;
+    scene_id?: string;
+    name?: string;
+    snippet: string;
+  }>;
 };
 ```
 
-### `write_episode_summary`
+### `write_understanding_resource`
 
 Input:
 
 ```ts
-export type WriteEpisodeSummaryInput = {
-  episode_id: number;
-  summary: string;
+export type WriteUnderstandingResourceInput = {
+  resource_type: "project_summary" | "episode_summary" | "character_profile" | "scene_profile";
+  episode_id?: number;
+  name?: string;
+  summary?: string;
+  bio?: string;
+  role?: string;
+  is_main?: boolean;
+  type?: string;
+  description?: string;
+  visuals?: string;
 };
 ```
 
 Output:
 
 ```ts
-export type WriteEpisodeSummaryOutput = {
-  updated: true;
-  episode_id: number;
-  episode_label: string;
-  field: "context.episodeSummaries";
-  chars: number;
-  summary: string;
+export type WriteUnderstandingResourceOutput = {
+  resource_type: string;
+  created?: boolean;
+  updated?: boolean;
+  field?: string;
+  chars?: number;
+  episode_id?: number;
+  episode_label?: string;
+  name?: string;
+  summary?: string;
+  bio?: string;
+  description?: string;
+  visuals?: string;
 };
 ```
 
-### `create_text_node`
+### `create_workflow_node`
 
 Input:
 
 ```ts
-export type CreateTextNodeToolInput = {
+export type CreateWorkflowNodeInput = {
+  node_ref: string;
+  node_type: "text" | "imageGen";
   title?: string;
-  text: string;
-  x?: number;
-  y?: number;
-  parentId?: string;
+  text?: string;
+  aspect_ratio?: "1:1" | "16:9" | "9:16" | "4:3" | "21:9";
 };
 ```
 
 Output:
 
 ```ts
-export type CreateTextNodeToolOutput = {
-  kind: "text_node";
-  id: string;
+export type CreateWorkflowNodeOutput = {
+  node_ref: string;
+  node_id: string;
+  node_type: "text" | "imageGen";
   title: string;
+  default_output_handle?: "text" | "image" | null;
+  default_input_handles?: Array<"text" | "image">;
 };
 ```
 
-### Understanding document profiles
+### `connect_workflow_nodes`
 
-When `create_text_node` is used to persist a durable artifact, the content should usually fall into one of these profiles:
+Input:
 
-- `plot_synopsis`
-- `episode_summary`
-- `character_analysis`
-- `location_analysis`
-- `storyboard_draft`
-- `prompt_draft`
-- `production_notes`
+```ts
+export type ConnectWorkflowNodesInput = {
+  source_ref?: string;
+  target_ref?: string;
+  source_node_id?: string;
+  target_node_id?: string;
+  source_handle?: "text" | "image";
+  target_handle?: "text" | "image";
+};
+```
 
-This does not require a separate tool in V1, but the runtime should distinguish these artifacts conceptually from plain chat replies.
+Output:
+
+```ts
+export type ConnectWorkflowNodesOutput = {
+  edge_id: string;
+  source_ref?: string;
+  target_ref?: string;
+  source_node_id: string;
+  target_node_id: string;
+  source_handle: "text" | "image";
+  target_handle: "text" | "image";
+};
+```
+
+### Operation contract note
+
+The operation layer should remain LLM-plannable.
+The agent should compose workflows from repeated atomic actions instead of relying on many pre-baked workflow template tools.
 
 ## Current Implementation Status
 
@@ -509,25 +580,46 @@ The current codebase has completed the first runnable milestone:
 
 The currently stabilized tools are:
 
-- `get_episode_script`
-- `get_scene_script`
-- `write_project_summary`
-- `write_episode_summary`
-- `create_text_node`
+- `list_project_resources`
+- `read_project_resource`
+- `search_project_resource`
+- `write_understanding_resource`
+- `create_workflow_node`
+- `connect_workflow_nodes`
 
 The following tool families still exist outside the stabilized tool surface:
 
 - broad retrieval (`read_project_data`, `search_script_data`)
-- character and location upserts
+- legacy write paths (`write_project_summary`, `write_episode_summary`)
 - multi-node workflow creation
+- older operation helpers (`create_text_node`, `operate_project_workflow`)
 
 So the next implementation phase should focus on:
 
+- Cloudflare Pages Functions migration
 - guardrails
 - session hardening
 - understanding-layer expansion
 - skill productization
-- workflow scaffold stabilization
+- workflow operation hardening
+
+## Cloudflare Industrialization Direction
+
+The industrialized target runtime should be:
+
+- browser UI on Cloudflare Pages
+- primary agent run loop on Cloudflare Pages Functions
+- provider secrets in Cloudflare bindings
+- sessions and audit persisted in Cloudflare-managed storage
+
+That means the browser should eventually stop directly invoking `run()` with provider credentials.
+
+The migration should happen in this order:
+
+1. define a request/stream protocol for `/api/agent`
+2. move the model invocation into Pages Functions
+3. keep the browser as a streaming client and local state renderer
+4. gradually move session persistence, tracing, and policy enforcement server-side
 
 ## Tool Validation Rules
 

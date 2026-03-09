@@ -24,6 +24,7 @@ import { inferRequestedOutcome } from "../../agents/adapters/qalamMessageAdapter
 import type { Script2VideoAgentBridge } from "../../agents/bridge/script2videoBridge";
 import { createNodeWorkflowWithBridge } from "../../agents/bridge/workflowBuilder";
 import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
+import { createHttpScript2VideoAgentRuntime } from "../../agents/runtime/httpClient";
 import { LocalSkillLoader } from "../../agents/runtime/skills";
 import { LocalStorageSessionStore } from "../../agents/runtime/session";
 import { useScript2VideoAgent } from "../../agents/react/useScript2VideoAgent";
@@ -401,14 +402,29 @@ export const QalamAgent: React.FC<Props> = ({
     [addNode, nodes.length, onConnect, projectData, removeEdge, removeNode, setProjectData, toggleEdgePause, updateNodeStyle, viewport]
   );
   const runtime = useMemo(
-    () =>
-      createScript2VideoAgentRuntime({
+    () => {
+      const runtimeTarget =
+        config.textConfig?.agentRuntimeTarget ||
+        ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "edge" ? "edge" : "browser");
+      if (runtimeTarget === "edge") {
+        return createHttpScript2VideoAgentRuntime({
+          endpoint: "/api/agent",
+          getRuntimeConfig: () => ({
+            provider: config.textConfig?.provider,
+            model: config.textConfig?.model || "qwen-plus",
+            baseUrl: config.textConfig?.baseUrl || undefined,
+          }),
+          getProjectDataSnapshot: () => projectData,
+        });
+      }
+      return createScript2VideoAgentRuntime({
         bridge,
         skillLoader: skillLoaderRef.current,
         sessionStore: sessionStoreRef.current,
         configProvider: {
           getConfig: () => ({
             provider: config.textConfig?.provider,
+            runtimeTarget,
             apiKey: config.textConfig?.apiKey,
             baseUrl: config.textConfig?.baseUrl || undefined,
             model: config.textConfig?.model || "qwen-plus",
@@ -416,8 +432,9 @@ export const QalamAgent: React.FC<Props> = ({
             tracingDisabled: true,
           }),
         },
-      }),
-    [bridge, config.textConfig?.apiKey, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.qalamTools]
+      });
+    },
+    [bridge, config.textConfig?.agentRuntimeTarget, config.textConfig?.apiKey, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, config.textConfig?.qalamTools, projectData]
   );
   const mentionTargets = useMemo(() => {
     const targets: Array<{ kind: "character" | "location"; name: string; label: string; search: string; id?: string }> = [];
