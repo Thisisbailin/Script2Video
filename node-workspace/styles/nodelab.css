@@ -43,7 +43,7 @@
 .node-lab-canvas {
   background: var(--bg-panel);
   color: var(--text-primary);
-  font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
+  font-family: "Geist", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
   text-rendering: geometricPrecision;
 }
 

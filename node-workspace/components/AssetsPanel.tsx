@@ -17,7 +17,6 @@ import { Episode, ProjectData } from "../../types";
 type AssetTab =
   | "images"
   | "videos"
-  | "guides"
   | "scripts"
   | "shots";
 
@@ -74,23 +73,6 @@ export const AssetsPanel: React.FC<Props> = ({
     [globalAssetHistory]
   );
 
-  const guideItems = useMemo(() => {
-    const items = [
-      { key: "globalStyleGuide", title: "Style Guide", text: projectData.globalStyleGuide || "" },
-      { key: "shotGuide", title: "Shot Guide", text: projectData.shotGuide || "" },
-      { key: "soraGuide", title: "Sora Guide", text: projectData.soraGuide || "" },
-      { key: "storyboardGuide", title: "Storyboard Guide", text: projectData.storyboardGuide || "" },
-      { key: "dramaGuide", title: "Drama Guide", text: projectData.dramaGuide || "" },
-    ];
-    return items.filter((item) => item.text.trim().length > 0);
-  }, [
-    projectData.globalStyleGuide,
-    projectData.shotGuide,
-    projectData.soraGuide,
-    projectData.storyboardGuide,
-    projectData.dramaGuide,
-  ]);
-
   const scriptItems = useMemo(
     () =>
       projectData.episodes.map((episode) => ({
@@ -106,7 +88,6 @@ export const AssetsPanel: React.FC<Props> = ({
   const tabs = [
     { key: "images" as const, label: "Images", count: imageAssets.length },
     { key: "videos" as const, label: "Videos", count: videoAssets.length },
-    { key: "guides" as const, label: "Guides", count: guideItems.length },
     { key: "scripts" as const, label: "Scripts", count: scriptItems.length },
     { key: "shots" as const, label: "Shots", count: projectData.episodes.length },
   ];
@@ -292,48 +273,6 @@ export const AssetsPanel: React.FC<Props> = ({
                     title="Remove"
                   >
                     <X size={12} className="mx-auto" />
-                  </button>
-                </div>
-              ))
-            )}
-          </>
-        )}
-
-        {activeTab === "guides" && (
-          <>
-            {guideItems.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-[var(--app-border)] text-center text-xs text-[var(--app-text-muted)]">
-                No guides loaded.
-              </div>
-            ) : (
-              guideItems.map((guide) => (
-                <div
-                  key={guide.key}
-                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)] transition"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--app-panel-muted)] border border-[var(--app-border)] flex items-center justify-center shrink-0">
-                      <BookOpen size={16} className="text-violet-300" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-[var(--app-text-primary)] truncate">{guide.title}</div>
-                      <div className="text-[10px] text-[var(--app-text-muted)] truncate">
-                        {getSnippet(guide.text) || "No content"}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onInsertTextNode({
-                        title: guide.title,
-                        text: guide.text,
-                        refId: guide.key,
-                      })
-                    }
-                    className="px-2.5 py-1 rounded-full border border-[var(--app-border)] text-[10px] uppercase tracking-wide text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
-                  >
-                    Insert
                   </button>
                 </div>
               ))

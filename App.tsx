@@ -472,7 +472,7 @@ const App: React.FC = () => {
   const [splitTab, setSplitTab] = useState<ActiveTab | null>(null);
   const [isSplitMenuOpen, setIsSplitMenuOpen] = useState(false);
   const [openLabModal, setOpenLabModal] = useState<ModuleKey | null>(null);
-  const [understandingSection, setUnderstandingSection] = useState<"overview" | "episodes" | "characters" | "scenes">("overview");
+  const [understandingSection, setUnderstandingSection] = useState<"overview" | "episodes" | "characters" | "scenes" | "guides">("overview");
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [isSyncBannerDismissed, setIsSyncBannerDismissed] = useState(false);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);

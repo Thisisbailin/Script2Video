@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BookOpen, ListChecks, MapPin, Users } from "lucide-react";
+import { BookOpen, ListChecks, MapPin, NotebookText, Users } from "lucide-react";
 import type { ProjectData } from "../../types";
 import { CharacterSceneLibraryPanel } from "./CharacterSceneLibraryPanel";
 
@@ -9,7 +9,7 @@ type Props = {
   initialSection?: SectionKey;
 };
 
-type SectionKey = "overview" | "episodes" | "characters" | "scenes";
+type SectionKey = "overview" | "episodes" | "characters" | "scenes" | "guides";
 
 type SectionItem = {
   key: SectionKey;
@@ -36,6 +36,23 @@ export const UnderstandingPanel: React.FC<Props> = ({
         0
       ),
     [projectData.episodes]
+  );
+  const guideItems = useMemo(
+    () =>
+      [
+        { key: "globalStyleGuide", title: "Style Guide", text: projectData.globalStyleGuide || "" },
+        { key: "shotGuide", title: "Shot Guide", text: projectData.shotGuide || "" },
+        { key: "soraGuide", title: "Sora Guide", text: projectData.soraGuide || "" },
+        { key: "storyboardGuide", title: "Storyboard Guide", text: projectData.storyboardGuide || "" },
+        { key: "dramaGuide", title: "Drama Guide", text: projectData.dramaGuide || "" },
+      ].filter((item) => item.text.trim().length > 0),
+    [
+      projectData.globalStyleGuide,
+      projectData.shotGuide,
+      projectData.soraGuide,
+      projectData.storyboardGuide,
+      projectData.dramaGuide,
+    ]
   );
 
   useEffect(() => {
@@ -77,6 +94,13 @@ export const UnderstandingPanel: React.FC<Props> = ({
       icon: MapPin,
       tone: "text-cyan-300",
       subtitle: `${sceneCount} parsed`,
+    },
+    {
+      key: "guides",
+      label: "Guides",
+      icon: NotebookText,
+      tone: "text-violet-300",
+      subtitle: `${guideItems.length} loaded`,
     },
   ];
 
@@ -139,7 +163,7 @@ export const UnderstandingPanel: React.FC<Props> = ({
                   ))}
                 </div>
               </>
-            ) : (
+            ) : active === "episodes" ? (
               <>
                 <div className="text-lg font-semibold">Episode Summaries</div>
                 {episodeSummaries.length ? (
@@ -161,6 +185,29 @@ export const UnderstandingPanel: React.FC<Props> = ({
                 ) : (
                   <div className="text-[12px] text-[var(--app-text-secondary)]">
                     No episode summaries yet.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-lg font-semibold">Project Guides</div>
+                {guideItems.length ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {guideItems.map((guide) => (
+                      <div
+                        key={guide.key}
+                        className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 space-y-2"
+                      >
+                        <div className="text-[12px] font-semibold">{guide.title}</div>
+                        <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed whitespace-pre-wrap line-clamp-10">
+                          {guide.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-[var(--app-text-secondary)]">
+                    No guides loaded yet.
                   </div>
                 )}
               </>

@@ -75,6 +75,7 @@ type Props = {
   onTryMe?: () => void;
   onToggleWorkflow?: (anchorRect?: DOMRect) => void;
   onOpenQalam?: () => void;
+  variant?: "dock" | "embedded";
   onAssetLoad?: (
     type:
       | "script"
@@ -122,8 +123,10 @@ export const FloatingActionBar: React.FC<Props> = ({
   onTryMe,
   onToggleWorkflow,
   onOpenQalam,
+  variant = "dock",
   onAssetLoad,
 }) => {
+  const isEmbedded = variant === "embedded";
   const [showPalette, setShowPalette] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
@@ -138,7 +141,11 @@ export const FloatingActionBar: React.FC<Props> = ({
   const storyboardGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const workflowButtonRef = useRef<HTMLButtonElement>(null);
-  const rootClass = floating ? "fixed bottom-4 right-4 z-30" : "relative z-30";
+  const rootClass = isEmbedded
+    ? "relative z-30 w-full"
+    : floating
+      ? "fixed bottom-4 right-4 z-30"
+      : "relative z-30";
   const panelClass = "rounded-3xl app-panel overflow-hidden";
   const panelStyle: React.CSSProperties = {
     backgroundColor: "var(--app-panel)",
@@ -155,8 +162,11 @@ export const FloatingActionBar: React.FC<Props> = ({
     "group w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:text-[var(--app-text-muted)] disabled:hover:border-[var(--app-border)] disabled:hover:bg-[var(--app-panel-muted)]";
   const compactTabClass =
     "inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition active:translate-y-px";
-  const floatingIconClass =
-    "flex h-10 w-10 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-text-secondary)] shadow-[0_10px_24px_-18px_rgba(0,0,0,0.35)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+  const embeddedLabelClass =
+    "group inline-flex h-8 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px] font-medium tracking-[-0.01em] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+  const toolbarChipClass =
+    "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+  const popoverBottomClass = isEmbedded ? "bottom-[calc(100%+12px)]" : "bottom-16";
 
   const nodeActions = [
     { label: "Text", hint: "Draft prompts, notes, and structure", meta: "Writing", onClick: onAddText, Icon: MessageSquare, tone: "text-sky-300", surface: "bg-sky-500/12" },
@@ -224,7 +234,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className={`absolute bottom-16 left-0 w-[92vw] max-w-[408px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
+            className={`absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[408px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
             style={panelStyle}
           >
             <div className="max-h-[min(72vh,620px)] space-y-4 overflow-y-auto p-4">
@@ -369,7 +379,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
-            className={`absolute bottom-16 left-0 w-[360px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
+            className={`absolute ${popoverBottomClass} left-0 w-[360px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
             style={panelStyle}
           >
             <div className="p-4 space-y-4">
@@ -416,7 +426,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`absolute bottom-16 left-0 w-[92vw] max-w-[420px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            className={`absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[420px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
             style={panelStyle}
           >
             <div className="max-h-[min(74vh,640px)] space-y-4 overflow-y-auto p-4">
@@ -939,91 +949,185 @@ export const FloatingActionBar: React.FC<Props> = ({
         )}
 
         {/* Main Bar */}
-        <div className="relative pt-5">
-          <div className="absolute left-1/2 top-0 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]/94 px-2 py-1.5 shadow-[0_18px_32px_-24px_rgba(0,0,0,0.34)] backdrop-blur-xl">
-            <button
-              onClick={() => {
-                setShowFileMenu((v) => !v);
-                setShowPalette(false);
-                setShowTemplate(false);
-                setShowWip(false);
-              }}
-              className={`${floatingIconClass} ${showFileMenu ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-              title="Account"
-            >
-              <User size={15} />
-            </button>
+        {isEmbedded ? (
+          <div className="w-full">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  setShowFileMenu((v) => !v);
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowWip(false);
+                }}
+                className={`${toolbarChipClass} ${showFileMenu ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Account"
+              >
+                <User size={13} />
+                <span>Account</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowTemplate((v) => !v);
+                  setShowPalette(false);
+                  setShowFileMenu(false);
+                  setShowWip(false);
+                }}
+                className={`${toolbarChipClass} ${showTemplate ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Project"
+              >
+                <SquareStack size={13} />
+                <span>Project</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowFileMenu(false);
+                  const rect = workflowButtonRef.current?.getBoundingClientRect();
+                  onToggleWorkflow?.(rect);
+                }}
+                ref={workflowButtonRef}
+                data-workflow-trigger
+                className={toolbarChipClass}
+                title="Workflow Actions"
+              >
+                <Layers size={13} />
+                <span>Workflow</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPalette((v) => !v);
+                  setShowFileMenu(false);
+                  setShowTemplate(false);
+                  setShowWip(false);
+                }}
+                className={`${toolbarChipClass} ${showPalette ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Add Nodes"
+              >
+                <Plus size={13} className={`transition-transform ${showPalette ? "rotate-45" : ""}`} />
+                <span>Add Nodes</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowWip((v) => !v);
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowFileMenu(false);
+                }}
+                className={`${toolbarChipClass} sm:ml-auto ${showWip ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Lab"
+              >
+                <Projector size={13} />
+                <span>Lab</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="w-[min(500px,calc(100vw-96px))] rounded-[28px] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel))] p-3 shadow-[0_20px_38px_-28px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+            style={{ boxShadow: "var(--app-shadow)" }}
+          >
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+              <button
+                onClick={() => {
+                  setShowFileMenu((v) => !v);
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowWip(false);
+                }}
+                className={`${embeddedLabelClass} ${showFileMenu ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Account"
+              >
+                <User size={13} />
+                <span>Account</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowTemplate((v) => !v);
+                  setShowPalette(false);
+                  setShowFileMenu(false);
+                  setShowWip(false);
+                }}
+                className={`${embeddedLabelClass} ${showTemplate ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Project"
+              >
+                <SquareStack size={13} />
+                <span>Project</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowFileMenu(false);
+                  const rect = workflowButtonRef.current?.getBoundingClientRect();
+                  onToggleWorkflow?.(rect);
+                }}
+                ref={workflowButtonRef}
+                data-workflow-trigger
+                className={embeddedLabelClass}
+                title="Workflow Actions"
+              >
+                <Layers size={13} />
+                <span>Workflow</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPalette((v) => !v);
+                  setShowFileMenu(false);
+                  setShowTemplate(false);
+                  setShowWip(false);
+                }}
+                className={`${embeddedLabelClass} ${showPalette ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Add Nodes"
+              >
+                <Plus size={13} className={`transition-transform ${showPalette ? "rotate-45" : ""}`} />
+                <span>Add Nodes</span>
+              </button>
+
+              <button
+                onClick={() => setShowWip((v) => !v)}
+                className={`${embeddedLabelClass} ml-auto ${showWip ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+                title="Lab"
+              >
+                <Projector size={13} />
+                <span>Lab</span>
+              </button>
+            </div>
 
             <button
-              onClick={() => {
-                setShowTemplate((v) => !v);
-                setShowPalette(false);
-                setShowFileMenu(false);
-                setShowWip(false);
-              }}
-              className={`${floatingIconClass} ${showTemplate ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-              title="Project"
+              type="button"
+              onClick={onOpenQalam}
+              className="group flex min-h-[72px] w-full items-center gap-3 rounded-[22px] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel),var(--app-panel-soft))] px-4 py-3 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel-soft))] active:translate-y-px"
+              title="Open Qalam"
             >
-              <SquareStack size={15} />
-            </button>
-            <button
-              onClick={() => {
-                setShowPalette(false);
-                setShowTemplate(false);
-                setShowFileMenu(false);
-                const rect = workflowButtonRef.current?.getBoundingClientRect();
-                onToggleWorkflow?.(rect);
-              }}
-              ref={workflowButtonRef}
-              data-workflow-trigger
-              className={floatingIconClass}
-              title="Workflow Actions"
-            >
-              <Layers size={15} />
-            </button>
-
-            <button
-              onClick={() => {
-                setShowPalette((v) => !v);
-                setShowFileMenu(false);
-                setShowTemplate(false);
-                setShowWip(false);
-              }}
-              className={`${floatingIconClass} ${showPalette ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-              title="Add Nodes"
-            >
-              <Plus size={15} className={`transition-transform ${showPalette ? "rotate-45" : ""}`} />
-            </button>
-
-            <button
-              onClick={() => setShowWip((v) => !v)}
-              className={`${floatingIconClass} ${showWip ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-              title="Lab"
-            >
-              <Projector size={15} />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-accent-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <MessageSquare size={15} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                  Qalam
+                </div>
+                <div className="mt-1 text-[13px] font-medium tracking-[-0.01em] text-[var(--app-text-primary)]">
+                  Ask, revise, or build on the canvas
+                </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="block h-1.5 w-14 rounded-full bg-[var(--app-accent-soft)]" />
+                  <span className="block h-1.5 w-9 rounded-full bg-[var(--app-panel-muted)]" />
+                  <span className="block h-1.5 w-6 rounded-full bg-[var(--app-panel-muted)]" />
+                </div>
+              </div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-text-secondary)] transition group-hover:text-[var(--app-text-primary)]">
+                <ChevronRight size={15} />
+              </div>
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={onOpenQalam}
-            className="flex h-14 min-w-[340px] items-center gap-3 rounded-[28px] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel))] px-4 shadow-[0_18px_34px_-26px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:border-[var(--app-border-strong)] hover:bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel-strong))] active:translate-y-px"
-            style={{ boxShadow: "var(--app-shadow)" }}
-            title="Open Qalam"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)]">
-              <MessageSquare size={14} />
-            </div>
-            <div className="h-5 w-px bg-[var(--app-border)]" />
-            <div className="flex flex-1 items-center gap-2">
-              <span className="block h-2 w-20 rounded-full bg-[var(--app-panel-soft)]" />
-              <span className="block h-2 w-12 rounded-full bg-[var(--app-panel-muted)]" />
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)]">
-              <span className="block h-2.5 w-2.5 rounded-full bg-[var(--app-accent)]" />
-            </div>
-          </button>
-        </div>
+        )}
 
         {/* WIP popover */}
         {showWip && (
