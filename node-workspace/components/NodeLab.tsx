@@ -391,6 +391,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [bgPattern, setBgPattern] = useState<PatternKey>("grid");
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showAgentSettings, setShowAgentSettings] = useState(false);
+  const [qalamOpenRequest, setQalamOpenRequest] = useState(0);
   const {
     nodes,
     edges,
@@ -1037,6 +1038,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
               setProjectData={setProjectData}
               onOpenStats={onOpenStats}
               onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
+              openRequest={qalamOpenRequest}
             />
           </div>
           <div className="pointer-events-auto absolute left-1/2 bottom-0 -translate-x-1/2 qalam-bottom-center">
@@ -1071,6 +1073,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
               onAssetLoad={onAssetLoad}
               accountInfo={accountInfo}
               onToggleWorkflow={onToggleWorkflow}
+              onOpenQalam={() => setQalamOpenRequest((prev) => prev + 1)}
             />
           </div>
           <div className="pointer-events-auto ml-auto qalam-bottom-assets">

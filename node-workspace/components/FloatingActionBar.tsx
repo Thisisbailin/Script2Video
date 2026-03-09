@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
   Plus,
-  Play,
   User,
   Projector,
   MessageSquare,
@@ -75,6 +74,7 @@ type Props = {
   accountInfo?: AccountInfo;
   onTryMe?: () => void;
   onToggleWorkflow?: (anchorRect?: DOMRect) => void;
+  onOpenQalam?: () => void;
   onAssetLoad?: (
     type:
       | "script"
@@ -121,6 +121,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   accountInfo,
   onTryMe,
   onToggleWorkflow,
+  onOpenQalam,
   onAssetLoad,
 }) => {
   const [showPalette, setShowPalette] = useState(false);
@@ -154,10 +155,8 @@ export const FloatingActionBar: React.FC<Props> = ({
     "group w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:text-[var(--app-text-muted)] disabled:hover:border-[var(--app-border)] disabled:hover:bg-[var(--app-panel-muted)]";
   const compactTabClass =
     "inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition active:translate-y-px";
-  const dockClusterClass =
-    "flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] p-1";
-  const dockButtonClass =
-    "flex h-10 w-10 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+  const floatingIconClass =
+    "flex h-10 w-10 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-text-secondary)] shadow-[0_10px_24px_-18px_rgba(0,0,0,0.35)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel)] hover:text-[var(--app-text-primary)] active:translate-y-px";
 
   const nodeActions = [
     { label: "Text", hint: "Draft prompts, notes, and structure", meta: "Writing", onClick: onAddText, Icon: MessageSquare, tone: "text-sky-300", surface: "bg-sky-500/12" },
@@ -940,8 +939,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         )}
 
         {/* Main Bar */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(18,22,27,0.9),rgba(10,13,17,0.96))] p-1.5 shadow-[0_16px_30px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl">
-          <div className={dockClusterClass}>
+        <div className="relative pt-5">
+          <div className="absolute left-1/2 top-0 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]/94 px-2 py-1.5 shadow-[0_18px_32px_-24px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             <button
               onClick={() => {
                 setShowFileMenu((v) => !v);
@@ -949,7 +948,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                 setShowTemplate(false);
                 setShowWip(false);
               }}
-              className={`${dockButtonClass} ${showFileMenu ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+              className={`${floatingIconClass} ${showFileMenu ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
               title="Account"
             >
               <User size={15} />
@@ -962,14 +961,11 @@ export const FloatingActionBar: React.FC<Props> = ({
                 setShowFileMenu(false);
                 setShowWip(false);
               }}
-              className={`${dockButtonClass} ${showTemplate ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+              className={`${floatingIconClass} ${showTemplate ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
               title="Project"
             >
               <SquareStack size={15} />
             </button>
-          </div>
-
-          <div className={dockClusterClass}>
             <button
               onClick={() => {
                 setShowPalette(false);
@@ -980,7 +976,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               }}
               ref={workflowButtonRef}
               data-workflow-trigger
-              className={dockButtonClass}
+              className={floatingIconClass}
               title="Workflow Actions"
             >
               <Layers size={15} />
@@ -993,7 +989,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                 setShowTemplate(false);
                 setShowWip(false);
               }}
-              className={`${dockButtonClass} ${showPalette ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+              className={`${floatingIconClass} ${showPalette ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
               title="Add Nodes"
             >
               <Plus size={15} className={`transition-transform ${showPalette ? "rotate-45" : ""}`} />
@@ -1001,7 +997,7 @@ export const FloatingActionBar: React.FC<Props> = ({
 
             <button
               onClick={() => setShowWip((v) => !v)}
-              className={`${dockButtonClass} ${showWip ? "bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
+              className={`${floatingIconClass} ${showWip ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
               title="Lab"
             >
               <Projector size={15} />
@@ -1009,12 +1005,23 @@ export const FloatingActionBar: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={onRun}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-400/24 bg-[linear-gradient(180deg,rgba(44,110,79,0.92),rgba(28,76,56,0.98))] text-emerald-50 shadow-[0_14px_26px_-18px_rgba(28,76,56,0.88)] transition hover:border-emerald-300/34 hover:brightness-105 active:translate-y-px"
-            aria-label="Run"
-            title="Run"
+            type="button"
+            onClick={onOpenQalam}
+            className="flex h-14 min-w-[340px] items-center gap-3 rounded-[28px] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel))] px-4 shadow-[0_18px_34px_-26px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:border-[var(--app-border-strong)] hover:bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel-strong))] active:translate-y-px"
+            style={{ boxShadow: "var(--app-shadow)" }}
+            title="Open Qalam"
           >
-            <Play size={16} fill="currentColor" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)]">
+              <MessageSquare size={14} />
+            </div>
+            <div className="h-5 w-px bg-[var(--app-border)]" />
+            <div className="flex flex-1 items-center gap-2">
+              <span className="block h-2 w-20 rounded-full bg-[var(--app-panel-soft)]" />
+              <span className="block h-2 w-12 rounded-full bg-[var(--app-panel-muted)]" />
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)]">
+              <span className="block h-2.5 w-2.5 rounded-full bg-[var(--app-accent)]" />
+            </div>
           </button>
         </div>
 

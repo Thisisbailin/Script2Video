@@ -21,6 +21,7 @@ type Props = {
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
   onOpenStats?: () => void;
   onToggleAgentSettings?: () => void;
+  openRequest?: number;
 };
 
 const WORK_HINT_KEYWORDS = [
@@ -136,7 +137,7 @@ const createConversationRecord = (messages: Message[] = []): ConversationRecord 
   };
 };
 
-export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpenStats, onToggleAgentSettings }) => {
+export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpenStats, onToggleAgentSettings, openRequest = 0 }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const addNode = useWorkflowStore((state) => state.addNode);
   const updateNodeStyle = useWorkflowStore((state) => state.updateNodeStyle);
@@ -644,6 +645,14 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
     }, 6000);
     return () => clearInterval(timer);
   }, [isSending]);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    setCollapsed(false);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, [openRequest]);
 
   if (collapsed) {
     return (
