@@ -21,7 +21,7 @@ import { QalamChatContent } from "./qalam/QalamChatContent";
 import type { ChatMessage, Message } from "./qalam/types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { inferRequestedOutcome } from "../../agents/adapters/qalamMessageAdapter";
-import type { Script2VideoAgentBridge } from "../../agents/bridge/script2videoBridge";
+import type { Script2VideoAgentBridge, WorkflowNodeLookupInput } from "../../agents/bridge/script2videoBridge";
 import { createNodeWorkflowWithBridge } from "../../agents/bridge/workflowBuilder";
 import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
 import { createHttpScript2VideoAgentRuntime } from "../../agents/runtime/httpClient";
@@ -82,6 +82,26 @@ const getWorkflowSnapshot = () => useWorkflowStore.getState();
 const normalizeNodeRef = (value?: string | null) => {
   if (typeof value !== "string") return "";
   return value.trim();
+};
+
+const lookupWorkflowNodeSnapshot = (
+  input: WorkflowNodeLookupInput,
+  nodeRefs: Record<string, string>
+) => {
+  const snapshot = getWorkflowSnapshot();
+  const resolvedRef = normalizeNodeRef(input.nodeRef);
+  const resolvedNodeId = resolvedRef ? nodeRefs[resolvedRef] : input.nodeId;
+  if (!resolvedNodeId) return null;
+  const node = snapshot.nodes.find((item) => item.id === resolvedNodeId);
+  if (!node) return null;
+  const handles = getNodeHandles(node.type);
+  return {
+    nodeId: node.id,
+    nodeRef: resolvedRef || Object.entries(nodeRefs).find(([, value]) => value === node.id)?.[0],
+    nodeType: node.type,
+    inputHandles: handles.inputs,
+    outputHandles: handles.outputs,
+  };
 };
 
 const resolvePreferredConnectionHandles = (sourceType: string, targetType: string) => {
@@ -316,35 +336,37 @@ export const QalamAgent: React.FC<Props> = ({
           default_input_handles: nodeHandles.inputs,
         };
       },
+      getWorkflowNode: ({ nodeId, nodeRef }) =>
+        lookupWorkflowNodeSnapshot(
+          {
+            nodeId,
+            nodeRef,
+          },
+          workflowNodeRefsRef.current
+        ),
       connectWorkflowNodes: ({ sourceNodeId, targetNodeId, sourceRef, targetRef, sourceHandle, targetHandle }) => {
-        const snapshot = getWorkflowSnapshot();
-        const resolvedSourceRef = normalizeNodeRef(sourceRef);
-        const resolvedTargetRef = normalizeNodeRef(targetRef);
-        const resolvedSourceNodeId = resolvedSourceRef
-          ? workflowNodeRefsRef.current[resolvedSourceRef]
-          : sourceNodeId;
-        const resolvedTargetNodeId = resolvedTargetRef
-          ? workflowNodeRefsRef.current[resolvedTargetRef]
-          : targetNodeId;
-        if (!resolvedSourceNodeId || !resolvedTargetNodeId) {
+        const sourceNode = lookupWorkflowNodeSnapshot(
+          { nodeId: sourceNodeId, nodeRef: sourceRef },
+          workflowNodeRefsRef.current
+        );
+        const targetNode = lookupWorkflowNodeSnapshot(
+          { nodeId: targetNodeId, nodeRef: targetRef },
+          workflowNodeRefsRef.current
+        );
+        if (!sourceNode || !targetNode) {
           throw new Error("connectWorkflowNodes 引用了不存在的节点。请确认 source_ref/target_ref 已由 create_workflow_node 返回。");
         }
-        const sourceNode = snapshot.nodes.find((node) => node.id === resolvedSourceNodeId);
-        const targetNode = snapshot.nodes.find((node) => node.id === resolvedTargetNodeId);
-        if (!sourceNode || !targetNode) {
-          throw new Error("connectWorkflowNodes 引用了不存在的节点。");
-        }
-        const sourceHandles = getNodeHandles(sourceNode.type).outputs;
-        const targetHandles = getNodeHandles(targetNode.type).inputs;
+        const sourceHandles = sourceNode.outputHandles;
+        const targetHandles = targetNode.inputHandles;
         if (sourceHandles.length === 0 || targetHandles.length === 0) {
           throw new Error("当前节点类型不存在可用的输入/输出 handle。");
         }
-        const preferred = resolvePreferredConnectionHandles(sourceNode.type, targetNode.type);
+        const preferred = resolvePreferredConnectionHandles(sourceNode.nodeType, targetNode.nodeType);
         const resolvedSourceHandle = sourceHandle || preferred?.sourceHandle;
         const resolvedTargetHandle = targetHandle || preferred?.targetHandle;
         if (!resolvedSourceHandle || !resolvedTargetHandle) {
           throw new Error(
-            `connectWorkflowNodes 无法自动推断 ${sourceNode.type} -> ${targetNode.type} 的连接端口。请显式提供 source_handle 和 target_handle。`
+            `connectWorkflowNodes 无法自动推断 ${sourceNode.nodeType} -> ${targetNode.nodeType} 的连接端口。请显式提供 source_handle 和 target_handle。`
           );
         }
         if (!sourceHandles.includes(resolvedSourceHandle) || !targetHandles.includes(resolvedTargetHandle)) {
@@ -354,22 +376,22 @@ export const QalamAgent: React.FC<Props> = ({
           throw new Error("connectWorkflowNodes 收到不合法的连线类型。");
         }
         onConnect({
-          source: resolvedSourceNodeId,
-          target: resolvedTargetNodeId,
+          source: sourceNode.nodeId,
+          target: targetNode.nodeId,
           sourceHandle: resolvedSourceHandle,
           targetHandle: resolvedTargetHandle,
         });
         return {
-          edgeId: edgeIdFromConnection(resolvedSourceNodeId, resolvedTargetNodeId, resolvedSourceHandle, resolvedTargetHandle),
-          edge_id: edgeIdFromConnection(resolvedSourceNodeId, resolvedTargetNodeId, resolvedSourceHandle, resolvedTargetHandle),
-          sourceNodeId: resolvedSourceNodeId,
-          source_node_id: resolvedSourceNodeId,
-          targetNodeId: resolvedTargetNodeId,
-          target_node_id: resolvedTargetNodeId,
-          sourceRef: resolvedSourceRef || undefined,
-          source_ref: resolvedSourceRef || undefined,
-          targetRef: resolvedTargetRef || undefined,
-          target_ref: resolvedTargetRef || undefined,
+          edgeId: edgeIdFromConnection(sourceNode.nodeId, targetNode.nodeId, resolvedSourceHandle, resolvedTargetHandle),
+          edge_id: edgeIdFromConnection(sourceNode.nodeId, targetNode.nodeId, resolvedSourceHandle, resolvedTargetHandle),
+          sourceNodeId: sourceNode.nodeId,
+          source_node_id: sourceNode.nodeId,
+          targetNodeId: targetNode.nodeId,
+          target_node_id: targetNode.nodeId,
+          sourceRef: sourceNode.nodeRef || undefined,
+          source_ref: sourceNode.nodeRef || undefined,
+          targetRef: targetNode.nodeRef || undefined,
+          target_ref: targetNode.nodeRef || undefined,
           sourceHandle: resolvedSourceHandle as "image" | "text",
           source_handle: resolvedSourceHandle as "image" | "text",
           targetHandle: resolvedTargetHandle as "image" | "text",
@@ -497,6 +519,7 @@ export const QalamAgent: React.FC<Props> = ({
     const raw = config.textConfig?.model?.trim();
     return raw || "model";
   }, [config.textConfig?.model]);
+  const currentRuntimeTarget = (config.textConfig?.agentRuntimeTarget || "browser") as "browser" | "edge";
   const canSend = input.trim().length > 0 && !isSending;
   const resizeInput = useCallback((el?: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -919,6 +942,36 @@ export const QalamAgent: React.FC<Props> = ({
               </button>
               <div className="inline-flex h-9 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[11px] text-[var(--app-text-secondary)]">
                 {currentModelLabel}
+              </div>
+              <div
+                className="inline-flex h-9 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] p-1"
+                title="Agent runtime target"
+              >
+                {(["browser", "edge"] as const).map((target) => {
+                  const active = currentRuntimeTarget === target;
+                  return (
+                    <button
+                      key={target}
+                      type="button"
+                      onClick={() =>
+                        setConfig({
+                          ...config,
+                          textConfig: {
+                            ...config.textConfig,
+                            agentRuntimeTarget: target,
+                          },
+                        })
+                      }
+                      className={`inline-flex h-7 items-center rounded-full px-2.5 text-[10px] font-medium tracking-[0.08em] uppercase transition ${
+                        active
+                          ? "bg-[var(--app-accent-soft)] text-[var(--app-text-primary)]"
+                          : "text-[var(--app-text-secondary)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)]"
+                      }`}
+                    >
+                      {target}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <button

@@ -53,6 +53,19 @@ export type ConnectWorkflowNodesResult = {
   targetHandle: WorkflowBuilderHandle;
 };
 
+export type WorkflowNodeLookupInput = {
+  nodeId?: string;
+  nodeRef?: string;
+};
+
+export type WorkflowNodeLookupResult = {
+  nodeId: string;
+  nodeRef?: string;
+  nodeType: string;
+  inputHandles: WorkflowBuilderHandle[];
+  outputHandles: WorkflowBuilderHandle[];
+};
+
 export type WorkflowBuilderHandle = "image" | "text";
 
 export type CreateNodeWorkflowNodeInput = {
@@ -107,6 +120,7 @@ export interface Script2VideoAgentBridge {
   addTextNode(input: CreateTextNodeInput): CreateTextNodeResult;
   createWorkflowNode(input: CreateWorkflowNodeInput): CreateWorkflowNodeResult;
   connectWorkflowNodes(input: ConnectWorkflowNodesInput): ConnectWorkflowNodesResult;
+  getWorkflowNode(input: WorkflowNodeLookupInput): WorkflowNodeLookupResult | null;
   createNodeWorkflow(input: CreateNodeWorkflowInput): CreateNodeWorkflowResult;
   getViewport(): WorkflowViewport | null;
   getNodeCount(): number;

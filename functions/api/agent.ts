@@ -96,6 +96,7 @@ const createReadOnlyBridge = (projectData: ProjectData) => ({
   connectWorkflowNodes: () => {
     throw new Error("当前 edge runtime 只支持查阅能力，不支持节点操作。");
   },
+  getWorkflowNode: () => null,
   createNodeWorkflow: () => {
     throw new Error("当前 edge runtime 只支持查阅能力，不支持节点操作。");
   },
