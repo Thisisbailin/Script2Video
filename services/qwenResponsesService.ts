@@ -52,16 +52,20 @@ const resolveApiKey = (config: QwenResponsesConfig) => {
       ? (import.meta.env.QWEN_API_KEY ||
         import.meta.env.VITE_QWEN_API_KEY ||
         import.meta.env.DASHSCOPE_API_KEY ||
-        import.meta.env.VITE_DASHSCOPE_API_KEY)
+        import.meta.env.VITE_DASHSCOPE_API_KEY ||
+        import.meta.env.OPENAI_API_KEY ||
+        import.meta.env.VITE_OPENAI_API_KEY)
       : undefined) ||
     (typeof process !== "undefined"
       ? (process.env?.QWEN_API_KEY ||
         process.env?.VITE_QWEN_API_KEY ||
         process.env?.DASHSCOPE_API_KEY ||
-        process.env?.VITE_DASHSCOPE_API_KEY)
+        process.env?.VITE_DASHSCOPE_API_KEY ||
+        process.env?.OPENAI_API_KEY ||
+        process.env?.VITE_OPENAI_API_KEY)
       : undefined);
   const key = (config.apiKey || envKey || "").trim();
-  if (!key) throw new Error("Missing Qwen API key. 请配置 QWEN_API_KEY/VITE_QWEN_API_KEY 或在设置中填写。");
+  if (!key) throw new Error("Missing Qwen API key. 请配置 QWEN_API_KEY / DASHSCOPE_API_KEY / OPENAI_API_KEY，或在设置中填写。");
   return key;
 };
 
@@ -73,6 +77,11 @@ const resolveEndpoint = (baseUrl?: string) => {
 
 const resolveModelsEndpoint = (baseUrl?: string) => {
   const base = (baseUrl || DEFAULT_BASE).trim().replace(/\/+$/, "");
+  // Qwen documents model names on the shared compatible-mode path. Keep model discovery
+  // on `/compatible-mode/v1/models` even when runtime requests use the newer Responses base.
+  if (base.includes("/api/v2/apps/protocols/compatible-mode/v1")) {
+    return `${base.replace(/\/api\/v2\/apps\/protocols\/compatible-mode\/v1(?:\/responses|\/models)?$/, "/compatible-mode/v1")}/models`;
+  }
   if (base.endsWith("/responses")) return base.replace(/\/responses$/, "/models");
   if (base.endsWith("/models")) return base;
   return `${base}/models`;

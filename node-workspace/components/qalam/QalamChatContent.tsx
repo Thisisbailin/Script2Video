@@ -512,6 +512,59 @@ const renderToolOutput = (tool: ToolPayload) => {
       )
     );
   }
+  if (parsed.resource_type === "project_summary") {
+    blocks.push(
+      renderSection(
+        "Project Summary",
+        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+          {parsed.summary || (parsed.exists ? "Summary exists." : "No summary yet.")}
+        </div>
+      )
+    );
+  }
+  if (parsed.resource_type === "episode_summary") {
+    blocks.push(
+      renderSection(
+        "Episode Summary",
+        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap">
+          <div className="text-[11px] text-[var(--app-text-muted)]">Ep {parsed.episode_id}</div>
+          <div>{parsed.summary || (parsed.exists ? "Summary exists." : "No summary yet.")}</div>
+        </div>
+      )
+    );
+  }
+  if (parsed.resource_type === "character_profile") {
+    blocks.push(
+      renderSection(
+        "Character Profile",
+        <div className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          <div className="font-semibold text-[var(--app-text-primary)]">{parsed.name || "Unknown Character"}</div>
+          {parsed.role ? <div>Role: {parsed.role}</div> : null}
+          {typeof parsed.is_main === "boolean" ? <div>Main: {parsed.is_main ? "Yes" : "No"}</div> : null}
+          {parsed.bio ? <div className="whitespace-pre-wrap">{parsed.bio}</div> : null}
+          {typeof parsed.forms_count === "number" ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">Forms: {parsed.forms_count}</div>
+          ) : null}
+        </div>
+      )
+    );
+  }
+  if (parsed.resource_type === "scene_profile") {
+    blocks.push(
+      renderSection(
+        "Scene Profile",
+        <div className="text-[12px] text-[var(--app-text-secondary)] space-y-1">
+          <div className="font-semibold text-[var(--app-text-primary)]">{parsed.name || "Unknown Scene"}</div>
+          {parsed.type ? <div>Type: {parsed.type}</div> : null}
+          {parsed.description ? <div className="whitespace-pre-wrap">{parsed.description}</div> : null}
+          {parsed.visuals ? <div className="whitespace-pre-wrap">Visuals: {parsed.visuals}</div> : null}
+          {typeof parsed.zones_count === "number" ? (
+            <div className="text-[11px] text-[var(--app-text-muted)]">Zones: {parsed.zones_count}</div>
+          ) : null}
+        </div>
+      )
+    );
+  }
   if (episodeSummaries.length > 0) {
     blocks.push(
       renderSection(

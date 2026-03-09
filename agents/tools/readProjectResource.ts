@@ -7,7 +7,14 @@ const readProjectResourceParameters = {
   properties: {
     resource_type: {
       type: "string",
-      enum: ["episode_script", "scene_script", "project_summary", "episode_summary"],
+      enum: [
+        "episode_script",
+        "scene_script",
+        "project_summary",
+        "episode_summary",
+        "character_profile",
+        "scene_profile",
+      ],
       description: "Which project resource to read.",
     },
     episode_id: {
@@ -22,6 +29,14 @@ const readProjectResourceParameters = {
       type: "integer",
       description: "Scene index within the episode, 1-based. Use together with episode_id for scene_script.",
     },
+    item_id: {
+      type: "string",
+      description: "Understanding item id for character_profile or scene_profile.",
+    },
+    name: {
+      type: "string",
+      description: "Understanding item name for character_profile or scene_profile.",
+    },
     max_chars: {
       type: "integer",
       description: "Optional maximum characters to return for textual content.",
@@ -29,6 +44,14 @@ const readProjectResourceParameters = {
   },
   required: ["resource_type"],
 } as const;
+
+type ResourceType =
+  | "episode_script"
+  | "scene_script"
+  | "project_summary"
+  | "episode_summary"
+  | "character_profile"
+  | "scene_profile";
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -54,13 +77,24 @@ const parseArgs = (input: unknown) => {
   const episodeId = toPositiveInteger(raw.episode_id ?? raw.episodeId);
   const sceneId = normalizeString(raw.scene_id ?? raw.sceneId);
   const sceneIndex = toPositiveInteger(raw.scene_index ?? raw.sceneIndex);
+  const itemId = normalizeString(raw.item_id ?? raw.itemId);
+  const name = normalizeString(raw.name);
   const maxChars = toPositiveInteger(raw.max_chars ?? raw.maxChars);
 
   if (!resourceType) {
     throw new Error("read_project_resource 需要 resource_type。");
   }
 
-  if (!["episode_script", "scene_script", "project_summary", "episode_summary"].includes(resourceType)) {
+  if (
+    ![
+      "episode_script",
+      "scene_script",
+      "project_summary",
+      "episode_summary",
+      "character_profile",
+      "scene_profile",
+    ].includes(resourceType)
+  ) {
     throw new Error(`read_project_resource 不支持 resource_type=${resourceType}`);
   }
 
@@ -72,11 +106,17 @@ const parseArgs = (input: unknown) => {
     throw new Error("scene_script 需要 scene_id，或同时提供 episode_id 和 scene_index。");
   }
 
+  if ((resourceType === "character_profile" || resourceType === "scene_profile") && !itemId && !name) {
+    throw new Error(`${resourceType} 需要 item_id 或 name。`);
+  }
+
   return {
-    resourceType: resourceType as "episode_script" | "scene_script" | "project_summary" | "episode_summary",
+    resourceType: resourceType as ResourceType,
     episodeId,
     sceneId,
     sceneIndex,
+    itemId,
+    name,
     maxChars,
   };
 };
@@ -89,7 +129,7 @@ const clipText = (value: string, maxChars?: number) => {
 export const readProjectResourceToolDef = {
   name: "read_project_resource",
   description:
-    "Read a concrete script or understanding resource from the current project. Supports episode script, scene script, project summary, and episode summary.",
+    "Read a concrete script or understanding resource from the current project. Supports episode script, scene script, project summary, episode summary, character profile, and scene profile.",
   parameters: readProjectResourceParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);
@@ -159,16 +199,63 @@ export const readProjectResourceToolDef = {
       };
     }
 
-    const summary =
-      (data.context?.episodeSummaries || []).find((entry) => entry.episodeId === args.episodeId)?.summary ||
-      data.episodes.find((episode) => episode.id === args.episodeId)?.summary ||
-      "";
-    return {
-      resource_type: "episode_summary",
-      episode_id: args.episodeId,
-      exists: Boolean(summary.trim()),
-      summary: clipText(summary.trim(), args.maxChars),
-    };
+    if (args.resourceType === "episode_summary") {
+      const summary =
+        (data.context?.episodeSummaries || []).find((entry) => entry.episodeId === args.episodeId)?.summary ||
+        data.episodes.find((episode) => episode.id === args.episodeId)?.summary ||
+        "";
+      return {
+        resource_type: "episode_summary",
+        episode_id: args.episodeId,
+        exists: Boolean(summary.trim()),
+        summary: clipText(summary.trim(), args.maxChars),
+      };
+    }
+
+    if (args.resourceType === "character_profile") {
+      const item = (data.context?.characters || []).find(
+        (character) => character.id === args.itemId || character.name === args.name
+      );
+      return item
+        ? {
+            resource_type: "character_profile",
+            found: true,
+            item_id: item.id,
+            name: item.name,
+            role: item.role || "",
+            is_main: Boolean(item.isMain),
+            bio: clipText(item.bio || "", args.maxChars),
+            forms_count: Array.isArray(item.forms) ? item.forms.length : 0,
+            tags: item.tags || [],
+          }
+        : {
+            resource_type: "character_profile",
+            found: false,
+            item_id: args.itemId || null,
+            name: args.name || null,
+          };
+    }
+
+    const item = (data.context?.locations || []).find(
+      (location) => location.id === args.itemId || location.name === args.name
+    );
+    return item
+      ? {
+          resource_type: "scene_profile",
+          found: true,
+          item_id: item.id,
+          name: item.name,
+          type: item.type,
+          description: clipText(item.description || "", args.maxChars),
+          visuals: clipText(item.visuals || "", args.maxChars),
+          zones_count: Array.isArray(item.zones) ? item.zones.length : 0,
+        }
+      : {
+          resource_type: "scene_profile",
+          found: false,
+          item_id: args.itemId || null,
+          name: args.name || null,
+        };
   },
   summarize: (output: any) => {
     switch (output?.resource_type) {
@@ -180,6 +267,10 @@ export const readProjectResourceToolDef = {
         return output?.exists ? "已读取项目概述" : "项目概述尚未写入";
       case "episode_summary":
         return output?.exists ? `已读取第 ${output?.episode_id} 集概述` : `第 ${output?.episode_id ?? "?"} 集概述尚未写入`;
+      case "character_profile":
+        return output?.found ? `已读取角色档案 ${output?.name || ""}`.trim() : "未找到目标角色档案";
+      case "scene_profile":
+        return output?.found ? `已读取场景档案 ${output?.name || ""}`.trim() : "未找到目标场景档案";
       default:
         return "已读取项目资源";
     }
