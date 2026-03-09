@@ -1,5 +1,5 @@
 import type { Session } from "@openai/agents";
-import type { QalamToolSettings } from "../../types";
+import type { ProjectData, QalamToolSettings } from "../../types";
 
 export type AgentAttachment = {
   id: string;
@@ -54,6 +54,7 @@ export type Script2VideoRunResult = {
   sessionId: string;
   outputItems: AgentOutputItem[];
   toolCalls: AgentExecutedToolCall[];
+  updatedProjectData?: ProjectData;
   tracing?: {
     enabled: boolean;
     traceId?: string;

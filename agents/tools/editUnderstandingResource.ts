@@ -2,7 +2,7 @@ import type { Character, Location } from "../../types";
 import { ensureStableId } from "../../utils/id";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
-const writeUnderstandingResourceParameters = {
+const editUnderstandingResourceParameters = {
   type: "object",
   properties: {
     resource_type: {
@@ -77,12 +77,12 @@ const toOptionalString = (value: unknown) => {
 
 const parseArgs = (input: unknown): ParsedArgs => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("write_understanding_resource 需要对象参数。");
+    throw new Error("edit_understanding_resource 需要对象参数。");
   }
   const raw = input as Record<string, unknown>;
   const resourceType = toTrimmedString(raw.resource_type ?? raw.resourceType) as ResourceType;
   if (!["project_summary", "episode_summary", "character_profile", "scene_profile"].includes(resourceType)) {
-    throw new Error("write_understanding_resource 需要合法的 resource_type。");
+    throw new Error("edit_understanding_resource 需要合法的 resource_type。");
   }
 
   if (resourceType === "project_summary") {
@@ -178,11 +178,11 @@ const upsertLocation = (locations: Location[], args: Extract<ParsedArgs, { resou
   };
 };
 
-export const writeUnderstandingResourceToolDef = {
-  name: "write_understanding_resource",
+export const editUnderstandingResourceToolDef = {
+  name: "edit_understanding_resource",
   description:
-    "Persist understanding resources into the project knowledge base. Supports project_summary, episode_summary, character_profile, and scene_profile.",
-  parameters: writeUnderstandingResourceParameters,
+    "Edit understanding resources in the project knowledge base. Supports project_summary, episode_summary, character_profile, and scene_profile.",
+  parameters: editUnderstandingResourceParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);
 
@@ -207,7 +207,7 @@ export const writeUnderstandingResourceToolDef = {
       const projectData = bridge.getProjectData();
       const episode = (projectData.episodes || []).find((item) => item.id === args.episodeId);
       if (!episode) {
-        throw new Error(`write_understanding_resource 未找到第 ${args.episodeId} 集。`);
+        throw new Error(`edit_understanding_resource 未找到第 ${args.episodeId} 集。`);
       }
       bridge.updateProjectData((prev) => {
         const updatedEpisodes = (prev.episodes || []).map((item) =>
@@ -286,7 +286,7 @@ export const writeUnderstandingResourceToolDef = {
       case "scene_profile":
         return `${output?.created ? "已创建" : "已更新"}场景档案 ${output?.name || ""}`.trim();
       default:
-        return "已写入理解资产";
+        return "已编辑理解资产";
     }
   },
 };

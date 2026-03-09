@@ -15,14 +15,14 @@ import { searchProjectResourceToolDef } from "./searchProjectResource";
 import { searchScriptDataToolDef } from "./searchScriptData";
 import { upsertCharacterToolDef } from "./upsertCharacter";
 import { upsertLocationToolDef } from "./upsertLocation";
-import { writeUnderstandingResourceToolDef } from "./writeUnderstandingResource";
+import { editUnderstandingResourceToolDef } from "./editUnderstandingResource";
 
 const TOOL_DEFS = [
   pingToolDef,
   listProjectResourcesToolDef,
   readProjectResourceToolDef,
   searchProjectResourceToolDef,
-  writeUnderstandingResourceToolDef,
+  editUnderstandingResourceToolDef,
   createWorkflowNodeToolDef,
   connectWorkflowNodesToolDef,
   operateProjectWorkflowToolDef,

@@ -9,7 +9,7 @@ const BASE_INSTRUCTION = [
   "For project lookup, prefer list_project_resources to inspect available episodes and understanding coverage before reading detailed content.",
   "When the exact locator is unknown, prefer search_project_resource before guessing ids or names.",
   "For concrete reading, prefer read_project_resource. Use it for episode_script, scene_script, project_summary, episode_summary, character_profile, scene_profile, and guide_document.",
-  "For durable understanding writing, prefer write_understanding_resource. Use project_summary, episode_summary, character_profile, and scene_profile.",
+  "For durable understanding editing, prefer edit_understanding_resource. Use project_summary, episode_summary, character_profile, and scene_profile.",
   "For operation in the current V1, prefer create_workflow_node and connect_workflow_nodes.",
   "Use create_workflow_node to create text or imageGen nodes one by one. Always provide a short stable node_ref so later steps can refer to the node semantically.",
   "Use connect_workflow_nodes to connect existing nodes after you plan the structure. Prefer source_ref and target_ref over random node ids.",

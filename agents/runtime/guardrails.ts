@@ -252,10 +252,10 @@ export const createScript2VideoToolInputGuardrails = (
     ];
   }
 
-  if (toolName === "write_understanding_resource") {
+  if (toolName === "edit_understanding_resource") {
     return [
       defineToolInputGuardrail({
-        name: "write_understanding_resource_guardrail",
+        name: "edit_understanding_resource_guardrail",
         run: async ({ toolCall }) => {
           const args = parseToolArguments((toolCall as any).arguments);
           const projectData = bridge.getProjectData();
@@ -269,7 +269,7 @@ export const createScript2VideoToolInputGuardrails = (
 
           if (!["project_summary", "episode_summary", "character_profile", "scene_profile"].includes(resourceType)) {
             return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "write_understanding_resource 仅支持 project_summary、episode_summary、character_profile、scene_profile。",
+              "edit_understanding_resource 仅支持 project_summary、episode_summary、character_profile、scene_profile。",
               { resourceType }
             );
           }
@@ -451,10 +451,10 @@ export const createScript2VideoToolInputGuardrails = (
 };
 
 export const createScript2VideoToolOutputGuardrails = (toolName: string): ToolOutputGuardrailDefinition[] => {
-  if (toolName === "write_understanding_resource") {
+  if (toolName === "edit_understanding_resource") {
     return [
       defineToolOutputGuardrail({
-        name: "write_understanding_resource_output_guardrail",
+        name: "edit_understanding_resource_output_guardrail",
         run: async ({ output }) => {
           const result = output && typeof output === "object" ? (output as Record<string, unknown>) : null;
           if (!result || result.updated !== true || typeof result.resource_type !== "string") {

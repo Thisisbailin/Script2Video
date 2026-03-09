@@ -286,7 +286,7 @@ Notes:
 
 ### Class 2: write understanding documents
 
-4. `write_understanding_resource`
+4. `edit_understanding_resource`
 
 Purpose:
 
@@ -348,7 +348,7 @@ The currently stabilized tool surface is:
 - `list_project_resources`
 - `read_project_resource`
 - `search_project_resource`
-- `write_understanding_resource`
+- `edit_understanding_resource`
 - `create_workflow_node`
 - `connect_workflow_nodes`
 

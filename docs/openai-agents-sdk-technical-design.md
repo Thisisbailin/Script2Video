@@ -332,11 +332,11 @@ Tools:
 
 Tools:
 
-- `write_understanding_resource`
+- `edit_understanding_resource`
 
 For the current implementation, durable understanding documents are persisted directly into project data through one unified tool:
 
-- `write_understanding_resource`
+- `edit_understanding_resource`
 
 Supported resource types in the stabilized surface are:
 
@@ -467,7 +467,7 @@ export type SearchProjectResourceOutput = {
 };
 ```
 
-### `write_understanding_resource`
+### `edit_understanding_resource`
 
 Input:
 
@@ -583,7 +583,7 @@ The currently stabilized tools are:
 - `list_project_resources`
 - `read_project_resource`
 - `search_project_resource`
-- `write_understanding_resource`
+- `edit_understanding_resource`
 - `create_workflow_node`
 - `connect_workflow_nodes`
 

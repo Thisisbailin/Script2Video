@@ -23,6 +23,7 @@ import {
   type AgentHttpRunRequest,
 } from "../../agents/runtime/httpProtocol";
 import type { AgentRuntimeEvent, Script2VideoRunResult } from "../../agents/runtime/types";
+import type { AgentExecutedToolCall } from "../../agents/runtime/types";
 import type { ProjectData } from "../../types";
 
 const CORS_HEADERS = {
@@ -82,27 +83,36 @@ const extractTextFromResponseOutput = (output: unknown): string => {
   return parts.join("\n").trim();
 };
 
-const createReadOnlyBridge = (projectData: ProjectData) => ({
-  getProjectData: () => projectData,
-  updateProjectData: () => {
-    throw new Error("当前 edge runtime 只支持查阅能力，不支持编辑。");
-  },
-  addTextNode: () => {
-    throw new Error("当前 edge runtime 只支持查阅能力，不支持节点操作。");
-  },
-  createWorkflowNode: () => {
-    throw new Error("当前 edge runtime 只支持查阅能力，不支持节点操作。");
-  },
-  connectWorkflowNodes: () => {
-    throw new Error("当前 edge runtime 只支持查阅能力，不支持节点操作。");
-  },
-  getWorkflowNode: () => null,
-  createNodeWorkflow: () => {
-    throw new Error("当前 edge runtime 只支持查阅能力，不支持节点操作。");
-  },
-  getViewport: () => null,
-  getNodeCount: () => 0,
-});
+const createEdgeBridgeState = (projectData: ProjectData) => {
+  let currentProjectData = projectData;
+  let projectDataUpdated = false;
+  return {
+    bridge: {
+      getProjectData: () => currentProjectData,
+      updateProjectData: (updater: (prev: ProjectData) => ProjectData) => {
+        currentProjectData = updater(currentProjectData);
+        projectDataUpdated = true;
+      },
+      addTextNode: () => {
+        throw new Error("当前 edge runtime 暂不支持节点操作。");
+      },
+      createWorkflowNode: () => {
+        throw new Error("当前 edge runtime 暂不支持节点操作。");
+      },
+      connectWorkflowNodes: () => {
+        throw new Error("当前 edge runtime 暂不支持节点操作。");
+      },
+      getWorkflowNode: () => null,
+      createNodeWorkflow: () => {
+        throw new Error("当前 edge runtime 暂不支持节点操作。");
+      },
+      getViewport: () => null,
+      getNodeCount: () => 0,
+    },
+    getProjectData: () => currentProjectData,
+    hasUpdatedProjectData: () => projectDataUpdated,
+  };
+};
 
 const createSseResponse = (stream: ReadableStream<Uint8Array>) =>
   new Response(stream, {
@@ -159,6 +169,18 @@ export const onRequestPost = async (context: any) => {
       const traceId = generateTraceId();
       const tracingEnabled = Boolean(tracingApiKey);
       try {
+        const bridgeState = createEdgeBridgeState(body.projectData);
+        const toolCalls: AgentExecutedToolCall[] = [];
+        const emitRuntimeEvent = (event: AgentRuntimeEvent) => {
+          if (event.type === "tool_called") {
+            toolCalls.push(event.call);
+          } else if (event.type === "tool_completed" || event.type === "tool_failed") {
+            const index = toolCalls.findIndex((item) => item.callId === event.call.callId);
+            if (index >= 0) toolCalls[index] = event.call;
+            else toolCalls.push(event.call);
+          }
+          emitEvent(controller, event);
+        };
         emitEvent(controller, {
           type: "run_started",
           runId,
@@ -211,11 +233,10 @@ export const onRequestPost = async (context: any) => {
           outputGuardrails: createScript2VideoOutputGuardrails(),
           resetToolChoice: true,
           tools: createScript2VideoTools({
-            bridge: createReadOnlyBridge(body.projectData),
-            emitEvent: (event: AgentRuntimeEvent) => emitEvent(controller, event),
+            bridge: bridgeState.bridge,
+            emitEvent: emitRuntimeEvent,
             disabledTools: [
               "ping_tool",
-              "write_understanding_resource",
               "create_workflow_node",
               "connect_workflow_nodes",
               "operate_project_workflow",
@@ -257,7 +278,7 @@ export const onRequestPost = async (context: any) => {
           session,
           sessionInputCallback: createEdgeSessionInputCallback(),
           context: {
-            runtimeMode: "edge_read_only",
+            runtimeMode: "edge_full",
             requestedOutcome: body.run.requestedOutcome || "auto",
           },
         });
@@ -313,8 +334,12 @@ export const onRequestPost = async (context: any) => {
         const runResult: Script2VideoRunResult = {
           finalText,
           sessionId: body.run.sessionId,
-          outputItems: [{ kind: "text", text: finalText }],
-          toolCalls: [],
+          outputItems: [
+            ...toolCalls.map((toolCall) => ({ kind: "tool_result", toolCall }) as const),
+            { kind: "text", text: finalText },
+          ],
+          toolCalls,
+          updatedProjectData: bridgeState.hasUpdatedProjectData() ? bridgeState.getProjectData() : undefined,
           tracing: {
             enabled: tracingEnabled,
             traceId,

@@ -655,7 +655,7 @@ export const QalamAgent: React.FC<Props> = ({
     setInput("");
     setIsSending(true);
     try {
-      await runAgentMessage({
+      const runResult = await runAgentMessage({
         userText: cleanedInput,
         requestedOutcome: inferRequestedOutcome(cleanedInput),
         uiContext: {
@@ -666,6 +666,9 @@ export const QalamAgent: React.FC<Props> = ({
           })),
         },
       });
+      if (runResult.updatedProjectData) {
+        setProjectData(runResult.updatedProjectData);
+      }
     } catch (err: any) {
       setMessages((prev) => {
         const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
@@ -678,7 +681,7 @@ export const QalamAgent: React.FC<Props> = ({
       setIsSending(false);
       setMood("thinking");
     }
-  }, [isSending, mentionTags, runAgentMessage, setMessages]);
+  }, [isSending, mentionTags, runAgentMessage, setMessages, setProjectData]);
 
   const sendMessage = useCallback(async () => {
     if (!canSend) return;
