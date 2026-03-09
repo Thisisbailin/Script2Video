@@ -141,6 +141,82 @@ const mapUsage = (usage: any): TokenUsage => {
   return { promptTokens, responseTokens, totalTokens };
 };
 
+const stripCodeFence = (value: string) => {
+  const trimmed = value.trim();
+  const fenced = trimmed.match(/```(?:json|JSON)?\s*([\s\S]*?)```/);
+  return fenced?.[1]?.trim() || trimmed;
+};
+
+const extractBalancedJsonCandidate = (text: string) => {
+  const source = text.trim();
+  const startIndexes = [
+    source.indexOf("{"),
+    source.indexOf("["),
+  ].filter((index) => index >= 0).sort((a, b) => a - b);
+  for (const start of startIndexes) {
+    const opener = source[start];
+    const closer = opener === "{" ? "}" : "]";
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < source.length; i += 1) {
+      const char = source[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === "\\") {
+          escaped = true;
+        } else if (char === "\"") {
+          inString = false;
+        }
+        continue;
+      }
+      if (char === "\"") {
+        inString = true;
+        continue;
+      }
+      if (char === opener) depth += 1;
+      if (char === closer) {
+        depth -= 1;
+        if (depth === 0) {
+          return source.slice(start, i + 1).trim();
+        }
+      }
+    }
+  }
+  return "";
+};
+
+const buildJsonCandidates = (text: string) => {
+  const trimmed = (text || "").trim();
+  const stripped = stripCodeFence(trimmed);
+  const balanced = extractBalancedJsonCandidate(stripped);
+  const candidates = [
+    trimmed,
+    stripped,
+    balanced,
+  ].filter((candidate, index, array) => candidate && array.indexOf(candidate) === index);
+  return candidates;
+};
+
+const parseStructuredJson = <T>(text: string, raw: any, label: string): T => {
+  const candidates = buildJsonCandidates(text);
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {}
+  }
+  const preview = candidates[0]?.slice(0, 400) || String(text || "").slice(0, 400);
+  try {
+    console.warn(`[ResponsesTextService] Failed to parse structured JSON for ${label}`, {
+      text,
+      candidates,
+      raw,
+    });
+  } catch {}
+  throw new Error(`JSON Parse error: 响应未返回合法 JSON。首段内容：${preview}`);
+};
+
 const resolveResponsesBaseUrl = (provider: TextProvider, configuredBaseUrl?: string) => {
   const fallback = provider === "openrouter" ? OPENROUTER_RESPONSES_BASE_URL : QWEN_RESPONSES_BASE_URL;
   return (configuredBaseUrl || fallback).trim().replace(/\/+$/, "");
@@ -337,8 +413,8 @@ export const generateDemoScript = async (
         }
     `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const result = JSON.parse(text);
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const result = parseStructuredJson<{ script: string; styleGuide: string }>(text, raw, "generateDemoScript");
   return {
     script: result.script,
     styleGuide: result.styleGuide,
@@ -375,9 +451,10 @@ export const generateProjectSummary = async (
     3. Language: Chinese.
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<{ projectSummary: string }>(text, raw, "generateProjectSummary");
   return {
-    projectSummary: JSON.parse(text).projectSummary,
+    projectSummary: parsed.projectSummary,
     usage
   };
 };
@@ -407,16 +484,7 @@ export const generateFreeformText = async (
     if (start !== -1 && end !== -1 && end > start) return trimmed.slice(start, end + 1);
     return trimmed;
   })();
-  let parsed: any = {};
-  try {
-    parsed = JSON.parse(candidate || "{}");
-  } catch (err: any) {
-    try {
-      console.warn("[Agent] JSON parse failed", { text, candidate, raw });
-    } catch {}
-    const message = err?.message || String(err);
-    throw new Error(`JSON Parse error: ${message}`);
-  }
+  const parsed = parseStructuredJson<{ outputText?: string }>(candidate || "{}", raw, "generateFreeformText");
   return {
     outputText: parsed.outputText || "",
     usage
@@ -467,9 +535,10 @@ ${recentSummaryText}
     3. Language: Chinese.
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<{ summary: string }>(text, raw, "generateEpisodeSummary");
   return {
-    summary: JSON.parse(text).summary,
+    summary: parsed.summary,
     usage
   };
 };
@@ -533,8 +602,8 @@ export const identifyCharacters = async (
 
     用中文 JSON 输出。`;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const rawChars = JSON.parse(text).characters;
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const rawChars = parseStructuredJson<{ characters: any[] }>(text, raw, "identifyCharacters").characters;
 
   const chars: Character[] = rawChars.map((c: any) => ({
     ...c,
@@ -593,9 +662,10 @@ export const generateCharacterBriefs = async (
     用中文 JSON 输出，遵循 schema。
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const raw = JSON.parse(text).characters || [];
-  const characters: Character[] = raw.map((c: any) => ({
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<{ characters?: any[] }>(text, raw, "generateCharacterBriefs");
+  const rawCharacters = parsed.characters || [];
+  const characters: Character[] = rawCharacters.map((c: any) => ({
     id: c.name,
     name: c.name,
     role: c.role || "",
@@ -700,9 +770,10 @@ export const generateCharacterRosterBriefs = async (
     - 若某角色只有一个默认形态（形如 “角色名-默认”），请保留并补全描述，不要删掉。
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const raw = JSON.parse(text).characters || [];
-  const characters: Character[] = raw.map((c: any) => ({
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<{ characters?: any[] }>(text, raw, "generateCharacterRosterBriefs");
+  const rawCharacters = parsed.characters || [];
+  const characters: Character[] = rawCharacters.map((c: any) => ({
     id: c.name,
     name: c.name,
     role: c.role || "",
@@ -822,8 +893,8 @@ export const analyzeCharacterDepth = async (
 
     用中文 JSON 输出。`;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const parsed = JSON.parse(text);
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<any>(text, raw, "analyzeCharacterDepth");
   return {
     forms: (parsed.forms || []).map((f: any) => ({ ...f, id: ensureStableId(f?.id, "form") })),
     bio: parsed.bio,
@@ -891,8 +962,8 @@ export const identifyLocations = async (
 
     用中文 JSON 输出。`;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const rawLocs = JSON.parse(text).locations;
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const rawLocs = parseStructuredJson<{ locations: any[] }>(text, raw, "identifyLocations").locations;
   const locations: Location[] = rawLocs.map((l: any) => ({
     ...l,
     id: l.name,
@@ -983,8 +1054,9 @@ export const generateLocationRosterBriefs = async (
     - 若只有默认分区（形如 “场景名-默认”），请保留并补全，不要删掉。
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const rawLocs = JSON.parse(text).locations || [];
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<{ locations?: any[] }>(text, raw, "generateLocationRosterBriefs");
+  const rawLocs = parsed.locations || [];
   const locations: Location[] = rawLocs.map((l: any) => ({
     id: l.name,
     name: l.name,
@@ -1073,8 +1145,8 @@ export const analyzeLocationDepth = async (
     
     用中文 JSON 输出。`;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const parsed = JSON.parse(text);
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<any>(text, raw, "analyzeLocationDepth");
   return {
     visuals: parsed.visuals,
     zones: (parsed.zones || []).map((z: any) => ({ ...z, id: ensureStableId(z?.id, "zone") })),
@@ -1187,8 +1259,8 @@ export const generateEpisodeShots = async (
     5. **soraPrompt/storyboardPrompt**：字段请务必保持为空字符串。
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const parsed = JSON.parse(text) as { shots?: Shot[] };
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const parsed = parseStructuredJson<{ shots?: Shot[] }>(text, raw, "generateEpisodeShots");
   const shots = Array.isArray(parsed?.shots)
     ? parsed.shots.map((shot) => {
       const description =
@@ -1293,8 +1365,12 @@ export const generateSoraPrompts = async (
     3. Sora Prompt内容：包含主体、动作、环境、光影、摄影风格。
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const resultObj = JSON.parse(text) as { prompts: { id: string; soraPrompt: string }[] };
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const resultObj = parseStructuredJson<{ prompts: { id: string; soraPrompt: string }[] } | { id: string; soraPrompt: string }[]>(
+    text,
+    raw,
+    "generateSoraPrompts"
+  ) as { prompts: { id: string; soraPrompt: string }[] };
 
   if (!resultObj.prompts && Array.isArray(resultObj)) {
     return { partialShots: resultObj, usage };
@@ -1385,8 +1461,12 @@ export const generateStoryboardPrompts = async (
        - 允许模型在理解剧情的前提下进行合理的视觉创作，但不得偏离剧情事实。
   `;
 
-  const { text, usage } = await generateText(config, prompt, schema, systemInstruction);
-  const resultObj = JSON.parse(text) as { prompts: { id: string; storyboardPrompt: string }[] };
+  const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
+  const resultObj = parseStructuredJson<{ prompts: { id: string; storyboardPrompt: string }[] } | { id: string; storyboardPrompt: string }[]>(
+    text,
+    raw,
+    "generateStoryboardPrompts"
+  ) as { prompts: { id: string; storyboardPrompt: string }[] };
 
   if (!resultObj.prompts && Array.isArray(resultObj)) {
     return { partialShots: resultObj, usage };
