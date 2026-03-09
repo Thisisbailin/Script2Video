@@ -396,6 +396,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [qalamOpenRequest, setQalamOpenRequest] = useState(0);
   const [qalamSubmitRequest, setQalamSubmitRequest] = useState<{ id: number; text: string } | null>(null);
   const [composerInput, setComposerInput] = useState("");
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const {
     nodes,
     edges,
@@ -481,6 +482,17 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     if (!liveViewport) return;
     setZoomValue(liveViewport.zoom);
   }, [liveViewport]);
+
+  const resizeComposer = useCallback((el?: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 46), 132)}px`;
+    el.style.overflowY = el.scrollHeight > 132 ? "auto" : "hidden";
+  }, []);
+
+  useEffect(() => {
+    resizeComposer(composerRef.current);
+  }, [composerInput, resizeComposer]);
 
   useEffect(() => {
     if (didInitFitRef.current) return;
@@ -1080,6 +1092,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                 isDarkMode={isDarkMode}
                 onOpenSyncPanel={onOpenSyncPanel}
                 onOpenInfoPanel={onOpenInfoPanel}
+                onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
                 onResetProject={onResetProject}
                 onSignOut={onSignOut}
                 onAssetLoad={onAssetLoad}
@@ -1095,8 +1108,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                 >
                   <div className="flex items-end gap-3">
                     <textarea
+                      ref={composerRef}
                       value={composerInput}
-                      onChange={(e) => setComposerInput(e.target.value)}
+                      onChange={(e) => {
+                        setComposerInput(e.target.value);
+                        resizeComposer(e.currentTarget);
+                      }}
                       rows={1}
                       className="min-h-[46px] flex-1 resize-none bg-transparent py-2 text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] focus:outline-none"
                       placeholder="Ask Qalam about scenes, roles, nodes, assets, or workflow changes."

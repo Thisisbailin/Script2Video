@@ -34,13 +34,13 @@ export const ViewportControls: React.FC<Props> = ({
   const handlePlus = () => onZoomChange(clamp(zoom + step));
 
   return (
-    <div className="qalam-surface inline-flex items-center gap-1.5 rounded-full p-1.5">
-      <div className="qalam-subtle-surface flex items-center gap-1 rounded-full p-1">
+    <div className="qalam-surface inline-flex h-11 items-center gap-1 rounded-full p-1">
+      <div className="qalam-subtle-surface flex h-full items-center gap-1 rounded-full px-1">
         {syncIndicator && (
           <button
             type="button"
             onClick={onOpenTheme}
-            className="relative flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px"
             title={syncIndicator.label}
           >
             <Palette size={14} />
@@ -53,7 +53,7 @@ export const ViewportControls: React.FC<Props> = ({
         <button
           type="button"
           onClick={onToggleLock}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px"
           title={isLocked ? "解锁画布" : "锁定画布"}
         >
           {isLocked ? (
@@ -65,17 +65,17 @@ export const ViewportControls: React.FC<Props> = ({
         <button
           type="button"
           onClick={onToggleMiniMap}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px"
           title={showMiniMap ? "隐藏地图" : "显示地图"}
         >
           <Map size={14} className={showMiniMap ? "text-[var(--app-accent-strong)]" : "text-[var(--app-text-secondary)]"} />
         </button>
       </div>
-      <div className="qalam-subtle-surface flex items-center gap-1 rounded-full p-1">
+      <div className="qalam-subtle-surface flex h-full items-center gap-1 rounded-full px-1">
         <button
           type="button"
           onClick={handleMinus}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
           title="缩小"
           disabled={isLocked}
         >
@@ -99,7 +99,7 @@ export const ViewportControls: React.FC<Props> = ({
         <button
           type="button"
           onClick={handlePlus}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--app-text-secondary)] transition hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
           title="放大"
           disabled={isLocked}
         >

@@ -69,6 +69,7 @@ type Props = {
   isDarkMode?: boolean;
   onOpenSyncPanel?: () => void;
   onOpenInfoPanel?: () => void;
+  onToggleAgentSettings?: () => void;
   onResetProject?: () => void;
   onSignOut?: () => void;
   accountInfo?: AccountInfo;
@@ -117,6 +118,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   isDarkMode,
   onOpenSyncPanel,
   onOpenInfoPanel,
+  onToggleAgentSettings,
   onResetProject,
   onSignOut,
   accountInfo,
@@ -530,6 +532,22 @@ export const FloatingActionBar: React.FC<Props> = ({
                             <span className="mt-0.5 block text-[10px] text-[var(--app-text-secondary)]">账户说明</span>
                           </span>
                         </button>
+                      <button
+                        type="button"
+                        className={utilityButtonClass}
+                        onClick={() => {
+                          onToggleAgentSettings?.();
+                          closeMenus();
+                        }}
+                      >
+                        <span className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-text-secondary)]">
+                          <GlobeHemisphereWest size={16} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[12px] font-semibold text-[var(--app-text-primary)]">Agent Settings</span>
+                          <span className="mt-0.5 block text-[10px] text-[var(--app-text-secondary)]">模型与服务商</span>
+                        </span>
+                      </button>
                       {handleUploadAvatar ? (
                         <button
                           type="button"

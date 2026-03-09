@@ -121,7 +121,7 @@ export const AssetsPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="qalam-surface flex h-10 items-center gap-2 rounded-full px-3"
+          className="qalam-surface flex h-11 items-center gap-2 rounded-full px-3"
           title={`Assets (${totalCount})`}
         >
           <span className="flex items-center gap-1">
