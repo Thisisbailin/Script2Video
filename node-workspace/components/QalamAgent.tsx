@@ -59,6 +59,8 @@ const toSearch = (value: string) => value.toLowerCase().replace(/\s+/g, "");
 const edgeIdFromConnection = (sourceNodeId: string, targetNodeId: string, sourceHandle: string, targetHandle: string) =>
   `edge-${sourceNodeId}-${targetNodeId}-${sourceHandle || "default"}-${targetHandle || "default"}`;
 
+const getWorkflowSnapshot = () => useWorkflowStore.getState();
+
 const parseMentions = (text: string) => {
   const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
   const names: string[] = [];
@@ -231,10 +233,12 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
       getProjectData: () => projectData,
       updateProjectData: (updater) => setProjectData((prev) => updater(prev)),
       addTextNode: ({ title, text, x, y, parentId }) => {
+        const snapshot = getWorkflowSnapshot();
         const hasXY = typeof x === "number" && typeof y === "number";
-        const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;
-        const baseY = viewport ? (-viewport.y + 120) / viewport.zoom : 120;
-        const offset = (nodes.length % 5) * 24;
+        const activeViewport = snapshot.viewport || viewport;
+        const baseX = activeViewport ? (-activeViewport.x + 120) / activeViewport.zoom : 120;
+        const baseY = activeViewport ? (-activeViewport.y + 120) / activeViewport.zoom : 120;
+        const offset = (snapshot.nodes.length % 5) * 24;
         const position = hasXY
           ? { x: x as number, y: y as number }
           : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
@@ -242,10 +246,12 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         return { id: nodeId, title };
       },
       createWorkflowNode: ({ type, title, text, aspectRatio, x, y, parentId }) => {
+        const snapshot = getWorkflowSnapshot();
         const hasXY = typeof x === "number" && typeof y === "number";
-        const baseX = viewport ? (-viewport.x + 120) / viewport.zoom : 120;
-        const baseY = viewport ? (-viewport.y + 120) / viewport.zoom : 120;
-        const offset = (nodes.length % 5) * 24;
+        const activeViewport = snapshot.viewport || viewport;
+        const baseX = activeViewport ? (-activeViewport.x + 120) / activeViewport.zoom : 120;
+        const baseY = activeViewport ? (-activeViewport.y + 120) / activeViewport.zoom : 120;
+        const offset = (snapshot.nodes.length % 5) * 24;
         const position = hasXY
           ? { x: x as number, y: y as number }
           : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
@@ -267,11 +273,18 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
           throw new Error("createWorkflowNode 创建文本节点时缺少 text。");
         }
         const nodeId = addNode(type, position, parentId, extraData);
-        return { nodeId, nodeType: type, title: resolvedTitle };
+        return {
+          nodeId,
+          node_id: nodeId,
+          nodeType: type,
+          node_type: type,
+          title: resolvedTitle,
+        };
       },
       connectWorkflowNodes: ({ sourceNodeId, targetNodeId, sourceHandle, targetHandle }) => {
-        const sourceNode = nodes.find((node) => node.id === sourceNodeId);
-        const targetNode = nodes.find((node) => node.id === targetNodeId);
+        const snapshot = getWorkflowSnapshot();
+        const sourceNode = snapshot.nodes.find((node) => node.id === sourceNodeId);
+        const targetNode = snapshot.nodes.find((node) => node.id === targetNodeId);
         if (!sourceNode || !targetNode) {
           throw new Error("connectWorkflowNodes 引用了不存在的节点。");
         }
@@ -298,10 +311,15 @@ export const QalamAgent: React.FC<Props> = ({ projectData, setProjectData, onOpe
         });
         return {
           edgeId: edgeIdFromConnection(sourceNodeId, targetNodeId, resolvedSourceHandle, resolvedTargetHandle),
+          edge_id: edgeIdFromConnection(sourceNodeId, targetNodeId, resolvedSourceHandle, resolvedTargetHandle),
           sourceNodeId,
+          source_node_id: sourceNodeId,
           targetNodeId,
+          target_node_id: targetNodeId,
           sourceHandle: resolvedSourceHandle as "image" | "text",
+          source_handle: resolvedSourceHandle as "image" | "text",
           targetHandle: resolvedTargetHandle as "image" | "text",
+          target_handle: resolvedTargetHandle as "image" | "text",
         };
       },
       createNodeWorkflow: (input) => {

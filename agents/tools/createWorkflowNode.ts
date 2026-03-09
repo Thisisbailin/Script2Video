@@ -72,5 +72,6 @@ export const createWorkflowNodeToolDef = {
       aspectRatio: args.nodeType === "imageGen" ? args.aspectRatio : undefined,
     });
   },
-  summarize: (output: any) => `已创建 ${output?.nodeType || output?.node_type || "节点"} ${output?.title || ""}`.trim(),
+  summarize: (output: any) =>
+    `已创建 ${output?.nodeType || output?.node_type || "节点"} ${output?.title || ""}${output?.nodeId || output?.node_id ? `（${output?.nodeId || output?.node_id}）` : ""}`.trim(),
 };

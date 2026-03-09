@@ -140,16 +140,17 @@ export const AssetsPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="flex h-10 items-center gap-2 px-3 rounded-full app-panel"
+          className="flex h-10 items-center gap-2 rounded-full app-panel px-3"
+          title={`Assets (${totalCount})`}
         >
-          <span className="flex items-center gap-1.5">
-            <ImageIcon size={14} className="text-sky-300" />
-            <Film size={14} className="text-emerald-300" />
-            <BookOpen size={14} className="text-violet-300" />
+          <span className="flex items-center gap-1">
+            <ImageIcon size={13} className="text-sky-300" />
+            <Film size={13} className="text-emerald-300" />
+            <BookOpen size={13} className="text-violet-300" />
           </span>
-          <span className="text-xs font-semibold">Assets</span>
-          <span className="text-[10px] text-[var(--app-text-secondary)]">{totalCount}</span>
-          <ChevronUp size={14} className="text-[var(--app-text-secondary)]" />
+          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)]">
+            <ChevronUp size={13} className="text-[var(--app-text-secondary)]" />
+          </span>
         </button>
       </div>
     );
