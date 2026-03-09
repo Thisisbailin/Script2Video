@@ -157,45 +157,32 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
   }, [projectData.episodes]);
 
   useEffect(() => {
-    if (!selection) {
-      if (initialSelectionType === "scene" && sceneEntries.length) {
-        setSelection({ type: "scene", key: sceneEntries[0].key });
+    if (initialSelectionType === "character") {
+      if (!characters.length) {
+        if (selection?.type === "character") setSelection(null);
         return;
       }
-      if (characters.length) {
+      if (selection?.type !== "character" || !characters.some((char) => char.id === selection.key)) {
         setSelection({ type: "character", key: characters[0].id });
-        return;
-      }
-      if (sceneEntries.length) {
-        setSelection({ type: "scene", key: sceneEntries[0].key });
       }
       return;
     }
-    if (selection.type === "character") {
-      const char = characters.find((c) => c.id === selection.key);
-      if (char) {
-        setVoicePromptDraft(char.voicePrompt || "");
-      } else {
-        if (characters.length) {
-          setSelection({ type: "character", key: characters[0].id });
-        } else if (sceneEntries.length) {
-          setSelection({ type: "scene", key: sceneEntries[0].key });
-        } else {
-          setSelection(null);
-        }
-      }
-    } else if (selection.type === "scene") {
-      if (!sceneEntries.some((scene) => scene.key === selection.key)) {
-        if (sceneEntries.length) {
-          setSelection({ type: "scene", key: sceneEntries[0].key });
-        } else if (characters.length) {
-          setSelection({ type: "character", key: characters[0].id });
-        } else {
-          setSelection(null);
-        }
-      }
+
+    if (!sceneEntries.length) {
+      if (selection?.type === "scene") setSelection(null);
+      return;
     }
-  }, [characters, sceneEntries, selection]);
+    if (selection?.type !== "scene" || !sceneEntries.some((scene) => scene.key === selection.key)) {
+      setSelection({ type: "scene", key: sceneEntries[0].key });
+    }
+  }, [characters, sceneEntries, selection, initialSelectionType]);
+
+  useEffect(() => {
+    if (selection?.type === "character") {
+      const current = characters.find((char) => char.id === selection.key);
+      if (current) setVoicePromptDraft(current.voicePrompt || "");
+    }
+  }, [characters, selection]);
 
   const totalCharacterAppearances = useMemo(
     () => characters.reduce((sum, char) => sum + (char.appearanceCount || 0), 0),
@@ -329,6 +316,16 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
     return `${ids.slice(0, 3).join(" / ")} +`;
   };
 
+  const isCharacterMode = initialSelectionType === "character";
+  const chipClass = (active: boolean, mode: "character" | "scene") =>
+    `inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-2 text-left transition whitespace-nowrap ${
+      active
+        ? mode === "character"
+          ? "border-emerald-400/60 bg-emerald-500/12 text-[var(--app-text-primary)]"
+          : "border-cyan-400/60 bg-cyan-500/12 text-[var(--app-text-primary)]"
+        : "border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+    }`;
+
   return (
     <div className="space-y-4 text-[var(--app-text-primary)]">
       <input
@@ -340,101 +337,61 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
         onChange={handleFileChange}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[12px] font-semibold">
+      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-[12px] font-semibold">
+              {isCharacterMode ? (
                 <Users size={16} className="text-emerald-300" />
-                Characters
-              </div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">
-                {characters.length} characters · {totalCharacterAppearances} appearances
-              </div>
+              ) : (
+                <MapPin size={16} className="text-cyan-300" />
+              )}
+              {isCharacterMode ? "Characters" : "Scenes"}
             </div>
-            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-              {characters.length ? (
-                characters.map((char) => {
+            <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
+              {isCharacterMode
+                ? `${characters.length} 角色 · ${totalCharacterAppearances} 次出现`
+                : `${sceneEntries.length} 场景 · ${totalSceneAppearances} 次出现`}
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto pb-1">
+          <div className="flex gap-2 min-w-fit">
+            {isCharacterMode
+              ? characters.map((char) => {
                   const isActive = selection?.type === "character" && selection.key === char.id;
                   return (
                     <button
                       key={char.id}
                       type="button"
                       onClick={() => setSelection({ type: "character", key: char.id })}
-                      className={`w-full text-left rounded-2xl border px-3 py-2 transition ${isActive
-                        ? "border-emerald-400/60 bg-emerald-500/10"
-                        : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)]"
-                        }`}
+                      className={chipClass(isActive, "character")}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[12px] font-semibold truncate">
-                          {char.name || "Untitled Character"}
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)]">
-                          {char.appearanceCount ?? 1}x
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[10px] text-[var(--app-text-secondary)]">
-                        Forms {char.forms?.length || 0} · {char.role || "Role unset"}
-                      </div>
+                      <span className="font-medium">{char.name || "Untitled Character"}</span>
+                      <span className="text-[10px] opacity-70">{char.appearanceCount ?? 1}x</span>
                     </button>
                   );
                 })
-              ) : (
-                <div className="text-[12px] text-[var(--app-text-secondary)]">
-                  No characters yet.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[12px] font-semibold">
-                <MapPin size={16} className="text-cyan-300" />
-                Scenes
-              </div>
-              <div className="text-[11px] text-[var(--app-text-secondary)]">
-                {sceneEntries.length} scenes · {totalSceneAppearances} appearances
-              </div>
-            </div>
-            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-              {sceneEntries.length ? (
-                sceneEntries.map((scene) => {
+              : sceneEntries.map((scene) => {
                   const isActive = selection?.type === "scene" && selection.key === scene.key;
                   return (
                     <button
                       key={scene.key}
                       type="button"
                       onClick={() => setSelection({ type: "scene", key: scene.key })}
-                      className={`w-full text-left rounded-2xl border px-3 py-2 transition ${isActive
-                        ? "border-cyan-400/60 bg-cyan-500/10"
-                        : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-[var(--app-border-strong)]"
-                        }`}
+                      className={chipClass(isActive, "scene")}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[12px] font-semibold truncate">{scene.title}</div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)]">
-                          {scene.count}x
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[10px] text-[var(--app-text-secondary)]">
-                        Zones {scene.partitions.length} · Episodes {scene.episodes.join(", ")}
-                      </div>
+                      <span className="font-medium">{scene.title}</span>
+                      <span className="text-[10px] opacity-70">{scene.count}x</span>
                     </button>
                   );
-                })
-              ) : (
-                <div className="text-[12px] text-[var(--app-text-secondary)]">
-                  No scenes yet.
-                </div>
-              )}
-            </div>
+                })}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
-          {selection?.type === "character" ? (
+        <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 md:p-5 space-y-4">
+          {selection?.type === "character" && isCharacterMode ? (
             selectedCharacter ? (
               <>
                 <div className="flex items-start justify-between gap-4">
@@ -599,7 +556,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                 Select a character on the left.
               </div>
             )
-          ) : selection?.type === "scene" ? (
+          ) : selection?.type === "scene" && !isCharacterMode ? (
             selectedScene ? (
               <>
                 <div className="flex items-start justify-between gap-4">
@@ -692,7 +649,7 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
             )
           ) : (
             <div className="text-[12px] text-[var(--app-text-secondary)]">
-              Select an item on the left.
+              {isCharacterMode ? "请选择一个角色。" : "请选择一个场景。"}
             </div>
           )}
         </div>

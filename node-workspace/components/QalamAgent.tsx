@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   At,
   ArrowUp,
-  CaretDown,
   CaretUp,
   CircleNotch,
   GlobeHemisphereWest,
@@ -35,8 +34,8 @@ type Props = {
   onOpenStats?: () => void;
   onToggleAgentSettings?: () => void;
   openRequest?: number;
-  toolbarSlot?: React.ReactNode;
   onCollapsedChange?: (collapsed: boolean) => void;
+  renderCollapsedTrigger?: boolean;
 };
 
 const WORK_HINT_KEYWORDS = [
@@ -77,6 +76,16 @@ const edgeIdFromConnection = (sourceNodeId: string, targetNodeId: string, source
 
 const getWorkflowSnapshot = () => useWorkflowStore.getState();
 
+const resolvePreferredConnectionHandles = (sourceType: string, targetType: string) => {
+  if (sourceType === "text" && targetType === "text") {
+    return { sourceHandle: "text" as const, targetHandle: "text" as const };
+  }
+  if (sourceType === "text" && targetType === "imageGen") {
+    return { sourceHandle: "text" as const, targetHandle: "text" as const };
+  }
+  return null;
+};
+
 const parseMentions = (text: string) => {
   const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
   const names: string[] = [];
@@ -85,24 +94,6 @@ const parseMentions = (text: string) => {
     if (!names.includes(name)) names.push(name);
   });
   return names;
-};
-
-const stripModePrefix = (text: string) => {
-  const trimmed = text.trim();
-  const patterns = [/^\/(work|chat)\s*/i, /^#(work|chat)\s*/i, /^(工作|闲聊)[:：]\s*/];
-  for (const pattern of patterns) {
-    if (pattern.test(trimmed)) {
-      return trimmed.replace(pattern, "").trim();
-    }
-  }
-  return trimmed;
-};
-
-const getForcedMode = (text: string) => {
-  const trimmed = text.trim();
-  if (/^\/chat\b/i.test(trimmed) || /^#chat\b/i.test(trimmed) || /^闲聊[:：]/.test(trimmed)) return "chat";
-  if (/^\/work\b/i.test(trimmed) || /^#work\b/i.test(trimmed) || /^工作[:：]/.test(trimmed)) return "work";
-  return "auto";
 };
 
 const hasEpisodeSceneRef = (text: string) => {
@@ -158,8 +149,8 @@ export const QalamAgent: React.FC<Props> = ({
   onOpenStats,
   onToggleAgentSettings,
   openRequest = 0,
-  toolbarSlot,
   onCollapsedChange,
+  renderCollapsedTrigger = true,
 }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
   const addNode = useWorkflowStore((state) => state.addNode);
@@ -173,8 +164,6 @@ export const QalamAgent: React.FC<Props> = ({
   const [collapsed, setCollapsed] = useState(true);
   const [mood, setMood] = useState<"default" | "thinking" | "loading" | "playful" | "question">("default");
   const [input, setInput] = useState("");
-  const [inputMode, setInputMode] = useState<"auto" | "chat" | "work">("auto");
-  const [modePickerOpen, setModePickerOpen] = useState(false);
   const [cursorPos, setCursorPos] = useState(0);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [conversationState, setConversationState] = usePersistedState<ConversationState>({
@@ -317,10 +306,14 @@ export const QalamAgent: React.FC<Props> = ({
         if (sourceHandles.length === 0 || targetHandles.length === 0) {
           throw new Error("当前节点类型不存在可用的输入/输出 handle。");
         }
-        const resolvedSourceHandle =
-          sourceHandle || (targetHandle && sourceHandles.includes(targetHandle) ? targetHandle : sourceHandles[0]);
-        const resolvedTargetHandle =
-          targetHandle || (sourceHandle && targetHandles.includes(sourceHandle) ? sourceHandle : targetHandles[0]);
+        const preferred = resolvePreferredConnectionHandles(sourceNode.type, targetNode.type);
+        const resolvedSourceHandle = sourceHandle || preferred?.sourceHandle;
+        const resolvedTargetHandle = targetHandle || preferred?.targetHandle;
+        if (!resolvedSourceHandle || !resolvedTargetHandle) {
+          throw new Error(
+            `connectWorkflowNodes 无法自动推断 ${sourceNode.type} -> ${targetNode.type} 的连接端口。请显式提供 source_handle 和 target_handle。`
+          );
+        }
         if (!sourceHandles.includes(resolvedSourceHandle) || !targetHandles.includes(resolvedTargetHandle)) {
           throw new Error("connectWorkflowNodes 收到无效的 handle。");
         }
@@ -573,21 +566,18 @@ export const QalamAgent: React.FC<Props> = ({
   const sendMessage = async () => {
     if (!canSend) return;
     setMood("loading");
-    setModePickerOpen(false);
-    const forcedMode = inputMode !== "auto" ? inputMode : getForcedMode(input);
-    const cleanedInput = stripModePrefix(input);
+    const cleanedInput = input.trim();
     setMessages((prev) => {
       const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
       const userMsg: Message = { role: "user", text: cleanedInput, kind: "chat", order: nextOrder };
       return [...prev, userMsg];
     });
     setInput("");
-    setInputMode("auto");
     setIsSending(true);
     try {
       await runAgentMessage({
         userText: cleanedInput,
-        requestedOutcome: inferRequestedOutcome(cleanedInput, forcedMode),
+        requestedOutcome: inferRequestedOutcome(cleanedInput),
         uiContext: {
           mentionTags: mentionTags.map((tag) => ({
             kind: tag.kind,
@@ -628,8 +618,8 @@ export const QalamAgent: React.FC<Props> = ({
   const moodState = moodVisual();
   const isSplit = layoutMode === "split";
   const panelClassName = isSplit
-    ? "pointer-events-auto app-panel flex flex-col overflow-hidden qalam-panel border-r border-[var(--app-border)] rounded-none"
-    : "pointer-events-auto w-[400px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-2xl app-panel flex flex-col overflow-hidden qalam-panel";
+    ? "pointer-events-auto qalam-surface flex flex-col overflow-hidden qalam-panel border-r border-[var(--app-border)] rounded-none"
+    : "pointer-events-auto qalam-surface w-[420px] max-w-[95vw] h-[min(82dvh,900px)] max-h-[calc(100vh-32px)] rounded-[30px] flex flex-col overflow-hidden qalam-panel";
   const panelStyle: React.CSSProperties | undefined = isSplit
     ? {
         position: "fixed",
@@ -656,22 +646,6 @@ export const QalamAgent: React.FC<Props> = ({
   }, [projectData]);
 
   const formatNumber = (n: number) => n.toLocaleString();
-  const providerModelOptions = useMemo(() => {
-    const currentId = config.textConfig?.model || "custom";
-    return [{ id: currentId, name: currentId }];
-  }, [config.textConfig?.provider, config.textConfig?.model]);
-
-  const modelValue = useMemo(() => {
-    const ids = providerModelOptions.map((m) => m.id);
-    if (config.textConfig?.model && ids.includes(config.textConfig.model)) return config.textConfig.model;
-    return providerModelOptions[0]?.id || config.textConfig?.model || "";
-  }, [providerModelOptions, config.textConfig?.model]);
-
-  const currentModelLabel =
-    providerModelOptions.find((m) => m.id === modelValue)?.name ||
-    modelValue ||
-    "model";
-
   useEffect(() => {
     if (isSending) return;
     const order: Array<typeof mood> = ["default", "thinking", "playful", "question"];
@@ -689,14 +663,16 @@ export const QalamAgent: React.FC<Props> = ({
     setCollapsed(false);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
+      resizeInput(inputRef.current);
     });
-  }, [openRequest]);
+  }, [openRequest, resizeInput]);
 
   if (collapsed) {
+    if (!renderCollapsedTrigger) return null;
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="flex items-center gap-2 h-11 px-3.5 rounded-full app-panel transition-all duration-300 ease-out"
+        className="qalam-surface flex h-11 items-center gap-2 rounded-full px-3.5 transition-all duration-300 ease-out"
         style={{ fontFamily: '"Geist", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif' }}
       >
         <span className={`flex items-center justify-center h-7 w-7 rounded-full ${moodState.bg} transition-all duration-300 ease-out`}>
@@ -730,48 +706,60 @@ export const QalamAgent: React.FC<Props> = ({
           }}
         />
       )}
-      <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-[var(--app-border)]">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
-            <Robot size={16} className="text-emerald-200" weight="regular" />
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-sm font-semibold">Qalam</div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onToggleAgentSettings}
-                className="h-6 w-6 flex items-center justify-center rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
-                title="服务商设置"
-              >
-                <GlobeHemisphereWest size={12} className="text-[var(--app-text-secondary)]" weight="regular" />
-              </button>
-              <button
-                type="button"
-                onClick={onOpenStats}
-                className="text-[11px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] underline decoration-dashed decoration-[var(--app-border-strong)] transition"
-                title="查看 Dashboard"
-              >
-                Tokens · {formatNumber(tokenUsage)}
-              </button>
+      <div className="border-b border-[var(--app-border)] px-4 pb-4 pt-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="qalam-subtle-surface flex h-11 w-11 items-center justify-center rounded-[16px]">
+              <Robot size={18} className="text-[var(--app-accent-strong)]" weight="regular" />
+            </div>
+            <div className="min-w-0">
+              <div className="theme-modal-eyebrow">Workspace Agent</div>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="text-[20px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">Qalam</div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-secondary)]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--app-accent-strong)]" />
+                  Live
+                </span>
+              </div>
+              <div className="mt-1.5 max-w-[24ch] text-[12px] leading-5 text-[var(--app-text-secondary)]">
+                面向当前画布、节点和项目上下文的工作代理。
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenStats}
+                  className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2.5 py-1 text-[11px] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)]"
+                  title="查看 Dashboard"
+                >
+                  Tokens · {formatNumber(tokenUsage)}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSplitToggle}
-            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
-            title={isSplit ? "Exit Split View" : "Split View"}
-          >
-            <SidebarSimple size={14} className="mx-auto text-[var(--app-text-secondary)]" weight="regular" />
-          </button>
-          <button
-            onClick={() => setCollapsed(true)}
-            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
-            title="Close"
-          >
-            <X size={14} className="mx-auto text-[var(--app-text-secondary)]" weight="bold" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleAgentSettings}
+              className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
+              title="服务商设置"
+            >
+              <GlobeHemisphereWest size={14} className="mx-auto" weight="regular" />
+            </button>
+            <button
+              onClick={handleSplitToggle}
+              className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
+              title={isSplit ? "Exit Split View" : "Split View"}
+            >
+              <SidebarSimple size={14} className="mx-auto" weight="regular" />
+            </button>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] hover:text-[var(--app-text-primary)]"
+              title="Close"
+            >
+              <X size={14} className="mx-auto" weight="bold" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -779,222 +767,116 @@ export const QalamAgent: React.FC<Props> = ({
 
       <div className="px-4 py-4">
         <div
-          className="rounded-[30px] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel-strong),rgba(255,255,255,0.78))] p-3 shadow-[0_24px_48px_-34px_rgba(44,72,47,0.35)]"
+          className="qalam-subtle-surface rounded-[24px] p-3"
           style={{
-            boxShadow: "0 22px 42px -32px rgba(44, 72, 47, 0.34), inset 0 1px 0 rgba(255,255,255,0.18)",
+            boxShadow: "0 18px 40px -30px rgba(44, 72, 47, 0.24), inset 0 1px 0 rgba(255,255,255,0.08)",
           }}
         >
-          {toolbarSlot ? (
-            <div className="mb-3 border-b border-[var(--app-border)]/80 pb-3">
-              {toolbarSlot}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="theme-modal-eyebrow">Compose</div>
+              <div className="mt-1 text-[12px] leading-5 text-[var(--app-text-secondary)]">
+                直接基于当前画布发起编辑、查阅或工作流操作。
+              </div>
             </div>
-          ) : null}
-
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className={`inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] px-3.5 text-[11px] font-semibold tracking-[0.08em] uppercase ${moodState.bg} ${moodState.ring}`}>
-              {moodState.icon}
-              Qalam
+            <span className="inline-flex h-8 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+              Enter Send
             </span>
-            <button
-              type="button"
-              onClick={() => setModePickerOpen((prev) => !prev)}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3.5 text-[11px] font-semibold tracking-[0.02em] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px"
-            >
-              <span>{inputMode === "auto" ? "Auto routing" : inputMode === "work" ? "Work mode" : "Chat mode"}</span>
-              <CaretDown size={12} className="text-[var(--app-text-muted)]" weight="bold" />
-            </button>
-            {mentionTags.map((tag) => (
-              <span
-                key={`${tag.kind}-${tag.name}`}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px] font-medium text-[var(--app-text-secondary)]"
-              >
-                <At size={11} weight="regular" />
-                {tag.label}
-              </span>
-            ))}
-            <div className="ml-auto hidden items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--app-text-muted)] sm:flex">
-              <span>Enter Send</span>
-              <span className="h-1 w-1 rounded-full bg-[var(--app-border-strong)]" />
-              <span>Shift Enter Break</span>
-            </div>
           </div>
+          <textarea
+            ref={inputRef}
+            className="w-full min-h-[96px] bg-transparent text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
+            rows={1}
+            placeholder="Ask Qalam about scenes, roles, nodes, workflow changes, or anything in this project."
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setCursorPos(e.target.selectionStart ?? e.target.value.length);
+              resizeInput(e.currentTarget);
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            onKeyUp={(e) => {
+              setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
+            }}
+            onClick={(e) => {
+              setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
+            }}
+            onFocus={(e) => {
+              setIsInputFocused(true);
+              setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
+            }}
+            onBlur={() => {
+              setIsInputFocused(false);
+            }}
+          />
 
-          <div className="rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.52),rgba(255,255,255,0.16))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-            <textarea
-              ref={inputRef}
-              className="w-full min-h-[104px] bg-transparent text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
-              rows={1}
-              placeholder="Ask Qalam to revise structure, search project context, or build directly on the canvas."
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                setCursorPos(e.target.selectionStart ?? e.target.value.length);
-                resizeInput(e.currentTarget);
-              }}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === "Escape") {
-                  setModePickerOpen(false);
-                  return;
-                }
-                if (e.key === "/" && !e.shiftKey) {
-                  const pos = (e.currentTarget as HTMLTextAreaElement).selectionStart ?? 0;
-                  const textBefore = input.slice(0, pos);
-                  const lastChar = textBefore.slice(-1);
-                  const atTokenStart = !textBefore || /\s/.test(lastChar);
-                  if (atTokenStart) {
-                    e.preventDefault();
-                    setModePickerOpen(true);
-                    return;
-                  }
-                }
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              onKeyUp={(e) => {
-                setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
-              }}
-              onClick={(e) => {
-                setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
-              }}
-              onFocus={(e) => {
-                setIsInputFocused(true);
-                setCursorPos((e.currentTarget as HTMLTextAreaElement).selectionStart ?? input.length);
-              }}
-              onBlur={() => {
-                setIsInputFocused(false);
-              }}
-            />
-
-            {modePickerOpen && (
-              <div className="mt-3 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3 space-y-2">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
-                  Routing mode
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInputMode("chat");
-                      setModePickerOpen(false);
-                      inputRef.current?.focus();
-                    }}
-                    className="flex-1 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2.5 text-[12px] font-medium text-[var(--app-text-primary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] active:translate-y-px"
-                  >
-                    /chat · 闲聊
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInputMode("work");
-                      setModePickerOpen(false);
-                      inputRef.current?.focus();
-                    }}
-                    className="flex-1 rounded-[16px] border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2.5 text-[12px] font-medium text-[var(--app-text-primary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] active:translate-y-px"
-                  >
-                    /work · 工作
-                  </button>
-                </div>
+          {showMentionPicker && (
+            <div className="qalam-subtle-surface mt-3 rounded-[20px] px-3 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
+                <At size={11} weight="regular" />
+                选择绑定数据
+                {mentionState?.query ? <span className="text-[var(--app-text-muted)]">@{mentionState.query}</span> : null}
               </div>
-            )}
-
-            {showMentionPicker && (
-              <div className="mt-3 rounded-[20px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3 space-y-2">
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
-                  <At size={11} weight="regular" />
-                  选择绑定数据
-                  {mentionState?.query ? <span className="text-[var(--app-text-muted)]">@{mentionState.query}</span> : null}
-                </div>
-                {filteredMentions.length > 0 ? (
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {filteredMentions.map((item) => (
-                      <button
-                        key={`${item.kind}-${item.name}-${item.id || "none"}`}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          const start = mentionState ? mentionState.start : cursorPos;
-                          const end = mentionState ? mentionState.end : cursorPos;
-                          const before = input.slice(0, start);
-                          const after = input.slice(end);
-                          const insertion = `@${item.name} `;
-                          const next = `${before}${insertion}${after}`;
-                          const nextPos = start + insertion.length;
-                          setInput(next);
-                          setCursorPos(nextPos);
-                          requestAnimationFrame(() => {
-                            if (!inputRef.current) return;
-                            inputRef.current.focus();
-                            inputRef.current.setSelectionRange(nextPos, nextPos);
-                          });
-                        }}
-                        className="w-full flex items-center gap-2 rounded-[16px] border border-transparent px-2.5 py-2.5 transition text-left hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)]"
-                      >
-                        <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
-                          {item.kind === "character" ? "角色" : "场景"}
-                        </span>
-                        <span className="text-[12px] text-[var(--app-text-primary)]">{item.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-[12px] text-[var(--app-text-secondary)]">未找到匹配项</div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--app-border)]/80 pt-3 text-[12px] text-[var(--app-text-secondary)]">
-              <div
-                className="inline-flex h-9 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px]"
-                title="图片附件将在多模态 runtime 接入后重新开放"
-              >
-                Attachments offline
-              </div>
-              <div className="relative inline-flex h-9 min-w-[176px] items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)]">
-                <span className="truncate text-[11px] font-medium text-[var(--app-text-primary)]">{currentModelLabel}</span>
-                <CaretDown size={12} className="text-[var(--app-text-muted)] pointer-events-none" weight="bold" />
-                <select
-                  aria-label="选择模型"
-                  value={modelValue}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      textConfig: { ...prev.textConfig, model: e.target.value }
-                    }))
-                  }
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                >
-                  {[...providerModelOptions, { id: config.textConfig?.model || "custom", name: config.textConfig?.model || "custom" }].reduce((acc: any[], item) => {
-                    if (!acc.find((x) => x.id === item.id)) acc.push(item);
-                    return acc;
-                  }, []).map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[var(--app-panel)] text-[var(--app-text-primary)]">
-                      {m.name}
-                    </option>
+              {filteredMentions.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {filteredMentions.map((item) => (
+                    <button
+                      key={`${item.kind}-${item.name}-${item.id || "none"}`}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        const start = mentionState ? mentionState.start : cursorPos;
+                        const end = mentionState ? mentionState.end : cursorPos;
+                        const before = input.slice(0, start);
+                        const after = input.slice(end);
+                        const insertion = `@${item.name} `;
+                        const next = `${before}${insertion}${after}`;
+                        const nextPos = start + insertion.length;
+                        setInput(next);
+                        setCursorPos(nextPos);
+                        requestAnimationFrame(() => {
+                          if (!inputRef.current) return;
+                          inputRef.current.focus();
+                          inputRef.current.setSelectionRange(nextPos, nextPos);
+                        });
+                      }}
+                      className="w-full flex items-center gap-2 rounded-[16px] border border-transparent px-2.5 py-2.5 transition text-left hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)]"
+                    >
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">
+                        {item.kind === "character" ? "角色" : "场景"}
+                      </span>
+                      <span className="text-[12px] text-[var(--app-text-primary)]">{item.name}</span>
+                    </button>
                   ))}
-                </select>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <span className="hidden text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)] sm:block">
-                  {canSend ? "Ready to route" : "Waiting for prompt"}
-                </span>
-                <button
-                  onClick={sendMessage}
-                  disabled={!canSend}
-                  className="inline-flex h-11 min-w-[92px] items-center justify-center gap-2 rounded-full bg-[var(--app-accent-strong)] px-4 text-[12px] font-semibold text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:bg-[var(--app-accent)]/60 disabled:text-white/75"
-                  title="发送"
-                >
-                  {isSending ? (
-                    <CircleNotch size={16} className="animate-spin" weight="bold" />
-                  ) : (
-                    <ArrowUp size={16} weight="bold" />
-                  )}
-                  <span>{isSending ? "Running" : "Send"}</span>
-                </button>
-              </div>
+                </div>
+              ) : (
+                <div className="text-[12px] text-[var(--app-text-secondary)]">未找到匹配项</div>
+              )}
             </div>
+          )}
+
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--app-border)]/80 pt-3">
+            <div className="text-[11px] text-[var(--app-text-muted)]">
+              支持剧本、角色、场景、节点与工作流上下文。
+            </div>
+            <button
+              onClick={sendMessage}
+              disabled={!canSend}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--app-accent-strong)] text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:bg-[var(--app-accent)]/60 disabled:text-white/75"
+              title="发送"
+            >
+              {isSending ? (
+                <CircleNotch size={16} className="animate-spin" weight="bold" />
+              ) : (
+                <ArrowUp size={16} weight="bold" />
+              )}
+            </button>
           </div>
         </div>
       </div>

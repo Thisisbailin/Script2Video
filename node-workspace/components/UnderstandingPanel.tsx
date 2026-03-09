@@ -25,6 +25,7 @@ export const UnderstandingPanel: React.FC<Props> = ({
   initialSection = "overview",
 }) => {
   const [active, setActive] = useState<SectionKey>(initialSection);
+  const [selectedGuideKey, setSelectedGuideKey] = useState<string | null>(null);
   const summary = projectData.context.projectSummary?.trim() || "";
   const episodeSummaries = projectData.context.episodeSummaries || [];
   const episodeCount = projectData.episodes.length;
@@ -58,6 +59,16 @@ export const UnderstandingPanel: React.FC<Props> = ({
   useEffect(() => {
     setActive(initialSection);
   }, [initialSection]);
+
+  useEffect(() => {
+    if (!guideItems.length) {
+      setSelectedGuideKey(null);
+      return;
+    }
+    if (!selectedGuideKey || !guideItems.some((guide) => guide.key === selectedGuideKey)) {
+      setSelectedGuideKey(guideItems[0].key);
+    }
+  }, [guideItems, selectedGuideKey]);
 
   const overviewCardClass = (isActive: boolean) =>
     `rounded-2xl border px-3 py-3 transition bg-[var(--app-panel-muted)] ${
@@ -103,6 +114,7 @@ export const UnderstandingPanel: React.FC<Props> = ({
       subtitle: `${guideItems.length} loaded`,
     },
   ];
+  const selectedGuide = guideItems.find((guide) => guide.key === selectedGuideKey) || guideItems[0];
 
   return (
     <div className="space-y-4 text-[var(--app-text-primary)]">
@@ -188,22 +200,41 @@ export const UnderstandingPanel: React.FC<Props> = ({
                   </div>
                 )}
               </>
-            ) : (
+            ) : active === "guides" ? (
               <>
                 <div className="text-lg font-semibold">Project Guides</div>
                 {guideItems.length ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {guideItems.map((guide) => (
-                      <div
-                        key={guide.key}
-                        className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 space-y-2"
-                      >
-                        <div className="text-[12px] font-semibold">{guide.title}</div>
-                        <div className="text-[12px] text-[var(--app-text-secondary)] leading-relaxed whitespace-pre-wrap line-clamp-10">
-                          {guide.text}
+                  <div className="space-y-4">
+                    <div className="overflow-x-auto pb-1">
+                      <div className="flex gap-2 min-w-fit">
+                        {guideItems.map((guide) => {
+                          const isActive = selectedGuide?.key === guide.key;
+                          return (
+                            <button
+                              key={guide.key}
+                              type="button"
+                              onClick={() => setSelectedGuideKey(guide.key)}
+                              className={`inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-2 text-left transition whitespace-nowrap ${
+                                isActive
+                                  ? "border-violet-400/60 bg-violet-500/12 text-[var(--app-text-primary)]"
+                                  : "border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+                              }`}
+                            >
+                              <span className="font-medium">{guide.title}</span>
+                              <span className="text-[10px] opacity-70">{guide.text.trim().length} chars</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {selectedGuide ? (
+                      <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 md:p-5 space-y-3">
+                        <div className="text-[15px] font-semibold">{selectedGuide.title}</div>
+                        <div className="text-[12px] text-[var(--app-text-secondary)] whitespace-pre-wrap leading-relaxed">
+                          {selectedGuide.text}
                         </div>
                       </div>
-                    ))}
+                    ) : null}
                   </div>
                 ) : (
                   <div className="text-[12px] text-[var(--app-text-secondary)]">
@@ -211,6 +242,8 @@ export const UnderstandingPanel: React.FC<Props> = ({
                   </div>
                 )}
               </>
+            ) : (
+              <div className="text-[12px] text-[var(--app-text-secondary)]">No content.</div>
             )}
           </div>
         )}

@@ -686,7 +686,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className={sectionEyebrowClass}>IO</div>
-                    <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">用标签切换导入、指南与导出。</div>
+                    <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">用标签切换导入、理解指南与导出。</div>
                   </div>
                   <div className="flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-1">
                     <button
@@ -701,7 +701,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                       onClick={() => setIoPane("guides")}
                       className={`${compactTabClass} ${ioPane === "guides" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
                     >
-                      Guides
+                      Understanding
                     </button>
                     <button
                       type="button"

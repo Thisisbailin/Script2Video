@@ -12,7 +12,7 @@ const searchProjectResourceParameters = {
       type: "array",
       items: {
         type: "string",
-        enum: ["script", "understanding", "characters", "scenes"],
+        enum: ["script", "understanding", "characters", "scenes", "guides"],
       },
       description: "Optional scopes to search. Defaults to all supported scopes.",
     },
@@ -32,7 +32,7 @@ const searchProjectResourceParameters = {
   required: ["query"],
 } as const;
 
-type Scope = "script" | "understanding" | "characters" | "scenes";
+type Scope = "script" | "understanding" | "characters" | "scenes" | "guides";
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -73,15 +73,15 @@ const parseArgs = (input: unknown) => {
     ? raw.resource_scopes.map((item) => String(item))
     : Array.isArray(raw.resourceScopes)
       ? (raw.resourceScopes as unknown[]).map((item) => String(item))
-      : ["script", "understanding", "characters", "scenes"];
+      : ["script", "understanding", "characters", "scenes", "guides"];
 
   const normalizedScopes = scopes.filter((scope): scope is Scope =>
-    ["script", "understanding", "characters", "scenes"].includes(scope)
+    ["script", "understanding", "characters", "scenes", "guides"].includes(scope)
   );
 
   return {
     query,
-    scopes: normalizedScopes.length ? normalizedScopes : (["script", "understanding", "characters", "scenes"] as Scope[]),
+    scopes: normalizedScopes.length ? normalizedScopes : (["script", "understanding", "characters", "scenes", "guides"] as Scope[]),
     episodeId: toPositiveInteger(raw.episode_id ?? raw.episodeId),
     maxMatches: Math.max(1, Math.min(20, toPositiveInteger(raw.max_matches ?? raw.maxMatches) || 8)),
     maxChars: Math.max(120, Math.min(1200, toPositiveInteger(raw.max_chars ?? raw.maxChars) || 320)),
@@ -186,13 +186,35 @@ const searchProject = (data: ProjectData, args: ReturnType<typeof parseArgs>) =>
     pushSceneMatches(matches, data.context?.locations || [], args.query, args.maxMatches, radius);
   }
 
+  if (matches.length < args.maxMatches && args.scopes.includes("guides")) {
+    const guides = [
+      { itemId: "globalStyleGuide", title: "Style Guide", text: data.globalStyleGuide || "" },
+      { itemId: "shotGuide", title: "Shot Guide", text: data.shotGuide || "" },
+      { itemId: "soraGuide", title: "Sora Guide", text: data.soraGuide || "" },
+      { itemId: "storyboardGuide", title: "Storyboard Guide", text: data.storyboardGuide || "" },
+      { itemId: "dramaGuide", title: "Drama Guide", text: data.dramaGuide || "" },
+    ];
+    for (const guide of guides) {
+      if (matches.length >= args.maxMatches) break;
+      const haystack = [guide.title, guide.text].filter(Boolean).join(" ");
+      if (haystack && includesQuery(haystack, args.query)) {
+        matches.push({
+          scope: "guide_document",
+          itemId: guide.itemId,
+          guideTitle: guide.title,
+          snippet: buildSnippet(haystack, args.query, radius),
+        });
+      }
+    }
+  }
+
   return matches;
 };
 
 export const searchProjectResourceToolDef = {
   name: "search_project_resource",
   description:
-    "Search script and understanding resources when the exact locator is unknown. Supports script, understanding, characters, and scenes scopes.",
+    "Search script and understanding resources when the exact locator is unknown. Supports script, understanding, characters, scenes, and guides scopes.",
   parameters: searchProjectResourceParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);

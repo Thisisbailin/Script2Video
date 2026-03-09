@@ -73,18 +73,13 @@ export const buildAssistantChatMessage = (text: string): ChatMessage => {
 };
 
 export const inferRequestedOutcome = (
-  text: string,
-  forcedMode: "auto" | "chat" | "work"
+  text: string
 ): Script2VideoRunInput["requestedOutcome"] => {
-  if (forcedMode === "chat") return "answer";
   const lowered = text.trim().toLowerCase();
   if (NODE_WORKFLOW_HINTS.some((hint) => lowered.includes(hint.toLowerCase()))) {
     return "node_workflow";
   }
-  if (
-    forcedMode === "work" ||
-    UNDERSTANDING_DOCUMENT_HINTS.some((hint) => lowered.includes(hint.toLowerCase()))
-  ) {
+  if (UNDERSTANDING_DOCUMENT_HINTS.some((hint) => lowered.includes(hint.toLowerCase()))) {
     return "understanding_document";
   }
   return "auto";

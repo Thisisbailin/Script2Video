@@ -14,6 +14,7 @@ const readProjectResourceParameters = {
         "episode_summary",
         "character_profile",
         "scene_profile",
+        "guide_document",
       ],
       description: "Which project resource to read.",
     },
@@ -51,7 +52,8 @@ type ResourceType =
   | "project_summary"
   | "episode_summary"
   | "character_profile"
-  | "scene_profile";
+  | "scene_profile"
+  | "guide_document";
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -93,6 +95,7 @@ const parseArgs = (input: unknown) => {
       "episode_summary",
       "character_profile",
       "scene_profile",
+      "guide_document",
     ].includes(resourceType)
   ) {
     throw new Error(`read_project_resource 不支持 resource_type=${resourceType}`);
@@ -106,7 +109,7 @@ const parseArgs = (input: unknown) => {
     throw new Error("scene_script 需要 scene_id，或同时提供 episode_id 和 scene_index。");
   }
 
-  if ((resourceType === "character_profile" || resourceType === "scene_profile") && !itemId && !name) {
+  if ((resourceType === "character_profile" || resourceType === "scene_profile" || resourceType === "guide_document") && !itemId && !name) {
     throw new Error(`${resourceType} 需要 item_id 或 name。`);
   }
 
@@ -236,6 +239,31 @@ export const readProjectResourceToolDef = {
           };
     }
 
+    if (args.resourceType === "guide_document") {
+      const guides = [
+        { item_id: "globalStyleGuide", title: "Style Guide", text: data.globalStyleGuide || "" },
+        { item_id: "shotGuide", title: "Shot Guide", text: data.shotGuide || "" },
+        { item_id: "soraGuide", title: "Sora Guide", text: data.soraGuide || "" },
+        { item_id: "storyboardGuide", title: "Storyboard Guide", text: data.storyboardGuide || "" },
+        { item_id: "dramaGuide", title: "Drama Guide", text: data.dramaGuide || "" },
+      ];
+      const item = guides.find((guide) => guide.item_id === args.itemId || guide.title === args.name);
+      return item
+        ? {
+            resource_type: "guide_document",
+            found: true,
+            item_id: item.item_id,
+            title: item.title,
+            content: clipText(item.text.trim(), args.maxChars),
+          }
+        : {
+            resource_type: "guide_document",
+            found: false,
+            item_id: args.itemId || null,
+            name: args.name || null,
+          };
+    }
+
     const item = (data.context?.locations || []).find(
       (location) => location.id === args.itemId || location.name === args.name
     );
@@ -271,6 +299,8 @@ export const readProjectResourceToolDef = {
         return output?.found ? `已读取角色档案 ${output?.name || ""}`.trim() : "未找到目标角色档案";
       case "scene_profile":
         return output?.found ? `已读取场景档案 ${output?.name || ""}`.trim() : "未找到目标场景档案";
+      case "guide_document":
+        return output?.found ? `已读取理解指南 ${output?.title || ""}`.trim() : "未找到目标理解指南";
       default:
         return "已读取项目资源";
     }

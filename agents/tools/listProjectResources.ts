@@ -11,6 +11,7 @@ const listProjectResourcesParameters = {
         "understanding_episodes",
         "understanding_characters",
         "understanding_scenes",
+        "understanding_guides",
       ],
       description: "Which resource directory to inspect.",
     },
@@ -36,7 +37,8 @@ type ResourceType =
   | "understanding_project"
   | "understanding_episodes"
   | "understanding_characters"
-  | "understanding_scenes";
+  | "understanding_scenes"
+  | "understanding_guides";
 
 const parseArgs = (input: unknown) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -55,6 +57,7 @@ const parseArgs = (input: unknown) => {
       "understanding_episodes",
       "understanding_characters",
       "understanding_scenes",
+      "understanding_guides",
     ].includes(resourceType)
   ) {
     throw new Error(`list_project_resources 不支持 resource_type=${resourceType}`);
@@ -136,6 +139,28 @@ export const listProjectResourcesToolDef = {
       };
     }
 
+    if (args.resourceType === "understanding_guides") {
+      const items = [
+        { item_id: "globalStyleGuide", title: "Style Guide", text: data.globalStyleGuide || "" },
+        { item_id: "shotGuide", title: "Shot Guide", text: data.shotGuide || "" },
+        { item_id: "soraGuide", title: "Sora Guide", text: data.soraGuide || "" },
+        { item_id: "storyboardGuide", title: "Storyboard Guide", text: data.storyboardGuide || "" },
+        { item_id: "dramaGuide", title: "Drama Guide", text: data.dramaGuide || "" },
+      ]
+        .filter((item) => item.text.trim().length > 0)
+        .slice(0, args.maxItems)
+        .map((item) => ({
+          item_id: item.item_id,
+          title: item.title,
+          chars: item.text.trim().length,
+        }));
+      return {
+        resource_type: "understanding_guides",
+        total: items.length,
+        items,
+      };
+    }
+
     const items = (data.context?.locations || []).slice(0, args.maxItems).map((location) => ({
       id: location.id,
       name: location.name,
@@ -162,6 +187,9 @@ export const listProjectResourcesToolDef = {
     }
     if (output?.resource_type === "understanding_characters") {
       return `已列出角色理解目录，共 ${output?.total ?? 0} 项`;
+    }
+    if (output?.resource_type === "understanding_guides") {
+      return `已列出理解指南目录，共 ${output?.total ?? 0} 项`;
     }
     return `已列出场景理解目录，共 ${output?.total ?? 0} 项`;
   },
