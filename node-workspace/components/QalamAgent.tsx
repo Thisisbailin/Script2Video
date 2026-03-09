@@ -444,6 +444,10 @@ export const QalamAgent: React.FC<Props> = ({
       .map((name) => mentionIndex.get(toSearch(name)) || null)
       .filter(Boolean) as Array<{ kind: "character" | "location"; name: string; label: string; id?: string }>;
   }, [input, mentionIndex]);
+  const currentModelLabel = useMemo(() => {
+    const raw = config.textConfig?.model?.trim();
+    return raw || "model";
+  }, [config.textConfig?.model]);
   const canSend = input.trim().length > 0 && !isSending;
   const resizeInput = useCallback((el?: HTMLTextAreaElement | null) => {
     if (!el) return;
