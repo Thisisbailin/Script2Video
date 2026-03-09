@@ -736,7 +736,7 @@ const renderStatusLine = (message: StatusMessage) => {
         </span>
       </summary>
       {renderFoldoutSurface(
-        "思考摘要",
+        status.isThinking ? "思考摘要" : "进度详情",
         <>
           {status.summary ? <div className="whitespace-pre-wrap text-[var(--app-text-secondary)]">{status.summary}</div> : null}
           {!status.summary && status.detail ? (
@@ -764,9 +764,11 @@ const renderStatusLine = (message: StatusMessage) => {
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="text-[12px] text-[var(--app-text-secondary)]">当前尚未产生更多可展示的思考摘要。</div>
-          )}
+          ) : !status.summary && !status.detail ? (
+            <div className="text-[12px] text-[var(--app-text-secondary)]">
+              {status.isThinking ? "当前尚未产生更多可展示的思考摘要。" : "当前尚未产生更多可展示的进度详情。"}
+            </div>
+          ) : null}
         </>,
         `${status.status === "running" ? "处理中" : status.status === "success" ? "已完成" : "失败"} · ${status.isThinking ? "思考中" : "待机"}`
       )}
@@ -878,7 +880,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending }) => {
       }
 
       if (isStatusMessage(message)) {
-        items.push({ kind: "status", key: `${message.statusCard.runId}-${i}`, order: message.order || i, message });
+        items.push({ kind: "status", key: message.statusCard.id || `${message.statusCard.runId}-${i}`, order: message.order || i, message });
         continue;
       }
 

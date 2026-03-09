@@ -183,6 +183,16 @@ const extractTextFromResponseOutput = (output: unknown): string => {
   return parts.join("\n").trim();
 };
 
+const unwrapProviderEvent = (data: any) => {
+  if (data && typeof data === "object" && data.event && typeof data.event === "object") {
+    return data.event;
+  }
+  if (data && typeof data === "object" && data.providerData && typeof data.providerData === "object") {
+    return data.providerData;
+  }
+  return data;
+};
+
 const extractReasoningSummaryFromResponseOutput = (output: unknown): string => {
   if (!output || !Array.isArray(output)) return "";
   const parts: string[] = [];
@@ -442,41 +452,42 @@ export const createScript2VideoAgentRuntime = ({
             return;
           }
           if (streamEvent.type === "raw_model_stream_event") {
-            const rawType = (streamEvent.data as any)?.type || "raw_event";
+            const providerEvent = unwrapProviderEvent((streamEvent.data as any));
+            const rawType = providerEvent?.type || (streamEvent.data as any)?.type || "raw_event";
             if (rawType === "response_started") {
-              debugLog(runId, "raw response_started", (streamEvent.data as any)?.providerData || streamEvent.data);
+              debugLog(runId, "raw response_started", providerEvent);
             }
-            if (rawType === "output_text_delta" && typeof (streamEvent.data as any)?.delta === "string") {
-              streamedTextDelta += (streamEvent.data as any).delta;
+            if (rawType === "output_text_delta" && typeof providerEvent?.delta === "string") {
+              streamedTextDelta += providerEvent.delta;
               options?.onEvent?.({
                 type: "message_delta",
                 runId,
-                delta: (streamEvent.data as any).delta,
+                delta: providerEvent.delta,
                 accumulatedText: streamedTextDelta,
               });
               debugLog(runId, "raw output_text_delta", {
-                delta: (streamEvent.data as any).delta,
+                delta: providerEvent.delta,
                 accumulated: streamedTextDelta,
-                providerData: (streamEvent.data as any)?.providerData,
+                providerData: providerEvent,
               });
             }
             if (
               (rawType === "response.reasoning_summary_text.delta" || rawType === "reasoning_summary_text.delta") &&
-              typeof (streamEvent.data as any)?.delta === "string"
+              typeof providerEvent?.delta === "string"
             ) {
-              streamedReasoningText += (streamEvent.data as any).delta;
+              streamedReasoningText += providerEvent.delta;
               options?.onEvent?.({
                 type: "reasoning_delta",
                 runId,
-                delta: (streamEvent.data as any).delta,
+                delta: providerEvent.delta,
                 accumulatedText: streamedReasoningText,
               });
             }
             if (
               (rawType === "response.reasoning_summary_text.done" || rawType === "reasoning_summary_text.done") &&
-              typeof (streamEvent.data as any)?.text === "string"
+              typeof providerEvent?.text === "string"
             ) {
-              streamedReasoningText = (streamEvent.data as any).text || streamedReasoningText;
+              streamedReasoningText = providerEvent.text || streamedReasoningText;
               options?.onEvent?.({
                 type: "reasoning_completed",
                 runId,
@@ -484,7 +495,7 @@ export const createScript2VideoAgentRuntime = ({
               });
             }
             if (rawType === "response_done") {
-              const responsePayload = (streamEvent.data as any)?.response;
+              const responsePayload = providerEvent?.response || (streamEvent.data as any)?.response;
               debugLog(runId, "raw response_done", responsePayload);
               const candidate = extractTextFromResponseOutput(responsePayload?.output);
               if (candidate) {
@@ -501,7 +512,7 @@ export const createScript2VideoAgentRuntime = ({
               }
             }
             if (rawType === "model") {
-              debugLog(runId, "raw model event", (streamEvent.data as any)?.event || streamEvent.data);
+              debugLog(runId, "raw model event", providerEvent);
             }
             emitTrace("model", "info", `Raw event: ${rawType}`);
           }

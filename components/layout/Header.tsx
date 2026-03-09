@@ -626,30 +626,13 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
   const actionButtonClass = (tone: ActionTone) => {
     switch (tone) {
       case "primary":
-        return "border border-emerald-400/30 bg-emerald-500/90 text-white hover:bg-emerald-400 active:translate-y-px";
+        return "bg-emerald-500/90 text-white hover:bg-emerald-400";
       case "secondary":
-        return "border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] active:translate-y-px";
+        return "border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)]";
       default:
-        return "border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+        return "border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]";
     }
   };
-
-  const phaseCardClass =
-    "rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-3.5 space-y-3";
-
-  const phaseMeta = {
-    1: { title: "剧本理解", desc: "先完成项目概览、角色与场景理解。" },
-    2: { title: "Shot Lists", desc: "逐集确认镜头清单，作为后续生成基础。" },
-    3: { title: "Sora Prompts", desc: "根据镜头结果生成视频提示词。" },
-    4: { title: "Storyboard Prompts", desc: "补齐分镜提示词与画面规划。" },
-  } as const;
-
-  const phaseTabs = [
-    { key: 1 as const, label: "Phase 1", meta: phase1Progress, status: phase1Status },
-    { key: 2 as const, label: "Phase 2", meta: phase2Progress, status: phase2Status },
-    { key: 3 as const, label: "Phase 3", meta: phase3Progress, status: phase3Status },
-    { key: 4 as const, label: "Phase 4", meta: phase4Progress, status: phase4Status },
-  ];
 
   useEffect(() => {
     if (step === WorkflowStep.GENERATE_SHOTS) {
@@ -664,96 +647,66 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
   }, [step]);
 
   return (
-    <div className="flex w-[480px] max-h-[calc(100vh-132px)] flex-col overflow-hidden rounded-[28px] app-panel">
-      <div className="border-b border-[var(--app-border)] px-4 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(122,183,160,0.18),rgba(122,183,160,0.06))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              <Layers size={16} className="text-emerald-200" />
-            </div>
-            <div className="space-y-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--app-text-secondary)]">Workflow</div>
-              <div className="text-[18px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">流程面板</div>
-              <div className="text-[12px] leading-5 text-[var(--app-text-secondary)]">{focusLabel}</div>
-            </div>
+    <div className="w-[460px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl app-panel flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-teal-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
+            <Layers size={16} className="text-emerald-200" />
           </div>
-          {onClose && (
+          <div>
+            <div className="text-sm font-semibold text-[var(--app-text-primary)]">Workflow</div>
+            <div className="text-[11px] text-[var(--app-text-muted)]">{focusLabel}</div>
+          </div>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
+            title="关闭"
+          >
+            <X size={14} className="mx-auto text-[var(--app-text-secondary)]" />
+          </button>
+        )}
+      </div>
+      <div className="px-4 pt-3 pb-2 flex items-center gap-2 overflow-x-auto">
+        {[
+          { key: 1 as const, label: "Phase 1", meta: phase1Progress },
+          { key: 2 as const, label: "Phase 2", meta: phase2Progress },
+          { key: 3 as const, label: "Phase 3", meta: phase3Progress },
+          { key: 4 as const, label: "Phase 4", meta: phase4Progress },
+        ].map((tab) => {
+          const active = activePhase === tab.key;
+          return (
             <button
-              onClick={onClose}
-              className="h-9 w-9 rounded-full border border-[var(--app-border)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)]"
-              title="关闭"
+              key={tab.key}
+              type="button"
+              onClick={() => setActivePhase(tab.key)}
+              className={`px-3 py-1.5 rounded-full text-[11px] uppercase tracking-wide border transition whitespace-nowrap ${
+                active
+                  ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                  : "border-[var(--app-border)] text-[var(--app-text-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
+              }`}
             >
-              <X size={14} className="mx-auto text-[var(--app-text-secondary)]" />
+              {tab.label} ({tab.meta})
             </button>
-          )}
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Episodes</div>
-            <div className="mt-1 text-[15px] font-semibold text-[var(--app-text-primary)]">{totalEpisodes}</div>
-          </div>
-          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Current</div>
-            <div className="mt-1 truncate text-[13px] font-semibold text-[var(--app-text-primary)]">{`P${activePhase}`}</div>
-          </div>
-          <div className="rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">State</div>
-            <div className={`mt-1 text-[13px] font-semibold ${isProcessing ? "text-emerald-300" : "text-[var(--app-text-primary)]"}`}>
-              {isProcessing ? "Processing" : "Ready"}
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
-
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
-          {phaseTabs.map((tab) => {
-            const active = activePhase === tab.key;
-            const tone = phaseTone(tab.status);
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActivePhase(tab.key)}
-                className={`min-w-[118px] whitespace-nowrap rounded-[20px] border px-3 py-2.5 text-left transition ${
-                  active
-                    ? "border-[var(--app-border-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                    : "border-[var(--app-border)] bg-[var(--app-panel-muted)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--app-text-primary)]">{tab.label}</span>
-                  <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                </div>
-                <div className="mt-2 flex items-end justify-between gap-2">
-                  <span className="text-[14px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{tab.meta}</span>
-                  <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-3 overflow-y-auto px-4 pb-4">
+      <div className="px-4 pb-4 space-y-3 overflow-y-auto">
         {activePhase === 1 && (
-          <div className={phaseCardClass}>
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                  <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase1Status).dot}`} />
-                  Phase 1 · {phaseMeta[1].title}
-                </div>
-                <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">{phaseMeta[1].desc}</div>
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase1Status).dot}`} />
+                Phase 1 · 剧本理解
               </div>
-              <span className={`rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
+              <span className={`text-[10px] ${phaseTone(phase1Status).tag}`}>{phaseTone(phase1Status).text}</span>
             </div>
             <div className="space-y-2">
               {analysisItems.map((item, index) => {
                 const status = getAnalysisItemStatus(item.step, index);
                 const meta = getAnalysisItemMeta(item.step);
                 const tone = itemTone(status);
-                const isFocused = step === WorkflowStep.SETUP_CONTEXT && analysisStep === item.step;
                 return (
                   <button
                     key={item.step}
@@ -763,24 +716,22 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setAnalysisStep(item.step);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-[18px] border px-3 py-2.5 text-[12px] transition ${itemRowClass(status)} ${
-                      isFocused ? "ring-1 ring-[var(--app-border-strong)]" : ""
-                    } ${isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)] active:translate-y-px"}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
-                    <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-[var(--app-text-primary)]">{item.label}</div>
-                        {meta && <div className="mt-0.5 truncate text-[10px] text-[var(--app-text-muted)]">{meta}</div>}
-                      </div>
+                      <div className="truncate font-medium">{item.label}</div>
+                      {meta && <span className="text-[10px] text-[var(--app-text-muted)]">{meta}</span>}
                     </div>
-                    <span className={`ml-3 shrink-0 text-[10px] ${tone.tag}`}>{tone.text}</span>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
             {analysisError && (
-              <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
                 当前步骤失败：{analysisError.message}
               </div>
             )}
@@ -788,25 +739,20 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
         )}
 
         {activePhase === 2 && (
-          <div className={phaseCardClass}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                  <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase2Status).dot}`} />
-                  Phase 2 · {phaseMeta[2].title}
-                </div>
-                <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">{phaseMeta[2].desc}</div>
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase2Status).dot}`} />
+                Phase 2 · Shot Lists
               </div>
               <div className="flex items-center gap-2">
-                {reviewShots > 0 && <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-200">待确认 {reviewShots}</span>}
-                <span className={`rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
+                {reviewShots > 0 && <span className="text-[10px] text-amber-200">待确认 {reviewShots}</span>}
+                <span className={`text-[10px] ${phaseTone(phase2Status).tag}`}>{phaseTone(phase2Status).text}</span>
               </div>
             </div>
             <div className="max-h-56 overflow-auto pr-1 space-y-2">
               {episodes.length === 0 && (
-                <div className="rounded-[18px] border border-dashed border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[11px] text-[var(--app-text-muted)]">
-                  暂无剧集，导入脚本后可生成。
-                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)] px-2 py-2">暂无剧集，导入脚本后可生成。</div>
               )}
               {episodes.map((episode, index) => {
                 const status = getPhase2ItemStatus(episode, index);
@@ -817,7 +763,6 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                     : episode.shots.length > 0
                       ? `镜头 ${episode.shots.length}`
                       : "未生成镜头";
-                const isFocused = step === WorkflowStep.GENERATE_SHOTS && index === currentEpIndex;
                 return (
                   <button
                     key={episode.id}
@@ -827,24 +772,22 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setCurrentEpIndex(index);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-[18px] border px-3 py-2.5 text-[12px] transition ${itemRowClass(status)} ${
-                      isFocused ? "ring-1 ring-[var(--app-border-strong)]" : ""
-                    } ${isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)] active:translate-y-px"}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
-                    <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-[var(--app-text-primary)]">{episode.title || `第${episode.id}集`}</div>
-                        <div className="mt-0.5 truncate text-[10px] text-[var(--app-text-muted)]">{meta}</div>
-                      </div>
+                      <div className="truncate font-medium">{episode.title || `第${episode.id}集`}</div>
+                      <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[140px]">{meta}</span>
                     </div>
-                    <span className={`ml-3 shrink-0 text-[10px] ${tone.tag}`}>{tone.text}</span>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
             {currentEpisodeError && step === WorkflowStep.GENERATE_SHOTS && (
-              <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
                 当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
               </div>
             )}
@@ -852,22 +795,17 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
         )}
 
         {activePhase === 3 && (
-          <div className={phaseCardClass}>
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                  <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase3Status).dot}`} />
-                  Phase 3 · {phaseMeta[3].title}
-                </div>
-                <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">{phaseMeta[3].desc}</div>
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase3Status).dot}`} />
+                Phase 3 · Sora Prompts
               </div>
-              <span className={`rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
+              <span className={`text-[10px] ${phaseTone(phase3Status).tag}`}>{phaseTone(phase3Status).text}</span>
             </div>
             <div className="max-h-56 overflow-auto pr-1 space-y-2">
               {episodes.length === 0 && (
-                <div className="rounded-[18px] border border-dashed border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[11px] text-[var(--app-text-muted)]">
-                  暂无剧集，先完成 Phase 2。
-                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)] px-2 py-2">暂无剧集，先完成 Phase 2。</div>
               )}
               {episodes.map((episode, index) => {
                 const status = getPhase3ItemStatus(episode, index);
@@ -878,7 +816,6 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                     : episode.shots.length === 0
                       ? "未生成镜头"
                       : `镜头 ${episode.shots.length}`;
-                const isFocused = step === WorkflowStep.GENERATE_SORA && index === currentEpIndex;
                 return (
                   <button
                     key={episode.id}
@@ -888,24 +825,22 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setCurrentEpIndex(index);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-[18px] border px-3 py-2.5 text-[12px] transition ${itemRowClass(status)} ${
-                      isFocused ? "ring-1 ring-[var(--app-border-strong)]" : ""
-                    } ${isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)] active:translate-y-px"}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-[var(--app-text-primary)]">{episode.title || `第${episode.id}集`}</div>
-                        <div className="mt-0.5 truncate text-[10px] text-[var(--app-text-muted)]">{meta}</div>
-                      </div>
+                      <div className="truncate font-medium">{episode.title || `第${episode.id}集`}</div>
+                      <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[140px]">{meta}</span>
                     </div>
-                    <span className={`ml-3 shrink-0 text-[10px] ${tone.tag}`}>{tone.text}</span>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
             {currentEpisodeError && step === WorkflowStep.GENERATE_SORA && (
-              <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
                 当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
               </div>
             )}
@@ -913,22 +848,17 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
         )}
 
         {activePhase === 4 && (
-          <div className={phaseCardClass}>
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
-                  <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase4Status).dot}`} />
-                  Phase 4 · {phaseMeta[4].title}
-                </div>
-                <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">{phaseMeta[4].desc}</div>
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--app-text-primary)]">
+                <span className={`h-2.5 w-2.5 rounded-full ${phaseTone(phase4Status).dot}`} />
+                Phase 4 · Storyboard Prompts
               </div>
-              <span className={`rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-[10px] ${phaseTone(phase4Status).tag}`}>{phaseTone(phase4Status).text}</span>
+              <span className={`text-[10px] ${phaseTone(phase4Status).tag}`}>{phaseTone(phase4Status).text}</span>
             </div>
             <div className="max-h-56 overflow-auto pr-1 space-y-2">
               {episodes.length === 0 && (
-                <div className="rounded-[18px] border border-dashed border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3 text-[11px] text-[var(--app-text-muted)]">
-                  暂无剧集，先完成 Phase 2。
-                </div>
+                <div className="text-[11px] text-[var(--app-text-muted)] px-2 py-2">暂无剧集，先完成 Phase 2。</div>
               )}
               {episodes.map((episode, index) => {
                 const status = getPhase4ItemStatus(episode, index);
@@ -939,7 +869,6 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                     : episode.shots.length === 0
                       ? "未生成镜头"
                       : `镜头 ${episode.shots.length}`;
-                const isFocused = step === WorkflowStep.GENERATE_STORYBOARD && index === currentEpIndex;
                 return (
                   <button
                     key={episode.id}
@@ -949,35 +878,33 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                       setCurrentEpIndex(index);
                     }}
                     disabled={isProcessing}
-                    className={`w-full text-left flex items-center justify-between rounded-[18px] border px-3 py-2.5 text-[12px] transition ${itemRowClass(status)} ${
-                      isFocused ? "ring-1 ring-[var(--app-border-strong)]" : ""
-                    } ${isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)] active:translate-y-px"}`}
+                    className={`w-full text-left flex items-center justify-between rounded-xl border px-3 py-2 text-[12px] transition ${itemRowClass(status)} ${
+                      isProcessing ? "cursor-not-allowed opacity-60" : "hover:border-[var(--app-border-strong)]"
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className={`h-2 w-2 rounded-full ${tone.dot}`} />
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-[var(--app-text-primary)]">{episode.title || `第${episode.id}集`}</div>
-                        <div className="mt-0.5 truncate text-[10px] text-[var(--app-text-muted)]">{meta}</div>
-                      </div>
+                      <div className="truncate font-medium">{episode.title || `第${episode.id}集`}</div>
+                      <span className="text-[10px] text-[var(--app-text-muted)] truncate max-w-[140px]">{meta}</span>
                     </div>
-                    <span className={`ml-3 shrink-0 text-[10px] ${tone.tag}`}>{tone.text}</span>
+                    <span className={`text-[10px] ${tone.tag}`}>{tone.text}</span>
                   </button>
                 );
               })}
             </div>
             {currentEpisodeError && step === WorkflowStep.GENERATE_STORYBOARD && (
-              <div className="rounded-[18px] border border-rose-400/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+              <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-2 text-[11px] text-rose-200">
                 当前集失败：{currentEpisode?.errorMsg || "Unknown error"}
               </div>
             )}
           </div>
         )}
 
-        <div className="rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-3.5 space-y-3">
+        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-2">
           <div className="flex items-center justify-between text-[11px] text-[var(--app-text-secondary)]">
-            <span className="truncate">当前：{focusLabel}</span>
-            <span className={`rounded-full border px-2.5 py-1 ${isProcessing ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-300" : "border-[var(--app-border)] bg-[rgba(255,255,255,0.03)] text-[var(--app-text-muted)]"}`}>
-              {isProcessing ? "处理中" : "就绪"}
+            <span>当前：{focusLabel}</span>
+            <span className={isProcessing ? "text-emerald-300" : "text-[var(--app-text-muted)]"}>
+              {isProcessing ? "处理中..." : "就绪"}
             </span>
           </div>
           {actionButtons.length > 0 ? (
@@ -987,14 +914,14 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
                   key={action.label}
                   onClick={action.onClick}
                   disabled={action.disabled}
-                  className={`min-w-[120px] flex-1 rounded-full px-3 py-2.5 text-[11px] font-semibold transition ${actionButtonClass(action.tone)} disabled:opacity-60 disabled:cursor-not-allowed`}
+                  className={`flex-1 min-w-[110px] px-3 py-2 rounded-full text-[11px] font-semibold transition ${actionButtonClass(action.tone)} disabled:opacity-60 disabled:cursor-not-allowed`}
                 >
                   {action.label}
                 </button>
               ))}
             </div>
           ) : (
-            <div className="text-[11px] leading-5 text-[var(--app-text-secondary)]">
+            <div className="text-[11px] text-[var(--app-text-secondary)]">
               {step === WorkflowStep.COMPLETED
                 ? "流程已完成，可前往 Video Studio 或导出结果。"
                 : totalEpisodes === 0

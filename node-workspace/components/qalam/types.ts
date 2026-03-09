@@ -36,6 +36,7 @@ export type StatusStep = {
 };
 
 export type StatusPayload = {
+  id: string;
   runId: string;
   status: TraceStatus;
   headline: string;
