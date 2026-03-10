@@ -8,6 +8,12 @@ export const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: s
       return { inputs: [], outputs: ["text"] };
     case "text":
       return { inputs: ["text"], outputs: ["text"] };
+    case "scriptBoard":
+      return { inputs: [], outputs: ["text"] };
+    case "storyboardBoard":
+      return { inputs: [], outputs: ["text"] };
+    case "identityCard":
+      return { inputs: [], outputs: ["text"] };
     case "imageGen":
       return { inputs: ["image", "text"], outputs: ["image"] };
     case "wanImageGen":
@@ -15,6 +21,7 @@ export const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: s
     case "soraVideoGen":
       return { inputs: ["image", "text"], outputs: [] };
     case "wanVideoGen":
+    case "wanReferenceVideoGen":
       return { inputs: ["image", "text"], outputs: [] };
     default:
       return { inputs: [], outputs: [] };

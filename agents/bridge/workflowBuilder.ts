@@ -24,6 +24,7 @@ const NODE_DIMENSIONS: Record<CreateNodeWorkflowNodeInput["type"], { width: numb
   wanImageGen: { width: 320, height: 420 },
   soraVideoGen: { width: 320, height: 360 },
   wanVideoGen: { width: 320, height: 360 },
+  wanReferenceVideoGen: { width: 340, height: 460 },
   viduVideoGen: { width: 320, height: 420 },
 };
 
@@ -37,6 +38,7 @@ const NODE_HANDLES: Record<CreateNodeWorkflowNodeInput["type"], { inputs: string
   wanImageGen: { inputs: ["image", "text"], outputs: ["image"] },
   soraVideoGen: { inputs: ["image", "text"], outputs: [] },
   wanVideoGen: { inputs: ["image", "text"], outputs: [] },
+  wanReferenceVideoGen: { inputs: ["image", "text"], outputs: [] },
   viduVideoGen: { inputs: ["image", "text"], outputs: [] },
 };
 

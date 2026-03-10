@@ -14,6 +14,9 @@ import {
   NodeType,
   ImageInputNodeData,
   AnnotationNodeData,
+  ScriptBoardNodeData,
+  StoryboardBoardNodeData,
+  IdentityCardNodeData,
   TextNodeData,
   ImageGenNodeData,
   WorkflowNodeData,
@@ -27,6 +30,7 @@ import {
   WorkflowViewport,
   WorkflowTemplate,
 } from "../types";
+import type { Character, DesignAssetItem, Episode, Location, Scene } from "../../types";
 
 export type { GlobalAssetHistoryItem, GlobalAssetType };
 
@@ -372,6 +376,117 @@ const normalizeGroupBindings = (nodes: WorkflowNode[], edges: WorkflowEdge[]) =>
   return nodes;
 };
 
+const truncateText = (value: string, limit: number) => {
+  const normalized = value.trim();
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit)}...`;
+};
+
+const findEpisodeBySceneId = (episodes: Episode[], sceneId?: string) =>
+  episodes.find((episode) => episode.scenes.some((scene) => scene.id === sceneId));
+
+const buildSceneLabel = (scene: Scene, index: number) =>
+  `场景 ${index + 1} · ${scene.id}${scene.title ? ` · ${scene.title}` : ""}`;
+
+const buildScriptBoardText = (data: ScriptBoardNodeData, episodes: Episode[]) => {
+  if (!episodes.length) return null;
+  const episode = episodes.find((item) => item.id === data.episodeId) ?? episodes[0];
+  if (!episode) return null;
+  const blocks = episode.scenes.map((scene, index) => {
+    const header = buildSceneLabel(scene, index);
+    return `${header}\n${scene.content?.trim() || "暂无场景正文"}`;
+  });
+  return [`剧本卡片：第${episode.id}集`, episode.summary ? `分集概述：${episode.summary}` : "", ...blocks]
+    .filter(Boolean)
+    .join("\n\n");
+};
+
+const buildStoryboardBoardText = (data: StoryboardBoardNodeData, episodes: Episode[]) => {
+  if (!episodes.length) return null;
+  const episode =
+    episodes.find((item) => item.id === data.episodeId) ??
+    findEpisodeBySceneId(episodes, data.sceneId) ??
+    episodes[0];
+  if (!episode) return null;
+  const scene =
+    episode.scenes.find((item) => item.id === data.sceneId) ??
+    episode.scenes[0];
+  if (!scene) return null;
+  const sceneShots = episode.shots.filter((shot) => shot.id.startsWith(`${scene.id}-`));
+  const rows = sceneShots.map((shot, index) => {
+    const parts = [
+      `镜头 ${index + 1}（${shot.id}）`,
+      shot.shotType ? `景别：${shot.shotType}` : "",
+      shot.duration ? `时长：${shot.duration}` : "",
+      shot.movement ? `运镜：${shot.movement}` : "",
+      shot.description ? `描述：${shot.description}` : "",
+      shot.dialogue ? `台词：${shot.dialogue}` : "",
+    ].filter(Boolean);
+    return parts.join("｜");
+  });
+  return [
+    `分镜表格卡片：第${episode.id}集 ${scene.title || scene.id}`,
+    scene.content ? `场景正文：${truncateText(scene.content, 360)}` : "",
+    rows.length ? rows.join("\n") : "当前场景暂无分镜表数据。",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+};
+
+const buildCharacterAssetPreview = (character: Character, designAssets: DesignAssetItem[]) => {
+  const formAssets = (character.forms || []).flatMap((form) =>
+    designAssets.filter((asset) => asset.category === "form" && asset.refId === `${character.id}|${form.id}`)
+  );
+  if (!formAssets.length) return "";
+  const labels = formAssets.slice(0, 3).map((asset) => asset.label || asset.id);
+  return `已有关联设计资产：${labels.join("、")}`;
+};
+
+const buildSceneAssetPreview = (location: Location, designAssets: DesignAssetItem[]) => {
+  const zoneIds = new Set((location.zones || []).map((zone) => zone.id));
+  const zoneAssets = designAssets.filter(
+    (asset) =>
+      asset.category === "zone" &&
+      (zoneIds.has(asset.refId) || Array.from(zoneIds).some((zoneId) => asset.refId.includes(zoneId)))
+  );
+  if (!zoneAssets.length) return "";
+  const labels = zoneAssets.slice(0, 3).map((asset) => asset.label || asset.id);
+  return `已有关联设计资产：${labels.join("、")}`;
+};
+
+const buildIdentityCardText = (data: IdentityCardNodeData, labContext: LabContextSnapshot) => {
+  const { context, designAssets } = labContext;
+  if (data.entityType === "character") {
+    const character =
+      context.characters.find((item) => item.id === data.entityId) ??
+      context.characters[0];
+    if (!character) return null;
+    return [
+      `角色身份卡：${character.name}`,
+      character.role ? `角色定位：${character.role}` : "",
+      character.bio || "",
+      character.tags?.length ? `标签：${character.tags.join("、")}` : "",
+      buildCharacterAssetPreview(character, designAssets),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  const location =
+    context.locations.find((item) => item.id === data.entityId) ??
+    context.locations[0];
+  if (!location) return null;
+  return [
+    `场景身份卡：${location.name}`,
+    location.type ? `场景类型：${location.type}` : "",
+    location.description || "",
+    location.visuals ? `视觉气质：${location.visuals}` : "",
+    buildSceneAssetPreview(location, designAssets),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+};
+
 interface WorkflowStore {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -469,6 +584,19 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         title: "",
         text: "",
       } as TextNodeData;
+    case "scriptBoard":
+      return {
+        title: "剧本卡片",
+      } as ScriptBoardNodeData;
+    case "storyboardBoard":
+      return {
+        title: "分镜表格卡片",
+      } as StoryboardBoardNodeData;
+    case "identityCard":
+      return {
+        title: "身份卡片",
+        entityType: "character",
+      } as IdentityCardNodeData;
     case "imageGen":
       return {
         inputImages: [],
@@ -514,6 +642,23 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         watermark: false,
         audioEnabled: false,
         audioUrl: "",
+      } as VideoGenNodeData;
+    case "wanReferenceVideoGen":
+      return {
+        inputImages: [],
+        referenceVideos: [],
+        videoId: undefined,
+        videoUrl: undefined,
+        status: "idle",
+        error: null,
+        aspectRatio: "16:9",
+        duration: "5s",
+        model: "wan2.6-r2v",
+        quality: "standard",
+        resolution: "720P",
+        shotType: "single",
+        watermark: false,
+        audioEnabled: true,
       } as VideoGenNodeData;
     case "viduVideoGen":
       return {
@@ -573,6 +718,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   availableVideoModels: [],
   labContext: {
     rawScript: "",
+    episodes: [],
+    designAssets: [],
     globalStyleGuide: "",
     shotGuide: "",
     soraGuide: "",
@@ -620,6 +767,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
     const defaultDimensions: Partial<Record<NodeType, { width: number; height?: number }>> = {
       group: { width: 1100, height: 900 },
+      scriptBoard: { width: 760, height: 560 },
+      storyboardBoard: { width: 860, height: 580 },
+      identityCard: { width: 440, height: 540 },
     };
 
     const dim = defaultDimensions[type];
@@ -770,7 +920,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   getNodeById: (id) => get().nodes.find((node) => node.id === id),
 
   getConnectedInputs: (nodeId) => {
-    const { edges, nodes } = get();
+    const { edges, nodes, labContext } = get();
     const images: string[] = [];
     const texts: string[] = [];
     const mentions: TextNodeData['atMentions'] = [];
@@ -811,6 +961,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
                 if (!mentions.find((x) => x?.name === m.name)) mentions.push(m);
               });
             }
+          } else if (sourceNode.type === "scriptBoard") {
+            const value = buildScriptBoardText(sourceNode.data as ScriptBoardNodeData, labContext.episodes || []);
+            if (value) texts.push(value);
+          } else if (sourceNode.type === "storyboardBoard") {
+            const value = buildStoryboardBoardText(sourceNode.data as StoryboardBoardNodeData, labContext.episodes || []);
+            if (value) texts.push(value);
+          } else if (sourceNode.type === "identityCard") {
+            const value = buildIdentityCardText(sourceNode.data as IdentityCardNodeData, labContext);
+            if (value) texts.push(value);
           }
         }
       });
@@ -840,6 +999,14 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         const textConnected = edges.some((e) => e.target === node.id && e.targetHandle === "text");
         if (!imageConnected) errors.push(`VideoGen node "${node.id}" missing image input`);
         if (!textConnected) errors.push(`VideoGen node "${node.id}" missing text input`);
+      });
+    nodes
+      .filter((n) => n.type === "wanReferenceVideoGen")
+      .forEach((node) => {
+        const textConnected = edges.some((e) => e.target === node.id && e.targetHandle === "text");
+        const refs = ((node.data as VideoGenNodeData).referenceVideos || []).length;
+        if (!textConnected) errors.push(`Wan reference video node "${node.id}" missing text input`);
+        if (refs === 0) errors.push(`Wan reference video node "${node.id}" missing reference videos`);
       });
     nodes
       .filter((n) => n.type === "annotation")

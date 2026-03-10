@@ -358,9 +358,9 @@ export const createScript2VideoToolInputGuardrails = (
               { nodeRef }
             );
           }
-          if (nodeType !== "text" && nodeType !== "imageGen") {
+          if (!["text", "imageGen", "scriptBoard", "storyboardBoard", "identityCard"].includes(nodeType)) {
             return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "当前 create_workflow_node 只支持 text 和 imageGen。",
+              "当前 create_workflow_node 只支持 text、imageGen、scriptBoard、storyboardBoard、identityCard。",
               { nodeType }
             );
           }
@@ -369,6 +369,18 @@ export const createScript2VideoToolInputGuardrails = (
               "文本节点内容过短，至少提供 4 个字符。",
               { nodeRef, textLength }
             );
+          }
+          if (nodeType === "identityCard") {
+            const entityType =
+              typeof (args.entity_type ?? args.entityType) === "string"
+                ? String(args.entity_type ?? args.entityType).trim()
+                : "";
+            if (entityType && entityType !== "character" && entityType !== "scene") {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(
+                "identityCard 节点只支持 entity_type=character 或 scene。",
+                { nodeRef, entityType }
+              );
+            }
           }
           return ToolGuardrailFunctionOutputFactory.allow({ nodeRef, nodeType });
         },
@@ -409,10 +421,12 @@ export const createScript2VideoToolInputGuardrails = (
 
           const sourceHandle = typeof (args.source_handle ?? args.sourceHandle) === "string" ? String(args.source_handle ?? args.sourceHandle).trim() : "";
           const targetHandle = typeof (args.target_handle ?? args.targetHandle) === "string" ? String(args.target_handle ?? args.targetHandle).trim() : "";
-          const resolvedSourceHandle = sourceHandle || (source.nodeType === "text" ? "text" : "");
+          const sourceCanOutputText = source.outputHandles.includes("text" as any);
+          const targetCanInputText = target.inputHandles.includes("text" as any);
+          const resolvedSourceHandle = sourceHandle || (sourceCanOutputText ? "text" : "");
           const resolvedTargetHandle =
             targetHandle ||
-            (source.nodeType === "text" && (target.nodeType === "text" || target.nodeType === "imageGen") ? "text" : "");
+            (sourceCanOutputText && targetCanInputText ? "text" : "");
 
           if (!resolvedSourceHandle || !resolvedTargetHandle) {
             return ToolGuardrailFunctionOutputFactory.rejectContent(

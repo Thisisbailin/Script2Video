@@ -19,11 +19,15 @@ import { WorkflowFile, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, Group
 import { EditableEdge } from "../edges/EditableEdge";
 import {
   ImageInputNode, AnnotationNode, TextNode,
+  ScriptBoardNode,
+  StoryboardBoardNode,
+  IdentityCardNode,
   GroupNode,
   ImageGenNode,
   WanImageGenNode,
   SoraVideoGenNode,
   WanVideoGenNode,
+  WanReferenceVideoGenNode,
   ViduVideoGenNode,
   ShotNode,
 } from "../nodes";
@@ -46,11 +50,15 @@ const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
   annotation: AnnotationNode,
   text: TextNode,
+  scriptBoard: ScriptBoardNode,
+  storyboardBoard: StoryboardBoardNode,
+  identityCard: IdentityCardNode,
   group: GroupNode,
   imageGen: ImageGenNode,
   wanImageGen: WanImageGenNode,
   soraVideoGen: SoraVideoGenNode,
   wanVideoGen: WanVideoGenNode,
+  wanReferenceVideoGen: WanReferenceVideoGenNode,
   viduVideoGen: ViduVideoGenNode,
   shot: ShotNode,
 };
@@ -450,6 +458,8 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   useEffect(() => {
   setLabContext({
       rawScript: projectData.rawScript || "",
+      episodes: projectData.episodes || [],
+      designAssets: projectData.designAssets || [],
       globalStyleGuide: projectData.globalStyleGuide || "",
       shotGuide: projectData.shotGuide || "",
       soraGuide: projectData.soraGuide || "",
@@ -503,7 +513,9 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   }, [fitView, nodes.length, viewport]);
 
   useEffect(() => {
-    const videoNodes = nodes.filter((node) => node.type === "soraVideoGen" || node.type === "wanVideoGen");
+    const videoNodes = nodes.filter(
+      (node) => node.type === "soraVideoGen" || node.type === "wanVideoGen" || node.type === "wanReferenceVideoGen"
+    );
     videoNodes.forEach((node) => {
       const data = node.data as VideoGenNodeData;
       if (!data?.videoUrl) return;
@@ -642,7 +654,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const runAll = async () => {
     for (const n of nodes) {
       if (n.type === "imageGen" || n.type === "wanImageGen") await runImageGen(n.id);
-      if (n.type === "soraVideoGen" || n.type === "wanVideoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
+      if (n.type === "soraVideoGen" || n.type === "wanVideoGen" || n.type === "wanReferenceVideoGen" || n.type === "viduVideoGen") await runVideoGen(n.id);
     }
     alert("Run triggered");
   };
@@ -1069,8 +1081,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                 onToggleLock={handleToggleLock}
                 showMiniMap={showMiniMap}
                 onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
-                syncIndicator={syncIndicator}
-                onOpenTheme={() => setShowThemeModal(true)}
               />
             </div>
           </div>
@@ -1087,6 +1097,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                 onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
                 onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
                 onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
+                onAddWanReferenceVideoGen={() => handleAddNode("wanReferenceVideoGen", { x: 540, y: 140 })}
                 onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
                 onImport={() => fileInputRef.current?.click()}
                 onExport={() => saveWorkflow()}
@@ -1103,8 +1114,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                 onExportUnderstandingJson={onExportUnderstandingJson}
                 onOpenStats={onOpenStats}
                 onToggleTheme={onToggleTheme}
+                onOpenTheme={() => setShowThemeModal(true)}
                 isDarkMode={isDarkMode}
                 onOpenSyncPanel={onOpenSyncPanel}
+                syncIndicator={syncIndicator}
                 onOpenInfoPanel={onOpenInfoPanel}
                 onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
                 onResetProject={onResetProject}

@@ -105,10 +105,9 @@ const lookupWorkflowNodeSnapshot = (
 };
 
 const resolvePreferredConnectionHandles = (sourceType: string, targetType: string) => {
-  if (sourceType === "text" && targetType === "text") {
-    return { sourceHandle: "text" as const, targetHandle: "text" as const };
-  }
-  if (sourceType === "text" && targetType === "imageGen") {
+  const sourceOutputs = getNodeHandles(sourceType).outputs;
+  const targetInputs = getNodeHandles(targetType).inputs;
+  if (sourceOutputs.includes("text") && targetInputs.includes("text")) {
     return { sourceHandle: "text" as const, targetHandle: "text" as const };
   }
   return null;
@@ -297,7 +296,7 @@ export const QalamAgent: React.FC<Props> = ({
         const nodeId = addNode("text", position, parentId, { title, text });
         return { id: nodeId, title };
       },
-      createWorkflowNode: ({ type, nodeRef, title, text, aspectRatio, x, y, parentId }) => {
+      createWorkflowNode: ({ type, nodeRef, title, text, aspectRatio, episodeId, sceneId, entityType, entityId, x, y, parentId }) => {
         const snapshot = getWorkflowSnapshot();
         const hasXY = typeof x === "number" && typeof y === "number";
         const activeViewport = snapshot.viewport || viewport;
@@ -307,21 +306,48 @@ export const QalamAgent: React.FC<Props> = ({
         const position = hasXY
           ? { x: x as number, y: y as number }
           : { x: Math.round(baseX + offset), y: Math.round(baseY + offset) };
-        if (type !== "text" && type !== "imageGen") {
-          throw new Error("createWorkflowNode 当前仅支持 text 和 imageGen。");
+        if (!["text", "imageGen", "scriptBoard", "storyboardBoard", "identityCard"].includes(type)) {
+          throw new Error("createWorkflowNode 当前仅支持 text、imageGen、scriptBoard、storyboardBoard、identityCard。");
         }
-        const resolvedTitle = (title || "").trim() || (type === "text" ? "文本节点" : "Img Gen");
+        const resolvedTitle =
+          (title || "").trim() ||
+          (type === "text"
+            ? "文本节点"
+            : type === "imageGen"
+              ? "Img Gen"
+              : type === "scriptBoard"
+                ? "剧本卡片"
+                : type === "storyboardBoard"
+                  ? "分镜表格卡片"
+                  : "身份卡片");
         const extraData =
           type === "text"
             ? {
                 title: resolvedTitle,
                 text: (text || "").trim(),
               }
-            : {
-                title: resolvedTitle,
-                aspectRatio: (aspectRatio || "1:1").trim() || "1:1",
-              };
-        if (type === "text" && !String(extraData.text || "").trim()) {
+            : type === "imageGen"
+              ? {
+                  title: resolvedTitle,
+                  aspectRatio: (aspectRatio || "1:1").trim() || "1:1",
+                }
+              : type === "scriptBoard"
+                ? {
+                    title: resolvedTitle,
+                    episodeId,
+                  }
+                : type === "storyboardBoard"
+                  ? {
+                      title: resolvedTitle,
+                      episodeId,
+                      sceneId: (sceneId || "").trim() || undefined,
+                    }
+                  : {
+                      title: resolvedTitle,
+                      entityType: entityType === "scene" ? "scene" : "character",
+                      entityId: (entityId || "").trim() || undefined,
+                    };
+        if (type === "text" && !String((extraData as any).text || "").trim()) {
           throw new Error("createWorkflowNode 创建文本节点时缺少 text。");
         }
         const nodeId = addNode(type, position, parentId, extraData);

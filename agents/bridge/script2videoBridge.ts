@@ -15,11 +15,15 @@ export type CreateTextNodeResult = {
 };
 
 export type CreateWorkflowNodeInput = {
-  type: Extract<NodeType, "text" | "imageGen">;
+  type: Extract<NodeType, "text" | "imageGen" | "scriptBoard" | "storyboardBoard" | "identityCard">;
   nodeRef?: string;
   title?: string;
   text?: string;
   aspectRatio?: string;
+  episodeId?: number;
+  sceneId?: string;
+  entityType?: "character" | "scene";
+  entityId?: string;
   x?: number;
   y?: number;
   parentId?: string;
@@ -72,7 +76,7 @@ export type CreateNodeWorkflowNodeInput = {
   key: string;
   type: Extract<
     NodeType,
-    "text" | "shot" | "annotation" | "imageGen" | "wanImageGen" | "soraVideoGen" | "wanVideoGen" | "viduVideoGen"
+    "text" | "shot" | "annotation" | "imageGen" | "wanImageGen" | "soraVideoGen" | "wanVideoGen" | "wanReferenceVideoGen" | "viduVideoGen"
   >;
   title?: string;
   text?: string;

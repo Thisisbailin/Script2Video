@@ -51,6 +51,7 @@ type Props = {
   onAddWanImageGen: () => void;
   onAddVideoGen: () => void;
   onAddWanVideoGen: () => void;
+  onAddWanReferenceVideoGen: () => void;
   onAddGroup: () => void;
   onImport: () => void;
   onExport: () => void;
@@ -67,8 +68,10 @@ type Props = {
   onOpenModule?: (key: ModuleKey) => void;
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
+  onOpenTheme?: () => void;
   isDarkMode?: boolean;
   onOpenSyncPanel?: () => void;
+  syncIndicator?: { label: string; color: string } | null;
   onOpenInfoPanel?: () => void;
   onToggleAgentSettings?: () => void;
   onResetProject?: () => void;
@@ -100,6 +103,7 @@ export const FloatingActionBar: React.FC<Props> = ({
   onAddWanImageGen,
   onAddVideoGen,
   onAddWanVideoGen,
+  onAddWanReferenceVideoGen,
   onAddGroup,
   onImport,
   onExport,
@@ -116,8 +120,10 @@ export const FloatingActionBar: React.FC<Props> = ({
   onOpenModule,
   onOpenStats,
   onToggleTheme,
+  onOpenTheme,
   isDarkMode,
   onOpenSyncPanel,
+  syncIndicator,
   onOpenInfoPanel,
   onToggleAgentSettings,
   onResetProject,
@@ -179,6 +185,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     { label: "WAN Img", hint: "Wan 2.6 image workflow", meta: "Generation", onClick: onAddWanImageGen, Icon: Sparkles, tone: "text-teal-300", surface: "bg-teal-500/12" },
     { label: "Sora Video", hint: "Build Sora motion clips", meta: "Motion", onClick: onAddVideoGen, Icon: Video, tone: "text-rose-300", surface: "bg-rose-500/12" },
     { label: "WAN Vid", hint: "Wan 2.6 video workflow", meta: "Motion", onClick: onAddWanVideoGen, Icon: Video, tone: "text-violet-300", surface: "bg-violet-500/12" },
+    { label: "WAN Ref Vid", hint: "Wan 2.6 reference-to-video", meta: "Motion", onClick: onAddWanReferenceVideoGen, Icon: Video, tone: "text-fuchsia-300", surface: "bg-fuchsia-500/12" },
   ];
   const projectModules = [
     { key: "assets" as ModuleKey, label: "Assets", desc: "资产与设定", Icon: FolderOpen, tone: "text-emerald-300", surface: "bg-emerald-500/10" },
@@ -1024,10 +1031,32 @@ export const FloatingActionBar: React.FC<Props> = ({
                   setShowWip(false);
                 }}
                 className={`${toolbarChipClass} ${showPalette ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-                title="Add Nodes"
+                title="Nodes"
               >
                 <Plus size={13} className={`transition-transform ${showPalette ? "rotate-45" : ""}`} />
-                <span>Add Nodes</span>
+                <span>Nodes</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowFileMenu(false);
+                  setShowWip(false);
+                  onOpenTheme?.();
+                  onToggleTheme?.();
+                }}
+                className={toolbarChipClass}
+                title={syncIndicator?.label || "Theme"}
+              >
+                <Palette size={13} />
+                <span>Theme</span>
+                {syncIndicator ? (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: syncIndicator.color }}
+                  />
+                ) : null}
               </button>
 
             </div>
@@ -1090,10 +1119,32 @@ export const FloatingActionBar: React.FC<Props> = ({
                   setShowWip(false);
                 }}
                 className={`${embeddedLabelClass} ${showPalette ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : ""}`}
-                title="Add Nodes"
+                title="Nodes"
               >
                 <Plus size={13} className={`transition-transform ${showPalette ? "rotate-45" : ""}`} />
-                <span>Add Nodes</span>
+                <span>Nodes</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPalette(false);
+                  setShowTemplate(false);
+                  setShowFileMenu(false);
+                  setShowWip(false);
+                  onOpenTheme?.();
+                  onToggleTheme?.();
+                }}
+                className={embeddedLabelClass}
+                title={syncIndicator?.label || "Theme"}
+              >
+                <Palette size={13} />
+                <span>Theme</span>
+                {syncIndicator ? (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: syncIndicator.color }}
+                  />
+                ) : null}
               </button>
 
             </div>

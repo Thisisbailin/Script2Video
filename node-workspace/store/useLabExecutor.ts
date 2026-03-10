@@ -10,6 +10,8 @@ import {
   QWEN_WAN_IMAGE_ENDPOINT,
   QWEN_WAN_IMAGE_MODEL,
   QWEN_WAN_VIDEO_ENDPOINT,
+  QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL,
+  QWEN_WAN_REFERENCE_VIDEO_MODEL,
   QWEN_WAN_VIDEO_MODEL,
 } from "../../constants";
 import { useCallback } from "react";
@@ -118,6 +120,24 @@ const normalizeWanAudio = async (source?: string) => {
     console.warn("Failed to resolve audio URL", e);
   }
   return source;
+};
+
+const normalizeWanReferenceVideos = async (sources: string[]) => {
+  const results: string[] = [];
+  for (const src of sources) {
+    if (!src) continue;
+    if (src.startsWith("http://") || src.startsWith("https://")) {
+      results.push(src);
+      continue;
+    }
+    if (src.startsWith("data:") || src.startsWith("blob:")) {
+      const uploaded = await uploadReferenceFile(src, { bucket: "assets", prefix: "wan-reference-video/" });
+      results.push(uploaded);
+      continue;
+    }
+    results.push(src);
+  }
+  return results;
 };
 
 const mapWanVideoSize = (aspectRatio?: string, resolution?: string) => {
@@ -577,6 +597,8 @@ export const useLabExecutor = () => {
     const { images, text: connectedText } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
     const prompt = (connectedText || "").trim();
+    const isWanReferenceVideoNode = node.type === "wanReferenceVideoGen";
+    const referenceVideos = Array.isArray(data.referenceVideos) ? data.referenceVideos.filter(Boolean) : [];
 
     if (images.length === 0 && !prompt) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)." });
@@ -585,7 +607,7 @@ export const useLabExecutor = () => {
 
     const isWanVideo = (config.videoConfig.baseUrl || "").includes("/api/v1/services/aigc/video-generation/");
     const isWanVideoNode = node.type === "wanVideoGen";
-    if (!config.videoConfig.baseUrl || (!config.videoConfig.apiKey && !isWanVideo && !isWanVideoNode)) {
+    if (!config.videoConfig.baseUrl || (!config.videoConfig.apiKey && !isWanVideo && !isWanVideoNode && !isWanReferenceVideoNode)) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing video API configuration." });
       return;
     }
@@ -598,11 +620,19 @@ export const useLabExecutor = () => {
       store.updateNodeData(nodeId, { status: "error", error: "Wan 视频需要提示词。" });
       return;
     }
+    if (isWanReferenceVideoNode && referenceVideos.length === 0) {
+      store.updateNodeData(nodeId, { status: "error", error: "Wan 参考生视频需要至少 1 个参考视频。" });
+      return;
+    }
+    if (isWanReferenceVideoNode && !prompt) {
+      store.updateNodeData(nodeId, { status: "error", error: "Wan 参考生视频需要提示词。" });
+      return;
+    }
 
     store.updateNodeData(nodeId, { status: "loading", error: null });
 
     try {
-      const normalizedImages = (isWanVideo || isWanVideoNode) ? await normalizeWanImages(images) : images;
+      const normalizedImages = (isWanVideo || isWanVideoNode || isWanReferenceVideoNode) ? await normalizeWanImages(images) : images;
       const refImage =
         normalizedImages.find((src) => src.startsWith("http")) ||
         ((isWanVideo || isWanVideoNode) ? normalizedImages[0] : undefined);
@@ -624,6 +654,17 @@ export const useLabExecutor = () => {
           params.audioUrl = await normalizeWanAudio(audioUrl);
         }
       }
+      if (isWanReferenceVideoNode) {
+        const normalizedVideos = await normalizeWanReferenceVideos(referenceVideos);
+        const cappedVideos = normalizedVideos.slice(0, 3);
+        const remainingImageSlots = Math.max(0, 5 - cappedVideos.length);
+        params.size = mapWanVideoSize(data.aspectRatio, data.resolution || "720P");
+        params.shotType = data.shotType;
+        params.watermark = data.watermark;
+        params.seed = data.seed;
+        params.audioEnabled = data.model === QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL ? data.audioEnabled !== false : undefined;
+        params.referenceUrls = [...cappedVideos, ...normalizedImages.slice(0, remainingImageSlots)];
+      }
 
       // Use node-specific model or fallback to config
       const configToUse = {
@@ -633,6 +674,14 @@ export const useLabExecutor = () => {
       if (isWanVideoNode) {
         configToUse.baseUrl = QWEN_WAN_VIDEO_ENDPOINT;
         configToUse.model = QWEN_WAN_VIDEO_MODEL;
+        configToUse.apiKey = "";
+      }
+      if (isWanReferenceVideoNode) {
+        configToUse.baseUrl = QWEN_WAN_VIDEO_ENDPOINT;
+        configToUse.model =
+          data.model === QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL
+            ? QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL
+            : QWEN_WAN_REFERENCE_VIDEO_MODEL;
         configToUse.apiKey = "";
       }
 
@@ -664,6 +713,37 @@ export const useLabExecutor = () => {
         }
 
         store.updateNodeData(nodeId, { status: "error", error: "Wan 视频生成超时。" });
+        return;
+      }
+
+      if (isWanReferenceVideoNode) {
+        const { id, url } = await WanService.submitWanReferenceVideoTask(prompt || "Animate this", configToUse, params);
+        if (url) {
+          store.updateNodeData(nodeId, { status: "complete", videoUrl: url, error: null });
+          return;
+        }
+        if (!id) {
+          store.updateNodeData(nodeId, { status: "error", error: "Wan 参考生视频任务创建失败。" });
+          return;
+        }
+
+        store.updateNodeData(nodeId, { status: "loading", videoId: id, videoUrl: undefined, error: null });
+
+        const maxAttempts = 60;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await WanService.checkWanTaskStatus(id);
+          if (result.status === "succeeded") {
+            store.updateNodeData(nodeId, { status: "complete", videoUrl: result.url, error: null });
+            return;
+          }
+          if (result.status === "failed") {
+            store.updateNodeData(nodeId, { status: "error", error: result.errorMsg || "Wan 参考生视频生成失败。" });
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        store.updateNodeData(nodeId, { status: "error", error: "Wan 参考生视频生成超时。" });
         return;
       }
 

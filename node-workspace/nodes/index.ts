@@ -1,10 +1,14 @@
 export { ImageInputNode } from "./ImageInputNode";
 export { AnnotationNode } from "./AnnotationNode";
 export * from "./TextNode";
+export * from "./ScriptBoardNode";
+export * from "./StoryboardBoardNode";
+export * from "./IdentityCardNode";
 export * from "./GroupNode";
 export * from "./ShotNode";
 export { ImageGenNode } from "./ImageGenNode";
 export { WanImageGenNode } from "./WanImageGenNode";
 export { SoraVideoGenNode } from "./SoraVideoGenNode";
 export { WanVideoGenNode } from "./WanVideoGenNode";
+export { WanReferenceVideoGenNode } from "./WanReferenceVideoGenNode";
 export { ViduVideoGenNode } from "./ViduVideoGenNode";

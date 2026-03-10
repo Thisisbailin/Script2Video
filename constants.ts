@@ -45,6 +45,8 @@ export const QWEN_WAN_IMAGE_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/se
 export const QWEN_WAN_VIDEO_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis';
 export const QWEN_WAN_IMAGE_MODEL = 'wan2.6-image';
 export const QWEN_WAN_VIDEO_MODEL = 'wan2.6-i2v';
+export const QWEN_WAN_REFERENCE_VIDEO_MODEL = 'wan2.6-r2v';
+export const QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL = 'wan2.6-r2v-flash';
 
 export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
   projectData: {

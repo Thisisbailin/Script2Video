@@ -121,15 +121,17 @@ export const AssetsPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="qalam-surface flex h-11 items-center gap-2 rounded-full px-3"
+          className="qalam-surface flex h-11 items-center gap-2 rounded-full px-3.5"
           title={`Assets (${totalCount})`}
         >
-          <span className="flex items-center gap-1">
-            <ImageIcon size={13} className="text-sky-300" />
-            <Film size={13} className="text-emerald-300" />
-            <BookOpen size={13} className="text-violet-300" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] text-[var(--app-text-secondary)]">
+            <ImageIcon size={14} />
           </span>
-          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--app-border)] bg-[rgba(255,255,255,0.03)]">
+          <span className="text-[12px] font-semibold tracking-[0.01em] text-[var(--app-text-primary)]">
+            Assets
+          </span>
+          <span className="text-[11px] text-[var(--app-text-muted)]">{totalCount}</span>
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)]">
             <ChevronUp size={13} className="text-[var(--app-text-secondary)]" />
           </span>
         </button>
@@ -140,9 +142,9 @@ export const AssetsPanel: React.FC<Props> = ({
   const panelCore = (
     <div className="qalam-surface flex max-h-[calc(100vh-140px)] w-[380px] flex-col overflow-hidden rounded-[26px]">
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-500/30 via-blue-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
-              <Sparkles size={16} className="text-sky-200" />
+        <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[var(--app-accent-soft)] via-transparent to-transparent border border-[var(--app-border)] flex items-center justify-center">
+              <ImageIcon size={16} className="text-[var(--app-accent-strong)]" />
             </div>
             <div>
               <div className="text-sm font-semibold">Assets</div>

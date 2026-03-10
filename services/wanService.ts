@@ -315,6 +315,60 @@ export const submitWanVideoTask = async (
   return requestWanTask(endpoint, apiKey, payload, { async: true });
 };
 
+export const submitWanReferenceVideoTask = async (
+  prompt: string,
+  config: VideoServiceConfig,
+  options?: {
+    referenceUrls: string[];
+    size?: string;
+    duration?: string;
+    negativePrompt?: string;
+    seed?: number;
+    watermark?: boolean;
+    shotType?: "single" | "multi";
+    audioEnabled?: boolean;
+  }
+): Promise<WanTaskSubmissionResult> => {
+  const apiKey = resolveQwenApiKey();
+  if (!apiKey) {
+    throw new Error("Missing Qwen API key. 请在环境变量 QWEN_API_KEY/VITE_QWEN_API_KEY 配置。");
+  }
+  if (!config.model) {
+    throw new Error("Missing Wan reference video model. 请先选择模型。");
+  }
+
+  const referenceUrls = (options?.referenceUrls || []).filter(Boolean);
+  if (referenceUrls.length === 0) {
+    throw new Error("Wan 参考生视频需要至少 1 个参考视频 URL。");
+  }
+
+  const endpoint = config.baseUrl || QWEN_WAN_VIDEO_ENDPOINT;
+  const duration = options?.duration ? Number.parseInt(options.duration.replace("s", ""), 10) : undefined;
+  const parameters: Record<string, any> = {
+    shot_type: options?.shotType || "single",
+    watermark: options?.watermark ?? false,
+    ...(options?.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
+    ...(Number.isFinite(options?.seed) ? { seed: options?.seed } : {}),
+    ...(Number.isFinite(duration) ? { duration } : {}),
+    ...(options?.size ? { size: options.size } : {}),
+  };
+
+  if (config.model === "wan2.6-r2v-flash" && typeof options?.audioEnabled === "boolean") {
+    parameters.audio = options.audioEnabled;
+  }
+
+  const payload: Record<string, any> = {
+    model: config.model,
+    input: {
+      prompt,
+      reference_urls: referenceUrls,
+    },
+    parameters,
+  };
+
+  return requestWanTask(endpoint, apiKey, payload, { async: true });
+};
+
 export const checkWanTaskStatus = async (taskId: string): Promise<WanTaskStatusResult> => {
   const apiKey = resolveQwenApiKey();
   if (!apiKey) {

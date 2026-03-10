@@ -1,5 +1,5 @@
 import { Node, Edge } from "@xyflow/react";
-import { ProjectContext, ViduReferenceMode } from "../../types";
+import { DesignAssetItem, Episode, ProjectContext, ViduReferenceMode } from "../../types";
 
 export type HandleType = "image" | "text";
 
@@ -7,10 +7,14 @@ export type NodeType =
   | "imageInput"
   | "annotation"
   | "text"
+  | "scriptBoard"
+  | "storyboardBoard"
+  | "identityCard"
   | "imageGen"
   | "wanImageGen"
   | "soraVideoGen"
   | "wanVideoGen"
+  | "wanReferenceVideoGen"
   | "viduVideoGen"
   | "group"
   | "shot";
@@ -107,6 +111,23 @@ export interface TextNodeData extends BaseNodeData {
   }[];
 }
 
+export interface ScriptBoardNodeData extends BaseNodeData {
+  title: string;
+  episodeId?: number;
+}
+
+export interface StoryboardBoardNodeData extends BaseNodeData {
+  title: string;
+  episodeId?: number;
+  sceneId?: string;
+}
+
+export interface IdentityCardNodeData extends BaseNodeData {
+  title: string;
+  entityType: "character" | "scene";
+  entityId?: string;
+}
+
 export interface ImageGenNodeData extends BaseNodeData {
   inputImages: string[];
   outputImage: string | null;
@@ -128,6 +149,7 @@ export interface ImageGenNodeData extends BaseNodeData {
 
 export interface VideoGenNodeData extends BaseNodeData {
   inputImages: string[];
+  referenceVideos?: string[];
   videoId?: string;
   videoUrl?: string; // For polling result
   status: 'idle' | 'loading' | 'complete' | 'error';
@@ -205,6 +227,9 @@ export type WorkflowNodeData =
   | ImageInputNodeData
   | AnnotationNodeData
   | TextNodeData
+  | ScriptBoardNodeData
+  | StoryboardBoardNodeData
+  | IdentityCardNodeData
   | ImageGenNodeData
   | VideoGenNodeData
   | ViduVideoGenNodeData
@@ -234,6 +259,8 @@ export type GlobalAssetHistoryItem = {
 
 export type LabContextSnapshot = {
   rawScript: string;
+  episodes: Episode[];
+  designAssets: DesignAssetItem[];
   globalStyleGuide: string;
   shotGuide: string;
   soraGuide: string;
