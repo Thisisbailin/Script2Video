@@ -757,7 +757,7 @@ export const QalamAgent: React.FC<Props> = ({
   const isSplit = layoutMode === "split";
   const panelClassName = isSplit
     ? "pointer-events-auto qalam-surface flex flex-col overflow-hidden qalam-panel border-r border-[var(--app-border)] rounded-none"
-    : "pointer-events-auto qalam-surface w-[420px] max-w-[95vw] h-[calc(100vh-32px)] max-h-[calc(100vh-32px)] rounded-[30px] flex flex-col overflow-hidden qalam-panel";
+    : "pointer-events-auto qalam-surface w-[420px] max-w-[95vw] rounded-[30px] flex flex-col overflow-hidden qalam-panel";
   const panelStyle: React.CSSProperties | undefined = isSplit
     ? {
         position: "fixed",
@@ -768,7 +768,14 @@ export const QalamAgent: React.FC<Props> = ({
         width: isFullscreen ? "100vw" : splitWidth,
         maxWidth: "100vw",
       }
-    : undefined;
+    : {
+        position: "fixed",
+        top: 16,
+        bottom: 16,
+        left: 16,
+        width: Math.min(420, Math.max(320, viewportWidth - 32)),
+        maxWidth: "calc(100vw - 32px)",
+      };
 
   const tokenUsage = useMemo(() => {
     const sumPhase = (obj: any): number => {
@@ -834,7 +841,6 @@ export const QalamAgent: React.FC<Props> = ({
     );
   }
 
-  // Safe spacing: use symmetric top/bottom gaps equal to the bottom offset (16px).
   return (
     <div
       className={panelClassName}
@@ -856,8 +862,8 @@ export const QalamAgent: React.FC<Props> = ({
           }}
         />
       )}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-[linear-gradient(180deg,var(--app-panel)_0%,var(--app-panel)_38%,transparent_100%)]" />
-      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-4 pt-4">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-[linear-gradient(180deg,var(--app-panel)_0%,var(--app-panel)_42%,transparent_100%)]" />
+      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-4 pt-3">
         <div className="pointer-events-auto flex items-center gap-3">
           <div className="text-[20px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">Qalam</div>
           <button
@@ -895,7 +901,7 @@ export const QalamAgent: React.FC<Props> = ({
         </div>
       </div>
 
-      <QalamChatContent messages={messages} isSending={isSending} className="pt-20" />
+      <QalamChatContent messages={messages} isSending={isSending} className="pt-16" />
 
       <div className="px-4 py-4">
         <div

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Plus,
   User,
@@ -156,6 +156,9 @@ export const FloatingActionBar: React.FC<Props> = ({
   const storyboardGuideInputRef = useRef<HTMLInputElement>(null);
   const dramaGuideInputRef = useRef<HTMLInputElement>(null);
   const workflowButtonRef = useRef<HTMLButtonElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const projectButtonRef = useRef<HTMLButtonElement>(null);
+  const nodesButtonRef = useRef<HTMLButtonElement>(null);
   const rootClass = isEmbedded
     ? "relative z-30 w-full"
     : floating
@@ -182,6 +185,28 @@ export const FloatingActionBar: React.FC<Props> = ({
   const toolbarChipClass =
     "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const popoverBottomClass = isEmbedded ? "bottom-[calc(100%+12px)]" : "bottom-16";
+  const getEmbeddedPopoverStyle = (buttonRef: React.RefObject<HTMLButtonElement>, desiredWidth: number): React.CSSProperties | undefined => {
+    if (!isEmbedded || typeof window === "undefined") return undefined;
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return undefined;
+    const viewportPadding = 16;
+    const width = Math.min(desiredWidth, window.innerWidth - viewportPadding * 2);
+    const left = Math.max(
+      viewportPadding,
+      Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - viewportPadding - width)
+    );
+    const bottom = Math.max(16, window.innerHeight - rect.top + 12);
+    return {
+      position: "fixed",
+      left,
+      bottom,
+      width,
+      maxWidth: `calc(100vw - ${viewportPadding * 2}px)`,
+    };
+  };
+  const templatePopoverStyle = useMemo(() => getEmbeddedPopoverStyle(projectButtonRef, 408), [isEmbedded, showTemplate]);
+  const palettePopoverStyle = useMemo(() => getEmbeddedPopoverStyle(nodesButtonRef, 720), [isEmbedded, showPalette]);
+  const fileMenuPopoverStyle = useMemo(() => getEmbeddedPopoverStyle(accountButtonRef, 420), [isEmbedded, showFileMenu]);
 
   const panelActions = [
     { label: "剧本面板", hint: "按集与场景浏览剧本", meta: "Panel", onClick: onAddScriptBoard, Icon: BookOpen, tone: "text-sky-300", surface: "bg-sky-500/12" },
@@ -255,8 +280,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className={`absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[408px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
-            style={panelStyle}
+            className={`${isEmbedded ? "fixed" : `absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[408px]`} animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
+            style={isEmbedded ? { ...panelStyle, ...templatePopoverStyle } : panelStyle}
           >
             <div className="max-h-[min(72vh,620px)] space-y-4 overflow-y-auto p-4">
               <div className="space-y-1 px-1">
@@ -400,8 +425,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
-            className={`absolute ${popoverBottomClass} left-0 w-[min(720px,92vw)] max-w-[92vw] animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
-            style={panelStyle}
+            className={`${isEmbedded ? "fixed" : `absolute ${popoverBottomClass} left-0 w-[min(720px,92vw)] max-w-[92vw]`} animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
+            style={isEmbedded ? { ...panelStyle, ...palettePopoverStyle } : panelStyle}
           >
             <div className="p-4 space-y-4">
               <div className="px-1">
@@ -484,8 +509,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[420px] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
-            style={panelStyle}
+            className={`${isEmbedded ? "fixed" : `absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[420px]`} animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            style={isEmbedded ? { ...panelStyle, ...fileMenuPopoverStyle } : panelStyle}
           >
             <div className="max-h-[min(74vh,640px)] space-y-4 overflow-y-auto p-4">
               <div className="space-y-1">
@@ -1027,6 +1052,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           <div className="w-full">
             <div className="flex flex-wrap items-center gap-2">
               <button
+                ref={accountButtonRef}
                 onClick={() => {
                   setShowFileMenu((v) => !v);
                   setShowPalette(false);
@@ -1041,6 +1067,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
+                ref={projectButtonRef}
                 onClick={() => {
                   setShowTemplate((v) => !v);
                   setShowPalette(false);
@@ -1055,6 +1082,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
+                ref={workflowButtonRef}
                 onClick={() => {
                   setShowPalette(false);
                   setShowTemplate(false);
@@ -1062,7 +1090,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                   const rect = workflowButtonRef.current?.getBoundingClientRect();
                   onToggleWorkflow?.(rect);
                 }}
-                ref={workflowButtonRef}
                 data-workflow-trigger
                 className={toolbarChipClass}
                 title="Workflow Actions"
@@ -1072,6 +1099,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
+                ref={nodesButtonRef}
                 onClick={() => {
                   setShowPalette((v) => !v);
                   setShowFileMenu(false);
@@ -1116,6 +1144,7 @@ export const FloatingActionBar: React.FC<Props> = ({
           >
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
               <button
+                ref={accountButtonRef}
                 onClick={() => {
                   setShowFileMenu((v) => !v);
                   setShowPalette(false);
@@ -1130,6 +1159,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
+                ref={projectButtonRef}
                 onClick={() => {
                   setShowTemplate((v) => !v);
                   setShowPalette(false);
@@ -1160,6 +1190,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
+                ref={nodesButtonRef}
                 onClick={() => {
                   setShowPalette((v) => !v);
                   setShowFileMenu(false);
