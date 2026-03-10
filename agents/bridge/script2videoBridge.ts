@@ -22,6 +22,7 @@ export type CreateWorkflowNodeInput = {
   aspectRatio?: string;
   episodeId?: number;
   sceneId?: string;
+  displayMode?: "table" | "workflow";
   entityType?: "character" | "scene";
   entityId?: string;
   x?: number;

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { BookOpen, Clapperboard, FileText } from "lucide-react";
+import { BookOpen, Clapperboard } from "lucide-react";
 import { BaseNode } from "./BaseNode";
 import { ScriptBoardNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -9,36 +9,33 @@ type Props = {
   data: ScriptBoardNodeData;
 };
 
-const shorten = (value: string, limit = 220) => {
-  const safe = value.trim();
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, limit)}...`;
-};
-
 export const ScriptBoardNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, labContext } = useWorkflowStore();
   const episodes = labContext.episodes || [];
-  const episodeSummaries = labContext.context.episodeSummaries || [];
 
   const episode = useMemo(() => {
     return episodes.find((item) => item.id === data.episodeId) ?? episodes[0] ?? null;
   }, [data.episodeId, episodes]);
 
-  const activeScene = useMemo(() => {
-    if (!episode) return null;
-    return episode.scenes.find((item) => item.id === data.sceneId) ?? episode.scenes[0] ?? null;
-  }, [data.sceneId, episode]);
-
-  const summary = useMemo(() => {
-    if (!episode) return "";
-    return episodeSummaries.find((item) => item.episodeId === episode.id)?.summary || episode.summary || "";
-  }, [episode, episodeSummaries]);
+  const sceneBlocks = useMemo(() => {
+    if (!episode) return [];
+    if (episode.scenes?.length) return episode.scenes;
+    return [
+      {
+        id: `episode-${episode.id}`,
+        title: episode.title || `第 ${episode.id} 集`,
+        content: episode.content || "",
+        partition: "",
+        timeOfDay: "",
+        location: "",
+      },
+    ];
+  }, [episode]);
 
   const handleEpisodeSelect = (episodeId: number) => {
-    const nextEpisode = episodes.find((item) => item.id === episodeId);
     updateNodeData(id, {
       episodeId,
-      sceneId: nextEpisode?.scenes[0]?.id,
+      sceneId: undefined,
     });
   };
 
@@ -60,9 +57,7 @@ export const ScriptBoardNode: React.FC<Props & { selected?: boolean }> = ({ id, 
             </div>
           </div>
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
-            <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">
-              {episode ? `${episode.scenes.length} 场` : "No script"}
-            </span>
+            <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{episode ? `${sceneBlocks.length} scene blocks` : "No script"}</span>
             {episode ? (
               <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{episode.shots.length} shots</span>
             ) : null}
@@ -90,74 +85,65 @@ export const ScriptBoardNode: React.FC<Props & { selected?: boolean }> = ({ id, 
         </div>
 
         {episode ? (
-          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[188px_minmax(0,1fr)]">
-            <aside className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
-              <div className="flex items-center justify-between border-b border-[var(--node-border)] px-4 py-3">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                  Scene Index
-                </div>
+          <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--node-border)] px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
                 <Clapperboard size={14} className="text-[var(--node-text-secondary)]" />
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                  Episode Script Blocks
+                </div>
               </div>
-              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-                {(episode.scenes || []).map((scene, index) => {
-                  const isActive = scene.id === activeScene?.id;
-                  return (
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                {episode.title || `第 ${episode.id} 集`}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              {sceneBlocks.map((scene, index) => {
+                const isFocused = data.sceneId ? data.sceneId === scene.id : false;
+                return (
+                  <section
+                    key={scene.id}
+                    className={`rounded-[22px] border px-4 py-4 transition ${
+                      isFocused
+                        ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)]/90"
+                        : "border-[var(--node-border)] bg-[var(--app-panel-muted)]/30"
+                    }`}
+                  >
                     <button
-                      key={scene.id}
                       type="button"
                       onClick={() => updateNodeData(id, { episodeId: episode.id, sceneId: scene.id })}
-                      className={`w-full rounded-[18px] border px-3 py-2 text-left transition ${
-                        isActive
-                          ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)] text-[var(--node-text-primary)]"
-                          : "border-transparent text-[var(--node-text-secondary)] hover:border-[var(--node-border)] hover:bg-[var(--node-surface)]"
-                      }`}
+                      className="flex w-full items-start justify-between gap-3 text-left"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] uppercase tracking-[0.18em] opacity-70">#{index + 1}</span>
-                        <span className="text-[10px] uppercase tracking-[0.16em] opacity-60">{scene.id}</span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                          <span>Scene {index + 1}</span>
+                          <span>{scene.id}</span>
+                        </div>
+                        <div className="mt-2 text-[16px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
+                          {scene.title || "未命名场景"}
+                        </div>
                       </div>
-                      <div className="mt-1 line-clamp-2 text-[12px] font-medium leading-5">
-                        {scene.title || "未命名场景"}
+                      <div className="shrink-0 rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                        {isFocused ? "Focused" : "Focus"}
                       </div>
                     </button>
-                  );
-                })}
-              </div>
-            </aside>
 
-            <section className="flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
-              <div className="grid gap-3 border-b border-[var(--node-border)] px-4 py-4 lg:grid-cols-[minmax(0,1fr)_240px]">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                    <FileText size={12} />
-                    Active Scene
-                  </div>
-                  <div className="mt-2 text-[18px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
-                    {activeScene?.title || episode.title}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                    {activeScene?.id ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{activeScene.id}</span> : null}
-                    {activeScene?.location ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{activeScene.location}</span> : null}
-                    {activeScene?.timeOfDay ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{activeScene.timeOfDay}</span> : null}
-                    {activeScene?.partition ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{activeScene.partition}</span> : null}
-                  </div>
-                </div>
-                <div className="rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3">
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">Episode Note</div>
-                  <div className="mt-2 text-[12px] leading-6 text-[var(--node-text-primary)]">
-                    {summary ? shorten(summary) : "这一集还没有生成摘要。"}
-                  </div>
-                </div>
-              </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                      {scene.location ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{scene.location}</span> : null}
+                      {scene.timeOfDay ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{scene.timeOfDay}</span> : null}
+                      {scene.partition ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{scene.partition}</span> : null}
+                    </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-                <div className="rounded-[22px] border border-[var(--node-border)] bg-[var(--app-panel-muted)]/40 px-5 py-4">
-                  <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-7 text-[var(--node-text-primary)]">
-                    {activeScene?.content || episode.content || "当前项目还没有可展示的剧本内容。"}
-                  </pre>
-                </div>
-              </div>
-            </section>
+                    <div className="mt-4 rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface)]/80 px-4 py-4">
+                      <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-7 text-[var(--node-text-primary)]">
+                        {scene.content || "当前场景还没有正文内容。"}
+                      </pre>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <div className="mt-4 flex flex-1 items-center justify-center rounded-[24px] border border-dashed border-[var(--node-border)] text-[12px] text-[var(--node-text-secondary)]">

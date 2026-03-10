@@ -44,6 +44,7 @@ import { SyncPanel } from './node-workspace/components/SyncPanel';
 import { InfoPanel } from './node-workspace/components/InfoPanel';
 import { ProjectorModule } from './components/ProjectorModule';
 import { Dashboard } from './components/Dashboard';
+import { LandingPage } from './components/LandingPage';
 import type { ModuleKey } from './node-workspace/components/ModuleBar';
 import { FloatingPanelShell } from './node-workspace/components/FloatingPanelShell';
 import * as ResponsesTextService from './services/responsesTextService';
@@ -453,6 +454,7 @@ const App: React.FC = () => {
     setAnalysisError(null);
   }, [analysisStep]);
 
+  const [appView, setAppView] = useState<"main" | "landing">("main");
   const [accountPanel, setAccountPanel] = useState<"sync" | "info" | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
@@ -504,6 +506,14 @@ const App: React.FC = () => {
   }, []);
 
   const closeAccountPanel = useCallback(() => setAccountPanel(null), []);
+  const openLandingPage = useCallback(() => {
+    setAccountPanel(null);
+    setOpenLabModal(null);
+    setShowStatsModal(false);
+    setShowWorkflow(false);
+    setAppView("landing");
+  }, []);
+  const closeLandingPage = useCallback(() => setAppView("main"), []);
 
   const handleOpenLabModule = useCallback((key: ModuleKey) => {
     if (key === 'characters') {
@@ -2161,6 +2171,10 @@ const App: React.FC = () => {
     labModalContent = <ProjectorModule projectData={projectData} setProjectData={setProjectData} />;
   }
 
+  if (appView === "landing") {
+    return <LandingPage isDarkMode={isDarkMode} onEnterApp={closeLandingPage} />;
+  }
+
   return (
     <>
       <AppShell
@@ -2225,7 +2239,7 @@ const App: React.FC = () => {
         )}
         {accountPanel === "info" && (
           <FloatingPanelShell title="Info" isOpen onClose={closeAccountPanel} width={960}>
-            <InfoPanel />
+            <InfoPanel onOpenLanding={openLandingPage} />
           </FloatingPanelShell>
         )}
       </AppShell>

@@ -1,17 +1,21 @@
 import React, { useState } from "react";
-import { FileText, Sparkles, Target } from "lucide-react";
+import { ArrowUpRight, FileText, Path, Sparkle, Target } from "@phosphor-icons/react";
 
 type SectionKey = "about" | "roadmap";
 
-export const InfoPanel: React.FC = () => {
+type Props = {
+  onOpenLanding?: () => void;
+};
+
+export const InfoPanel: React.FC<Props> = ({ onOpenLanding }) => {
   const [active, setActive] = useState<SectionKey>("about");
 
   return (
     <div className="space-y-4 text-[var(--app-text-primary)]">
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[280px_1fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
-            <div className="text-[11px] uppercase tracking-widest app-text-muted">Account</div>
+          <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-[var(--app-text-secondary)]">Account · IO</div>
             {[
               { key: "about" as const, label: "About", Icon: FileText },
               { key: "roadmap" as const, label: "Roadmap", Icon: Target },
@@ -22,14 +26,14 @@ export const InfoPanel: React.FC = () => {
                   key={key}
                   type="button"
                   onClick={() => setActive(key)}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-[12px] border transition ${
+                  className={`flex items-center justify-between gap-2 rounded-[20px] border px-3 py-2.5 text-[12px] transition active:translate-y-px ${
                     activeItem
-                      ? "bg-[var(--app-panel-soft)] border-[var(--app-border-strong)] text-[var(--app-text-primary)]"
+                      ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]"
                       : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <Icon size={14} />
+                    <Icon size={14} weight="duotone" />
                     {label}
                   </span>
                 </button>
@@ -37,50 +41,110 @@ export const InfoPanel: React.FC = () => {
             })}
           </div>
 
-          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 text-[11px] text-[var(--app-text-secondary)] space-y-2">
-            <div className="uppercase tracking-widest">Info</div>
-            <div>Qalam is evolving into a full production stack.</div>
-            <div>Agent settings now host visual/video routes.</div>
+          <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 text-[11px] text-[var(--app-text-secondary)] space-y-2">
+            <div className="uppercase tracking-[0.28em]">Info</div>
+            <div>Qalam 正在从工具集合，收束成一块连续的创作工作面。</div>
+            <div>新的落地页会从这里进入，并直接回到主页面继续操作。</div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
+        <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-5 space-y-5">
           {active === "about" ? (
             <>
-              <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 border border-[var(--app-border)] flex items-center justify-center">
-                  <Sparkles size={18} className="text-emerald-200" />
+              <div className="grid grid-cols-1 gap-5 border-b border-[var(--app-border)] pb-5 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(16,185,129,0.04))]">
+                    <Sparkle size={18} weight="duotone" className="text-emerald-300" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-[var(--app-text-secondary)]">About</div>
+                    <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em]">Qalam</div>
+                    <div className="text-[12px] text-[var(--app-text-secondary)]">v0.3 · NodeLab</div>
+                    <div className="mt-3 max-w-xl text-[13px] leading-7 text-[var(--app-text-secondary)]">
+                      Node-first AIGC workflow for script understanding, asset structuring, shot planning, and production flow design.
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-lg font-semibold">Qalam</div>
-                  <div className="text-[12px] text-[var(--app-text-secondary)]">v0.3 · NodeLab</div>
-                  <div className="text-[12px] text-[var(--app-text-secondary)] mt-2 max-w-xl">
-                    Node-first AIGC workflow for script, assets, and production planning.
+
+                <div className="rounded-[24px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.28em] text-[var(--app-text-secondary)]">Surface</div>
+                  <div className="mt-3 space-y-3">
+                    {[
+                      { label: "Workspace", value: "NodeLab" },
+                      { label: "Pipeline", value: "Script → Assets → Shots" },
+                      { label: "Access", value: "Open without sign-in" },
+                    ].map((item) => (
+                      <div key={item.label} className="border-b border-[var(--app-border)] pb-3 last:border-b-0 last:pb-0">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-[var(--app-text-secondary)]">
+                          {item.label}
+                        </div>
+                        <div className="mt-1 text-[13px] font-semibold">{item.value}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 {[
-                  { label: "Workspace", value: "NodeLab" },
-                  { label: "Pipeline", value: "Script → Assets → Shots" },
-                  { label: "Agents", value: "Qalam System" },
+                  {
+                    label: "Core Vector",
+                    value: "理解 / 组织 / 生成",
+                    detail: "把剧本、角色、场景和节点工作流放在同一条连续操作链上。",
+                  },
+                  {
+                    label: "Agent Layer",
+                    value: "Qalam System",
+                    detail: "代理能力、视觉路径和视频路径现在共用同一块入口结构。",
+                  },
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3"
+                    className="rounded-[24px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4"
                   >
-                    <div className="text-[11px] text-[var(--app-text-secondary)] uppercase tracking-widest">
+                    <div className="text-[11px] text-[var(--app-text-secondary)] uppercase tracking-[0.28em]">
                       {item.label}
                     </div>
-                    <div className="text-[13px] font-semibold mt-1">{item.value}</div>
+                    <div className="mt-2 text-[15px] font-semibold tracking-[-0.02em]">{item.value}</div>
+                    <div className="mt-2 text-[12px] leading-6 text-[var(--app-text-secondary)]">{item.detail}</div>
                   </div>
                 ))}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 border-t border-[var(--app-border)] pt-5 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-[var(--app-text-secondary)]">
+                    <Path size={14} weight="duotone" />
+                    Detail
+                  </div>
+                  <div className="text-[20px] font-semibold tracking-[-0.03em]">为项目新增独立落地页入口</div>
+                  <div className="max-w-2xl text-[13px] leading-7 text-[var(--app-text-secondary)]">
+                    从这里进入新的 landing page。页面会展示更完整的产品气质，并提供一个无需登录、直接回到主工作台的“立即体验”入口。
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onOpenLanding}
+                  className="group flex min-h-[148px] flex-col justify-between rounded-[24px] border border-[var(--app-border-strong)] bg-[linear-gradient(180deg,rgba(16,185,129,0.14),rgba(16,185,129,0.03))] p-4 text-left transition hover:-translate-y-[1px] hover:border-emerald-400/60"
+                >
+                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] text-[var(--app-text-secondary)]">
+                    <span>Landing</span>
+                    <ArrowUpRight size={16} weight="bold" className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </div>
+                  <div>
+                    <div className="text-[16px] font-semibold tracking-[-0.02em]">打开落地页</div>
+                    <div className="mt-2 text-[12px] leading-6 text-[var(--app-text-secondary)]">
+                      查看艺术化首屏，再从“立即体验”回到主页面。
+                    </div>
+                  </div>
+                </button>
               </div>
             </>
           ) : (
             <>
-              <div className="text-lg font-semibold">Roadmap</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-[var(--app-text-secondary)]">Roadmap</div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {[
                   {
                     title: "Timeline & Replay",
@@ -101,7 +165,7 @@ export const InfoPanel: React.FC = () => {
                 ].map((item) => (
                   <div
                     key={item.title}
-                    className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 space-y-2"
+                    className="rounded-[24px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4 space-y-2"
                   >
                     <div className="text-[13px] font-semibold">{item.title}</div>
                     <div className="text-[12px] text-[var(--app-text-secondary)]">{item.desc}</div>

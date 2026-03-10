@@ -296,7 +296,7 @@ export const QalamAgent: React.FC<Props> = ({
         const nodeId = addNode("text", position, parentId, { title, text });
         return { id: nodeId, title };
       },
-      createWorkflowNode: ({ type, nodeRef, title, text, aspectRatio, episodeId, sceneId, entityType, entityId, x, y, parentId }) => {
+      createWorkflowNode: ({ type, nodeRef, title, text, aspectRatio, episodeId, sceneId, displayMode, entityType, entityId, x, y, parentId }) => {
         const snapshot = getWorkflowSnapshot();
         const hasXY = typeof x === "number" && typeof y === "number";
         const activeViewport = snapshot.viewport || viewport;
@@ -341,6 +341,7 @@ export const QalamAgent: React.FC<Props> = ({
                       title: resolvedTitle,
                       episodeId,
                       sceneId: (sceneId || "").trim() || undefined,
+                      displayMode: displayMode === "workflow" ? "workflow" : "table",
                     }
                   : {
                       title: resolvedTitle,

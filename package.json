@@ -16,6 +16,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.88.0",
     "@xyflow/react": "^12.10.0",
+    "framer-motion": "^12.35.2",
     "konva": "^9.3.22",
     "lucide-react": "^0.555.0",
     "react": "^18.3.1",

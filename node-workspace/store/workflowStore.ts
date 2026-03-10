@@ -396,7 +396,7 @@ const buildScriptBoardText = (data: ScriptBoardNodeData, episodes: Episode[]) =>
     const header = buildSceneLabel(scene, index);
     return `${header}\n${scene.content?.trim() || "暂无场景正文"}`;
   });
-  return [`剧本卡片：第${episode.id}集`, episode.summary ? `分集概述：${episode.summary}` : "", ...blocks]
+  return [`剧本面板：第${episode.id}集`, ...blocks]
     .filter(Boolean)
     .join("\n\n");
 };
@@ -408,27 +408,30 @@ const buildStoryboardBoardText = (data: StoryboardBoardNodeData, episodes: Episo
     findEpisodeBySceneId(episodes, data.sceneId) ??
     episodes[0];
   if (!episode) return null;
-  const scene =
-    episode.scenes.find((item) => item.id === data.sceneId) ??
-    episode.scenes[0];
-  if (!scene) return null;
-  const sceneShots = episode.shots.filter((shot) => shot.id.startsWith(`${scene.id}-`));
-  const rows = sceneShots.map((shot, index) => {
-    const parts = [
-      `镜头 ${index + 1}（${shot.id}）`,
-      shot.shotType ? `景别：${shot.shotType}` : "",
-      shot.duration ? `时长：${shot.duration}` : "",
-      shot.movement ? `运镜：${shot.movement}` : "",
-      shot.description ? `描述：${shot.description}` : "",
-      shot.dialogue ? `台词：${shot.dialogue}` : "",
-    ].filter(Boolean);
-    return parts.join("｜");
+  const sceneBlocks = episode.scenes.map((scene, index) => {
+    const sceneShots = episode.shots.filter((shot) => shot.id.startsWith(`${scene.id}-`));
+    const rows = sceneShots.map((shot, shotIndex) => {
+      const parts = [
+        `镜头 ${shotIndex + 1}（${shot.id}）`,
+        shot.shotType ? `景别：${shot.shotType}` : "",
+        shot.focalLength ? `焦段：${shot.focalLength}` : "",
+        shot.movement ? `运镜：${shot.movement}` : "",
+        shot.composition ? `构图：${truncateText(shot.composition, 80)}` : "",
+        shot.blocking ? `调度：${truncateText(shot.blocking, 80)}` : "",
+        shot.dialogue ? `台词：${truncateText(shot.dialogue, 60)}` : "",
+        shot.sound ? `声音：${truncateText(shot.sound, 60)}` : "",
+      ].filter(Boolean);
+      return parts.join("｜");
+    });
+    return [
+      buildSceneLabel(scene, index),
+      scene.content ? `场景正文：${truncateText(scene.content, 220)}` : "",
+      rows.length ? rows.join("\n") : "当前场景暂无分镜表数据。",
+    ]
+      .filter(Boolean)
+      .join("\n");
   });
-  return [
-    `分镜表格卡片：第${episode.id}集 ${scene.title || scene.id}`,
-    scene.content ? `场景正文：${truncateText(scene.content, 360)}` : "",
-    rows.length ? rows.join("\n") : "当前场景暂无分镜表数据。",
-  ]
+  return [`分镜表面板：第${episode.id}集`, ...sceneBlocks]
     .filter(Boolean)
     .join("\n\n");
 };
@@ -591,7 +594,8 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "storyboardBoard":
       return {
         title: "分镜表面板",
-        columnWidths: [88, 260, 180, 150, 180],
+        displayMode: "table",
+        columnWidths: [96, 280, 170, 220, 220, 200, 180, 180, 280, 280],
         rowHeights: {},
       } as StoryboardBoardNodeData;
     case "identityCard":

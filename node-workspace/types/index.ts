@@ -121,8 +121,10 @@ export interface StoryboardBoardNodeData extends BaseNodeData {
   title: string;
   episodeId?: number;
   sceneId?: string;
+  displayMode?: "table" | "workflow";
   columnWidths?: number[];
   rowHeights?: Record<string, number>;
+  workflowLoadedAt?: number;
 }
 
 export interface IdentityCardNodeData extends BaseNodeData {

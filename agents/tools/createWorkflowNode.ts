@@ -28,11 +28,16 @@ const createWorkflowNodeParameters = {
     },
     episode_id: {
       type: "integer",
-      description: "Optional episode id for scriptBoard or storyboardBoard nodes.",
+      description: "Episode id for scriptBoard or storyboardBoard nodes. Provide it whenever creating these agent-oriented panels.",
     },
     scene_id: {
       type: "string",
-      description: "Optional scene id for storyboardBoard nodes.",
+      description: "Optional focus scene id for storyboardBoard nodes. The board still loads the whole episode grouped by scenes.",
+    },
+    display_mode: {
+      type: "string",
+      enum: ["table", "workflow"],
+      description: "Optional storyboardBoard display mode. Use workflow only when you explicitly need to expand the episode into per-shot execution workflow.",
     },
     entity_type: {
       type: "string",
@@ -63,6 +68,7 @@ const parseArgs = (input: unknown) => {
   const text = normalizeString(raw.text);
   const aspectRatio = normalizeString(raw.aspect_ratio ?? raw.aspectRatio);
   const sceneId = normalizeString(raw.scene_id ?? raw.sceneId);
+  const displayMode = normalizeString(raw.display_mode ?? raw.displayMode);
   const entityType = normalizeString(raw.entity_type ?? raw.entityType);
   const entityId = normalizeString(raw.entity_id ?? raw.entityId);
   const episodeId =
@@ -81,6 +87,9 @@ const parseArgs = (input: unknown) => {
   }
   if (aspectRatio && !["1:1", "16:9", "9:16", "4:3", "21:9"].includes(aspectRatio)) {
     throw new Error("create_workflow_node 收到不支持的 aspect_ratio。");
+  }
+  if (displayMode && !["table", "workflow"].includes(displayMode)) {
+    throw new Error("create_workflow_node 收到不支持的 display_mode。");
   }
   if (nodeType === "storyboardBoard" && sceneId && !Number.isFinite(episodeId)) {
     throw new Error("create_workflow_node 创建 storyboardBoard 且提供 scene_id 时，建议同时提供 episode_id。");
@@ -107,6 +116,7 @@ const parseArgs = (input: unknown) => {
     aspectRatio: aspectRatio || "1:1",
     episodeId: Number.isFinite(episodeId) ? episodeId : undefined,
     sceneId,
+    displayMode: displayMode === "workflow" ? "workflow" : "table",
     entityType: entityType === "scene" ? "scene" : "character",
     entityId,
   };
@@ -127,6 +137,7 @@ export const createWorkflowNodeToolDef = {
       aspectRatio: args.nodeType === "imageGen" ? args.aspectRatio : undefined,
       episodeId: args.nodeType === "scriptBoard" || args.nodeType === "storyboardBoard" ? args.episodeId : undefined,
       sceneId: args.nodeType === "storyboardBoard" ? args.sceneId : undefined,
+      displayMode: args.nodeType === "storyboardBoard" ? args.displayMode : undefined,
       entityType: args.nodeType === "identityCard" ? args.entityType : undefined,
       entityId: args.nodeType === "identityCard" ? args.entityId : undefined,
     });

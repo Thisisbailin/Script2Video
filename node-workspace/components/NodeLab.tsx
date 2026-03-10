@@ -15,7 +15,7 @@ import "@xyflow/react/dist/style.css";
 import "../styles/nodelab.css";
 import { useWorkflowStore } from "../store/workflowStore";
 import { isValidConnection } from "../utils/handles";
-import { WorkflowFile, NodeType, WorkflowNode, WorkflowEdge, TextNodeData, GroupNodeData, ShotNodeData, VideoGenNodeData, ImageGenNodeData } from "../types";
+import { WorkflowFile, NodeType, TextNodeData, GroupNodeData, VideoGenNodeData } from "../types";
 import { EditableEdge } from "../edges/EditableEdge";
 import {
   ImageInputNode, AnnotationNode, TextNode,
@@ -45,6 +45,7 @@ import { ProjectData } from "../../types";
 import type { ModuleKey } from "./ModuleBar";
 import { FolderOpen, FileText, List } from "lucide-react";
 import { ArrowUp } from "@phosphor-icons/react";
+import { buildEpisodeShotWorkflow, getSuggestedCanvasOrigin } from "../utils/episodeShotWorkflow";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
@@ -660,15 +661,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   };
 
   const getTemplateOrigin = useCallback(() => {
-    const topLevelNodes = nodes.filter((node) => !node.parentId);
-    if (topLevelNodes.length === 0) return { x: 50, y: 60 };
-    const maxY = Math.max(
-      ...topLevelNodes.map((node) => {
-        const height = typeof node.style?.height === "number" ? node.style.height : 320;
-        return node.position.y + height;
-      })
-    );
-    return { x: 50, y: maxY + 160 };
+    return getSuggestedCanvasOrigin(nodes);
   }, [nodes]);
 
   const focusTemplate = useCallback((origin: XYPosition, zoom = 0.7) => {
@@ -705,162 +698,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   );
 
   const handleImportEpisode = useCallback((episodeId: number) => {
-    const episode = projectData.episodes.find(e => e.id === episodeId);
+    const episode = projectData.episodes.find((e) => e.id === episodeId);
     if (!episode) return;
-
-    const newNodes: WorkflowNode[] = [];
-    const newEdges: WorkflowEdge[] = [];
     const origin = getTemplateOrigin();
-    const groupId = `group-episode-${episodeId}-${Date.now()}`;
-    const topPadding = 120;
-    const bottomPadding = 180;
-    const shotGap = 160;
-    const promptGap = 100;
-    const groupWidth = 1720;
-
-    const estimateTextNodeHeight = (text: string) => {
-      const safe = (text || "").trim();
-      // Heuristic: text nodes auto-grow, so we over-estimate to avoid overlap.
-      const charsPerLine = 36;
-      const lineHeight = 22;
-      const baseHeight = 220;
-      const lines = Math.max(3, Math.ceil(safe.length / charsPerLine));
-      return baseHeight + lines * lineHeight;
-    };
-
-    const estimatedShotHeight = 340;
-    const estimatedWanHeight = 560;
-
-    let yCursor = topPadding;
-    const layouts = episode.shots.map((shot) => {
-      const soraHeight = estimateTextNodeHeight(shot.soraPrompt || shot.description || "");
-      const storyboardHeight = estimateTextNodeHeight(shot.storyboardPrompt || shot.description || "");
-      const promptBlockHeight = soraHeight + promptGap + storyboardHeight;
-      const wanBlockHeight = estimatedWanHeight * 2 + promptGap;
-      const blockHeight = Math.max(estimatedShotHeight, promptBlockHeight, wanBlockHeight);
-      const layout = {
-        y: yCursor,
-        soraHeight,
-        storyboardHeight,
-        blockHeight,
-      };
-      yCursor += blockHeight + shotGap;
-      return layout;
-    });
-
-    const groupHeight = yCursor + bottomPadding;
-
-    newNodes.push({
-      id: groupId,
-      type: 'group',
-      position: { x: origin.x, y: origin.y },
-      data: { title: `EPISODE ${episode.id}: ${episode.title.toUpperCase()}` } as GroupNodeData,
-      style: { width: groupWidth, height: groupHeight },
-    });
-
-    episode.shots.forEach((shot, idx) => {
-      const layout = layouts[idx];
-      const shotNodeId = `shot-${episodeId}-${shot.id}-${Date.now()}`;
-      const soraPromptNodeId = `text-sora-${episodeId}-${shot.id}-${Date.now()}`;
-      const storyboardPromptNodeId = `text-storyboard-${episodeId}-${shot.id}-${Date.now()}`;
-      const wanVideoNodeId = `wan-video-${episodeId}-${shot.id}-${Date.now()}`;
-      const wanImageNodeId = `wan-image-${episodeId}-${shot.id}-${Date.now()}`;
-      const yPos = layout?.y ?? (topPadding + idx * (estimatedShotHeight + shotGap));
-      const soraY = yPos;
-      const storyboardY = yPos + (layout?.soraHeight ?? estimateTextNodeHeight(shot.soraPrompt || "")) + promptGap;
-
-      newNodes.push({
-        id: shotNodeId,
-        type: 'shot',
-        position: { x: 40, y: yPos },
-        parentId: groupId,
-        extent: 'parent',
-        data: {
-          shotId: shot.id,
-          description: shot.description,
-          duration: shot.duration,
-          shotType: shot.shotType,
-          focalLength: shot.focalLength,
-          movement: shot.movement,
-          composition: shot.composition,
-          blocking: shot.blocking,
-          difficulty: shot.difficulty,
-          dialogue: shot.dialogue,
-          sound: shot.sound,
-          lightingVfx: shot.lightingVfx,
-          editingNotes: shot.editingNotes,
-          notes: shot.notes,
-          soraPrompt: shot.soraPrompt,
-          storyboardPrompt: shot.storyboardPrompt,
-          viewMode: "card",
-        } as ShotNodeData,
-      });
-
-      newNodes.push({
-        id: soraPromptNodeId,
-        type: 'text',
-        position: { x: 420, y: soraY },
-        parentId: groupId,
-        extent: 'parent',
-        data: {
-          title: `Sora Prompt: ${shot.id}`,
-          text: shot.soraPrompt || "",
-          refId: `${episodeId}|${shot.id}`
-        } as TextNodeData,
-      });
-
-      newNodes.push({
-        id: storyboardPromptNodeId,
-        type: 'text',
-        position: { x: 420, y: storyboardY },
-        parentId: groupId,
-        extent: 'parent',
-        data: {
-          title: `Storyboard Prompt: ${shot.id}`,
-          text: shot.storyboardPrompt || "",
-          refId: `${episodeId}|${shot.id}`
-        } as TextNodeData,
-      });
-
-      newNodes.push({
-        id: wanVideoNodeId,
-        type: 'wanVideoGen',
-        position: { x: 940, y: soraY },
-        parentId: groupId,
-        extent: 'parent',
-        data: {
-          title: `WAN Vid: ${shot.id}`,
-          inputImages: [],
-          status: 'idle',
-          error: null,
-          aspectRatio: '16:9',
-        } as VideoGenNodeData,
-      });
-
-      newNodes.push({
-        id: wanImageNodeId,
-        type: 'wanImageGen',
-        position: { x: 940, y: storyboardY },
-        parentId: groupId,
-        extent: 'parent',
-        data: {
-          title: `WAN Img: ${shot.id}`,
-          inputImages: [],
-          outputImage: null,
-          status: 'idle',
-          error: null,
-          aspectRatio: '16:9',
-        } as ImageGenNodeData,
-      });
-
-      newEdges.push(
-        { id: `edge-shot-sora-${shot.id}`, source: shotNodeId, target: soraPromptNodeId, sourceHandle: 'text', targetHandle: 'text' },
-        { id: `edge-shot-storyboard-${shot.id}`, source: shotNodeId, target: storyboardPromptNodeId, sourceHandle: 'text', targetHandle: 'text' },
-        { id: `edge-sora-wanvid-${shot.id}`, source: soraPromptNodeId, target: wanVideoNodeId, sourceHandle: 'text', targetHandle: 'text' },
-        { id: `edge-storyboard-wanimg-${shot.id}`, source: storyboardPromptNodeId, target: wanImageNodeId, sourceHandle: 'text', targetHandle: 'text' },
-      );
-    });
-
+    const { nodes: newNodes, edges: newEdges } = buildEpisodeShotWorkflow({ episode, origin });
     addNodesAndEdges(newNodes, newEdges);
     focusTemplate(origin, 0.7);
   }, [projectData, addNodesAndEdges, getTemplateOrigin, focusTemplate]);
