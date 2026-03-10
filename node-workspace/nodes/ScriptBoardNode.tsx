@@ -1,17 +1,56 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { BookOpen } from "lucide-react";
 import { BaseNode } from "./BaseNode";
 import { ScriptBoardNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
+import { Character } from "../../types";
 
 type Props = {
   id: string;
   data: ScriptBoardNodeData;
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildCharacterDetail = (character?: Character) => {
+  if (!character) return "";
+  return [
+    character.name ? `角色：${character.name}` : "",
+    character.role ? `身份：${character.role}` : "",
+    typeof character.appearanceCount === "number" ? `出现次数：${character.appearanceCount}` : "",
+    character.episodeUsage ? `出现区间：${character.episodeUsage}` : "",
+    character.bio || "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const buildCharacterMatcher = (characters: Character[]) => {
+  const names = characters
+    .map((character) => character.name?.trim())
+    .filter((name): name is string => !!name)
+    .sort((a, b) => b.length - a.length);
+  if (!names.length) return null;
+  return new RegExp(`(${names.map((name) => escapeRegExp(name)).join("|")})`, "g");
+};
+
 export const ScriptBoardNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, labContext } = useWorkflowStore();
   const episodes = labContext.episodes || [];
+  const characters = useMemo(
+    () => (labContext.context?.characters || []).filter((character) => !!character?.name?.trim()),
+    [labContext.context?.characters]
+  );
+  const characterMap = useMemo(() => {
+    const map = new Map<string, Character>();
+    characters.forEach((character) => {
+      if (character.name?.trim()) {
+        map.set(character.name.trim(), character);
+      }
+    });
+    return map;
+  }, [characters]);
+  const characterMatcher = useMemo(() => buildCharacterMatcher(characters), [characters]);
 
   const episode = useMemo(() => {
     return episodes.find((item) => item.id === data.episodeId) ?? episodes[0] ?? null;
@@ -28,6 +67,50 @@ export const ScriptBoardNode: React.FC<Props & { selected?: boolean }> = ({ id, 
       },
     ];
   }, [episode]);
+
+  const renderBoundScriptText = useCallback(
+    (text: string) => {
+      if (!text) return "当前场景还没有正文内容。";
+      if (!characterMatcher) return text;
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      characterMatcher.lastIndex = 0;
+
+      while ((match = characterMatcher.exec(text))) {
+        const [matchedName] = match;
+        const start = match.index;
+        const end = start + matchedName.length;
+        if (start > lastIndex) {
+          parts.push(
+            <React.Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex, start)}</React.Fragment>
+          );
+        }
+
+        const character = characterMap.get(matchedName);
+        const tooltip = buildCharacterDetail(character);
+        parts.push(
+          <span
+            key={`${matchedName}-${start}`}
+            className="text-mention"
+            data-kind="character"
+            data-status={character ? "match" : "missing"}
+            data-tooltip={tooltip || undefined}
+          >
+            @{matchedName}
+          </span>
+        );
+        lastIndex = end;
+      }
+
+      if (lastIndex < text.length) {
+        parts.push(<React.Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex)}</React.Fragment>);
+      }
+
+      return parts;
+    },
+    [characterMap, characterMatcher]
+  );
 
   return (
     <BaseNode title={data.title || "剧本面板节点"} outputs={["text"]} selected={selected}>
@@ -78,9 +161,9 @@ export const ScriptBoardNode: React.FC<Props & { selected?: boolean }> = ({ id, 
                   {scene.title || "未命名场景"}
                 </h3>
                 <div className="mt-3 border-t border-[var(--node-border)] pt-4">
-                  <pre className="whitespace-pre-wrap break-words font-sans text-[12px] leading-7 text-[var(--node-text-primary)]">
-                    {scene.content || "当前场景还没有正文内容。"}
-                  </pre>
+                  <div className="whitespace-pre-wrap break-words font-sans text-[12px] leading-7 text-[var(--node-text-primary)]">
+                    {renderBoundScriptText(scene.content || "")}
+                  </div>
                 </div>
               </section>
             ))}
