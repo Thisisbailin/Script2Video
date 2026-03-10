@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { FolderOpen, FileText, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
+import { useUser, useClerk, useAuth } from './lib/auth';
 import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab, SyncState, SyncStatus, Character } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
 import {
