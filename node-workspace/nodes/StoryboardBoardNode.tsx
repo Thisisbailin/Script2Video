@@ -27,15 +27,6 @@ const COLUMNS = [
 const MIN_COLUMN_WIDTH = 88;
 const MIN_ROW_HEIGHT = 92;
 
-const formatTime = (timestamp?: number) => {
-  if (!timestamp) return "";
-  try {
-    return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "";
-  }
-};
-
 const ValueStack: React.FC<{ primary?: string; secondary?: string; tertiary?: string }> = ({
   primary,
   secondary,
@@ -68,25 +59,17 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
     return widths;
   }, [data.columnWidths]);
 
-  const rowHeights = data.rowHeights || {};
-  const gridTemplateColumns = columnWidths.map((value) => `${value}px`).join(" ");
-
   const sections = useMemo(() => {
     if (!episode) return [];
-    const base = (episode.scenes || []).map((scene, index) => ({
+    return (episode.scenes || []).map((scene, index) => ({
       scene,
       index,
       shots: episode.shots.filter((shot) => shot.id.startsWith(`${scene.id}-`)),
     }));
-    if (!data.sceneId) return base;
-    return base.slice().sort((left, right) => {
-      if (left.scene.id === data.sceneId) return -1;
-      if (right.scene.id === data.sceneId) return 1;
-      return left.index - right.index;
-    });
-  }, [data.sceneId, episode]);
+  }, [episode]);
 
-  const totalShots = episode?.shots.length || 0;
+  const rowHeights = data.rowHeights || {};
+  const gridTemplateColumns = columnWidths.map((value) => `${value}px`).join(" ");
   const displayMode = data.displayMode || "table";
 
   const updateColumnWidth = useCallback(
@@ -158,30 +141,11 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
             <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
               <LayoutPanelTop size={18} />
             </div>
-            <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="text-[13px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
-                {data.title || "分镜表面板节点"}
+                {data.title || "分镜表面板"}
               </div>
-              <div className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                Episode Storyboard Surface
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full border border-[var(--node-border)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
-              {totalShots} shots
-            </span>
-            <span className="rounded-full border border-[var(--node-border)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
-              {sections.length} scenes
-            </span>
-          </div>
-        </div>
-
-        {episode ? (
-          <>
-            <div className="mt-3 grid gap-3 xl:grid-cols-[160px_200px_minmax(0,1fr)_300px]">
-              <label className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">Episode</span>
+              {episode ? (
                 <select
                   value={episode.id}
                   onChange={(event) =>
@@ -190,7 +154,7 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
                       sceneId: undefined,
                     })
                   }
-                  className="w-full rounded-[16px] border border-[var(--node-border)] bg-[var(--node-surface)] px-3 py-2 text-[12px] text-[var(--node-text-primary)] outline-none"
+                  className="rounded-full border border-[var(--node-border)] bg-[var(--node-surface)] px-3 py-1.5 text-[11px] font-medium text-[var(--node-text-secondary)] outline-none transition hover:border-[var(--node-border-strong)]"
                 >
                   {episodes.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -198,207 +162,147 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
                     </option>
                   ))}
                 </select>
-              </label>
+              ) : null}
+            </div>
+          </div>
 
-              <label className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">Focus Scene</span>
-                <select
-                  value={data.sceneId || ""}
-                  onChange={(event) => updateNodeData(id, { sceneId: event.target.value || undefined })}
-                  className="w-full rounded-[16px] border border-[var(--node-border)] bg-[var(--node-surface)] px-3 py-2 text-[12px] text-[var(--node-text-primary)] outline-none"
-                >
-                  <option value="">整集分场显示</option>
-                  {episode.scenes.map((scene, index) => (
-                    <option key={scene.id} value={scene.id}>
-                      场 {index + 1} · {scene.id}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-full border border-[var(--node-border)] bg-[var(--node-surface)]/80 p-1">
+              {[
+                { key: "table", label: "表格", Icon: TableProperties },
+                { key: "workflow", label: "Workflow", Icon: Play },
+              ].map(({ key, label, Icon }) => {
+                const active = displayMode === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => updateNodeData(id, { displayMode: key as "table" | "workflow" })}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                      active
+                        ? "bg-[var(--node-surface-strong)] text-[var(--node-text-primary)]"
+                        : "text-[var(--node-text-secondary)] hover:text-[var(--node-text-primary)]"
+                    }`}
+                  >
+                    <Icon size={12} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={handleLoadWorkflow}
+              disabled={displayMode !== "workflow"}
+              className="rounded-full border border-[var(--node-border)] px-3 py-1.5 text-[11px] font-medium text-[var(--node-text-primary)] transition enabled:hover:border-[var(--node-accent)] enabled:hover:bg-[var(--node-surface)] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              加载 workflow
+            </button>
+          </div>
+        </div>
 
-              <div className="rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-3 py-3">
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "table", label: "整集表格", Icon: TableProperties },
-                    { key: "workflow", label: "Shots Workflow", Icon: Play },
-                  ].map(({ key, label, Icon }) => {
-                    const active = displayMode === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => updateNodeData(id, { displayMode: key as "table" | "workflow" })}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
-                          active
-                            ? "border-[var(--node-accent)] bg-[var(--node-surface)] text-[var(--node-text-primary)]"
-                            : "border-[var(--node-border)] text-[var(--node-text-secondary)] hover:border-[var(--node-border-strong)]"
-                        }`}
-                      >
-                        <Icon size={12} />
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 text-[11px] leading-5 text-[var(--node-text-secondary)]">
-                  {displayMode === "table"
-                    ? "表格模式只加载整集分镜表，按场景上下分块。"
-                    : "Shots workflow 模式下，每一行 shot 会对应旧逻辑中的单分镜卡片与后续两支生成工作流。"}
-                </div>
-              </div>
-
-              <div className="rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">Workflow Action</div>
-                    <div className="mt-1 text-[12px] leading-5 text-[var(--node-text-primary)]">
-                      {displayMode === "workflow"
-                        ? "将整集分镜拆成可执行的 shot workflow。"
-                        : "切到 workflow 模式后，可把整集拆成 shot 工作流。"}
+        {episode ? (
+          <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
+            <div className="min-w-max">
+              <div
+                className="sticky top-0 z-20 grid border-b border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]"
+                style={{ gridTemplateColumns }}
+              >
+                {COLUMNS.map((column, index) => (
+                  <div key={column.label} className="relative px-4 py-3">
+                    {column.label}
+                    <div
+                      onPointerDown={(event) => startColumnResize(index, event)}
+                      className="absolute right-0 top-0 h-full w-3 cursor-col-resize touch-none"
+                      title="拖动调整列宽"
+                    >
+                      <div className="absolute bottom-2 right-1 top-2 w-px bg-[var(--node-border-strong)]/80" />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleLoadWorkflow}
-                    disabled={displayMode !== "workflow"}
-                    className="rounded-full border border-[var(--node-border)] px-3 py-2 text-[11px] font-medium text-[var(--node-text-primary)] transition enabled:hover:border-[var(--node-accent)] enabled:hover:bg-[var(--node-surface)] disabled:cursor-not-allowed disabled:opacity-45"
-                  >
-                    加载整集 workflow
-                  </button>
-                </div>
-                {data.workflowLoadedAt ? (
-                  <div className="mt-2 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
-                    Last loaded {formatTime(data.workflowLoadedAt)}
-                  </div>
-                ) : null}
+                ))}
               </div>
-            </div>
 
-            <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
-              <div className="min-w-max">
-                <div
-                  className="sticky top-0 z-20 grid border-b border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]"
-                  style={{ gridTemplateColumns }}
-                >
-                  {COLUMNS.map((column, index) => (
-                    <div key={column.label} className="relative px-4 py-3">
-                      {column.label}
-                      <div
-                        onPointerDown={(event) => startColumnResize(index, event)}
-                        className="absolute right-0 top-0 h-full w-3 cursor-col-resize touch-none"
-                        title="拖动调整列宽"
-                      >
-                        <div className="absolute bottom-2 right-1 top-2 w-px bg-[var(--node-border-strong)]/80" />
+              {sections.length ? (
+                sections.map(({ scene, index, shots }) => (
+                  <section key={scene.id} className="border-b border-[var(--node-border)] last:border-b-0">
+                    <div className="border-b border-[var(--node-border)] bg-[var(--app-panel-muted)]/20 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                        <span>Scene {index + 1}</span>
+                        <span>{scene.id}</span>
+                      </div>
+                      <div className="mt-2 text-[15px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
+                        {scene.title || "未命名场景"}
                       </div>
                     </div>
-                  ))}
+
+                    {shots.length ? (
+                      shots.map((shot, shotIndex) => {
+                        const rowKey = shot.id;
+                        const rowHeight = rowHeights[rowKey] || 116;
+                        return (
+                          <div
+                            key={shot.id}
+                            className="relative border-b border-[var(--node-border)] last:border-b-0"
+                            style={{ minHeight: rowHeight }}
+                          >
+                            <div className="grid h-full" style={{ gridTemplateColumns }}>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={`${shotIndex + 1}`} secondary={shot.id} tertiary={shot.duration} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.description} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.shotType} secondary={shot.focalLength} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.movement} secondary={shot.composition} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.blocking} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.dialogue} secondary={shot.sound} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.lightingVfx} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.editingNotes} secondary={shot.notes} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.soraPrompt} />
+                              </div>
+                              <div className="px-4 py-3">
+                                <ValueStack primary={shot.storyboardPrompt} />
+                              </div>
+                            </div>
+                            <div
+                              onPointerDown={(event) => startRowResize(rowKey, event)}
+                              className="absolute bottom-0 left-0 flex h-3 w-full cursor-row-resize items-center justify-center touch-none"
+                              title="拖动调整行高"
+                            >
+                              <div className="rounded-full border border-[var(--node-border)] bg-[var(--node-surface)] px-2 py-0.5 text-[var(--node-text-secondary)]">
+                                <GripVertical size={11} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="px-4 py-8 text-center text-[12px] text-[var(--node-text-secondary)]">
+                        当前场景还没有分镜数据。
+                      </div>
+                    )}
+                  </section>
+                ))
+              ) : (
+                <div className="px-4 py-10 text-center text-[12px] text-[var(--node-text-secondary)]">
+                  当前剧集还没有分镜表数据。
                 </div>
-
-                {sections.length ? (
-                  sections.map(({ scene, index, shots }) => {
-                    const isFocused = data.sceneId === scene.id;
-                    return (
-                      <section key={scene.id} className="border-b border-[var(--node-border)] last:border-b-0">
-                        <button
-                          type="button"
-                          onClick={() => updateNodeData(id, { sceneId: isFocused ? undefined : scene.id })}
-                          className={`w-full border-b border-[var(--node-border)] px-4 py-4 text-left transition ${
-                            isFocused ? "bg-[var(--node-surface-strong)]/90" : "bg-[var(--app-panel-muted)]/25 hover:bg-[var(--app-panel-muted)]/40"
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                                <span>Scene {index + 1}</span>
-                                <span>{scene.id}</span>
-                                {isFocused ? <span className="rounded-full border border-[var(--node-accent)] px-2 py-0.5 text-[9px] text-[var(--node-accent)]">Focused</span> : null}
-                              </div>
-                              <div className="mt-2 text-[16px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
-                                {scene.title || "未命名场景"}
-                              </div>
-                              <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                                {scene.location ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{scene.location}</span> : null}
-                                {scene.timeOfDay ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{scene.timeOfDay}</span> : null}
-                                {scene.partition ? <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{scene.partition}</span> : null}
-                                <span className="rounded-full border border-[var(--node-border)] px-2.5 py-1">{shots.length} shots</span>
-                              </div>
-                            </div>
-                            <div className="max-w-[420px] text-[11px] leading-5 text-[var(--node-text-secondary)]">
-                              {scene.content || "当前场景没有正文描述。"}
-                            </div>
-                          </div>
-                        </button>
-
-                        {shots.length ? (
-                          shots.map((shot, shotIndex) => {
-                            const rowKey = shot.id;
-                            const rowHeight = rowHeights[rowKey] || 116;
-                            return (
-                              <div
-                                key={shot.id}
-                                className="relative border-b border-[var(--node-border)] last:border-b-0"
-                                style={{ minHeight: rowHeight }}
-                              >
-                                <div className="grid h-full" style={{ gridTemplateColumns }}>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={`${shotIndex + 1}`} secondary={shot.id} tertiary={shot.duration} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.description} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.shotType} secondary={shot.focalLength} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.movement} secondary={shot.composition} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.blocking} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.dialogue} secondary={shot.sound} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.lightingVfx} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.editingNotes} secondary={shot.notes} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.soraPrompt} />
-                                  </div>
-                                  <div className="px-4 py-3">
-                                    <ValueStack primary={shot.storyboardPrompt} />
-                                  </div>
-                                </div>
-                                <div
-                                  onPointerDown={(event) => startRowResize(rowKey, event)}
-                                  className="absolute bottom-0 left-0 flex h-3 w-full cursor-row-resize items-center justify-center touch-none"
-                                  title="拖动调整行高"
-                                >
-                                  <div className="rounded-full border border-[var(--node-border)] bg-[var(--node-surface)] px-2 py-0.5 text-[var(--node-text-secondary)]">
-                                    <GripVertical size={11} />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="px-4 py-8 text-center text-[12px] text-[var(--node-text-secondary)]">
-                            当前场景还没有分镜数据。
-                          </div>
-                        )}
-                      </section>
-                    );
-                  })
-                ) : (
-                  <div className="px-4 py-10 text-center text-[12px] text-[var(--node-text-secondary)]">
-                    当前剧集还没有分镜表数据。
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          </>
+          </div>
         ) : (
           <div className="mt-4 flex flex-1 items-center justify-center rounded-[24px] border border-dashed border-[var(--node-border)] text-[12px] text-[var(--node-text-secondary)]">
             当前项目还没有可展示的分镜表。
