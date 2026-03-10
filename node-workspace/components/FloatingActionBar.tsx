@@ -46,6 +46,9 @@ type AccountInfo = {
 
 type Props = {
   onAddText: () => void;
+  onAddScriptBoard: () => void;
+  onAddStoryboardBoard: () => void;
+  onAddIdentityCard: () => void;
   onAddImage: () => void;
   onAddImageGen: () => void;
   onAddWanImageGen: () => void;
@@ -98,6 +101,9 @@ type Props = {
 
 export const FloatingActionBar: React.FC<Props> = ({
   onAddText,
+  onAddScriptBoard,
+  onAddStoryboardBoard,
+  onAddIdentityCard,
   onAddImage,
   onAddImageGen,
   onAddWanImageGen,
@@ -177,9 +183,14 @@ export const FloatingActionBar: React.FC<Props> = ({
     "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const popoverBottomClass = isEmbedded ? "bottom-[calc(100%+12px)]" : "bottom-16";
 
+  const panelActions = [
+    { label: "剧本面板", hint: "按集与场景浏览剧本", meta: "Panel", onClick: onAddScriptBoard, Icon: BookOpen, tone: "text-sky-300", surface: "bg-sky-500/12" },
+    { label: "分镜表面板", hint: "可调列宽和行高的表格", meta: "Table", onClick: onAddStoryboardBoard, Icon: List, tone: "text-amber-300", surface: "bg-amber-500/12" },
+    { label: "身份卡片", hint: "角色 / 场景与形态分区", meta: "Library", onClick: onAddIdentityCard, Icon: Layers, tone: "text-emerald-300", surface: "bg-emerald-500/12" },
+  ];
   const nodeActions = [
-    { label: "Text", hint: "Draft prompts, notes, and structure", meta: "Writing", onClick: onAddText, Icon: MessageSquare, tone: "text-sky-300", surface: "bg-sky-500/12" },
-    { label: "Group", hint: "Frame a reusable block of nodes", meta: "Layout", onClick: onAddGroup, Icon: BoxSelect, tone: "text-amber-300", surface: "bg-amber-500/12" },
+    { label: "Text", hint: "Draft prompts, notes, and structure", meta: "Writing", onClick: onAddText, Icon: MessageSquare, tone: "text-slate-200", surface: "bg-white/5" },
+    { label: "Group", hint: "Frame a reusable block of nodes", meta: "Layout", onClick: onAddGroup, Icon: BoxSelect, tone: "text-stone-200", surface: "bg-stone-500/12" },
     { label: "Image", hint: "Upload a reference image or still", meta: "Input", onClick: onAddImage, Icon: ImageIcon, tone: "text-emerald-300", surface: "bg-emerald-500/12" },
     { label: "Img Gen", hint: "Generate concept imagery", meta: "Generation", onClick: onAddImageGen, Icon: Sparkles, tone: "text-cyan-300", surface: "bg-cyan-500/12" },
     { label: "WAN Img", hint: "Wan 2.6 image workflow", meta: "Generation", onClick: onAddWanImageGen, Icon: Sparkles, tone: "text-teal-300", surface: "bg-teal-500/12" },
@@ -389,17 +400,53 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
-            className={`absolute ${popoverBottomClass} left-0 w-[360px] max-w-[92vw] animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
+            className={`absolute ${popoverBottomClass} left-0 w-[min(720px,92vw)] max-w-[92vw] animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
             style={panelStyle}
           >
             <div className="p-4 space-y-4">
               <div className="px-1">
                 <div className="text-[10px] font-black uppercase tracking-widest text-[var(--app-text-secondary)]">Add Nodes</div>
                 <div className="mt-1 text-[13px] leading-relaxed text-[var(--app-text-secondary)]">
-                  选择一个节点起点，快速补齐输入、生成或组织结构。
+                  先放入面板类节点，再补充生成和工作流节点，层级会更清晰。
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className={sectionEyebrowClass}>Panel Nodes</div>
+                  <div className="text-[10px] text-[var(--app-text-muted)]">3 custom types</div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  {panelActions.map(({ label, hint, meta, onClick, Icon, tone, surface }) => (
+                    <button
+                      key={label}
+                      onClick={() => {
+                        onClick();
+                        closeMenus();
+                      }}
+                      className="group/node relative overflow-hidden rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent)] px-4 py-4 text-left transition-all hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className={`flex h-11 w-11 items-center justify-center rounded-[16px] border border-[var(--app-border)] ${surface} ${tone}`}>
+                          <Icon size={18} />
+                        </div>
+                        <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                          {meta}
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <div className="text-[14px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{label}</div>
+                        <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">{hint}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className={sectionEyebrowClass}>Workflow Nodes</div>
+                  <div className="text-[10px] text-[var(--app-text-muted)]">{nodeActions.length} actions</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {nodeActions.map(({ label, hint, meta, onClick, Icon, tone, surface }) => (
                   <button
                     key={label}
@@ -427,6 +474,7 @@ export const FloatingActionBar: React.FC<Props> = ({
                     </div>
                   </button>
                 ))}
+              </div>
               </div>
 
             </div>

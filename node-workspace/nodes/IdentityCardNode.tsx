@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { MapPinned, UserRound } from "lucide-react";
+import React, { useMemo, useCallback } from "react";
+import { Layers, MapPinned, Upload, UserRound } from "lucide-react";
 import type { Character, DesignAssetItem, Location } from "../../types";
 import { BaseNode } from "./BaseNode";
 import { IdentityCardNodeData } from "../types";
@@ -10,23 +10,39 @@ type Props = {
   data: IdentityCardNodeData;
 };
 
+type VariantCard = {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  description: string;
+  avatarUrl?: string;
+};
+
 const getInitials = (value: string) => value.slice(0, 2).toUpperCase();
 
-const collectCharacterAssets = (character: Character, assets: DesignAssetItem[]) =>
-  (character.forms || []).flatMap((form) =>
-    assets.filter((asset) => asset.category === "form" && asset.refId === `${character.id}|${form.id}`)
-  );
+const findAssetUrl = (assets: DesignAssetItem[], category: "form" | "zone", refId: string) =>
+  assets.find((asset) => asset.category === category && asset.refId === refId)?.url;
 
-const collectSceneAssets = (location: Location, assets: DesignAssetItem[]) => {
-  const zoneIds = new Set((location.zones || []).map((zone) => zone.id));
-  return assets.filter((asset) => asset.category === "zone" && (zoneIds.has(asset.refId) || Array.from(zoneIds).some((id) => asset.refId.includes(id))));
-};
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("无法读取图片内容"));
+    };
+    reader.onerror = () => reject(new Error("图片读取失败"));
+    reader.readAsDataURL(file);
+  });
 
 export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, labContext } = useWorkflowStore();
   const characters = labContext.context.characters || [];
   const locations = labContext.context.locations || [];
   const designAssets = labContext.designAssets || [];
+  const avatarOverrides = data.avatarOverrides || {};
+
+  const isCharacter = data.entityType !== "scene";
 
   const activeCharacter = useMemo(() => {
     return characters.find((item) => item.id === data.entityId) ?? characters[0] ?? null;
@@ -36,184 +52,281 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
     return locations.find((item) => item.id === data.entityId) ?? locations[0] ?? null;
   }, [locations, data.entityId]);
 
-  const isCharacter = data.entityType !== "scene";
-  const characterAssets = activeCharacter ? collectCharacterAssets(activeCharacter, designAssets) : [];
-  const sceneAssets = activeLocation ? collectSceneAssets(activeLocation, designAssets) : [];
+  const variantCards = useMemo<VariantCard[]>(() => {
+    if (isCharacter && activeCharacter) {
+      return (activeCharacter.forms || []).map((form) => ({
+        id: form.id,
+        title: form.formName,
+        subtitle: form.episodeRange || "未标注集数",
+        badge: form.identityOrState || "默认形态",
+        description: form.description || form.visualTags || "暂无形态说明。",
+        avatarUrl:
+          avatarOverrides[form.id] || findAssetUrl(designAssets, "form", `${activeCharacter.id}|${form.id}`),
+      }));
+    }
+    if (!isCharacter && activeLocation) {
+      return (activeLocation.zones || []).map((zone) => ({
+        id: zone.id,
+        title: zone.name,
+        subtitle: zone.episodeRange || "未标注集数",
+        badge: zone.kind || "zone",
+        description: zone.layoutNotes || zone.keyProps || zone.lightingWeather || "暂无分区说明。",
+        avatarUrl:
+          avatarOverrides[zone.id] || findAssetUrl(designAssets, "zone", `${activeLocation.id}|${zone.id}`),
+      }));
+    }
+    return [];
+  }, [activeCharacter, activeLocation, avatarOverrides, designAssets, isCharacter]);
+
+  const selectedVariant = useMemo(() => {
+    return variantCards.find((item) => item.id === data.selectedVariantId) ?? variantCards[0] ?? null;
+  }, [data.selectedVariantId, variantCards]);
+
+  const handleEntityModeChange = (entityType: "character" | "scene") => {
+    if (entityType === "character") {
+      const nextCharacter = characters[0];
+      updateNodeData(id, {
+        entityType,
+        entityId: nextCharacter?.id,
+        selectedVariantId: nextCharacter?.forms?.[0]?.id,
+      });
+      return;
+    }
+    const nextLocation = locations[0];
+    updateNodeData(id, {
+      entityType,
+      entityId: nextLocation?.id,
+      selectedVariantId: nextLocation?.zones?.[0]?.id,
+    });
+  };
+
+  const handleEntitySelect = (entityId: string) => {
+    if (isCharacter) {
+      const nextCharacter = characters.find((item) => item.id === entityId);
+      updateNodeData(id, {
+        entityId,
+        selectedVariantId: nextCharacter?.forms?.[0]?.id,
+      });
+      return;
+    }
+    const nextLocation = locations.find((item) => item.id === entityId);
+    updateNodeData(id, {
+      entityId,
+      selectedVariantId: nextLocation?.zones?.[0]?.id,
+    });
+  };
+
+  const handleAvatarUpload = useCallback(
+    async (variantId: string, file?: File | null) => {
+      if (!file) return;
+      const nextUrl = await readFileAsDataUrl(file);
+      updateNodeData(id, {
+        avatarOverrides: {
+          ...avatarOverrides,
+          [variantId]: nextUrl,
+        },
+      });
+    },
+    [avatarOverrides, id, updateNodeData]
+  );
+
+  const parentTitle = isCharacter ? activeCharacter?.name : activeLocation?.name;
+  const parentMeta = isCharacter ? activeCharacter?.role || "角色身份" : activeLocation?.type || "场景身份";
+  const parentBody = isCharacter
+    ? activeCharacter?.bio || "暂无角色简介。"
+    : activeLocation?.description || activeLocation?.visuals || "暂无场景描述。";
 
   return (
-    <BaseNode
-      title={data.title || "身份卡片"}
-      onTitleChange={(title) => updateNodeData(id, { title })}
-      outputs={["text"]}
-      selected={selected}
-    >
-      <div className="flex flex-col gap-4 h-full min-h-0">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-2">
+    <BaseNode title={data.title || "角色 / 场景身份卡片节点"} outputs={["text"]} selected={selected}>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--node-border)] pb-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
+              <Layers size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
+                {data.title || "角色 / 场景身份卡片节点"}
+              </div>
+              <div className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                Parent / Variant Cards
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-1 rounded-full border border-[var(--node-border)] p-1">
             <button
               type="button"
-              onClick={() => updateNodeData(id, { entityType: "character", entityId: characters[0]?.id })}
-              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] transition ${
-                isCharacter
-                  ? "bg-[var(--node-accent)] text-white"
-                  : "border border-[var(--node-border)] text-[var(--node-text-secondary)]"
+              onClick={() => handleEntityModeChange("character")}
+              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                isCharacter ? "bg-[var(--node-accent)] text-white" : "text-[var(--node-text-secondary)]"
               }`}
             >
               角色
             </button>
             <button
               type="button"
-              onClick={() => updateNodeData(id, { entityType: "scene", entityId: locations[0]?.id })}
-              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] transition ${
-                !isCharacter
-                  ? "bg-[var(--node-accent)] text-white"
-                  : "border border-[var(--node-border)] text-[var(--node-text-secondary)]"
+              onClick={() => handleEntityModeChange("scene")}
+              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                !isCharacter ? "bg-[var(--node-accent)] text-white" : "text-[var(--node-text-secondary)]"
               }`}
             >
               场景
             </button>
           </div>
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-            {isCharacter ? "Identity / Character" : "Identity / Scene"}
-          </div>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {(isCharacter ? characters : locations).map((item) => {
-            const active = item.id === (isCharacter ? activeCharacter?.id : activeLocation?.id);
+            const isActive = item.id === (isCharacter ? activeCharacter?.id : activeLocation?.id);
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => updateNodeData(id, { entityId: item.id })}
-                className={`shrink-0 rounded-[20px] border px-3 py-2 text-left transition min-w-[120px] ${
-                  active
+                onClick={() => handleEntitySelect(item.id)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+                  isActive
                     ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)] text-[var(--node-text-primary)]"
-                    : "border-[var(--node-border)] bg-[var(--node-surface)] text-[var(--node-text-secondary)] hover:border-[var(--node-border-strong)]"
+                    : "border-[var(--node-border)] text-[var(--node-text-secondary)] hover:border-[var(--node-border-strong)]"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--node-surface-strong)] text-[11px] font-black text-[var(--node-accent)]">
-                    {isCharacter ? getInitials((item as Character).name) : <MapPinned size={14} />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-[12px] font-semibold">{item.name}</div>
-                    <div className="truncate text-[10px] uppercase tracking-[0.14em] opacity-70">
-                      {isCharacter ? ((item as Character).role || "角色") : ((item as Location).type || "场景")}
-                    </div>
-                  </div>
-                </div>
+                {item.name}
               </button>
             );
           })}
         </div>
 
-        {isCharacter && activeCharacter ? (
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
-            <section className="node-surface rounded-[24px] p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
-                    <UserRound size={20} />
+        {parentTitle ? (
+          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
+              <div className="border-b border-[var(--node-border)] px-4 py-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
+                    {selectedVariant?.avatarUrl ? (
+                      <img src={selectedVariant.avatarUrl} alt={selectedVariant.title} className="h-full w-full rounded-[20px] object-cover" />
+                    ) : isCharacter ? (
+                      <span className="text-[16px] font-black">{getInitials(parentTitle)}</span>
+                    ) : (
+                      <MapPinned size={22} />
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[18px] font-semibold truncate">{activeCharacter.name}</div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">{activeCharacter.role || "角色身份"}</div>
+                    <div className="text-[18px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">{parentTitle}</div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">{parentMeta}</div>
                   </div>
                 </div>
-                <div className="node-pill node-pill--accent px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]">
-                  {(activeCharacter.forms || []).length} Forms
+                <div className="mt-4 rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
+                  {parentBody}
                 </div>
               </div>
-              <div className="mt-4 rounded-[18px] bg-[var(--node-surface-strong)] px-4 py-3 text-[12px] leading-6 text-[var(--node-text-primary)] whitespace-pre-wrap">
-                {activeCharacter.bio || "暂无角色简介。"}
+
+              <div className="min-h-0 flex-1 px-4 py-4">
+                <div className="rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3">
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                    {isCharacter ? "Active Form" : "Active Zone"}
+                  </div>
+                  {selectedVariant ? (
+                    <>
+                      <div className="mt-2 text-[14px] font-semibold text-[var(--node-text-primary)]">{selectedVariant.title}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                        {selectedVariant.subtitle}
+                      </div>
+                      <div className="mt-3 rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                        {selectedVariant.badge}
+                      </div>
+                      <div className="mt-3 text-[12px] leading-6 text-[var(--node-text-primary)]">{selectedVariant.description}</div>
+                    </>
+                  ) : (
+                    <div className="mt-2 text-[12px] leading-6 text-[var(--node-text-secondary)]">
+                      {isCharacter ? "当前角色没有形态卡片。" : "当前场景没有分区卡片。"}
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
 
-            {(activeCharacter.forms || []).length ? (
-              <section className="grid grid-cols-1 gap-3">
-                {activeCharacter.forms.map((form) => (
-                  <article key={form.id} className="rounded-[22px] border border-[var(--node-border)] bg-[var(--node-surface)] p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[13px] font-semibold">{form.formName}</div>
-                        <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">{form.episodeRange || "未标注集数"}</div>
-                      </div>
-                      <div className="node-pill px-3 py-1 text-[10px]">{form.identityOrState || "默认状态"}</div>
-                    </div>
-                    <div className="text-[12px] leading-6 text-[var(--node-text-secondary)]">{form.description || "暂无形态描述。"}</div>
-                  </article>
-                ))}
-              </section>
-            ) : null}
-
-            {characterAssets.length ? (
-              <section className="space-y-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">Related Design Assets</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {characterAssets.slice(0, 6).map((asset) => (
-                    <div key={asset.id} className="overflow-hidden rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] aspect-square">
-                      <img src={asset.url} alt={asset.label || asset.id} className="h-full w-full object-cover" />
-                    </div>
-                  ))}
+            <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
+              <div className="flex items-center justify-between border-b border-[var(--node-border)] px-4 py-3">
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                  {isCharacter ? "Forms" : "Zones"}
                 </div>
-              </section>
-            ) : null}
-          </div>
-        ) : activeLocation ? (
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
-            <section className="node-surface rounded-[24px] p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-[18px] font-semibold">{activeLocation.name}</div>
-                  <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">{activeLocation.type || "场景身份"}</div>
-                </div>
-                <div className="node-pill node-pill--accent px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]">
-                  {(activeLocation.zones || []).length} Zones
+                <div className="rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                  {variantCards.length} child nodes
                 </div>
               </div>
-              <div className="mt-4 rounded-[18px] bg-[var(--node-surface-strong)] px-4 py-3 text-[12px] leading-6 text-[var(--node-text-primary)] whitespace-pre-wrap">
-                {activeLocation.description || "暂无场景描述。"}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {variantCards.length ? (
+                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                    {variantCards.map((variant) => {
+                      const isActive = variant.id === selectedVariant?.id;
+                      return (
+                        <article
+                          key={variant.id}
+                          className={`rounded-[22px] border p-3 transition ${
+                            isActive
+                              ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)]"
+                              : "border-[var(--node-border)] bg-[var(--node-surface)] hover:border-[var(--node-border-strong)]"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => updateNodeData(id, { selectedVariantId: variant.id })}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)]">
+                                {variant.avatarUrl ? (
+                                  <img src={variant.avatarUrl} alt={variant.title} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[var(--node-accent)]">
+                                    {isCharacter ? <UserRound size={20} /> : <MapPinned size={20} />}
+                                  </div>
+                                )}
+                                <label className="absolute bottom-1 right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-[var(--node-border)] bg-[rgba(15,18,16,0.88)] text-white">
+                                  <Upload size={12} />
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(event) => {
+                                      const file = event.target.files?.[0];
+                                      void handleAvatarUpload(variant.id, file);
+                                      event.currentTarget.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate text-[13px] font-semibold text-[var(--node-text-primary)]">{variant.title}</div>
+                                    <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                                      {variant.subtitle}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-full border border-[var(--node-border)] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                                    {variant.badge}
+                                  </div>
+                                </div>
+                                <div className="mt-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
+                                  {variant.description}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[12px] text-[var(--node-text-secondary)]">
+                    {isCharacter ? "当前角色还没有形态卡片。" : "当前场景还没有分区卡片。"}
+                  </div>
+                )}
               </div>
-              {activeLocation.visuals ? (
-                <div className="mt-3 text-[11px] leading-5 text-[var(--node-text-secondary)]">视觉气质：{activeLocation.visuals}</div>
-              ) : null}
             </section>
-
-            {(activeLocation.zones || []).length ? (
-              <section className="grid grid-cols-1 gap-3">
-                {activeLocation.zones.map((zone) => (
-                  <article key={zone.id} className="rounded-[22px] border border-[var(--node-border)] bg-[var(--node-surface)] p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[13px] font-semibold">{zone.name}</div>
-                        <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">{zone.episodeRange || "未标注集数"}</div>
-                      </div>
-                      <div className="node-pill px-3 py-1 text-[10px]">{zone.kind || "zone"}</div>
-                    </div>
-                    <div className="text-[12px] leading-6 text-[var(--node-text-secondary)]">
-                      {zone.layoutNotes || zone.keyProps || zone.lightingWeather || "暂无分区描述。"}
-                    </div>
-                  </article>
-                ))}
-              </section>
-            ) : null}
-
-            {sceneAssets.length ? (
-              <section className="space-y-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">Related Design Assets</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {sceneAssets.slice(0, 6).map((asset) => (
-                    <div key={asset.id} className="overflow-hidden rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] aspect-square">
-                      <img src={asset.url} alt={asset.label || asset.id} className="h-full w-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
           </div>
         ) : (
-          <div className="node-surface rounded-[24px] p-6 flex-1 flex items-center justify-center text-[12px] text-[var(--node-text-secondary)] text-center">
+          <div className="mt-4 flex flex-1 items-center justify-center rounded-[24px] border border-dashed border-[var(--node-border)] text-[12px] text-[var(--node-text-secondary)]">
             当前项目还没有可展示的角色或场景档案。
           </div>
         )}

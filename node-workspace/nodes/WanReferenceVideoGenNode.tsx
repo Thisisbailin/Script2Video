@@ -23,7 +23,7 @@ type ManualReferenceAsset = {
 const clampDuration = (value: number) => Math.max(2, Math.min(10, Math.round(value)));
 
 export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-  const { updateNodeData, getConnectedInputs } = useWorkflowStore();
+  const { updateNodeData, getConnectedInputs, labContext } = useWorkflowStore();
   const { runVideoGen } = useLabExecutor();
   const [progress, setProgress] = useState(0);
   const [isUploadingVideoRefs, setIsUploadingVideoRefs] = useState(false);
@@ -31,9 +31,10 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
   const refVideoInputRef = useRef<HTMLInputElement>(null);
   const refImageInputRef = useRef<HTMLInputElement>(null);
 
-  const { images: connectedImages } = getConnectedInputs(id);
+  const { images: connectedImages, atMentions } = getConnectedInputs(id);
   const referenceVideos = Array.isArray(data.referenceVideos) ? data.referenceVideos.filter(Boolean) : [];
   const referenceImages = Array.isArray(data.referenceImages) ? data.referenceImages.filter(Boolean) : [];
+  const projectReferenceTargets = Array.isArray(data.projectReferenceTargets) ? data.projectReferenceTargets : [];
   const manualRefs = useMemo<ManualReferenceAsset[]>(
     () => [
       ...referenceVideos.map((url) => ({ url, kind: "video" as const })),
@@ -41,8 +42,40 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     ],
     [referenceImages, referenceVideos]
   );
+  const availableProjectRefs = useMemo(() => {
+    const latestByKey = new Map<string, { category: "form" | "zone"; refId: string; label: string; url: string; createdAt: number }>();
+    (labContext.designAssets || []).forEach((asset) => {
+      if (!asset?.url || !asset?.refId) return;
+      const key = `${asset.category}:${asset.refId}`;
+      const current = latestByKey.get(key);
+      if (!current || (asset.createdAt || 0) >= current.createdAt) {
+        latestByKey.set(key, {
+          category: asset.category,
+          refId: asset.refId,
+          label: asset.label || asset.refId,
+          url: asset.url,
+          createdAt: asset.createdAt || 0,
+        });
+      }
+    });
+    return Array.from(latestByKey.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }, [labContext.designAssets]);
+  const selectedProjectRefKeys = useMemo(
+    () => new Set(projectReferenceTargets.map((target) => `${target.category}:${target.refId}`)),
+    [projectReferenceTargets]
+  );
+  const mentionHints = useMemo(
+    () =>
+      (atMentions || [])
+        .filter((mention) => mention.status === "match" && ["form", "zone", "character"].includes(mention.kind || ""))
+        .map((mention) => ({
+          label: mention.name,
+          kind: mention.kind || "unknown",
+        })),
+    [atMentions]
+  );
   const hasConnectedImages = connectedImages.length > 0;
-  const totalReferenceCount = manualRefs.length + connectedImages.length;
+  const totalReferenceCount = manualRefs.length + connectedImages.length + projectReferenceTargets.length;
   const isLoading = data.status === "loading";
   const currentModel =
     data.model === QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL
@@ -88,6 +121,9 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     if (!Array.isArray(data.referenceImages)) {
       next.referenceImages = [];
     }
+    if (!Array.isArray(data.projectReferenceTargets)) {
+      next.projectReferenceTargets = [];
+    }
     if (Object.keys(next).length > 0) {
       updateNodeData(id, next);
     }
@@ -98,6 +134,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     currentResolution,
     data.aspectRatio,
     data.model,
+    data.projectReferenceTargets,
     data.referenceImages,
     data.referenceVideos,
     data.resolution,
@@ -263,6 +300,26 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     });
   };
 
+  const handleToggleProjectReference = (target: { category: "form" | "zone"; refId: string; label: string }) => {
+    const exists = projectReferenceTargets.some(
+      (item) => item.category === target.category && item.refId === target.refId
+    );
+    if (exists) {
+      updateNodeData(id, {
+        projectReferenceTargets: projectReferenceTargets.filter(
+          (item) => !(item.category === target.category && item.refId === target.refId)
+        ),
+      });
+      return;
+    }
+    updateNodeData(id, {
+      projectReferenceTargets: [
+        ...projectReferenceTargets,
+        { category: target.category, refId: target.refId, label: target.label },
+      ],
+    });
+  };
+
   return (
     <BaseNode
       title={data.title || "WAN Role Video"}
@@ -352,9 +409,10 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] font-black text-[var(--node-text-secondary)]/70">
+        <div className="grid grid-cols-4 gap-2 text-[10px] uppercase tracking-[0.18em] font-black text-[var(--node-text-secondary)]/70">
           <div>{referenceVideos.length} video</div>
           <div className="text-center">{referenceImages.length} image</div>
+          <div className="text-center">{projectReferenceTargets.length} card</div>
           <div className="text-right">{connectedImages.length} linked</div>
         </div>
 
@@ -364,9 +422,77 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
               角色引用
             </label>
             <div className="text-[9px] leading-5 text-[var(--node-text-secondary)]">
-              支持图像或视频。它们会按顺序映射为 prompt 中的 <span className="text-[var(--node-text-primary)] font-semibold">character1 / character2 / ...</span>。
-              每个引用只放一个主体。连线输入的图片会排在手动上传之后继续编号。
+              支持图像或视频。执行时会优先把 prompt 里的 <span className="text-[var(--node-text-primary)] font-semibold">@形态 / @场景</span> 自动映射成
+              <span className="text-[var(--node-text-primary)] font-semibold"> character1 / character2 / ...</span>，并从项目卡片设计图中取图。
             </div>
+          </div>
+
+          {mentionHints.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {mentionHints.map((mention) => (
+                <span
+                  key={`${mention.kind}-${mention.label}`}
+                  className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.14em] text-emerald-200"
+                >
+                  @{mention.label}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[16px] border border-dashed border-[var(--node-border)] px-3 py-2 text-[9px] leading-5 text-[var(--node-text-secondary)]">
+              提示词里插入 <span className="text-[var(--node-text-primary)] font-semibold">@角色形态</span> 或 <span className="text-[var(--node-text-primary)] font-semibold">@场景分区</span>，
+              会自动使用项目卡片中的设计图作为引用。
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">
+                项目卡片引用
+              </div>
+              <div className="text-[9px] text-[var(--node-text-secondary)]">
+                {projectReferenceTargets.length} selected
+              </div>
+            </div>
+            {availableProjectRefs.length ? (
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                {availableProjectRefs.map((asset) => {
+                  const assetKey = `${asset.category}:${asset.refId}`;
+                  const active = selectedProjectRefKeys.has(assetKey);
+                  return (
+                    <button
+                      key={assetKey}
+                      type="button"
+                      onClick={() => handleToggleProjectReference(asset)}
+                      className={`rounded-[16px] border p-2 text-left transition ${
+                        active
+                          ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)]"
+                          : "border-[var(--node-border)] bg-[var(--node-surface)] hover:border-[var(--node-border-strong)]"
+                      }`}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex gap-2">
+                        <div className="h-12 w-12 overflow-hidden rounded-[12px] bg-black/20 shrink-0">
+                          <img src={asset.url} alt={asset.label} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-[10px] font-semibold text-[var(--node-text-primary)]">
+                            {asset.label}
+                          </div>
+                          <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                            {asset.category === "form" ? "Character Card" : "Scene Card"}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-[16px] border border-dashed border-[var(--node-border)] px-3 py-2 text-[9px] text-[var(--node-text-secondary)]">
+                项目卡片还没有可用设计图。
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -446,7 +572,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-white/90">
-                            character{index + 1}
+                            manual ref
                           </div>
                           <div className="text-[8px] uppercase tracking-[0.12em] text-white/60">
                             {asset.kind}
@@ -471,8 +597,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
 
         {hasConnectedImages && (
           <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/70">
-            linked images continue as character{manualRefs.length + 1}
-            {connectedImages.length > 1 ? `-${manualRefs.length + connectedImages.length}` : ""}
+            linked images act as fallback refs after project cards and manual uploads
           </div>
         )}
 

@@ -1092,6 +1092,9 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         <div className={`flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2 ${isQalamCollapsed ? "pointer-events-auto" : "pointer-events-none"}`}>
           <FloatingActionBar
             onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+            onAddScriptBoard={() => handleAddNode("scriptBoard", { x: 140, y: 120 })}
+            onAddStoryboardBoard={() => handleAddNode("storyboardBoard", { x: 180, y: 140 })}
+            onAddIdentityCard={() => handleAddNode("identityCard", { x: 220, y: 160 })}
             onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
             onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
             onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}

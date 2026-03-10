@@ -586,16 +586,19 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
       } as TextNodeData;
     case "scriptBoard":
       return {
-        title: "剧本卡片",
+        title: "剧本面板",
       } as ScriptBoardNodeData;
     case "storyboardBoard":
       return {
-        title: "分镜表格卡片",
+        title: "分镜表面板",
+        columnWidths: [88, 260, 180, 150, 180],
+        rowHeights: {},
       } as StoryboardBoardNodeData;
     case "identityCard":
       return {
-        title: "身份卡片",
+        title: "角色 / 场景身份卡片",
         entityType: "character",
+        avatarOverrides: {},
       } as IdentityCardNodeData;
     case "imageGen":
       return {
@@ -648,6 +651,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         inputImages: [],
         referenceImages: [],
         referenceVideos: [],
+        projectReferenceTargets: [],
         videoId: undefined,
         videoUrl: undefined,
         status: "idle",
@@ -768,9 +772,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
     const defaultDimensions: Partial<Record<NodeType, { width: number; height?: number }>> = {
       group: { width: 1100, height: 900 },
-      scriptBoard: { width: 760, height: 560 },
-      storyboardBoard: { width: 860, height: 580 },
-      identityCard: { width: 440, height: 540 },
+      scriptBoard: { width: 920, height: 620 },
+      storyboardBoard: { width: 1080, height: 640 },
+      identityCard: { width: 760, height: 560 },
     };
 
     const dim = defaultDimensions[type];

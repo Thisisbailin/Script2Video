@@ -15,8 +15,33 @@ import {
   QWEN_WAN_VIDEO_MODEL,
 } from "../../constants";
 import { useCallback } from "react";
-import { Character, CharacterForm } from "../../types";
+import { Character, CharacterForm, DesignAssetItem, Location } from "../../types";
 import { buildApiUrl } from "../../utils/api";
+
+type MentionData = {
+  name: string;
+  status: "match" | "missing";
+  kind?: "form" | "zone" | "character" | "unknown";
+  characterId?: string;
+  formName?: string;
+  locationId?: string;
+  locationName?: string;
+  zoneId?: string;
+};
+
+type ProjectReferenceTargetData = {
+  category: "form" | "zone";
+  refId: string;
+  label?: string;
+};
+
+type ProjectReferenceAsset = {
+  category: "form" | "zone";
+  refId: string;
+  label: string;
+  url: string;
+  createdAt: number;
+};
 
 const parseAtMentions = (text: string): string[] => {
   const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
@@ -166,6 +191,120 @@ const mapWanVideoSize = (aspectRatio?: string, resolution?: string) => {
   };
   const normalizedRatio = ["16:9", "9:16", "1:1", "4:3", "3:4"].includes(ratio) ? ratio : "16:9";
   return sizeMap[res]?.[normalizedRatio] || "1280*720";
+};
+
+const makeProjectRefKey = (category: "form" | "zone", refId: string) => `${category}:${refId}`;
+
+const buildProjectReferenceIndex = (designAssets: DesignAssetItem[]) => {
+  const latestByKey = new Map<string, ProjectReferenceAsset>();
+  designAssets.forEach((asset) => {
+    if (!asset?.url || !asset?.refId) return;
+    const key = makeProjectRefKey(asset.category, asset.refId);
+    const current = latestByKey.get(key);
+    if (!current || (asset.createdAt || 0) >= current.createdAt) {
+      latestByKey.set(key, {
+        category: asset.category,
+        refId: asset.refId,
+        label: asset.label || asset.refId,
+        url: asset.url,
+        createdAt: asset.createdAt || 0,
+      });
+    }
+  });
+  return latestByKey;
+};
+
+const resolveCharacterReferenceAsset = (
+  characterId: string | undefined,
+  characters: Character[],
+  latestByKey: Map<string, ProjectReferenceAsset>
+) => {
+  if (!characterId) return undefined;
+  const character = characters.find((entry) => entry.id === characterId);
+  if (!character) return undefined;
+  for (const form of character.forms || []) {
+    if (!form.id) continue;
+    const candidate = latestByKey.get(makeProjectRefKey("form", `${character.id}|${form.id}`));
+    if (candidate) return candidate;
+  }
+  return undefined;
+};
+
+const resolveMentionReferenceAsset = (
+  mention: MentionData,
+  characters: Character[],
+  locations: Location[],
+  latestByKey: Map<string, ProjectReferenceAsset>
+) => {
+  if (mention.kind === "form") {
+    const character = mention.characterId ? characters.find((entry) => entry.id === mention.characterId) : undefined;
+    const matchedForm = character?.forms?.find((form) => form.formName === mention.formName || form.formName === mention.name);
+    if (character?.id && matchedForm?.id) {
+      const exact = latestByKey.get(makeProjectRefKey("form", `${character.id}|${matchedForm.id}`));
+      if (exact) return exact;
+    }
+  }
+
+  if (mention.kind === "character") {
+    return resolveCharacterReferenceAsset(mention.characterId, characters, latestByKey);
+  }
+
+  if (mention.kind === "zone") {
+    if (mention.locationId && mention.zoneId) {
+      const exact = latestByKey.get(makeProjectRefKey("zone", `${mention.locationId}|${mention.zoneId}`));
+      if (exact) return exact;
+    }
+
+    const byZoneId = mention.zoneId
+      ? Array.from(latestByKey.values()).find(
+          (asset) => asset.category === "zone" && asset.refId.includes(mention.zoneId as string)
+        )
+      : undefined;
+    if (byZoneId) return byZoneId;
+
+    const name = (mention.name || "").toLowerCase();
+    if (name) {
+      return Array.from(latestByKey.values()).find(
+        (asset) => asset.category === "zone" && asset.label.toLowerCase().includes(name)
+      );
+    }
+  }
+
+  const fallbackName = (mention.name || "").toLowerCase();
+  if (!fallbackName) return undefined;
+  return Array.from(latestByKey.values()).find((asset) => asset.label.toLowerCase().includes(fallbackName));
+};
+
+const resolvePromptProjectReferences = (
+  prompt: string,
+  atMentions: MentionData[] | undefined,
+  characters: Character[],
+  locations: Location[],
+  latestByKey: Map<string, ProjectReferenceAsset>
+) => {
+  const refs: ProjectReferenceAsset[] = [];
+  const slotByKey = new Map<string, number>();
+  let rewrittenPrompt = prompt;
+
+  (atMentions || [])
+    .filter((mention) => mention.status === "match" && ["form", "zone", "character"].includes(mention.kind || ""))
+    .forEach((mention) => {
+      const candidate = resolveMentionReferenceAsset(mention, characters, locations, latestByKey);
+      if (!candidate) return;
+      const key = makeProjectRefKey(candidate.category, candidate.refId);
+      let slot = slotByKey.get(key);
+      if (!slot) {
+        refs.push(candidate);
+        slot = refs.length;
+        slotByKey.set(key, slot);
+      }
+      rewrittenPrompt = rewrittenPrompt.replace(
+        new RegExp(escapeRegex(`@${mention.name}`), "g"),
+        `character${slot}`
+      );
+    });
+
+  return { rewrittenPrompt, refs };
 };
 
 export const useLabExecutor = () => {
@@ -594,13 +733,16 @@ export const useLabExecutor = () => {
     if (node.type === "viduVideoGen") {
       return runViduVideoGen(nodeId);
     }
-    const { images, text: connectedText } = store.getConnectedInputs(nodeId);
+    const { images, text: connectedText, atMentions } = store.getConnectedInputs(nodeId);
     const data = node.data as any;
     const prompt = (connectedText || "").trim();
     const isWanReferenceVideoNode = node.type === "wanReferenceVideoGen";
     const referenceImages = Array.isArray(data.referenceImages) ? data.referenceImages.filter(Boolean) : [];
     const referenceVideos = Array.isArray(data.referenceVideos) ? data.referenceVideos.filter(Boolean) : [];
-    const hasManualReferenceAssets = referenceImages.length > 0 || referenceVideos.length > 0;
+    const projectReferenceTargets = Array.isArray(data.projectReferenceTargets)
+      ? (data.projectReferenceTargets as ProjectReferenceTargetData[])
+      : [];
+    const hasManualReferenceAssets = referenceImages.length > 0 || referenceVideos.length > 0 || projectReferenceTargets.length > 0;
 
     if (images.length === 0 && !prompt && !(isWanReferenceVideoNode && hasManualReferenceAssets)) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)." });
@@ -656,18 +798,47 @@ export const useLabExecutor = () => {
           params.audioUrl = await normalizeWanAudio(audioUrl);
         }
       }
+      let promptForRequest = prompt;
       if (isWanReferenceVideoNode) {
+        const latestProjectRefs = buildProjectReferenceIndex(store.labContext.designAssets || []);
+        const characters = store.labContext.context.characters || [];
+        const locations = store.labContext.context.locations || [];
+        const { rewrittenPrompt, refs: promptDrivenRefs } = resolvePromptProjectReferences(
+          prompt,
+          atMentions as MentionData[] | undefined,
+          characters,
+          locations,
+          latestProjectRefs
+        );
+        promptForRequest = rewrittenPrompt;
         const normalizedVideos = await normalizeWanReferenceVideos(referenceVideos);
         const normalizedReferenceImages = await normalizeWanImages(referenceImages);
+        const explicitProjectRefs = projectReferenceTargets
+          .map((target) => latestProjectRefs.get(makeProjectRefKey(target.category, target.refId)))
+          .filter((item): item is ProjectReferenceAsset => !!item);
+        const dedupedProjectRefUrls = Array.from(
+          new Set([
+            ...promptDrivenRefs.map((item) => item.url),
+            ...explicitProjectRefs.map((item) => item.url),
+          ])
+        );
         const cappedVideos = normalizedVideos.slice(0, 3);
-        const cappedReferenceImages = normalizedReferenceImages.slice(0, Math.max(0, 5 - cappedVideos.length));
-        const remainingImageSlots = Math.max(0, 5 - cappedVideos.length - cappedReferenceImages.length);
+        const imageSlotBudget = Math.max(0, 5 - cappedVideos.length);
+        const combinedImageReferences = [
+          ...dedupedProjectRefUrls,
+          ...normalizedReferenceImages,
+          ...normalizedImages,
+        ];
+        const cappedImageReferences = Array.from(new Set(combinedImageReferences)).slice(0, imageSlotBudget);
         params.size = mapWanVideoSize(data.aspectRatio, data.resolution || "720P");
         params.shotType = data.shotType;
         params.watermark = data.watermark;
         params.seed = data.seed;
         params.audioEnabled = data.model === QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL ? data.audioEnabled !== false : undefined;
-        params.referenceUrls = [...cappedVideos, ...cappedReferenceImages, ...normalizedImages.slice(0, remainingImageSlots)];
+        params.referenceUrls = [...cappedVideos, ...cappedImageReferences];
+        if (params.referenceUrls.length === 0) {
+          throw new Error("Wan 参考生视频未找到可用的项目卡片或引用素材。");
+        }
       }
 
       // Use node-specific model or fallback to config
@@ -721,7 +892,7 @@ export const useLabExecutor = () => {
       }
 
       if (isWanReferenceVideoNode) {
-        const { id, url } = await WanService.submitWanReferenceVideoTask(prompt || "Animate this", configToUse, params);
+        const { id, url } = await WanService.submitWanReferenceVideoTask(promptForRequest || "Animate this", configToUse, params);
         if (url) {
           store.updateNodeData(nodeId, { status: "complete", videoUrl: url, error: null });
           return;

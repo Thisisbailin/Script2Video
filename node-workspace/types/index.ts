@@ -114,18 +114,23 @@ export interface TextNodeData extends BaseNodeData {
 export interface ScriptBoardNodeData extends BaseNodeData {
   title: string;
   episodeId?: number;
+  sceneId?: string;
 }
 
 export interface StoryboardBoardNodeData extends BaseNodeData {
   title: string;
   episodeId?: number;
   sceneId?: string;
+  columnWidths?: number[];
+  rowHeights?: Record<string, number>;
 }
 
 export interface IdentityCardNodeData extends BaseNodeData {
   title: string;
   entityType: "character" | "scene";
   entityId?: string;
+  selectedVariantId?: string;
+  avatarOverrides?: Record<string, string>;
 }
 
 export interface ImageGenNodeData extends BaseNodeData {
@@ -151,6 +156,11 @@ export interface VideoGenNodeData extends BaseNodeData {
   inputImages: string[];
   referenceImages?: string[];
   referenceVideos?: string[];
+  projectReferenceTargets?: {
+    category: "form" | "zone";
+    refId: string;
+    label?: string;
+  }[];
   videoId?: string;
   videoUrl?: string; // For polling result
   status: 'idle' | 'loading' | 'complete' | 'error';
