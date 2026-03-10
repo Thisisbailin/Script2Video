@@ -2,7 +2,6 @@ import React from "react";
 import type { LucideIcon } from "lucide-react";
 
 export type ModuleKey =
-  | "assets"
   | "script"
   | "shots"
   | "characters"
@@ -24,7 +23,6 @@ type Props = {
 
 export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
   const accent: Record<ModuleKey, string> = {
-    assets: "#38bdf8",
     script: "#a78bfa",
     shots: "#34d399",
     characters: "#34d399",

@@ -106,7 +106,7 @@ export interface Episode {
   storyboardGenUsage?: TokenUsage;
 }
 
-export type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'lab' | 'stats' | 'projector';
+export type ActiveTab = 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'lab' | 'stats' | 'projector';
 
 // --- NEW DEEP UNDERSTANDING TYPES ---
 

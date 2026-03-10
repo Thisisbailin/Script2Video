@@ -135,7 +135,7 @@ export const InfoPanel: React.FC<Props> = ({ onOpenLanding }) => {
                   <div>
                     <div className="text-[16px] font-semibold tracking-[-0.02em]">打开落地页</div>
                     <div className="mt-2 text-[12px] leading-6 text-[var(--app-text-secondary)]">
-                      查看艺术化首屏，再从“立即体验”回到主页面。
+                      打开独立 landing page，完整查看 Qalam 的 agent 能力与产品结构，再从“立即体验”回到主页面。
                     </div>
                   </div>
                 </button>

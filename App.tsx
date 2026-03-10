@@ -33,7 +33,6 @@ import { AppShell } from './components/layout/AppShell';
 import { Header, WorkflowCard } from './components/layout/Header';
 import { ConflictModal } from './components/ConflictModal';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
-import { AssetsModule } from './modules/assets/AssetsModule';
 import { ScriptViewer } from './modules/script/ScriptViewer';
 import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
@@ -349,6 +348,12 @@ const UI_STATE_STORAGE_KEY = 'script2video_ui_state_v1';
 const THEME_STORAGE_KEY = 'script2video_theme_v1';
 const LOCAL_BACKUP_KEY = 'script2video_local_backup';
 const REMOTE_BACKUP_KEY = 'script2video_remote_backup';
+const LANDING_ROUTE_HASH = "#/landing";
+
+const readAppViewFromLocation = (): "main" | "landing" => {
+  if (typeof window === "undefined") return "main";
+  return window.location.hash === LANDING_ROUTE_HASH ? "landing" : "main";
+};
 
 const App: React.FC = () => {
   // Clerk Auth Hooks
@@ -408,14 +413,14 @@ const App: React.FC = () => {
     activeTab: ActiveTab;
   }>({
     key: UI_STATE_STORAGE_KEY,
-    initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'assets' },
+    initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'script' },
     deserialize: (value) => {
       const parsed = JSON.parse(value);
       return {
         step: parsed.step ?? WorkflowStep.IDLE,
         analysisStep: parsed.analysisStep ?? AnalysisSubStep.IDLE,
         currentEpIndex: parsed.currentEpIndex ?? 0,
-        activeTab: parsed.activeTab ?? 'assets'
+        activeTab: parsed.activeTab ?? 'script'
       };
     },
     serialize: (value) => JSON.stringify(value)
@@ -454,7 +459,7 @@ const App: React.FC = () => {
     setAnalysisError(null);
   }, [analysisStep]);
 
-  const [appView, setAppView] = useState<"main" | "landing">("main");
+  const [appView, setAppView] = useState<"main" | "landing">(() => readAppViewFromLocation());
   const [accountPanel, setAccountPanel] = useState<"sync" | "info" | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
@@ -506,14 +511,35 @@ const App: React.FC = () => {
   }, []);
 
   const closeAccountPanel = useCallback(() => setAccountPanel(null), []);
+  useEffect(() => {
+    const syncAppView = () => setAppView(readAppViewFromLocation());
+    window.addEventListener("hashchange", syncAppView);
+    window.addEventListener("popstate", syncAppView);
+    return () => {
+      window.removeEventListener("hashchange", syncAppView);
+      window.removeEventListener("popstate", syncAppView);
+    };
+  }, []);
+
+  const navigateToAppView = useCallback((nextView: "main" | "landing", mode: "push" | "replace" = "push") => {
+    if (typeof window === "undefined") {
+      setAppView(nextView);
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.hash = nextView === "landing" ? "/landing" : "";
+    window.history[mode === "replace" ? "replaceState" : "pushState"](null, "", url);
+    setAppView(nextView);
+  }, []);
+
   const openLandingPage = useCallback(() => {
     setAccountPanel(null);
     setOpenLabModal(null);
     setShowStatsModal(false);
     setShowWorkflow(false);
-    setAppView("landing");
-  }, []);
-  const closeLandingPage = useCallback(() => setAppView("main"), []);
+    navigateToAppView("landing");
+  }, [navigateToAppView]);
+  const closeLandingPage = useCallback(() => navigateToAppView("main"), [navigateToAppView]);
 
   const handleOpenLabModule = useCallback((key: ModuleKey) => {
     if (key === 'characters') {
@@ -829,7 +855,7 @@ const App: React.FC = () => {
       setStep(WorkflowStep.IDLE);
       setAnalysisStep(AnalysisSubStep.IDLE);
       setCurrentEpIndex(0);
-      setActiveTab('assets');
+      setActiveTab('script');
       localStorage.removeItem(PROJECT_STORAGE_KEY);
       localStorage.removeItem(UI_STATE_STORAGE_KEY);
       localStorage.removeItem(LOCAL_BACKUP_KEY);
@@ -1085,7 +1111,7 @@ const App: React.FC = () => {
   const processProjectSummary = async () => {
     setAnalysisError(null);
     setProcessing(true, "Step 1/6: Analyzing Global Project Arc...");
-    setActiveTab('assets');
+    setActiveTab('understanding');
     try {
       const result = await ResponsesTextService.generateProjectSummary(config.textConfig, projectData.rawScript, projectData.globalStyleGuide);
 
@@ -2058,8 +2084,6 @@ const App: React.FC = () => {
 
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
-      case 'assets':
-        return <AssetsModule data={projectData} setProjectData={setProjectData} />;
       case 'script':
         return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} characters={projectData.context.characters} />;
       case 'table':
@@ -2129,13 +2153,7 @@ const App: React.FC = () => {
   let labModalTitle: string | null = null;
   let labModalWidth: number | string | undefined = undefined;
   let labModalContent: React.ReactNode = null;
-  if (openLabModal === "assets") {
-    labModalTitle = "Assets";
-    labModalWidth = 1040;
-    labModalContent = (
-      <AssetsModule data={projectData} setProjectData={setProjectData} />
-    );
-  } else if (openLabModal === "script") {
+  if (openLabModal === "script") {
     labModalTitle = "Script";
     labModalWidth = 960;
     labModalContent = (

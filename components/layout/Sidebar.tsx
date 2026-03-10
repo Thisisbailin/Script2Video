@@ -1,5 +1,5 @@
 import React from "react";
-import { PanelLeftOpen, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, BarChart2, Layers, Film, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { PanelLeftOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, BarChart2, Layers, Film, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { WorkflowStep, AnalysisSubStep, Episode } from "../../types";
 import { isEpisodeSoraComplete, isEpisodeStoryboardComplete } from "../../utils/episodes";
 
@@ -95,7 +95,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <PanelLeftOpen size={20} />
         </button>
         <div className="w-8 h-px bg-gray-200 dark:bg-gray-700"></div>
-        <button onClick={() => setActiveTab('assets')} className={`p-2 rounded-lg transition-colors ${activeTab === 'assets' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Assets"><FolderOpen size={20} /></button>
         <button onClick={() => setActiveTab('script')} className={`p-2 rounded-lg transition-colors ${activeTab === 'script' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Script"><FileText size={20} /></button>
         <button onClick={() => setActiveTab('understanding')} className={`p-2 rounded-lg transition-colors ${activeTab === 'understanding' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Analysis"><BrainCircuit size={20} /></button>
         <button onClick={() => setActiveTab('table')} className={`p-2 rounded-lg transition-colors ${activeTab === 'table' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`} title="Table"><List size={20} /></button>
@@ -345,12 +344,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <nav className="p-2 space-y-1">
-          <button
-            onClick={() => setActiveTab('assets')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'assets' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-          >
-            <FolderOpen size={16} /> Assets & Guides
-          </button>
           <button
             onClick={() => setActiveTab('script')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'script' ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
