@@ -114,6 +114,14 @@ const resolvePreferredConnectionHandles = (sourceType: string, targetType: strin
   return null;
 };
 
+const resolveAgentRuntimeTarget = (
+  preferredTarget: "browser" | "edge",
+  requestedOutcome?: "answer" | "understanding_document" | "node_workflow" | "auto"
+) => {
+  if (requestedOutcome === "node_workflow") return "browser" as const;
+  return preferredTarget;
+};
+
 const parseMentions = (text: string) => {
   const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
   const names: string[] = [];
@@ -423,30 +431,16 @@ export const QalamAgent: React.FC<Props> = ({
     }),
     [addNode, nodes.length, onConnect, projectData, removeEdge, removeNode, setProjectData, toggleEdgePause, updateNodeStyle, viewport]
   );
-  const runtime = useMemo(
-    () => {
-      const runtimeTarget =
-        config.textConfig?.agentRuntimeTarget ||
-        ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "edge" ? "edge" : "browser");
-      if (runtimeTarget === "edge") {
-        return createHttpScript2VideoAgentRuntime({
-          endpoint: "/api/agent",
-          getRuntimeConfig: () => ({
-            provider: config.textConfig?.provider,
-            model: config.textConfig?.model || "qwen-plus",
-            baseUrl: config.textConfig?.baseUrl || undefined,
-          }),
-          getProjectDataSnapshot: () => projectData,
-        });
-      }
-      return createScript2VideoAgentRuntime({
+  const browserRuntime = useMemo(
+    () =>
+      createScript2VideoAgentRuntime({
         bridge,
         skillLoader: skillLoaderRef.current,
         sessionStore: sessionStoreRef.current,
         configProvider: {
           getConfig: () => ({
             provider: config.textConfig?.provider,
-            runtimeTarget,
+            runtimeTarget: "browser",
             apiKey: config.textConfig?.apiKey,
             baseUrl: config.textConfig?.baseUrl || undefined,
             model: config.textConfig?.model || "qwen-plus",
@@ -454,9 +448,33 @@ export const QalamAgent: React.FC<Props> = ({
             tracingDisabled: true,
           }),
         },
-      });
-    },
-    [bridge, config.textConfig?.agentRuntimeTarget, config.textConfig?.apiKey, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, config.textConfig?.qalamTools, projectData]
+      }),
+    [bridge, config.textConfig?.apiKey, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, config.textConfig?.qalamTools]
+  );
+  const edgeRuntime = useMemo(
+    () =>
+      createHttpScript2VideoAgentRuntime({
+        endpoint: "/api/agent",
+        getRuntimeConfig: () => ({
+          provider: config.textConfig?.provider,
+          model: config.textConfig?.model || "qwen-plus",
+          baseUrl: config.textConfig?.baseUrl || undefined,
+        }),
+        getProjectDataSnapshot: () => projectData,
+      }),
+    [config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, projectData]
+  );
+  const runtime = useMemo(
+    () => ({
+      run: (input: any, options?: any) => {
+        const preferredTarget =
+          config.textConfig?.agentRuntimeTarget ||
+          ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "browser" ? "browser" : "edge");
+        const effectiveTarget = resolveAgentRuntimeTarget(preferredTarget, input.requestedOutcome);
+        return effectiveTarget === "edge" ? edgeRuntime.run(input, options) : browserRuntime.run(input, options);
+      },
+    }),
+    [browserRuntime, config.textConfig?.agentRuntimeTarget, edgeRuntime]
   );
   const mentionTargets = useMemo(() => {
     const targets: Array<{ kind: "character" | "location"; name: string; label: string; search: string; id?: string }> = [];
@@ -519,7 +537,10 @@ export const QalamAgent: React.FC<Props> = ({
     const raw = config.textConfig?.model?.trim();
     return raw || "model";
   }, [config.textConfig?.model]);
-  const currentRuntimeTarget = (config.textConfig?.agentRuntimeTarget || "browser") as "browser" | "edge";
+  const preferredRuntimeTarget = (config.textConfig?.agentRuntimeTarget ||
+    ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "browser" ? "browser" : "edge")) as "browser" | "edge";
+  const currentRequestedOutcome = input.trim() ? inferRequestedOutcome(input.trim()) : "auto";
+  const effectiveRuntimeTarget = resolveAgentRuntimeTarget(preferredRuntimeTarget, currentRequestedOutcome);
   const canSend = input.trim().length > 0 && !isSending;
   const resizeInput = useCallback((el?: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -655,9 +676,10 @@ export const QalamAgent: React.FC<Props> = ({
     setInput("");
     setIsSending(true);
     try {
+      const requestedOutcome = inferRequestedOutcome(cleanedInput);
       const runResult = await runAgentMessage({
         userText: cleanedInput,
-        requestedOutcome: inferRequestedOutcome(cleanedInput),
+        requestedOutcome,
         uiContext: {
           mentionTags: mentionTags.map((tag) => ({
             kind: tag.kind,
@@ -947,11 +969,21 @@ export const QalamAgent: React.FC<Props> = ({
                 {currentModelLabel}
               </div>
               <div
+                className={`inline-flex h-9 items-center rounded-full border px-3 text-[10px] font-semibold tracking-[0.1em] uppercase ${
+                  effectiveRuntimeTarget === "edge"
+                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    : "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                }`}
+                title={currentRequestedOutcome === "node_workflow" ? "本轮是操作类请求，自动走 browser runtime" : "本轮消息将走的 runtime"}
+              >
+                {effectiveRuntimeTarget}
+              </div>
+              <div
                 className="inline-flex h-9 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] p-1"
-                title="Agent runtime target"
+                title="Agent runtime 偏好"
               >
                 {(["browser", "edge"] as const).map((target) => {
-                  const active = currentRuntimeTarget === target;
+                  const active = preferredRuntimeTarget === target;
                   return (
                     <button
                       key={target}
@@ -971,7 +1003,7 @@ export const QalamAgent: React.FC<Props> = ({
                           : "text-[var(--app-text-secondary)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)]"
                       }`}
                     >
-                      {target}
+                      {target === "edge" ? "偏好 Edge" : "偏好 Browser"}
                     </button>
                   );
                 })}
@@ -989,6 +1021,17 @@ export const QalamAgent: React.FC<Props> = ({
                 <ArrowUp size={16} weight="bold" />
               )}
             </button>
+          </div>
+          <div className="mt-2 flex items-center gap-2 px-1 text-[10px] text-[var(--app-text-muted)]">
+            <span>偏好：{preferredRuntimeTarget}</span>
+            <span>·</span>
+            <span>本轮：{effectiveRuntimeTarget}</span>
+            {currentRequestedOutcome === "node_workflow" ? (
+              <>
+                <span>·</span>
+                <span>工作流操作自动走 browser</span>
+              </>
+            ) : null}
           </div>
         </div>
       </div>

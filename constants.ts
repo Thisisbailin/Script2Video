@@ -63,7 +63,7 @@ export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
 
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   provider: 'qwen',
-  agentRuntimeTarget: 'browser',
+  agentRuntimeTarget: 'edge',
   baseUrl: QWEN_RESPONSES_BASE_URL,
   apiKey: '',
   model: QWEN_DEFAULT_MODEL,
