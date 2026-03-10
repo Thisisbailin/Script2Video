@@ -1,12 +1,10 @@
 import {
   ToolGuardrailFunctionOutputFactory,
-  defineOutputGuardrail,
   defineToolInputGuardrail,
   defineToolOutputGuardrail,
-  type InputGuardrailDefinition,
+  type InputGuardrail,
   type InputGuardrailFunction,
-  type InputGuardrailFunctionArgs,
-  type OutputGuardrailDefinition,
+  type OutputGuardrail,
   type ToolInputGuardrailDefinition,
   type ToolOutputGuardrailDefinition,
 } from "@openai/agents";
@@ -60,29 +58,8 @@ const findGuide = (projectData: ProjectData, itemId?: string, name?: string) =>
     { item_id: "dramaGuide", title: "Drama Guide", text: projectData.dramaGuide || "" },
   ].find((guide) => guide.item_id === itemId || guide.title === name);
 
-const defineInputGuardrailCompat = ({
-  name,
-  execute,
-  runInParallel = true,
-}: {
-  name: string;
-  execute: InputGuardrailFunction;
-  runInParallel?: boolean;
-}): InputGuardrailDefinition => ({
-  type: "input",
-  name,
-  guardrailFunction: execute,
-  runInParallel,
-  async run(args: InputGuardrailFunctionArgs) {
-    return {
-      guardrail: { type: "input", name },
-      output: await execute(args),
-    };
-  },
-});
-
-export const createScript2VideoInputGuardrails = (): InputGuardrailDefinition[] => [
-  defineInputGuardrailCompat({
+export const createScript2VideoInputGuardrails = (): InputGuardrail[] => [
+  {
     name: "input_size_guardrail",
     runInParallel: false,
     execute: async ({ input }) => {
@@ -104,8 +81,8 @@ export const createScript2VideoInputGuardrails = (): InputGuardrailDefinition[] 
         outputInfo: { chars: text.length },
       };
     },
-  }),
-  defineInputGuardrailCompat({
+  },
+  {
     name: "edge_read_only_mode_guardrail",
     runInParallel: false,
     execute: async ({ context }) => {
@@ -125,11 +102,11 @@ export const createScript2VideoInputGuardrails = (): InputGuardrailDefinition[] 
         outputInfo: { mode: guardrailContext?.runtimeMode || "browser" },
       };
     },
-  }),
+  },
 ];
 
-export const createScript2VideoOutputGuardrails = (): OutputGuardrailDefinition[] => [
-  defineOutputGuardrail({
+export const createScript2VideoOutputGuardrails = (): OutputGuardrail[] => [
+  {
     name: "non_empty_output_guardrail",
     execute: async ({ agentOutput }) => {
       const text =
@@ -145,7 +122,7 @@ export const createScript2VideoOutputGuardrails = (): OutputGuardrailDefinition[
         },
       };
     },
-  }),
+  },
 ];
 
 export const createScript2VideoToolInputGuardrails = (

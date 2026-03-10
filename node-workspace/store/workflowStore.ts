@@ -646,6 +646,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "wanReferenceVideoGen":
       return {
         inputImages: [],
+        referenceImages: [],
         referenceVideos: [],
         videoId: undefined,
         videoUrl: undefined,
@@ -1004,9 +1005,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       .filter((n) => n.type === "wanReferenceVideoGen")
       .forEach((node) => {
         const textConnected = edges.some((e) => e.target === node.id && e.targetHandle === "text");
-        const refs = ((node.data as VideoGenNodeData).referenceVideos || []).length;
+        const nodeData = node.data as VideoGenNodeData;
+        const refs = ((nodeData.referenceVideos || []).length + (nodeData.referenceImages || []).length);
+        const imageConnected = edges.some((e) => e.target === node.id && e.targetHandle === "image");
         if (!textConnected) errors.push(`Wan reference video node "${node.id}" missing text input`);
-        if (refs === 0) errors.push(`Wan reference video node "${node.id}" missing reference videos`);
+        if (refs === 0 && !imageConnected) errors.push(`Wan reference video node "${node.id}" missing reference assets`);
       });
     nodes
       .filter((n) => n.type === "annotation")

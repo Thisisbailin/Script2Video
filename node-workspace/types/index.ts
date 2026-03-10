@@ -149,6 +149,7 @@ export interface ImageGenNodeData extends BaseNodeData {
 
 export interface VideoGenNodeData extends BaseNodeData {
   inputImages: string[];
+  referenceImages?: string[];
   referenceVideos?: string[];
   videoId?: string;
   videoUrl?: string; // For polling result

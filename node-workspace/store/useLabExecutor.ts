@@ -598,9 +598,11 @@ export const useLabExecutor = () => {
     const data = node.data as any;
     const prompt = (connectedText || "").trim();
     const isWanReferenceVideoNode = node.type === "wanReferenceVideoGen";
+    const referenceImages = Array.isArray(data.referenceImages) ? data.referenceImages.filter(Boolean) : [];
     const referenceVideos = Array.isArray(data.referenceVideos) ? data.referenceVideos.filter(Boolean) : [];
+    const hasManualReferenceAssets = referenceImages.length > 0 || referenceVideos.length > 0;
 
-    if (images.length === 0 && !prompt) {
+    if (images.length === 0 && !prompt && !(isWanReferenceVideoNode && hasManualReferenceAssets)) {
       store.updateNodeData(nodeId, { status: "error", error: "Missing text input (prompt required)." });
       return;
     }
@@ -620,8 +622,8 @@ export const useLabExecutor = () => {
       store.updateNodeData(nodeId, { status: "error", error: "Wan 视频需要提示词。" });
       return;
     }
-    if (isWanReferenceVideoNode && referenceVideos.length === 0) {
-      store.updateNodeData(nodeId, { status: "error", error: "Wan 参考生视频需要至少 1 个参考视频。" });
+    if (isWanReferenceVideoNode && referenceVideos.length === 0 && referenceImages.length === 0 && images.length === 0) {
+      store.updateNodeData(nodeId, { status: "error", error: "Wan 参考生视频需要至少 1 个角色参考（图像或视频）。" });
       return;
     }
     if (isWanReferenceVideoNode && !prompt) {
@@ -656,14 +658,16 @@ export const useLabExecutor = () => {
       }
       if (isWanReferenceVideoNode) {
         const normalizedVideos = await normalizeWanReferenceVideos(referenceVideos);
+        const normalizedReferenceImages = await normalizeWanImages(referenceImages);
         const cappedVideos = normalizedVideos.slice(0, 3);
-        const remainingImageSlots = Math.max(0, 5 - cappedVideos.length);
+        const cappedReferenceImages = normalizedReferenceImages.slice(0, Math.max(0, 5 - cappedVideos.length));
+        const remainingImageSlots = Math.max(0, 5 - cappedVideos.length - cappedReferenceImages.length);
         params.size = mapWanVideoSize(data.aspectRatio, data.resolution || "720P");
         params.shotType = data.shotType;
         params.watermark = data.watermark;
         params.seed = data.seed;
         params.audioEnabled = data.model === QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL ? data.audioEnabled !== false : undefined;
-        params.referenceUrls = [...cappedVideos, ...normalizedImages.slice(0, remainingImageSlots)];
+        params.referenceUrls = [...cappedVideos, ...cappedReferenceImages, ...normalizedImages.slice(0, remainingImageSlots)];
       }
 
       // Use node-specific model or fallback to config

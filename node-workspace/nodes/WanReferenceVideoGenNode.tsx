@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BaseNode } from "./BaseNode";
 import { VideoGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
-import { RefreshCw, Film, AlertCircle, Download, Upload, X, Video } from "lucide-react";
+import { RefreshCw, Film, AlertCircle, Download, Upload, X, Video, Image as ImageIcon } from "lucide-react";
 import {
   QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL,
   QWEN_WAN_REFERENCE_VIDEO_MODEL,
@@ -15,18 +15,34 @@ type Props = {
   data: VideoGenNodeData;
 };
 
+type ManualReferenceAsset = {
+  url: string;
+  kind: "video" | "image";
+};
+
 const clampDuration = (value: number) => Math.max(2, Math.min(10, Math.round(value)));
 
 export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
   const { updateNodeData, getConnectedInputs } = useWorkflowStore();
   const { runVideoGen } = useLabExecutor();
   const [progress, setProgress] = useState(0);
-  const [isUploadingRefs, setIsUploadingRefs] = useState(false);
+  const [isUploadingVideoRefs, setIsUploadingVideoRefs] = useState(false);
+  const [isUploadingImageRefs, setIsUploadingImageRefs] = useState(false);
   const refVideoInputRef = useRef<HTMLInputElement>(null);
+  const refImageInputRef = useRef<HTMLInputElement>(null);
 
   const { images: connectedImages } = getConnectedInputs(id);
   const referenceVideos = Array.isArray(data.referenceVideos) ? data.referenceVideos.filter(Boolean) : [];
+  const referenceImages = Array.isArray(data.referenceImages) ? data.referenceImages.filter(Boolean) : [];
+  const manualRefs = useMemo<ManualReferenceAsset[]>(
+    () => [
+      ...referenceVideos.map((url) => ({ url, kind: "video" as const })),
+      ...referenceImages.map((url) => ({ url, kind: "image" as const })),
+    ],
+    [referenceImages, referenceVideos]
+  );
   const hasConnectedImages = connectedImages.length > 0;
+  const totalReferenceCount = manualRefs.length + connectedImages.length;
   const isLoading = data.status === "loading";
   const currentModel =
     data.model === QWEN_WAN_REFERENCE_VIDEO_FLASH_MODEL
@@ -69,10 +85,25 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     if (!Array.isArray(data.referenceVideos)) {
       next.referenceVideos = [];
     }
+    if (!Array.isArray(data.referenceImages)) {
+      next.referenceImages = [];
+    }
     if (Object.keys(next).length > 0) {
       updateNodeData(id, next);
     }
-  }, [allowedAspectOptions, currentAspect, currentModel, currentResolution, data.aspectRatio, data.model, data.referenceVideos, data.resolution, id, updateNodeData]);
+  }, [
+    allowedAspectOptions,
+    currentAspect,
+    currentModel,
+    currentResolution,
+    data.aspectRatio,
+    data.model,
+    data.referenceImages,
+    data.referenceVideos,
+    data.resolution,
+    id,
+    updateNodeData,
+  ]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -106,11 +137,14 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     link.remove();
   };
 
-  const uploadReferenceVideo = async (file: File) => {
+  const uploadReferenceAsset = async (
+    file: File,
+    options: { prefix: string; fallbackType: string }
+  ) => {
     const safeName = file.name.normalize("NFKD").replace(/[^\w.\-]+/g, "_").toLowerCase();
-    const contentType = file.type || "video/mp4";
+    const contentType = file.type || options.fallbackType;
     const payload = {
-      fileName: `wan-reference-video/${Date.now()}-${safeName}`,
+      fileName: `${options.prefix}/${Date.now()}-${safeName}`,
       bucket: "assets",
       contentType,
     };
@@ -150,24 +184,27 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
       }
     }
     if (!url) {
-      throw new Error("Missing reference video URL");
+      throw new Error("Missing reference asset URL");
     }
     return url;
   };
 
-  const handleReferenceFiles = async (files: FileList | null) => {
+  const handleReferenceVideoFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    const remaining = Math.max(0, 3 - referenceVideos.length);
-    if (remaining === 0) {
-      updateNodeData(id, { error: "最多支持 3 个参考视频。" });
+    const remainingVideoSlots = Math.max(0, 3 - referenceVideos.length);
+    const remainingTotalSlots = Math.max(0, 5 - manualRefs.length);
+    const capacity = Math.min(remainingVideoSlots, remainingTotalSlots);
+    if (capacity === 0) {
+      updateNodeData(id, { error: "参考素材上限为 5，其中视频最多 3 个。" });
       return;
     }
-    setIsUploadingRefs(true);
+
+    setIsUploadingVideoRefs(true);
     try {
-      const selected = Array.from(files).slice(0, remaining);
+      const selected = Array.from(files).slice(0, capacity);
       const uploaded: string[] = [];
       for (const file of selected) {
-        uploaded.push(await uploadReferenceVideo(file));
+        uploaded.push(await uploadReferenceAsset(file, { prefix: "wan-reference-video", fallbackType: "video/mp4" }));
       }
       updateNodeData(id, {
         referenceVideos: [...referenceVideos, ...uploaded],
@@ -176,22 +213,59 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     } catch (e: any) {
       updateNodeData(id, { error: e?.message || "参考视频上传失败。" });
     } finally {
-      setIsUploadingRefs(false);
+      setIsUploadingVideoRefs(false);
       if (refVideoInputRef.current) {
         refVideoInputRef.current.value = "";
       }
     }
   };
 
-  const handleRemoveReference = (index: number) => {
+  const handleReferenceImageFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const remainingImageSlots = Math.max(0, 5 - referenceImages.length);
+    const remainingTotalSlots = Math.max(0, 5 - manualRefs.length);
+    const capacity = Math.min(remainingImageSlots, remainingTotalSlots);
+    if (capacity === 0) {
+      updateNodeData(id, { error: "参考素材上限为 5，其中图片与视频总数不能超过 5。" });
+      return;
+    }
+
+    setIsUploadingImageRefs(true);
+    try {
+      const selected = Array.from(files).slice(0, capacity);
+      const uploaded: string[] = [];
+      for (const file of selected) {
+        uploaded.push(await uploadReferenceAsset(file, { prefix: "wan-reference-image", fallbackType: "image/png" }));
+      }
+      updateNodeData(id, {
+        referenceImages: [...referenceImages, ...uploaded],
+        error: null,
+      });
+    } catch (e: any) {
+      updateNodeData(id, { error: e?.message || "参考图片上传失败。" });
+    } finally {
+      setIsUploadingImageRefs(false);
+      if (refImageInputRef.current) {
+        refImageInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveReference = (asset: ManualReferenceAsset, index: number) => {
+    if (asset.kind === "video") {
+      updateNodeData(id, {
+        referenceVideos: referenceVideos.filter((_, itemIndex) => itemIndex !== index),
+      });
+      return;
+    }
     updateNodeData(id, {
-      referenceVideos: referenceVideos.filter((_, itemIndex) => itemIndex !== index),
+      referenceImages: referenceImages.filter((_, itemIndex) => itemIndex !== index),
     });
   };
 
   return (
     <BaseNode
-      title={data.title || "WAN Ref Video"}
+      title={data.title || "WAN Role Video"}
       onTitleChange={(title) => updateNodeData(id, { title })}
       inputs={["image", "text"]}
       selected={selected}
@@ -240,7 +314,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-[10px] opacity-40 uppercase tracking-[0.2em] font-black transition-all duration-500 text-white">GENERATE</span>
                   <span className="text-[8px] opacity-20 uppercase tracking-[0.1em] font-bold transition-all duration-500">
-                    Wan 2.6 reference video
+                    Role-referenced Wan 2.6 video
                   </span>
                 </div>
               </>
@@ -278,30 +352,43 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.18em] font-black text-[var(--node-text-secondary)]/70">
-          <div>{referenceVideos.length} video ref{referenceVideos.length !== 1 ? "s" : ""}</div>
-          <div className="text-right">{connectedImages.length} image ref{connectedImages.length !== 1 ? "s" : ""}</div>
+        <div className="grid grid-cols-3 gap-2 text-[10px] uppercase tracking-[0.18em] font-black text-[var(--node-text-secondary)]/70">
+          <div>{referenceVideos.length} video</div>
+          <div className="text-center">{referenceImages.length} image</div>
+          <div className="text-right">{connectedImages.length} linked</div>
         </div>
 
         <div className="node-panel space-y-3 p-3 nodrag">
-          <div className="flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">
-                参考视频
-              </label>
-              <div className="text-[9px] text-[var(--node-text-secondary)]">
-                上传 1-3 个 MP4 / MOV，可额外连接图片作为补充参考。
-              </div>
+          <div className="space-y-1">
+            <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">
+              角色引用
+            </label>
+            <div className="text-[9px] leading-5 text-[var(--node-text-secondary)]">
+              支持图像或视频。它们会按顺序映射为 prompt 中的 <span className="text-[var(--node-text-primary)] font-semibold">character1 / character2 / ...</span>。
+              每个引用只放一个主体。连线输入的图片会排在手动上传之后继续编号。
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => refVideoInputRef.current?.click()}
-              disabled={isUploadingRefs || referenceVideos.length >= 3}
+              disabled={isUploadingVideoRefs || referenceVideos.length >= 3 || manualRefs.length >= 5}
               className="node-button node-button-primary h-9 px-3 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] disabled:opacity-60 nodrag"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <Upload size={12} />
-              {isUploadingRefs ? "Uploading" : "Add Ref"}
+              <Video size={12} />
+              {isUploadingVideoRefs ? "Uploading" : "Add Video"}
+            </button>
+            <button
+              type="button"
+              onClick={() => refImageInputRef.current?.click()}
+              disabled={isUploadingImageRefs || manualRefs.length >= 5}
+              className="node-button h-9 px-3 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] nodrag disabled:opacity-60"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ImageIcon size={12} />
+              {isUploadingImageRefs ? "Uploading" : "Add Image"}
             </button>
             <input
               ref={refVideoInputRef}
@@ -309,62 +396,101 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
               accept="video/mp4,video/quicktime,.mp4,.mov"
               multiple
               className="hidden"
-              onChange={(e) => handleReferenceFiles(e.target.files)}
+              onChange={(e) => handleReferenceVideoFiles(e.target.files)}
+            />
+            <input
+              ref={refImageInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/bmp,image/webp,.jpg,.jpeg,.png,.bmp,.webp"
+              multiple
+              className="hidden"
+              onChange={(e) => handleReferenceImageFiles(e.target.files)}
             />
           </div>
 
-          {referenceVideos.length > 0 && (
+          {manualRefs.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
-              {referenceVideos.map((url, index) => (
-                <div key={`${url}-${index}`} className="relative overflow-hidden rounded-[14px] border border-white/10 bg-black/20 aspect-[4/5]">
-                  <video
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover nodrag"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
+              {manualRefs.map((asset, index) => {
+                const videoIndex = asset.kind === "video"
+                  ? referenceVideos.findIndex((url) => url === asset.url)
+                  : -1;
+                const imageIndex = asset.kind === "image"
+                  ? referenceImages.findIndex((url) => url === asset.url)
+                  : -1;
+                return (
+                  <div
+                    key={`${asset.kind}-${asset.url}-${index}`}
+                    className="relative overflow-hidden rounded-[14px] border border-white/10 bg-black/20 aspect-[4/5]"
                   >
-                    <source src={url} />
-                  </video>
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-white/80">
-                        Ref {index + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveReference(index)}
-                        className="flex h-5 w-5 items-center justify-center rounded-full bg-black/45 text-white/80 transition hover:bg-black/65"
+                    {asset.kind === "video" ? (
+                      <video
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-cover nodrag"
                         onMouseDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
                       >
-                        <X size={10} />
-                      </button>
+                        <source src={asset.url} />
+                      </video>
+                    ) : (
+                      <img
+                        src={asset.url}
+                        alt={`character${index + 1}`}
+                        className="h-full w-full object-cover nodrag"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/72 to-transparent px-2 pb-2 pt-5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[8px] font-bold uppercase tracking-[0.16em] text-white/90">
+                            character{index + 1}
+                          </div>
+                          <div className="text-[8px] uppercase tracking-[0.12em] text-white/60">
+                            {asset.kind}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveReference(asset, asset.kind === "video" ? videoIndex : imageIndex)}
+                          className="flex h-5 w-5 items-center justify-center rounded-full bg-black/45 text-white/80 transition hover:bg-black/65"
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {hasConnectedImages && (
           <div className="text-[10px] uppercase tracking-[0.2em] font-black text-[var(--node-text-secondary)]/70">
-            {connectedImages.length} image reference{connectedImages.length > 1 ? "s" : ""} connected
+            linked images continue as character{manualRefs.length + 1}
+            {connectedImages.length > 1 ? `-${manualRefs.length + connectedImages.length}` : ""}
           </div>
         )}
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className={`h-1.5 w-1.5 rounded-full ${
-                data.status === "complete"
-                  ? "bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]"
-                  : data.status === "loading"
-                    ? "bg-amber-500 animate-pulse"
-                    : "bg-[var(--node-text-secondary)] opacity-20"
-              }`} />
-              <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">{data.status}</span>
+              <div
+                className={`h-1.5 w-1.5 rounded-full ${
+                  data.status === "complete"
+                    ? "bg-emerald-500 shadow-[0_0_8px_var(--accent-green)]"
+                    : data.status === "loading"
+                      ? "bg-amber-500 animate-pulse"
+                      : "bg-[var(--node-text-secondary)] opacity-20"
+                }`}
+              />
+              <span className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">
+                {data.status}
+              </span>
             </div>
             <div className="text-[9px] font-black uppercase tracking-widest text-[var(--node-text-secondary)]">
               WAN R2V
@@ -451,7 +577,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
               />
             </div>
             <div className="node-control node-control--tight w-full px-2 text-[var(--node-text-secondary)] text-[9px] font-bold text-center uppercase tracking-wide truncate">
-              total refs ≤ 5
+              refs {totalReferenceCount}/5
             </div>
           </div>
         </div>

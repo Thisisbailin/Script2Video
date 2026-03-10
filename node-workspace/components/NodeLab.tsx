@@ -1058,122 +1058,122 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
 
       <MultiSelectToolbar />
       <AgentSettingsPanel isOpen={showAgentSettings} onClose={() => setShowAgentSettings(false)} />
-      <div className="fixed bottom-4 left-4 right-4 z-30 pointer-events-none qalam-bottom-bar">
-        <div className="relative flex items-end justify-between gap-4">
-          <div className="pointer-events-auto flex items-end gap-3 qalam-bottom-agent">
-            <QalamAgent
-              projectData={projectData}
-              setProjectData={setProjectData}
-              onOpenStats={onOpenStats}
-              onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
-              openRequest={qalamOpenRequest}
-              submitRequest={qalamSubmitRequest}
-              onCollapsedChange={setIsQalamCollapsed}
-              renderCollapsedTrigger={false}
+      <div className="fixed bottom-4 left-4 z-30 pointer-events-none">
+        <div className="pointer-events-auto flex items-end gap-3 qalam-bottom-agent">
+          <QalamAgent
+            projectData={projectData}
+            setProjectData={setProjectData}
+            onOpenStats={onOpenStats}
+            onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
+            openRequest={qalamOpenRequest}
+            submitRequest={qalamSubmitRequest}
+            onCollapsedChange={setIsQalamCollapsed}
+            renderCollapsedTrigger={false}
+          />
+          <div className="qalam-bottom-controls">
+            <ViewportControls
+              zoom={zoomValue}
+              minZoom={minZoom}
+              maxZoom={maxZoom}
+              onZoomChange={handleZoomChange}
+              isLocked={isLocked}
+              onToggleLock={handleToggleLock}
+              showMiniMap={showMiniMap}
+              onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
             />
-            <div className="qalam-bottom-controls">
-              <ViewportControls
-                zoom={zoomValue}
-                minZoom={minZoom}
-                maxZoom={maxZoom}
-                onZoomChange={handleZoomChange}
-                isLocked={isLocked}
-                onToggleLock={handleToggleLock}
-                showMiniMap={showMiniMap}
-                onToggleMiniMap={() => setShowMiniMap((prev) => !prev)}
-              />
-            </div>
           </div>
-          <div
-            className={`pointer-events-auto absolute left-1/2 bottom-0 -translate-x-1/2 qalam-bottom-center transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              isQalamCollapsed ? "opacity-100 translate-y-0" : "pointer-events-none opacity-0 translate-y-4"
-            }`}
-          >
-            <div className="flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2">
-              <FloatingActionBar
-                onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
-                onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
-                onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
-                onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
-                onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
-                onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
-                onAddWanReferenceVideoGen={() => handleAddNode("wanReferenceVideoGen", { x: 540, y: 140 })}
-                onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
-                onImport={() => fileInputRef.current?.click()}
-                onExport={() => saveWorkflow()}
-                onRun={runAll}
-                templates={groupTemplates}
-                canCreateTemplate={!!selectedGroup}
-                onCreateTemplate={handleCreateTemplate}
-                onLoadTemplate={handleLoadTemplate}
-                onDeleteTemplate={handleDeleteTemplate}
-                floating={false}
-                onOpenModule={onOpenModule}
-                onExportCsv={onExportCsv}
-                onExportXls={onExportXls}
-                onExportUnderstandingJson={onExportUnderstandingJson}
-                onOpenStats={onOpenStats}
-                onToggleTheme={onToggleTheme}
-                onOpenTheme={() => setShowThemeModal(true)}
-                isDarkMode={isDarkMode}
-                onOpenSyncPanel={onOpenSyncPanel}
-                syncIndicator={syncIndicator}
-                onOpenInfoPanel={onOpenInfoPanel}
-                onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
-                onResetProject={onResetProject}
-                onSignOut={onSignOut}
-                onAssetLoad={onAssetLoad}
-                accountInfo={accountInfo}
-                onToggleWorkflow={onToggleWorkflow}
-                onOpenQalam={() => setQalamOpenRequest((prev) => prev + 1)}
-                variant="embedded"
-              />
-              {isQalamCollapsed && (
-                <div
-                  className="qalam-surface w-full rounded-[34px] px-5 py-3.5"
-                  style={{ fontFamily: '"Geist", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif' }}
+        </div>
+      </div>
+      <div
+        className={`fixed left-1/2 bottom-4 z-40 pointer-events-none -translate-x-1/2 transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isQalamCollapsed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+      >
+        <div className={`flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2 ${isQalamCollapsed ? "pointer-events-auto" : "pointer-events-none"}`}>
+          <FloatingActionBar
+            onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+            onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
+            onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+            onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
+            onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
+            onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
+            onAddWanReferenceVideoGen={() => handleAddNode("wanReferenceVideoGen", { x: 540, y: 140 })}
+            onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
+            onImport={() => fileInputRef.current?.click()}
+            onExport={() => saveWorkflow()}
+            onRun={runAll}
+            templates={groupTemplates}
+            canCreateTemplate={!!selectedGroup}
+            onCreateTemplate={handleCreateTemplate}
+            onLoadTemplate={handleLoadTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            floating={false}
+            onOpenModule={onOpenModule}
+            onExportCsv={onExportCsv}
+            onExportXls={onExportXls}
+            onExportUnderstandingJson={onExportUnderstandingJson}
+            onOpenStats={onOpenStats}
+            onToggleTheme={onToggleTheme}
+            onOpenTheme={() => setShowThemeModal(true)}
+            isDarkMode={isDarkMode}
+            onOpenSyncPanel={onOpenSyncPanel}
+            syncIndicator={syncIndicator}
+            onOpenInfoPanel={onOpenInfoPanel}
+            onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
+            onResetProject={onResetProject}
+            onSignOut={onSignOut}
+            onAssetLoad={onAssetLoad}
+            accountInfo={accountInfo}
+            onToggleWorkflow={onToggleWorkflow}
+            onOpenQalam={() => setQalamOpenRequest((prev) => prev + 1)}
+            variant="embedded"
+          />
+          {isQalamCollapsed && (
+            <div
+              className="qalam-surface w-full rounded-[40px] px-6 py-4"
+              style={{ fontFamily: '"Geist", "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif' }}
+            >
+              <div className="flex items-end gap-3">
+                <textarea
+                  ref={composerRef}
+                  value={composerInput}
+                  onChange={(e) => {
+                    setComposerInput(e.target.value);
+                    resizeComposer(e.currentTarget);
+                  }}
+                  rows={1}
+                  className="min-h-[48px] flex-1 resize-none bg-transparent py-2 text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] focus:outline-none"
+                  placeholder="Ask Qalam about scenes, roles, nodes, assets, or workflow changes."
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = composerInput.trim();
+                    if (!text) return;
+                    setComposerInput("");
+                    setQalamSubmitRequest({ id: Date.now(), text });
+                  }}
+                  disabled={!composerInput.trim()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent-strong)] text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Send to Qalam"
                 >
-                  <div className="flex items-end gap-3">
-                    <textarea
-                      ref={composerRef}
-                      value={composerInput}
-                      onChange={(e) => {
-                        setComposerInput(e.target.value);
-                        resizeComposer(e.currentTarget);
-                      }}
-                      rows={1}
-                      className="min-h-[46px] flex-1 resize-none bg-transparent py-2 text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] focus:outline-none"
-                      placeholder="Ask Qalam about scenes, roles, nodes, assets, or workflow changes."
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const text = composerInput.trim();
-                        if (!text) return;
-                        setComposerInput("");
-                        setQalamSubmitRequest({ id: Date.now(), text });
-                      }}
-                      disabled={!composerInput.trim()}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent-strong)] text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Send to Qalam"
-                    >
-                      <ArrowUp size={16} weight="bold" />
-                    </button>
-                  </div>
-                </div>
-              )}
+                  <ArrowUp size={16} weight="bold" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="pointer-events-auto ml-auto qalam-bottom-assets">
-            <div className="relative h-12 flex items-center">
-              <AssetsPanel
-                projectData={projectData}
-                onInsertTextNode={handleInsertTextNode}
-                onImportEpisodeShots={handleImportEpisode}
-                floating={false}
-                inlineAnchor
-              />
-            </div>
+          )}
+        </div>
+      </div>
+      <div className="fixed bottom-4 right-4 z-30 pointer-events-none">
+        <div className="pointer-events-auto qalam-bottom-assets">
+          <div className="relative h-12 flex items-center">
+            <AssetsPanel
+              projectData={projectData}
+              onInsertTextNode={handleInsertTextNode}
+              onImportEpisodeShots={handleImportEpisode}
+              floating={false}
+              inlineAnchor
+            />
           </div>
         </div>
       </div>

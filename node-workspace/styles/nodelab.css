@@ -219,10 +219,6 @@
   width: calc(100% - var(--qalam-split-width, 0px));
 }
 
-:root.qalam-split .qalam-bottom-bar {
-  left: calc(var(--qalam-split-width, 0px) + 16px);
-}
-
 body.qalam-resizing,
 body.qalam-resizing * {
   user-select: none !important;
@@ -1040,7 +1036,6 @@ body.qalam-resizing * {
 .qalam-surface {
   position: relative;
   overflow: hidden;
-  border-radius: inherit;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
     var(--app-panel);
@@ -1069,7 +1064,6 @@ body.qalam-resizing * {
 
 .qalam-subtle-surface {
   overflow: hidden;
-  border-radius: inherit;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--app-panel-muted);
   border: 1px solid var(--app-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
