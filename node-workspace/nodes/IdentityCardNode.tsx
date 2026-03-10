@@ -138,7 +138,7 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
 
   return (
     <BaseNode title={data.title || "角色 / 场景身份卡片节点"} outputs={["text"]} selected={selected}>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-col">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--node-border)] pb-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">

@@ -772,9 +772,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
     const defaultDimensions: Partial<Record<NodeType, { width: number; height?: number }>> = {
       group: { width: 1100, height: 900 },
-      scriptBoard: { width: 920, height: 620 },
-      storyboardBoard: { width: 1080, height: 640 },
-      identityCard: { width: 760, height: 560 },
+      scriptBoard: { width: 920 },
+      storyboardBoard: { width: 1080 },
+      identityCard: { width: 760 },
     };
 
     const dim = defaultDimensions[type];

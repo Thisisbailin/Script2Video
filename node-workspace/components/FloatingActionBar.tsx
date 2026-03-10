@@ -185,8 +185,8 @@ export const FloatingActionBar: React.FC<Props> = ({
   const toolbarChipClass =
     "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const popoverBottomClass = isEmbedded ? "bottom-[calc(100%+12px)]" : "bottom-16";
-  const getEmbeddedPopoverStyle = (buttonRef: React.RefObject<HTMLButtonElement>, desiredWidth: number): React.CSSProperties | undefined => {
-    if (!isEmbedded || typeof window === "undefined") return undefined;
+  const getPopoverStyle = (buttonRef: React.RefObject<HTMLButtonElement>, desiredWidth: number): React.CSSProperties | undefined => {
+    if (typeof window === "undefined") return undefined;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return undefined;
     const viewportPadding = 16;
@@ -195,7 +195,8 @@ export const FloatingActionBar: React.FC<Props> = ({
       viewportPadding,
       Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - viewportPadding - width)
     );
-    const bottom = Math.max(16, window.innerHeight - rect.top + 12);
+    const gap = 12;
+    const bottom = Math.max(16, window.innerHeight - rect.top + gap);
     return {
       position: "fixed",
       left,
@@ -204,9 +205,9 @@ export const FloatingActionBar: React.FC<Props> = ({
       maxWidth: `calc(100vw - ${viewportPadding * 2}px)`,
     };
   };
-  const templatePopoverStyle = useMemo(() => getEmbeddedPopoverStyle(projectButtonRef, 408), [isEmbedded, showTemplate]);
-  const palettePopoverStyle = useMemo(() => getEmbeddedPopoverStyle(nodesButtonRef, 720), [isEmbedded, showPalette]);
-  const fileMenuPopoverStyle = useMemo(() => getEmbeddedPopoverStyle(accountButtonRef, 420), [isEmbedded, showFileMenu]);
+  const templatePopoverStyle = useMemo(() => getPopoverStyle(projectButtonRef, 408), [showTemplate]);
+  const palettePopoverStyle = useMemo(() => getPopoverStyle(nodesButtonRef, 720), [showPalette]);
+  const fileMenuPopoverStyle = useMemo(() => getPopoverStyle(accountButtonRef, 420), [showFileMenu]);
 
   const panelActions = [
     { label: "剧本面板", hint: "按集与场景浏览剧本", meta: "Panel", onClick: onAddScriptBoard, Icon: BookOpen, tone: "text-sky-300", surface: "bg-sky-500/12" },
