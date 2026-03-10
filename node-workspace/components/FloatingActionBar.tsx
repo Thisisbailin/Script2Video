@@ -183,7 +183,6 @@ export const FloatingActionBar: React.FC<Props> = ({
     "group inline-flex h-8 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px] font-medium tracking-[-0.01em] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const toolbarChipClass =
     "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
-  const popoverBottomClass = isEmbedded ? "bottom-[calc(100%+12px)]" : "bottom-16";
   const getPopoverStyle = (buttonRef: React.RefObject<HTMLButtonElement>, desiredWidth: number): React.CSSProperties | undefined => {
     if (typeof window === "undefined") return undefined;
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -279,8 +278,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
-            className={`${isEmbedded ? "fixed" : `absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[408px]`} animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
-            style={isEmbedded ? { ...panelStyle, ...templatePopoverStyle } : panelStyle}
+            className={`fixed animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
+            style={{ ...panelStyle, ...templatePopoverStyle }}
           >
             <div className="max-h-[min(72vh,620px)] space-y-4 overflow-y-auto p-4">
               <div className="space-y-1 px-1">
@@ -424,8 +423,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
-            className={`${isEmbedded ? "fixed" : `absolute ${popoverBottomClass} left-0 w-[min(720px,92vw)] max-w-[92vw]`} animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
-            style={isEmbedded ? { ...panelStyle, ...palettePopoverStyle } : panelStyle}
+            className={`fixed animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
+            style={{ ...panelStyle, ...palettePopoverStyle }}
           >
             <div className="p-4 space-y-4">
               <div className="px-1">
@@ -508,8 +507,8 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
-            className={`${isEmbedded ? "fixed" : `absolute ${popoverBottomClass} left-0 w-[92vw] max-w-[420px]`} animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
-            style={isEmbedded ? { ...panelStyle, ...fileMenuPopoverStyle } : panelStyle}
+            className={`fixed animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
+            style={{ ...panelStyle, ...fileMenuPopoverStyle }}
           >
             <div className="max-h-[min(74vh,640px)] space-y-4 overflow-y-auto p-4">
               <div className="space-y-1">
