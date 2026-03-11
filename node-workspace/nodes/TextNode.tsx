@@ -11,6 +11,7 @@ import {
     resolveMentionTarget,
     toSearch,
 } from "../utils/entityBindings";
+import { getCharacterFormMention } from "../../utils/characterIdentity";
 
 type Props = {
     id: string;
@@ -275,7 +276,20 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         const end = mentionState ? mentionState.end : cursorPos;
         const before = draftText.slice(0, start);
         const after = draftText.slice(end);
-        const insertion = `@${target.kind === "character" ? (target.characterName || target.name) : target.name} `;
+        const insertionValue =
+            target.kind === "form"
+                ? getCharacterFormMention(
+                    target.characterId ? (labContext?.context?.characters || []).find((item) => item.id === target.characterId) : undefined,
+                    target.formId
+                        ? (labContext?.context?.characters || [])
+                            .find((item) => item.id === target.characterId)
+                            ?.forms?.find((entry) => entry.id === target.formId)
+                        : undefined
+                ) || target.name
+                : target.kind === "character"
+                    ? (target.characterName || target.name)
+                    : target.name;
+        const insertion = `@${insertionValue} `;
         const next = `${before}${insertion}${after}`;
         const nextPos = start + insertion.length;
         setDraftText(next);

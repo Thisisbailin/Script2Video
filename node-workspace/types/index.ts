@@ -31,6 +31,8 @@ export interface ImageInputNodeData extends BaseNodeData {
   filename: string | null;
   dimensions: { width: number; height: number } | null;
   formTag?: string;
+  characterId?: string;
+  formId?: string;
   zoneTag?: string;
   label?: string;
   atMentions?: TextNodeData['atMentions'];
@@ -175,6 +177,8 @@ export interface ImageGenNodeData extends BaseNodeData {
   designCategory?: "form" | "zone";
   designRefId?: string;
   formTag?: string;
+  characterId?: string;
+  formId?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {

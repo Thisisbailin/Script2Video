@@ -1,22 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, ChevronDown, FileText, Plus, Sparkles, Theater, Trash2 } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, CheckCircle2, ChevronDown, ChevronRight, Plus, Sparkles } from "lucide-react";
 import type { Character, Episode, ProjectData } from "../../types";
 import { parseScriptToEpisodes } from "../../utils/parser";
-import { ensureStableId } from "../../utils/id";
 
 type Props = {
   projectData: ProjectData;
   setProjectData: React.Dispatch<React.SetStateAction<ProjectData>>;
-};
-
-type BlockType = "action" | "dialogue" | "os" | "vo";
-
-type WritingBlock = {
-  id: string;
-  type: BlockType;
-  speaker?: string;
-  qualifier?: string;
-  content: string;
 };
 
 type WritingScene = {
@@ -25,208 +14,13 @@ type WritingScene = {
   timeOfDay: string;
   location: string;
   castLine: string;
-  blocks: WritingBlock[];
+  body: string;
 };
 
 type WritingEpisode = {
   id: number;
   title: string;
   scenes: WritingScene[];
-};
-
-const BLOCK_TYPE_OPTIONS: { value: BlockType; label: string }[] = [
-  { value: "action", label: "动作" },
-  { value: "dialogue", label: "对白" },
-  { value: "os", label: "OS" },
-  { value: "vo", label: "VO" },
-];
-
-const createEmptyBlock = (type: BlockType = "action"): WritingBlock => ({
-  id: ensureStableId(undefined, "writing-block"),
-  type,
-  speaker: "",
-  qualifier: type === "os" ? "OS" : type === "vo" ? "VO" : "",
-  content: "",
-});
-
-const createEmptyScene = (episodeId: number, sceneIndex: number): WritingScene => ({
-  id: `${episodeId}-${sceneIndex}`,
-  title: `场景 ${sceneIndex}`,
-  timeOfDay: "",
-  location: "",
-  castLine: "",
-  blocks: [createEmptyBlock("action")],
-});
-
-const createEmptyEpisode = (episodeId: number): WritingEpisode => ({
-  id: episodeId,
-  title: `第${episodeId}集`,
-  scenes: [createEmptyScene(episodeId, 1)],
-});
-
-const parseBlocksFromSceneContent = (content: string) => {
-  const blocks: WritingBlock[] = [];
-  let castLine = "";
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  lines.forEach((line) => {
-    const castMatch = line.match(/^人物[:：]\s*(.+)$/);
-    if (castMatch) {
-      castLine = castMatch[1].trim();
-      return;
-    }
-
-    const qualifiedMatch = line.match(/^([^：（:]+?)\s*（([^）]+)）\s*[:：]\s*(.+)$/);
-    if (qualifiedMatch) {
-      const [, speaker, qualifier, body] = qualifiedMatch;
-      const type = /VO/i.test(qualifier) ? "vo" : /OS/i.test(qualifier) ? "os" : "dialogue";
-      blocks.push({
-        id: ensureStableId(undefined, "writing-block"),
-        type,
-        speaker: speaker.trim(),
-        qualifier: qualifier.trim(),
-        content: body.trim(),
-      });
-      return;
-    }
-
-    const dialogueMatch = line.match(/^([^：:]+?)\s*[:：]\s*(.+)$/);
-    if (dialogueMatch) {
-      const [, speaker, body] = dialogueMatch;
-      blocks.push({
-        id: ensureStableId(undefined, "writing-block"),
-        type: "dialogue",
-        speaker: speaker.trim(),
-        qualifier: "",
-        content: body.trim(),
-      });
-      return;
-    }
-
-    blocks.push({
-      id: ensureStableId(undefined, "writing-block"),
-      type: "action",
-      content: line.replace(/^△\s*/, "").trim(),
-    });
-  });
-
-  return {
-    castLine,
-    blocks: blocks.length ? blocks : [createEmptyBlock("action")],
-  };
-};
-
-const buildDraftFromEpisodes = (episodes: Episode[], rawScript: string): WritingEpisode[] => {
-  if (!episodes.length && !rawScript.trim()) {
-    return [createEmptyEpisode(1)];
-  }
-
-  if (!episodes.length && rawScript.trim()) {
-    const parsed = parseScriptToEpisodes(rawScript);
-    return buildDraftFromEpisodes(parsed, "");
-  }
-
-  return episodes.map((episode, episodeIndex) => ({
-    id: episode.id || episodeIndex + 1,
-    title: (episode.title || `第${episode.id || episodeIndex + 1}集`).trim(),
-    scenes:
-      episode.scenes?.length
-        ? episode.scenes.map((scene, sceneIndex) => {
-            const parsed = parseBlocksFromSceneContent(scene.content || "");
-            return {
-              id: scene.id || `${episode.id || episodeIndex + 1}-${sceneIndex + 1}`,
-              title: scene.title || `场景 ${sceneIndex + 1}`,
-              timeOfDay: scene.timeOfDay || "",
-              location: scene.location || "",
-              castLine:
-                parsed.castLine ||
-                ((episode.characters || []).length ? (episode.characters || []).join("、") : ""),
-              blocks: parsed.blocks,
-            };
-          })
-        : [createEmptyScene(episode.id || episodeIndex + 1, 1)],
-  }));
-};
-
-const exportBlock = (block: WritingBlock) => {
-  const content = (block.content || "").trim();
-  if (!content) return "";
-  if (block.type === "action") {
-    return `△${content}`;
-  }
-  if (block.type === "dialogue") {
-    return `${(block.speaker || "").trim() || "角色"}：${content}`;
-  }
-  if (block.type === "os") {
-    const qualifier = (block.qualifier || "OS").trim() || "OS";
-    return `${(block.speaker || "").trim() || "角色"}（${qualifier}）：${content}`;
-  }
-  const qualifier = (block.qualifier || "VO").trim() || "VO";
-  return `${(block.speaker || "").trim() || "声源"}（${qualifier}）：${content}`;
-};
-
-const exportScene = (scene: WritingScene) => {
-  const header = [scene.id, scene.title.trim(), scene.timeOfDay.trim(), scene.location.trim()]
-    .filter(Boolean)
-    .join(" ");
-  const lines = [
-    header,
-    scene.castLine.trim() ? `人物：${scene.castLine.trim()}` : "",
-    ...scene.blocks.map(exportBlock).filter(Boolean),
-  ].filter(Boolean);
-  return lines.join("\n");
-};
-
-const exportEpisode = (episode: WritingEpisode) => {
-  const lines = [
-    episode.title.trim() || `第${episode.id}集`,
-    "",
-    ...episode.scenes.map((scene) => exportScene(scene)),
-  ];
-  return lines.join("\n\n").trim();
-};
-
-const exportDraft = (episodes: WritingEpisode[]) => episodes.map(exportEpisode).filter(Boolean).join("\n\n");
-
-const mergeEpisodes = (previous: Episode[], parsed: Episode[]) => {
-  const previousMap = new Map(previous.map((episode) => [episode.id, episode]));
-  return parsed.map((episode) => {
-    const prev = previousMap.get(episode.id);
-    return {
-      ...episode,
-      summary: prev?.summary,
-      shots: prev?.shots || [],
-      status: prev?.status || "pending",
-      errorMsg: prev?.errorMsg,
-      shotGenUsage: prev?.shotGenUsage,
-      soraGenUsage: prev?.soraGenUsage,
-      storyboardGenUsage: prev?.storyboardGenUsage,
-    };
-  });
-};
-
-const formatParserIssues = (draftEpisodes: WritingEpisode[]) => {
-  const issues: string[] = [];
-  draftEpisodes.forEach((episode) => {
-    if (!/^第.+集$/.test((episode.title || "").trim())) {
-      issues.push(`${episode.title || `第${episode.id}集`} 的集标题不符合“第X集”格式。`);
-    }
-    episode.scenes.forEach((scene, index) => {
-      if (!/^\d+-\d+$/.test((scene.id || "").trim())) {
-        issues.push(`${episode.title} 的第 ${index + 1} 场缺少合法场号。`);
-      }
-      if (!(scene.title || "").trim()) {
-        issues.push(`${scene.id || `${episode.id}-${index + 1}`} 缺少场景标题。`);
-      }
-      if (!scene.blocks.some((block) => block.content.trim())) {
-        issues.push(`${scene.id || `${episode.id}-${index + 1}`} 还没有正文内容。`);
-      }
-    });
-  });
-  return issues;
 };
 
 const titleClass = "text-[11px] font-black uppercase tracking-[0.24em] text-[var(--app-text-secondary)]";
@@ -255,11 +49,152 @@ const buildCharacterMatcher = (characters: Character[]) => {
   return new RegExp(`(${names.map((name) => escapeRegExp(name)).join("|")})`, "g");
 };
 
+const createEmptyScene = (episodeId: number, sceneIndex: number): WritingScene => ({
+  id: `${episodeId}-${sceneIndex}`,
+  title: `场景 ${sceneIndex}`,
+  timeOfDay: "",
+  location: "",
+  castLine: "",
+  body: "",
+});
+
+const createEmptyEpisode = (episodeId: number): WritingEpisode => ({
+  id: episodeId,
+  title: `第${episodeId}集`,
+  scenes: [createEmptyScene(episodeId, 1)],
+});
+
+const sceneContentToDraftBody = (content: string) => {
+  if (!content.trim()) return "";
+  return content
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+
+      const qualifiedMatch = trimmed.match(/^([^：（:]+?)\s*（([^）]+)）\s*[:：]\s*(.+)$/);
+      if (qualifiedMatch) {
+        const [, speaker, qualifier, body] = qualifiedMatch;
+        if (/OS/i.test(qualifier)) return `@${speaker.trim()} /os ${body.trim()}`;
+        if (/VO/i.test(qualifier)) return `@${speaker.trim()} /vo ${body.trim()}`;
+        return trimmed;
+      }
+
+      const dialogueMatch = trimmed.match(/^([^：:]+?)\s*[:：]\s*(.+)$/);
+      if (dialogueMatch) {
+        const [, speaker, body] = dialogueMatch;
+        return `@${speaker.trim()}：${body.trim()}`;
+      }
+
+      if (trimmed.startsWith("△")) {
+        return `# ${trimmed.replace(/^△\s*/, "")}`;
+      }
+
+      return trimmed;
+    })
+    .join("\n");
+};
+
+const buildDraftFromEpisodes = (episodes: Episode[], rawScript: string): WritingEpisode[] => {
+  if (!episodes.length && !rawScript.trim()) return [createEmptyEpisode(1)];
+  if (!episodes.length && rawScript.trim()) {
+    return buildDraftFromEpisodes(parseScriptToEpisodes(rawScript), "");
+  }
+
+  return episodes.map((episode, index) => ({
+    id: episode.id || index + 1,
+    title: (episode.title || `第${episode.id || index + 1}集`).trim(),
+    scenes:
+      episode.scenes?.length
+        ? episode.scenes.map((scene, sceneIndex) => ({
+            id: scene.id || `${episode.id || index + 1}-${sceneIndex + 1}`,
+            title: scene.title || `场景 ${sceneIndex + 1}`,
+            timeOfDay: scene.timeOfDay || "",
+            location: scene.location || "",
+            castLine: (episode.characters || []).join("、"),
+            body: sceneContentToDraftBody(scene.content || ""),
+          }))
+        : [createEmptyScene(episode.id || index + 1, 1)],
+  }));
+};
+
+const exportDraftLine = (line: string) => {
+  const trimmed = line.trim();
+  if (!trimmed) return "";
+
+  const actionMatch = trimmed.match(/^#\s*(.+)$/);
+  if (actionMatch) {
+    return `△${actionMatch[1].trim()}`;
+  }
+
+  const qualifiedMatch = trimmed.match(/^@([^\s/:：]+)\s*\/\s*(os|vo)\s*[:：]?\s*(.+)$/i);
+  if (qualifiedMatch) {
+    const [, speaker, mode, body] = qualifiedMatch;
+    const label = mode.toUpperCase();
+    return `${speaker.trim()}（${label}）：${body.trim()}`;
+  }
+
+  const dialogueMatch = trimmed.match(/^@([^：:]+?)\s*[:：]\s*(.+)$/);
+  if (dialogueMatch) {
+    const [, speaker, body] = dialogueMatch;
+    return `${speaker.trim()}：${body.trim()}`;
+  }
+
+  return trimmed;
+};
+
+const exportScene = (scene: WritingScene) => {
+  const header = [scene.id.trim(), scene.title.trim(), scene.timeOfDay.trim(), scene.location.trim()]
+    .filter(Boolean)
+    .join(" ");
+  const bodyLines = scene.body
+    .split(/\r?\n/)
+    .map(exportDraftLine)
+    .filter(Boolean);
+  return [header, scene.castLine.trim() ? `人物：${scene.castLine.trim()}` : "", ...bodyLines]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const exportEpisode = (episode: WritingEpisode) =>
+  [
+    episode.title.trim() || `第${episode.id}集`,
+    "",
+    ...episode.scenes.map((scene) => exportScene(scene)),
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+
+const exportDraft = (episodes: WritingEpisode[]) => episodes.map(exportEpisode).filter(Boolean).join("\n\n");
+
+const mergeEpisodes = (previous: Episode[], parsed: Episode[]) => {
+  const previousMap = new Map(previous.map((episode) => [episode.id, episode]));
+  return parsed.map((episode) => {
+    const prev = previousMap.get(episode.id);
+    return {
+      ...episode,
+      summary: prev?.summary,
+      shots: prev?.shots || [],
+      status: prev?.status || "pending",
+      errorMsg: prev?.errorMsg,
+      shotGenUsage: prev?.shotGenUsage,
+      soraGenUsage: prev?.soraGenUsage,
+      storyboardGenUsage: prev?.storyboardGenUsage,
+    };
+  });
+};
+
 const parseCastNames = (castLine: string) =>
   castLine
     .split(/[、，,／/|\s]+/)
     .map((name) => name.trim().replace(/^@/, ""))
     .filter(Boolean);
+
+const countCharactersInBody = (body: string) => {
+  const matches = body.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
+  return Array.from(new Set(matches.map((item) => item.slice(1))));
+};
 
 export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) => {
   const [draft, setDraft] = useState<WritingEpisode[]>(() =>
@@ -267,7 +202,9 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
   );
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number>(() => draft[0]?.id || 1);
   const [selectedSceneId, setSelectedSceneId] = useState<string>(() => draft[0]?.scenes[0]?.id || "1-1");
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(() => draft[0]?.scenes[0]?.blocks[0]?.id || null);
+  const [cursorPos, setCursorPos] = useState(0);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
   const knownCharacters = useMemo(
     () => (projectData.context.characters || []).filter((character) => !!character?.name?.trim()),
     [projectData.context.characters]
@@ -304,113 +241,14 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
     }
   }, [selectedEpisode, selectedSceneId]);
 
-  useEffect(() => {
-    const allBlockIds = selectedScene.blocks.map((block) => block.id);
-    if (!selectedBlockId || !allBlockIds.includes(selectedBlockId)) {
-      setSelectedBlockId(allBlockIds[0] || null);
-    }
-  }, [selectedBlockId, selectedScene.blocks]);
-
-  const fullScript = useMemo(() => exportDraft(draft), [draft]);
-  const parserPreview = useMemo(() => parseScriptToEpisodes(fullScript), [fullScript]);
-  const parserIssues = useMemo(() => {
-    const issues = formatParserIssues(draft);
-    const sceneIdSet = new Set<string>();
-
-    draft.forEach((episode) => {
-      episode.scenes.forEach((scene, index) => {
-        const normalizedSceneId = (scene.id || "").trim();
-        if (normalizedSceneId) {
-          if (sceneIdSet.has(normalizedSceneId)) {
-            issues.push(`${normalizedSceneId} 在全剧本中重复出现。`);
-          }
-          sceneIdSet.add(normalizedSceneId);
-        }
-        if (normalizedSceneId && !normalizedSceneId.startsWith(`${episode.id}-`)) {
-          issues.push(`${normalizedSceneId} 的场号前缀与 ${episode.title} 不一致。`);
-        }
-        if (!(scene.timeOfDay || "").trim()) {
-          issues.push(`${scene.id || `${episode.id}-${index + 1}`} 缺少时间标记。`);
-        }
-        if (!(scene.location || "").trim()) {
-          issues.push(`${scene.id || `${episode.id}-${index + 1}`} 缺少内/外标记。`);
-        }
-
-        const castNames = parseCastNames(scene.castLine || "");
-        castNames.forEach((name) => {
-          if (!characterMap.has(name)) {
-            issues.push(`${scene.id || `${episode.id}-${index + 1}`} 的人物行中包含未绑定角色：${name}`);
-          }
-        });
-
-        scene.blocks.forEach((block, blockIndex) => {
-          if (block.type !== "action" && !(block.speaker || "").trim()) {
-            issues.push(`${scene.id || `${episode.id}-${index + 1}`} 的第 ${blockIndex + 1} 个正文块缺少说话角色。`);
-          }
-          if ((block.type === "os" || block.type === "vo") && !(block.qualifier || "").trim()) {
-            issues.push(`${scene.id || `${episode.id}-${index + 1}`} 的第 ${blockIndex + 1} 个 ${block.type.toUpperCase()} 块缺少标注。`);
-          }
-          const mentions = (block.content.match(/@([\w\u4e00-\u9fa5-]+)/g) || []).map((item) => item.slice(1));
-          mentions.forEach((name) => {
-            if (!characterMap.has(name)) {
-              issues.push(`${scene.id || `${episode.id}-${index + 1}`} 中引用了未绑定角色 @${name}`);
-            }
-          });
-        });
-      });
-    });
-
-    return Array.from(new Set(issues));
-  }, [characterMap, draft]);
-  const selectedScenePreview = useMemo(() => exportScene(selectedScene), [selectedScene]);
-
-  const renderBoundText = useCallback(
-    (text: string) => {
-      if (!text) return "（空内容）";
-      if (!characterMatcher) return text;
-      const parts: React.ReactNode[] = [];
-      let lastIndex = 0;
-      let match: RegExpExecArray | null;
-      characterMatcher.lastIndex = 0;
-
-      while ((match = characterMatcher.exec(text))) {
-        const [matchedName] = match;
-        const start = match.index;
-        const end = start + matchedName.length;
-        if (start > lastIndex) {
-          parts.push(<React.Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex, start)}</React.Fragment>);
-        }
-        const character = characterMap.get(matchedName);
-        parts.push(
-          <span
-            key={`${matchedName}-${start}`}
-            className="text-mention"
-            data-kind="character"
-            data-status={character ? "match" : "missing"}
-            data-tooltip={buildCharacterDetail(character) || undefined}
-          >
-            @{matchedName}
-          </span>
-        );
-        lastIndex = end;
-      }
-
-      if (lastIndex < text.length) {
-        parts.push(<React.Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex)}</React.Fragment>);
-      }
-      return parts;
-    },
-    [characterMap, characterMatcher]
-  );
-
   const patchEpisode = (episodeId: number, updater: (episode: WritingEpisode) => WritingEpisode) => {
     setDraft((prev) => prev.map((episode) => (episode.id === episodeId ? updater(episode) : episode)));
   };
 
-  const patchScene = (episodeId: number, sceneId: string, updater: (scene: WritingScene, index: number) => WritingScene) => {
+  const patchScene = (episodeId: number, sceneId: string, updater: (scene: WritingScene) => WritingScene) => {
     patchEpisode(episodeId, (episode) => ({
       ...episode,
-      scenes: episode.scenes.map((scene, index) => (scene.id === sceneId ? updater(scene, index) : scene)),
+      scenes: episode.scenes.map((scene) => (scene.id === sceneId ? updater(scene) : scene)),
     }));
   };
 
@@ -432,48 +270,134 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
     setSelectedSceneId(nextScene.id);
   };
 
-  const addBlock = (type: BlockType) => {
-    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-      ...scene,
-      blocks: [...scene.blocks, createEmptyBlock(type)],
-    }));
-  };
+  const fullScript = useMemo(() => exportDraft(draft), [draft]);
+  const parserPreview = useMemo(() => parseScriptToEpisodes(fullScript), [fullScript]);
+  const selectedScenePreview = useMemo(() => exportScene(selectedScene), [selectedScene]);
 
-  const removeBlock = (blockId: string) => {
-    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-      ...scene,
-      blocks: scene.blocks.length > 1 ? scene.blocks.filter((block) => block.id !== blockId) : scene.blocks,
-    }));
-  };
+  const parserIssues = useMemo(() => {
+    const issues: string[] = [];
+    const sceneIdSet = new Set<string>();
 
-  const insertCharacterMention = (blockId: string, characterName: string) => {
-    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-      ...scene,
-      blocks: scene.blocks.map((block) =>
-        block.id === blockId
-          ? {
-              ...block,
-              content: `${block.content}${block.content ? " " : ""}@${characterName}`,
+    draft.forEach((episode) => {
+      if (!/^第.+集$/.test((episode.title || "").trim())) {
+        issues.push(`${episode.title || `第${episode.id}集`} 的集标题不符合“第X集”格式。`);
+      }
+
+      episode.scenes.forEach((scene, index) => {
+        const sceneKey = scene.id.trim();
+        if (!/^\d+-\d+$/.test(sceneKey)) {
+          issues.push(`${episode.title} 的第 ${index + 1} 场缺少合法场号。`);
+        }
+        if (sceneIdSet.has(sceneKey)) {
+          issues.push(`${sceneKey} 在全剧本中重复出现。`);
+        }
+        sceneIdSet.add(sceneKey);
+        if (sceneKey && !sceneKey.startsWith(`${episode.id}-`)) {
+          issues.push(`${sceneKey} 的场号前缀与 ${episode.title} 不一致。`);
+        }
+        if (!scene.title.trim()) issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 缺少场景标题。`);
+        if (!scene.timeOfDay.trim()) issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 缺少时间标记。`);
+        if (!scene.location.trim()) issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 缺少内/外标记。`);
+
+        parseCastNames(scene.castLine).forEach((name) => {
+          if (!characterMap.has(name)) {
+            issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 的人物行中包含未绑定角色：${name}`);
+          }
+        });
+
+        const lines = scene.body.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (!lines.length) {
+          issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 还没有正文内容。`);
+        }
+        lines.forEach((line, lineIndex) => {
+          const mentions = (line.match(/@([\w\u4e00-\u9fa5-]+)/g) || []).map((item) => item.slice(1));
+          mentions.forEach((name) => {
+            if (!characterMap.has(name)) {
+              issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 第 ${lineIndex + 1} 行引用了未绑定角色 @${name}`);
             }
-          : block
-      ),
-    }));
-    setSelectedBlockId(blockId);
-  };
+          });
+          if (/^@/.test(line) && !/[:：]/.test(line) && !/\/\s*(os|vo)/i.test(line)) {
+            issues.push(`${sceneKey || `${episode.id}-${index + 1}`} 第 ${lineIndex + 1} 行以 @ 角色开头，但缺少对白或 /os /vo 标记。`);
+          }
+        });
+      });
+    });
 
-  const assignSpeaker = (blockId: string, characterName: string) => {
-    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-      ...scene,
-      blocks: scene.blocks.map((block) =>
-        block.id === blockId
-          ? {
-              ...block,
-              speaker: characterName,
-            }
-          : block
-      ),
-    }));
-    setSelectedBlockId(blockId);
+    return Array.from(new Set(issues));
+  }, [characterMap, draft]);
+
+  const renderBoundText = useCallback(
+    (text: string) => {
+      if (!text) return "（空内容）";
+      if (!characterMatcher) return text;
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      characterMatcher.lastIndex = 0;
+      while ((match = characterMatcher.exec(text))) {
+        const [matchedName] = match;
+        const start = match.index;
+        const end = start + matchedName.length;
+        if (start > lastIndex) {
+          parts.push(<React.Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex, start)}</React.Fragment>);
+        }
+        const character = characterMap.get(matchedName);
+        parts.push(
+          <span
+            key={`${matchedName}-${start}`}
+            className="text-mention"
+            data-kind="character"
+            data-status={character ? "match" : "missing"}
+            data-tooltip={buildCharacterDetail(character) || undefined}
+          >
+            @{matchedName}
+          </span>
+        );
+        lastIndex = end;
+      }
+      if (lastIndex < text.length) {
+        parts.push(<React.Fragment key={`text-${lastIndex}`}>{text.slice(lastIndex)}</React.Fragment>);
+      }
+      return parts;
+    },
+    [characterMap, characterMatcher]
+  );
+
+  const mentionState = useMemo(() => {
+    const textBefore = selectedScene.body.slice(0, cursorPos);
+    const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
+    if (!match) return null;
+    return {
+      query: match[1] || "",
+      start: textBefore.lastIndexOf("@"),
+      end: cursorPos,
+    };
+  }, [cursorPos, selectedScene.body]);
+
+  const filteredCharacters = useMemo(() => {
+    if (!mentionState) return [];
+    const query = mentionState.query.trim().toLowerCase();
+    if (!query) return knownCharacters.slice(0, 8);
+    return knownCharacters.filter((character) => {
+      const name = character.name.toLowerCase();
+      const role = (character.role || "").toLowerCase();
+      return name.includes(query) || role.includes(query);
+    }).slice(0, 8);
+  }, [knownCharacters, mentionState]);
+
+  const insertMention = (characterName: string) => {
+    if (!mentionState) return;
+    const nextText = `${selectedScene.body.slice(0, mentionState.start)}@${characterName}${selectedScene.body.slice(mentionState.end)}`;
+    const nextPos = mentionState.start + characterName.length + 1;
+    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, body: nextText }));
+    requestAnimationFrame(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      editor.selectionStart = nextPos;
+      editor.selectionEnd = nextPos;
+      setCursorPos(nextPos);
+    });
   };
 
   const applyToProject = () => {
@@ -492,14 +416,16 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
     }));
   };
 
+  const sceneCharacterCount = countCharactersInBody(selectedScene.body);
+
   return (
     <div className="space-y-5 text-[var(--app-text-primary)]">
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[260px_minmax(0,1fr)_320px]">
         <aside className="space-y-4">
           <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4">
             <div className={titleClass}>Writing</div>
             <div className="mt-2 text-[13px] leading-6 text-[var(--app-text-secondary)]">
-              结构化写作工作台。左侧维护集与场，右侧编辑正文块，系统实时生成标准剧本格式。
+              专注写作面板。直接输入正文，通过轻量标记控制格式，而不是频繁点选块类型。
             </div>
             <button
               type="button"
@@ -553,7 +479,7 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
                             }`}
                           >
                             <span className="truncate">{scene.id} {scene.title}</span>
-                            <ChevronDown size={12} className="rotate-[-90deg]" />
+                            <ChevronRight size={12} />
                           </button>
                         ))}
                         <button
@@ -577,12 +503,16 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
           <div className="rounded-[30px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className={titleClass}>Scene Editor</div>
-                <div className="mt-2 text-[20px] font-semibold tracking-[-0.03em]">
+                <div className={titleClass}>Scene</div>
+                <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em]">
                   {selectedScene.id} {selectedScene.title}
                 </div>
-                <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">
-                  动作 / 对白 / OS / VO 四类正文块直接对应当前解析与导出格式。
+                <div className="mt-1 text-[12px] leading-6 text-[var(--app-text-secondary)]">
+                  直接输入正文。轻量语法：
+                  <span className="mx-2 font-semibold text-[var(--app-text-primary)]">@角色名：对白</span>
+                  <span className="mx-2 font-semibold text-[var(--app-text-primary)]">@角色名 /os 内心</span>
+                  <span className="mx-2 font-semibold text-[var(--app-text-primary)]">@角色名 /vo 画外音</span>
+                  <span className="mx-2 font-semibold text-[var(--app-text-primary)]"># 动作描写</span>
                 </div>
               </div>
               <button
@@ -595,74 +525,56 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[180px_minmax(0,1fr)_120px_120px]">
               <label className="space-y-2">
                 <div className={titleClass}>Episode</div>
                 <input
                   value={selectedEpisode.title}
                   onChange={(event) =>
-                    patchEpisode(selectedEpisode.id, (episode) => ({
-                      ...episode,
-                      title: event.target.value,
-                    }))
+                    patchEpisode(selectedEpisode.id, (episode) => ({ ...episode, title: event.target.value }))
                   }
                   className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
                 />
               </label>
               <label className="space-y-2">
-                <div className={titleClass}>Scene Id</div>
+                <div className={titleClass}>Scene</div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3">
+                  <input
+                    value={selectedScene.id}
+                    onChange={(event) =>
+                      patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, id: event.target.value }))
+                    }
+                    className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
+                  />
+                  <input
+                    value={selectedScene.title}
+                    onChange={(event) =>
+                      patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, title: event.target.value }))
+                    }
+                    className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
+                  />
+                </div>
+              </label>
+              <label className="space-y-2">
+                <div className={titleClass}>Time</div>
                 <input
-                  value={selectedScene.id}
+                  value={selectedScene.timeOfDay}
                   onChange={(event) =>
-                    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                      ...scene,
-                      id: event.target.value,
-                    }))
+                    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, timeOfDay: event.target.value }))
                   }
                   className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
                 />
               </label>
               <label className="space-y-2">
-                <div className={titleClass}>Scene Title</div>
+                <div className={titleClass}>Space</div>
                 <input
-                  value={selectedScene.title}
+                  value={selectedScene.location}
                   onChange={(event) =>
-                    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                      ...scene,
-                      title: event.target.value,
-                    }))
+                    patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, location: event.target.value }))
                   }
                   className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
                 />
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="space-y-2">
-                  <div className={titleClass}>Time</div>
-                  <input
-                    value={selectedScene.timeOfDay}
-                    onChange={(event) =>
-                      patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                        ...scene,
-                        timeOfDay: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <div className={titleClass}>Space</div>
-                  <input
-                    value={selectedScene.location}
-                    onChange={(event) =>
-                      patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                        ...scene,
-                        location: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
-                  />
-                </label>
-              </div>
             </div>
 
             <label className="mt-4 block space-y-2">
@@ -670,223 +582,67 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
               <input
                 value={selectedScene.castLine}
                 onChange={(event) =>
-                  patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                    ...scene,
-                    castLine: event.target.value,
-                  }))
+                  patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, castLine: event.target.value }))
                 }
-                placeholder="人物：洛青舟、宋如月"
+                placeholder="人物：可选，留空时也可以只靠正文中的 @角色名"
                 className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
               />
-              {knownCharacters.length ? (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {knownCharacters.map((character) => (
-                    <button
-                      key={character.id}
-                      type="button"
-                      onClick={() =>
-                        patchScene(selectedEpisode.id, selectedScene.id, (scene) => {
-                          const names = parseCastNames(scene.castLine || "");
-                          if (names.includes(character.name)) return scene;
-                          return {
-                            ...scene,
-                            castLine: [...names, character.name].join("、"),
-                          };
-                        })
-                      }
-                      className="text-mention"
-                      data-kind="character"
-                      data-status="match"
-                      data-tooltip={buildCharacterDetail(character) || undefined}
-                    >
-                      @{character.name}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </label>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-[30px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-5">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <div className={titleClass}>Blocks</div>
-                <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">每一个块都会按标准剧本格式导出为一行。</div>
+                <div className={titleClass}>Draft</div>
+                <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">
+                  聚焦在一块正文编辑区里写。系统只在你输入 `@ /os /vo #` 时理解格式，不要求来回点选。
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {BLOCK_TYPE_OPTIONS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => addBlock(item.value)}
-                    className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px] font-semibold text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text-primary)]"
-                  >
-                    <Plus size={12} />
-                    {item.label}
-                  </button>
-                ))}
+              <div className="rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-1.5 text-[11px] text-[var(--app-text-secondary)]">
+                本场识别角色 {sceneCharacterCount.length}
               </div>
             </div>
 
-            {selectedScene.blocks.map((block, index) => (
-              <div
-                key={block.id}
-                className={`rounded-[26px] border p-4 transition ${
-                  block.id === selectedBlockId
-                    ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)]"
-                    : "border-[var(--app-border)] bg-[var(--app-panel-muted)]"
-                }`}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[var(--app-text-secondary)]">
-                      {block.type === "action" ? <Theater size={16} /> : <FileText size={16} />}
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-semibold">正文块 {index + 1}</div>
-                      <div className="text-[11px] text-[var(--app-text-secondary)]">导出后保留标准格式。</div>
-                    </div>
+            <div className="relative mt-4">
+              <textarea
+                ref={editorRef}
+                value={selectedScene.body}
+                onChange={(event) =>
+                  patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, body: event.target.value }))
+                }
+                onSelect={(event) => setCursorPos(event.currentTarget.selectionStart || 0)}
+                onKeyUp={(event) => setCursorPos(event.currentTarget.selectionStart || 0)}
+                rows={18}
+                placeholder={"# 红烛高照，洛青舟坐在桌边。\n@洛青舟 /os 我竟堂堂博士穿成了庶子。\n@婚服女子：......\n# 外面的风声压了过来。"}
+                className="w-full rounded-[26px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-5 font-sans text-[15px] leading-8 text-[var(--app-text-primary)] outline-none transition focus:border-[var(--app-border-strong)]"
+              />
+
+              {mentionState && filteredCharacters.length > 0 ? (
+                <div className="mention-picker animate-in fade-in slide-in-from-top-1 absolute left-5 top-5 z-30 w-[320px]">
+                  <div className="mention-picker-header">
+                    <div className="mention-picker-title">角色绑定</div>
+                    <div className="text-[10px] text-[var(--app-text-muted)]">输入 @ 后继续键入，回车前选择角色</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeBlock(block.id)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] transition hover:border-red-400/40 hover:text-red-300"
-                    title="删除正文块"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="mention-picker-grid">
+                    {filteredCharacters.map((character) => (
+                      <button
+                        key={character.id}
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          insertMention(character.name);
+                        }}
+                        className="mention-picker-item"
+                        title={buildCharacterDetail(character)}
+                      >
+                        <span className="font-semibold">@{character.name}</span>
+                        <span className="text-[10px] text-[var(--node-text-secondary)]">{character.role || "角色"}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)]">
-                  <label className="space-y-2">
-                    <div className={titleClass}>Type</div>
-                    <select
-                      value={block.type}
-                      onChange={(event) =>
-                        patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                          ...scene,
-                          blocks: scene.blocks.map((item) =>
-                            item.id === block.id
-                              ? {
-                                  ...item,
-                                  type: event.target.value as BlockType,
-                                  qualifier:
-                                    event.target.value === "os"
-                                      ? item.qualifier || "OS"
-                                      : event.target.value === "vo"
-                                      ? item.qualifier || "VO"
-                                      : "",
-                                }
-                              : item
-                          ),
-                        }))
-                      }
-                      className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
-                    >
-                      {BLOCK_TYPE_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {block.type !== "action" ? (
-                    <label className="space-y-2">
-                      <div className={titleClass}>Speaker</div>
-                      <input
-                        value={block.speaker || ""}
-                        onChange={(event) =>
-                          patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                            ...scene,
-                            blocks: scene.blocks.map((item) =>
-                              item.id === block.id ? { ...item, speaker: event.target.value } : item
-                            ),
-                          }))
-                        }
-                        className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
-                        onFocus={() => setSelectedBlockId(block.id)}
-                      />
-                      {knownCharacters.length ? (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {knownCharacters.map((character) => (
-                            <button
-                              key={character.id}
-                              type="button"
-                              onClick={() => assignSpeaker(block.id, character.name)}
-                              className="text-mention"
-                              data-kind="character"
-                              data-status="match"
-                              data-tooltip={buildCharacterDetail(character) || undefined}
-                            >
-                              @{character.name}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </label>
-                  ) : (
-                    <div className="hidden md:block" />
-                  )}
-
-                  {block.type === "os" || block.type === "vo" ? (
-                    <label className="space-y-2">
-                      <div className={titleClass}>Qualifier</div>
-                      <input
-                        value={block.qualifier || ""}
-                        onChange={(event) =>
-                          patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                            ...scene,
-                            blocks: scene.blocks.map((item) =>
-                              item.id === block.id ? { ...item, qualifier: event.target.value } : item
-                            ),
-                          }))
-                        }
-                        className="w-full rounded-[18px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] outline-none transition focus:border-[var(--app-border-strong)]"
-                        onFocus={() => setSelectedBlockId(block.id)}
-                      />
-                    </label>
-                  ) : (
-                    <div className="hidden md:block" />
-                  )}
-                </div>
-
-                <label className="mt-3 block space-y-2">
-                  <div className={titleClass}>Content</div>
-                  <textarea
-                    value={block.content}
-                    onChange={(event) =>
-                      patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({
-                        ...scene,
-                        blocks: scene.blocks.map((item) =>
-                          item.id === block.id ? { ...item, content: event.target.value } : item
-                        ),
-                      }))
-                    }
-                    rows={4}
-                    className="w-full rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3 text-[13px] leading-6 outline-none transition focus:border-[var(--app-border-strong)]"
-                    onFocus={() => setSelectedBlockId(block.id)}
-                  />
-                  {knownCharacters.length ? (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {knownCharacters.map((character) => (
-                        <button
-                          key={character.id}
-                          type="button"
-                          onClick={() => insertCharacterMention(block.id, character.name)}
-                          className="text-mention"
-                          data-kind="character"
-                          data-status="match"
-                          data-tooltip={buildCharacterDetail(character) || undefined}
-                        >
-                          @{character.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </label>
-              </div>
-            ))}
+              ) : null}
+            </div>
           </div>
         </section>
 
@@ -897,18 +653,38 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
                 <BookOpen size={18} />
               </div>
               <div>
-                <div className={titleClass}>Scene Preview</div>
+                <div className={titleClass}>Preview</div>
                 <div className="mt-1 text-[12px] text-[var(--app-text-secondary)]">当前场导出的标准格式。</div>
               </div>
             </div>
-            <div className="mt-4 max-h-[280px] overflow-auto whitespace-pre-wrap rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 text-[12px] leading-7 text-[var(--app-text-primary)]">
+            <div className="mt-4 max-h-[320px] overflow-auto whitespace-pre-wrap rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 text-[12px] leading-7 text-[var(--app-text-primary)]">
               {renderBoundText(selectedScenePreview)}
             </div>
           </div>
 
           <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={15} className={parserIssues.length ? "text-amber-300" : "text-emerald-300"} />
+              <div className={titleClass}>Format Check</div>
+            </div>
+            <div className="mt-3 rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4">
+              {parserIssues.length ? (
+                <div className="space-y-2 text-[12px] leading-6 text-[var(--app-text-secondary)]">
+                  {parserIssues.slice(0, 8).map((issue, index) => (
+                    <div key={`${issue}-${index}`}>• {issue}</div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[12px] leading-6 text-emerald-200">
+                  当前写法可以稳定导出为现有解析器可识别的标准剧本格式。
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4">
             <div className={titleClass}>Parser Preview</div>
-            <div className="mt-2 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-3">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">Episodes</div>
                 <div className="mt-1 text-[18px] font-semibold">{parserPreview.length}</div>
@@ -919,33 +695,6 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
                   {parserPreview.reduce((sum, episode) => sum + (episode.scenes?.length || 0), 0)}
                 </div>
               </div>
-            </div>
-            <div className="mt-4 rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4">
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-secondary)]">
-                <Sparkles size={13} />
-                Format Check
-              </div>
-              {parserIssues.length ? (
-                <div className="space-y-2 text-[12px] leading-6 text-[var(--app-text-secondary)]">
-                  {parserIssues.slice(0, 6).map((issue, index) => (
-                    <div key={`${issue}-${index}`}>• {issue}</div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-[12px] leading-6 text-emerald-200">
-                  当前结构可以稳定导出为现有解析器可识别的标准剧本格式。
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-[28px] border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4">
-            <div className={titleClass}>Whole Episode Export</div>
-            <div className="mt-2 text-[12px] text-[var(--app-text-secondary)]">
-              写回项目时会用完整导出文本替换 `rawScript`，并重新生成 `episodes`。
-            </div>
-            <div className="mt-4 max-h-[320px] overflow-auto whitespace-pre-wrap rounded-[22px] border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-4 py-4 text-[12px] leading-7 text-[var(--app-text-primary)]">
-              {renderBoundText(exportEpisode(selectedEpisode))}
             </div>
           </div>
         </aside>

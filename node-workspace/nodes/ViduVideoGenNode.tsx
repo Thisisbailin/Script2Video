@@ -60,7 +60,7 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
       return resolvedFormMentions.map((m, idx) => ({
         name: m.name,
         status: m.status,
-        images: (imageRefs || []).filter((r) => r.formTag && r.formTag.toLowerCase() === m.name.toLowerCase()).length
+        images: (imageRefs || []).filter((r) => (m.formId && r.formId ? r.formId === m.formId : !!r.formTag && r.formTag.toLowerCase() === m.name.toLowerCase())).length
           || (connectedImages.length ? Math.ceil(connectedImages.length / resolvedFormMentions.length) : 0),
         order: idx + 1,
       }));

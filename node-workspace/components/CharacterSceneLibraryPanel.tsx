@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, ImagePlus, MapPin, Users, Play, Loader2, Sparkles } from "lucide-react";
 import type { DesignAssetItem, ProjectData, Scene, Character } from "../../types";
 import { createCustomVoice } from "../../services/qwenAudioService";
+import { getCharacterMentionAliases, getCharacterMentionLabel, getDefaultCharacterForm } from "../../utils/characterIdentity";
 
 type Props = {
   projectData: ProjectData;
@@ -271,6 +272,31 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
     }));
   };
 
+  const setDefaultForm = (characterId: string, formId: string) => {
+    setProjectData((prev) => ({
+      ...prev,
+      context: {
+        ...prev.context,
+        characters: (prev.context.characters || []).map((character) => {
+          if (character.id !== characterId) return character;
+          return {
+            ...character,
+            forms: (character.forms || []).map((form) => ({
+              ...form,
+              isDefault: form.id === formId,
+            })),
+            binding: {
+              canonicalMention: character.binding?.canonicalMention || getCharacterMentionLabel(character) || character.name,
+              defaultFormId: formId,
+              defaultVoiceScope: character.binding?.defaultVoiceScope || "character",
+              mentionPolicy: character.binding?.mentionPolicy || "character-first",
+            },
+          };
+        }),
+      },
+    }));
+  };
+
   const DesignAssetStrip = ({
     assets,
     onUpload,
@@ -410,6 +436,31 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 text-[12px] text-[var(--app-text-secondary)]">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Character Passport</div>
+                    <div className="mt-2 space-y-1.5">
+                      <div>ID {selectedCharacter.id}</div>
+                      {getCharacterMentionLabel(selectedCharacter) ? <div>Main @ {getCharacterMentionLabel(selectedCharacter)}</div> : null}
+                      {getDefaultCharacterForm(selectedCharacter)?.formName ? <div>Default form {getDefaultCharacterForm(selectedCharacter)?.formName}</div> : null}
+                      {selectedCharacter.status ? <div>Status {selectedCharacter.status}</div> : null}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 text-[12px] text-[var(--app-text-secondary)]">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Mention Aliases</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {getCharacterMentionAliases(selectedCharacter).map((alias) => (
+                        <span
+                          key={alias}
+                          className="rounded-full border border-[var(--app-border)] bg-black/10 px-2.5 py-1 text-[10px] text-[var(--app-text-primary)]"
+                        >
+                          @{alias}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 {selectedCharacter.bio && (
                   <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 text-[12px] text-[var(--app-text-secondary)]">
                     {selectedCharacter.bio}
@@ -507,20 +558,36 @@ export const CharacterSceneLibraryPanel: React.FC<Props> = ({
                                 {form.episodeRange || "Episode range unset"}
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleUploadClick({
-                                  category: "form",
-                                  refId,
-                                  label,
-                                })
-                              }
-                              className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2 py-1 text-[10px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
-                            >
-                              <ImagePlus size={12} />
-                              Design
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDefaultForm(selectedCharacter.id, form.id)}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition ${
+                                  form.id === getDefaultCharacterForm(selectedCharacter)?.id
+                                    ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200"
+                                    : "border-[var(--app-border)] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)]"
+                                }`}
+                              >
+                                {form.id === getDefaultCharacterForm(selectedCharacter)?.id ? "Default" : "Set Default"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUploadClick({
+                                    category: "form",
+                                    refId,
+                                    label,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-2 py-1 text-[10px] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] transition"
+                              >
+                                <ImagePlus size={12} />
+                                Design
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--app-text-muted)]">
+                            @{getCharacterMentionLabel(selectedCharacter)}/{form.formName}
                           </div>
                           {(form.identityOrState || form.visualTags) && (
                             <div className="text-[11px] text-[var(--app-text-secondary)]">

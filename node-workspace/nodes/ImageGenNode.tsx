@@ -4,6 +4,7 @@ import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
 import { Sparkles, RefreshCw, AlertCircle, Settings2, X, Download } from "lucide-react";
+import { getCharacterFormLabel } from "../../utils/characterIdentity";
 
 type Props = {
   id: string;
@@ -24,9 +25,16 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
   const isLoading = data.status === "loading";
 
-  const forms = useMemo(() => {
+  const formOptions = useMemo(() => {
     const chars = labContext?.context?.characters || [];
-    return chars.flatMap((c) => (c.forms || []).map((f) => f.formName)).filter(Boolean);
+    return chars.flatMap((character) =>
+      (character.forms || []).map((form) => ({
+        id: form.id,
+        characterId: character.id,
+        formName: form.formName,
+        label: getCharacterFormLabel(character, form),
+      }))
+    );
   }, [labContext]);
 
   // Derive display model name
@@ -210,12 +218,20 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
               <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
               <select
                 className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
-                value={data.formTag || ""}
-                onChange={(e) => updateNodeData(id, { formTag: e.target.value || undefined })}
+                value={data.formId || ""}
+                onChange={(e) => {
+                  const nextFormId = e.target.value || undefined;
+                  const selected = formOptions.find((item) => item.id === nextFormId);
+                  updateNodeData(id, {
+                    formId: nextFormId,
+                    characterId: selected?.characterId,
+                    formTag: selected?.formName,
+                  });
+                }}
               >
                 <option value="">未指定</option>
-                {forms.map((f) => (
-                  <option key={f} value={f}>{f}</option>
+                {formOptions.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
                 ))}
               </select>
             </div>

@@ -11,6 +11,7 @@ import {
   resolveMentionTarget,
   toSearch,
 } from "../utils/entityBindings";
+import { getCharacterFormMention } from "../../utils/characterIdentity";
 
 type Props = {
   id: string;
@@ -246,11 +247,14 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
       const mentions = computeMentionMeta(next);
       const match = mentions.atMentions.find((m) => m.status === "match" && m.kind === "form")
         || mentions.atMentions.find((m) => m.status === "match" && m.kind === "zone");
+      const formBinding = mentions.entityBindings.find((binding) => binding.status === "resolved" && binding.entityType === "form");
       updateNodeData(id, {
         label: next,
         atMentions: mentions.atMentions,
         entityBindings: mentions.entityBindings,
         formTag: match?.kind === "form" ? match.name : undefined,
+        characterId: formBinding?.characterId,
+        formId: formBinding?.formId,
         zoneTag: match?.kind === "zone" ? match.name : undefined,
       });
     },
@@ -276,7 +280,20 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
     const end = mentionState ? mentionState.end : cursorPos;
     const before = labelDraft.slice(0, start);
     const after = labelDraft.slice(end);
-    const insertion = `@${target.kind === "character" ? (target.characterName || target.name) : target.name} `;
+    const insertionValue =
+      target.kind === "form"
+        ? getCharacterFormMention(
+            target.characterId ? (labContext?.context?.characters || []).find((item) => item.id === target.characterId) : undefined,
+            target.formId
+              ? (labContext?.context?.characters || [])
+                  .find((item) => item.id === target.characterId)
+                  ?.forms?.find((entry) => entry.id === target.formId)
+              : undefined
+          ) || target.name
+        : target.kind === "character"
+          ? target.characterName || target.name
+          : target.name;
+    const insertion = `@${insertionValue} `;
     const next = `${before}${insertion}${after}`;
     const nextPos = start + insertion.length;
     setLabelDraft(next);

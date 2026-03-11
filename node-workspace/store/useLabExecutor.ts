@@ -681,8 +681,8 @@ export const useLabExecutor = () => {
 
     const formImageMap = new Map<string, string[]>();
     (imageRefs || []).forEach((ref) => {
-      if (ref.formTag) {
-        const key = ref.formTag.toLowerCase();
+      const key = ref.formId || (ref.formTag ? ref.formTag.toLowerCase() : "");
+      if (key) {
         const arr = formImageMap.get(key) || [];
         arr.push(ref.src);
         formImageMap.set(key, arr);
@@ -710,8 +710,8 @@ export const useLabExecutor = () => {
         ? (() => {
           const buckets = chunkImagesForSubjects(mentions.length);
           return mentions.map((m, idx) => {
-            const mapped = formImageMap.get(m.toLowerCase()) || [];
             const hit = resolvedFormByName.get(m.toLowerCase());
+            const mapped = formImageMap.get(hit?.formId || m.toLowerCase()) || [];
             return {
               id: hit?.formId || m,
               images: (mapped.length ? mapped : buckets[idx]) || [],

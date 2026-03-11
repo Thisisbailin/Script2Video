@@ -31,6 +31,7 @@ import {
   WorkflowTemplate,
 } from "../types";
 import type { Character, DesignAssetItem, Episode, Location, Scene } from "../../types";
+import { getCharacterMentionAliases, getCharacterMentionLabel, getDefaultCharacterForm } from "../../utils/characterIdentity";
 
 export type { GlobalAssetHistoryItem, GlobalAssetType };
 
@@ -464,9 +465,15 @@ const buildIdentityCardText = (data: IdentityCardNodeData, labContext: LabContex
       context.characters.find((item) => item.id === data.entityId) ??
       context.characters[0];
     if (!character) return null;
+    const defaultForm = getDefaultCharacterForm(character);
+    const aliases = getCharacterMentionAliases(character);
     return [
       `角色身份卡：${character.name}`,
+      `角色ID：${character.id}`,
+      getCharacterMentionLabel(character) ? `主绑定：@${getCharacterMentionLabel(character)}` : "",
       character.role ? `角色定位：${character.role}` : "",
+      defaultForm?.formName ? `默认形态：${defaultForm.formName}` : "",
+      aliases.length ? `可识别别名：${aliases.map((item) => `@${item}`).join("、")}` : "",
       character.bio || "",
       character.tags?.length ? `标签：${character.tags.join("、")}` : "",
       buildCharacterAssetPreview(character, designAssets),
@@ -554,7 +561,7 @@ interface WorkflowStore {
     text: string | null;
     atMentions?: TextNodeData['atMentions'];
     entityBindings?: TextNodeData["entityBindings"];
-    imageRefs?: { src: string; formTag?: string | null; zoneTag?: string | null }[];
+    imageRefs?: { src: string; formTag?: string | null; zoneTag?: string | null; characterId?: string | null; formId?: string | null }[];
   };
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
@@ -940,7 +947,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const texts: string[] = [];
     const mentions: TextNodeData['atMentions'] = [];
     const entityBindings: TextNodeData["entityBindings"] = [];
-    const imageRefs: { src: string; formTag?: string | null; zoneTag?: string | null }[] = [];
+    const imageRefs: { src: string; formTag?: string | null; zoneTag?: string | null; characterId?: string | null; formId?: string | null }[] = [];
     edges
       .filter((edge) => edge.target === nodeId)
       .forEach((edge) => {
@@ -955,6 +962,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
               imageRefs.push({
                 src,
                 formTag: (sourceNode.data as ImageInputNodeData).formTag,
+                characterId: (sourceNode.data as ImageInputNodeData).characterId,
+                formId: (sourceNode.data as ImageInputNodeData).formId,
                 zoneTag: (sourceNode.data as ImageInputNodeData).zoneTag,
               });
           } else if (sourceNode.type === "annotation") {
@@ -964,7 +973,14 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           } else if (sourceNode.type === "imageGen" || sourceNode.type === "wanImageGen") {
             const src = (sourceNode.data as ImageGenNodeData).outputImage;
             if (src) images.push(src);
-            if (src) imageRefs.push({ src, formTag: (sourceNode.data as ImageGenNodeData).formTag });
+            if (src) {
+              imageRefs.push({
+                src,
+                formTag: (sourceNode.data as ImageGenNodeData).formTag,
+                characterId: (sourceNode.data as ImageGenNodeData).characterId,
+                formId: (sourceNode.data as ImageGenNodeData).formId,
+              });
+            }
           }
         }
         if (handleId === "text") {

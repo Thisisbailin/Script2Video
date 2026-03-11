@@ -1,9 +1,15 @@
 import React, { useMemo, useCallback } from "react";
-import { Layers, MapPinned, Upload, UserRound } from "lucide-react";
+import { AtSign, BadgeCheck, Fingerprint, Layers, MapPinned, Upload, UserRound } from "lucide-react";
 import type { Character, DesignAssetItem, Location } from "../../types";
 import { BaseNode } from "./BaseNode";
 import { IdentityCardNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
+import {
+  getCharacterFormMention,
+  getCharacterMentionAliases,
+  getCharacterMentionLabel,
+  getDefaultCharacterForm,
+} from "../../utils/characterIdentity";
 
 type Props = {
   id: string;
@@ -16,6 +22,9 @@ type VariantCard = {
   subtitle: string;
   badge: string;
   description: string;
+  mention?: string;
+  isDefault?: boolean;
+  assetsCount?: number;
   avatarUrl?: string;
 };
 
@@ -58,8 +67,11 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
         id: form.id,
         title: form.formName,
         subtitle: form.episodeRange || "未标注集数",
-        badge: form.identityOrState || "默认形态",
+        badge: form.identityOrState || "角色形态",
         description: form.description || form.visualTags || "暂无形态说明。",
+        mention: `@${getCharacterFormMention(activeCharacter, form)}`,
+        isDefault: form.id === getDefaultCharacterForm(activeCharacter)?.id,
+        assetsCount: designAssets.filter((asset) => asset.category === "form" && asset.refId === `${activeCharacter.id}|${form.id}`).length,
         avatarUrl:
           avatarOverrides[form.id] || findAssetUrl(designAssets, "form", `${activeCharacter.id}|${form.id}`),
       }));
@@ -81,6 +93,9 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
   const selectedVariant = useMemo(() => {
     return variantCards.find((item) => item.id === data.selectedVariantId) ?? variantCards[0] ?? null;
   }, [data.selectedVariantId, variantCards]);
+  const primaryMention = getCharacterMentionLabel(activeCharacter);
+  const mentionAliases = getCharacterMentionAliases(activeCharacter);
+  const defaultForm = getDefaultCharacterForm(activeCharacter);
 
   const handleEntityModeChange = (entityType: "character" | "scene") => {
     if (entityType === "character") {
@@ -149,7 +164,7 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                 {data.title || "角色 / 场景身份卡片节点"}
               </div>
               <div className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                Parent / Variant Cards
+                {isCharacter ? "Character Passport" : "Scene Identity"}
               </div>
             </div>
           </div>
@@ -196,7 +211,7 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
         </div>
 
         {parentTitle ? (
-          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
             <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
               <div className="border-b border-[var(--node-border)] px-4 py-4">
                 <div className="flex items-start gap-3">
@@ -214,15 +229,48 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                     <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">{parentMeta}</div>
                   </div>
                 </div>
-                <div className="mt-4 rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
-                  {parentBody}
-                </div>
+                {isCharacter && activeCharacter ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                        <Fingerprint size={12} />
+                        角色身份证
+                      </div>
+                      <div className="mt-3 space-y-2 text-[12px] leading-6 text-[var(--node-text-primary)]">
+                        <div>ID: {activeCharacter.id}</div>
+                        {primaryMention ? <div>主唤起: @{primaryMention}</div> : null}
+                        {defaultForm ? <div>默认形态: {defaultForm.formName}</div> : null}
+                        {activeCharacter.status ? <div>状态: {activeCharacter.status}</div> : null}
+                      </div>
+                    </div>
+                    <div className="rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
+                      {parentBody}
+                    </div>
+                    {mentionAliases.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {mentionAliases.map((alias) => (
+                          <span
+                            key={alias}
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--node-text-secondary)]"
+                          >
+                            <AtSign size={10} />
+                            {alias}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
+                    {parentBody}
+                  </div>
+                )}
               </div>
 
               <div className="min-h-0 flex-1 px-4 py-4">
                 <div className="rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-4 py-3">
                   <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                    {isCharacter ? "Active Form" : "Active Zone"}
+                    {isCharacter ? "默认执行形态" : "Active Zone"}
                   </div>
                   {selectedVariant ? (
                     <>
@@ -230,9 +278,22 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                       <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
                         {selectedVariant.subtitle}
                       </div>
-                      <div className="mt-3 rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                        {selectedVariant.badge}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                          {selectedVariant.badge}
+                        </div>
+                        {selectedVariant.isDefault ? (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-emerald-200">
+                            <BadgeCheck size={10} />
+                            Default
+                          </div>
+                        ) : null}
                       </div>
+                      {selectedVariant.mention ? (
+                        <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                          绑定语法 {selectedVariant.mention}
+                        </div>
+                      ) : null}
                       <div className="mt-3 text-[12px] leading-6 text-[var(--node-text-primary)]">{selectedVariant.description}</div>
                     </>
                   ) : (
@@ -250,7 +311,7 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                   {isCharacter ? "Forms" : "Zones"}
                 </div>
                 <div className="rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                  {variantCards.length} child nodes
+                  {variantCards.length} {isCharacter ? "forms" : "zones"}
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -303,13 +364,31 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                                       {variant.subtitle}
                                     </div>
                                   </div>
-                                  <div className="rounded-full border border-[var(--node-border)] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                                    {variant.badge}
+                                  <div className="flex items-center gap-2">
+                                    {variant.isDefault ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-emerald-200">
+                                        <BadgeCheck size={9} />
+                                        Default
+                                      </span>
+                                    ) : null}
+                                    <div className="rounded-full border border-[var(--node-border)] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                                      {variant.badge}
+                                    </div>
                                   </div>
                                 </div>
+                                {variant.mention ? (
+                                  <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                                    {variant.mention}
+                                  </div>
+                                ) : null}
                                 <div className="mt-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
                                   {variant.description}
                                 </div>
+                                {typeof variant.assetsCount === "number" ? (
+                                  <div className="mt-3 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                                    {variant.assetsCount} design assets
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           </button>
