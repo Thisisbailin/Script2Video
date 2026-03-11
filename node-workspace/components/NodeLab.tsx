@@ -958,7 +958,11 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onCollapsedChange={setIsQalamCollapsed}
             renderCollapsedTrigger={false}
           />
-          <div className="qalam-bottom-controls">
+          <div
+            className={`qalam-bottom-controls transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isQalamCollapsed ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
             <ViewportControls
               zoom={zoomValue}
               minZoom={minZoom}

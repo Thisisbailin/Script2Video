@@ -188,7 +188,7 @@ export const QalamAgent: React.FC<Props> = ({
   onCollapsedChange,
   renderCollapsedTrigger = true,
 }) => {
-  const { config, setConfig } = useConfig("script2video_config_v1");
+  const { config } = useConfig("script2video_config_v1");
   const addNode = useWorkflowStore((state) => state.addNode);
   const updateNodeStyle = useWorkflowStore((state) => state.updateNodeStyle);
   const onConnect = useWorkflowStore((state) => state.onConnect);
@@ -571,17 +571,13 @@ export const QalamAgent: React.FC<Props> = ({
     const raw = config.textConfig?.model?.trim();
     return raw || "model";
   }, [config.textConfig?.model]);
-  const preferredRuntimeTarget = (config.textConfig?.agentRuntimeTarget ||
-    ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "browser" ? "browser" : "edge")) as "browser" | "edge";
-  const currentRequestedOutcome = input.trim() ? inferRequestedOutcome(input.trim()) : "auto";
-  const effectiveRuntimeTarget = resolveAgentRuntimeTarget(preferredRuntimeTarget, currentRequestedOutcome);
   const canSend = input.trim().length > 0 && !isSending;
   const resizeInput = useCallback((el?: HTMLTextAreaElement | null) => {
     if (!el) return;
     el.style.height = "0px";
-    const nextHeight = Math.min(Math.max(el.scrollHeight, 104), 220);
+    const nextHeight = Math.min(Math.max(el.scrollHeight, 30), 132);
     el.style.height = `${nextHeight}px`;
-    el.style.overflowY = el.scrollHeight > 220 ? "auto" : "hidden";
+    el.style.overflowY = el.scrollHeight > 132 ? "auto" : "hidden";
   }, []);
   const { sendMessage: runAgentMessage } = useScript2VideoAgent({
     runtime,
@@ -775,6 +771,7 @@ export const QalamAgent: React.FC<Props> = ({
         right: isFullscreen ? 0 : undefined,
         width: isFullscreen ? "100vw" : splitWidth,
         maxWidth: "100vw",
+        zIndex: 80,
       }
     : {
         position: "fixed",
@@ -783,6 +780,7 @@ export const QalamAgent: React.FC<Props> = ({
         left: 16,
         width: Math.min(420, Math.max(320, viewportWidth - 32)),
         maxWidth: "calc(100vw - 32px)",
+        zIndex: 80,
       };
 
   const tokenUsage = useMemo(() => {
@@ -870,9 +868,8 @@ export const QalamAgent: React.FC<Props> = ({
           }}
         />
       )}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-[linear-gradient(180deg,var(--app-panel)_0%,var(--app-panel)_42%,transparent_100%)]" />
-      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-4 pt-3">
-        <div className="pointer-events-auto flex items-center gap-3">
+      <div className="relative z-20 flex items-center justify-between border-b border-[var(--app-border)] px-4 py-3">
+        <div className="flex items-center gap-3">
           <div className="text-[20px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">Qalam</div>
           <button
             type="button"
@@ -883,7 +880,7 @@ export const QalamAgent: React.FC<Props> = ({
             {formatNumber(tokenUsage)}
           </button>
         </div>
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onToggleAgentSettings}
@@ -909,9 +906,9 @@ export const QalamAgent: React.FC<Props> = ({
         </div>
       </div>
 
-      <QalamChatContent messages={messages} isSending={isSending} className="pt-16" />
+      <QalamChatContent messages={messages} isSending={isSending} />
 
-      <div className="px-4 py-4">
+      <div className="border-t border-[var(--app-border)] px-4 py-4">
         <div
           className="qalam-subtle-surface rounded-[24px] p-3"
           style={{
@@ -920,7 +917,7 @@ export const QalamAgent: React.FC<Props> = ({
         >
           <textarea
             ref={inputRef}
-            className="w-full min-h-[96px] bg-transparent text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
+            className="qalam-scrollbar w-full bg-transparent text-[13px] leading-6 text-[var(--app-text-primary)] placeholder:text-[var(--app-text-secondary)] resize-none focus:outline-none"
             rows={1}
             placeholder="Ask Qalam about scenes, roles, nodes, workflow changes, or anything in this project."
             value={input}
@@ -1008,46 +1005,6 @@ export const QalamAgent: React.FC<Props> = ({
               <div className="inline-flex h-9 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-[11px] text-[var(--app-text-secondary)]">
                 {currentModelLabel}
               </div>
-              <div
-                className={`inline-flex h-9 items-center rounded-full border px-3 text-[10px] font-semibold tracking-[0.1em] uppercase ${
-                  effectiveRuntimeTarget === "edge"
-                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                    : "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                }`}
-                title={currentRequestedOutcome === "node_workflow" ? "本轮是操作类请求，自动走 browser runtime" : "本轮消息将走的 runtime"}
-              >
-                {effectiveRuntimeTarget}
-              </div>
-              <div
-                className="inline-flex h-9 items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel)] p-1"
-                title="Agent runtime 偏好"
-              >
-                {(["browser", "edge"] as const).map((target) => {
-                  const active = preferredRuntimeTarget === target;
-                  return (
-                    <button
-                      key={target}
-                      type="button"
-                      onClick={() =>
-                        setConfig({
-                          ...config,
-                          textConfig: {
-                            ...config.textConfig,
-                            agentRuntimeTarget: target,
-                          },
-                        })
-                      }
-                      className={`inline-flex h-7 items-center rounded-full px-2.5 text-[10px] font-medium tracking-[0.08em] uppercase transition ${
-                        active
-                          ? "bg-[var(--app-accent-soft)] text-[var(--app-text-primary)]"
-                          : "text-[var(--app-text-secondary)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)]"
-                      }`}
-                    >
-                      {target === "edge" ? "偏好 Edge" : "偏好 Browser"}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
             <button
               onClick={sendMessage}
@@ -1061,17 +1018,6 @@ export const QalamAgent: React.FC<Props> = ({
                 <ArrowUp size={16} weight="bold" />
               )}
             </button>
-          </div>
-          <div className="mt-2 flex items-center gap-2 px-1 text-[10px] text-[var(--app-text-muted)]">
-            <span>偏好：{preferredRuntimeTarget}</span>
-            <span>·</span>
-            <span>本轮：{effectiveRuntimeTarget}</span>
-            {currentRequestedOutcome === "node_workflow" ? (
-              <>
-                <span>·</span>
-                <span>工作流操作自动走 browser</span>
-              </>
-            ) : null}
           </div>
         </div>
       </div>

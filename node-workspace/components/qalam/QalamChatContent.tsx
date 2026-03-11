@@ -28,6 +28,13 @@ const foldedSurfaceClass =
 const lineSummaryClass =
   "max-w-[92%] px-2 py-1.5 text-[12px] text-[var(--app-text-muted)]";
 
+const formatWorkedDuration = (durationMs: number) => {
+  const totalSeconds = Math.max(1, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${totalSeconds}s`;
+};
+
 const sanitizeUrl = (value: string) => {
   let url = value.trim();
   while (url && /[)\],.;:!?]$/.test(url)) {
@@ -922,17 +929,14 @@ const renderAssistantPanel = (message: ChatMessage) => {
   const searchQueries = message.meta?.searchQueries || [];
   return (
     <div className="w-full space-y-3 px-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--app-panel-muted)] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
-          Qalam
-        </span>
-        {(searchEnabled || searchUsed) && (
+      {(searchEnabled || searchUsed) && (
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--app-panel-muted)] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
             {searchUsed ? "已搜索" : "搜索开启"}
           </span>
-        )}
-      </div>
+        </div>
+      )}
       {searchQueries.length > 0 && (
         <details className="text-[12px] text-[var(--app-text-secondary)]">
           <summary className="cursor-pointer marker:text-[var(--app-text-muted)]">
@@ -1030,6 +1034,17 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending, classNa
     return [...items].sort((a, b) => a.order - b.order);
   }, [messages]);
 
+  const runDurationMap = useMemo(() => {
+    const durations = new Map<string, number>();
+    displayMessages.forEach((item) => {
+      if (item.kind !== "status") return;
+      const { runId, startedAt, updatedAt } = item.message.statusCard;
+      const existing = durations.get(runId) ?? 0;
+      durations.set(runId, Math.max(existing, updatedAt - startedAt));
+    });
+    return durations;
+  }, [displayMessages]);
+
   useEffect(() => {
     if (!messagesRef.current) return;
     const node = messagesRef.current;
@@ -1040,9 +1055,13 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending, classNa
 
   return (
     <div ref={messagesRef} className={`qalam-scrollbar flex-1 overflow-y-auto px-4 py-4 space-y-3 ${className}`}>
-      {displayMessages.map((item, idx) => {
+      {displayMessages.map((item) => {
         const isUser = item.kind === "chat" && item.message.role === "user";
         const isAssistantPanel = item.kind === "chat" && !isUser;
+        const workedDuration =
+          isAssistantPanel && item.message.meta?.runId
+            ? runDurationMap.get(item.message.meta.runId)
+            : undefined;
         return (
           <div
             key={item.key}
@@ -1057,7 +1076,16 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending, classNa
                 {item.message.text}
               </div>
             ) : (
-              renderAssistantPanel(item.message)
+              <div className="w-full space-y-3">
+                {workedDuration ? (
+                  <div className="flex items-center gap-4 px-1 text-[11px] text-[var(--app-text-muted)]">
+                    <div className="h-px flex-1 bg-[var(--app-border)]" />
+                    <span>{`Worked for ${formatWorkedDuration(workedDuration)}`}</span>
+                    <div className="h-px flex-1 bg-[var(--app-border)]" />
+                  </div>
+                ) : null}
+                {renderAssistantPanel(item.message)}
+              </div>
             )}
           </div>
         );
