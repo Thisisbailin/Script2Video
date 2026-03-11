@@ -862,12 +862,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       return {
         right: 24,
         bottom: 80,
-        width: "min(720px,calc(100vw-24px))",
+        width: "min(420px,calc(100vw-24px))",
       };
     }
 
     const viewportPadding = 12;
-    const width = Math.min(720, window.innerWidth - viewportPadding * 2);
+    const width = Math.min(420, window.innerWidth - viewportPadding * 2);
     const left = Math.max(
       viewportPadding,
       Math.min(themeAnchor.left + themeAnchor.width / 2 - width / 2, window.innerWidth - viewportPadding - width)
