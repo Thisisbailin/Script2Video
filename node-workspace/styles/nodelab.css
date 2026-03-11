@@ -1076,6 +1076,17 @@ body.qalam-resizing * {
   transform: none;
 }
 
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .theme-modal::-webkit-scrollbar {
   width: 6px;
 }
@@ -1138,6 +1149,35 @@ body.qalam-resizing * {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--app-panel-muted);
   border: 1px solid var(--app-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.qalam-edge-fade {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 24px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.qalam-edge-fade-top {
+  top: 0;
+  height: 34px;
+  background: linear-gradient(180deg, var(--app-panel) 22%, rgba(17, 19, 23, 0.72) 58%, rgba(17, 19, 23, 0));
+}
+
+.qalam-edge-fade-bottom {
+  bottom: 0;
+  height: 54px;
+  background: linear-gradient(180deg, rgba(17, 19, 23, 0), rgba(17, 19, 23, 0.78) 48%, var(--app-panel) 100%);
+}
+
+.qalam-edge-fade-composer {
+  top: 0;
+  height: 30px;
+  background: linear-gradient(180deg, rgba(17, 19, 23, 0), rgba(17, 19, 23, 0.74) 52%, var(--app-panel) 100%);
 }
 
 .qalam-bubble-user {

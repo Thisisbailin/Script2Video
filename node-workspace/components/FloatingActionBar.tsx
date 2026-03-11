@@ -549,14 +549,13 @@ export const FloatingActionBar: React.FC<Props> = ({
             style={{ ...panelStyle, ...fileMenuPopoverStyle }}
           >
             <div className="max-h-[min(74vh,640px)] space-y-4 overflow-y-auto p-4">
-              <div className="space-y-1">
-                <div className={sectionEyebrowClass}>Account · IO</div>
-                <div className="text-[12px] leading-5 text-[var(--app-text-secondary)]">
-                  改成分段式小面板，只显示当前要用的一组动作。
-                </div>
-              </div>
-
               <div className={`${sectionCardClass} space-y-3`}>
+                <div className="space-y-1">
+                  <div className={sectionEyebrowClass}>Account</div>
+                  <div className="text-[12px] leading-5 text-[var(--app-text-secondary)]">
+                    聚焦账户状态、同步入口与当前工作台身份。
+                  </div>
+                </div>
                 {!accountLoaded ? (
                   <div className="flex items-center gap-3 animate-pulse">
                     <div className="h-14 w-14 rounded-[18px] bg-[var(--app-panel-soft)]" />
@@ -783,70 +782,72 @@ export const FloatingActionBar: React.FC<Props> = ({
                 )}
               </div>
 
-              {ioActions.length > 0 && (
-                <div className="rounded-[22px] app-card overflow-hidden divide-y divide-white/8">
-                  {ioActions.map((item) => {
-                    const disabled = !item.onClick;
-                    return (
-                      <button
-                        key={item.label}
-                        onClick={() => {
-                          if (item.onClick) item.onClick();
-                          closeMenus();
-                        }}
-                        disabled={disabled}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${disabled
-                            ? "bg-transparent text-[var(--app-text-muted)] cursor-not-allowed"
-                            : "hover:bg-[var(--app-panel-muted)] text-[var(--app-text-primary)]"
-                          }`}
-                      >
-                        <span
-                          className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--app-border)]"
-                          style={{ background: disabled ? "rgba(255,255,255,0.06)" : item.color }}
-                        >
-                          <item.Icon size={16} className={disabled ? "text-[var(--app-text-secondary)]" : "text-black"} />
-                        </span>
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold">{item.label}</div>
-                          <div className="text-[11px] text-[var(--app-text-secondary)]">{item.desc}</div>
-                        </div>
-                        <ChevronRight size={14} className="text-[var(--app-text-muted)]" />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
               <div className={`${sectionCardClass} space-y-3`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className={sectionEyebrowClass}>IO</div>
-                    <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">用标签切换导入、理解指南与导出。</div>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-1">
-                    <button
-                      type="button"
-                      onClick={() => setIoPane("project")}
-                      className={`${compactTabClass} ${ioPane === "project" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
-                    >
-                      Files
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIoPane("guides")}
-                      className={`${compactTabClass} ${ioPane === "guides" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
-                    >
-                      Understanding
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIoPane("export")}
-                      className={`${compactTabClass} ${ioPane === "export" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
-                    >
-                      Export
-                    </button>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className={sectionEyebrowClass}>IO</div>
+                      <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">切换导入、理解指南与导出，作为独立操作面板使用。</div>
+                    </div>
+                    <div className="flex items-center gap-1 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-1">
+                      <button
+                        type="button"
+                        onClick={() => setIoPane("project")}
+                        className={`${compactTabClass} ${ioPane === "project" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
+                      >
+                        Files
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIoPane("guides")}
+                        className={`${compactTabClass} ${ioPane === "guides" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
+                      >
+                        Understanding
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIoPane("export")}
+                        className={`${compactTabClass} ${ioPane === "export" ? "border-[var(--app-border-strong)] bg-[var(--app-panel-soft)] text-[var(--app-text-primary)]" : "border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"}`}
+                      >
+                        Export
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {ioActions.length > 0 && (
+                  <div className="rounded-[22px] app-card overflow-hidden divide-y divide-white/8">
+                    {ioActions.map((item) => {
+                      const disabled = !item.onClick;
+                      return (
+                        <button
+                          key={item.label}
+                          onClick={() => {
+                            if (item.onClick) item.onClick();
+                            closeMenus();
+                          }}
+                          disabled={disabled}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${disabled
+                              ? "bg-transparent text-[var(--app-text-muted)] cursor-not-allowed"
+                              : "hover:bg-[var(--app-panel-muted)] text-[var(--app-text-primary)]"
+                            }`}
+                        >
+                          <span
+                            className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--app-border)]"
+                            style={{ background: disabled ? "rgba(255,255,255,0.06)" : item.color }}
+                          >
+                            <item.Icon size={16} className={disabled ? "text-[var(--app-text-secondary)]" : "text-black"} />
+                          </span>
+                          <div className="flex-1">
+                            <div className="text-sm font-semibold">{item.label}</div>
+                            <div className="text-[11px] text-[var(--app-text-secondary)]">{item.desc}</div>
+                          </div>
+                          <ChevronRight size={14} className="text-[var(--app-text-muted)]" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {ioPane === "project" && (
                   <div className="grid grid-cols-2 gap-2">
