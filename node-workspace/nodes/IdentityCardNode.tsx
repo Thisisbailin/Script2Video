@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from "react";
-import { AtSign, BadgeCheck, Fingerprint, Layers, MapPinned, Upload, UserRound } from "lucide-react";
+import { AtSign, BadgeCheck, Fingerprint, Layers, MapPinned, Upload } from "lucide-react";
 import type { Character, DesignAssetItem, Location } from "../../types";
 import { BaseNode } from "./BaseNode";
 import { IdentityCardNodeData } from "../types";
@@ -168,17 +168,30 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
     <BaseNode title={data.title || "角色 / 场景身份卡片节点"} outputs={["text"]} selected={selected}>
       <div className="flex min-h-0 flex-col">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--node-border)] pb-3">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
               <Layers size={18} />
             </div>
-            <div className="min-w-0">
-              <div className="text-[13px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
-                {data.title || "角色 / 场景身份卡片节点"}
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">
+                  {data.title || "角色 / 场景身份卡片节点"}
+                </div>
+                <div className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                  {isCharacter ? "Character Passport" : "Scene Identity"}
+                </div>
               </div>
-              <div className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                {isCharacter ? "Character Passport" : "Scene Identity"}
-              </div>
+              <select
+                value={(isCharacter ? activeCharacter?.id : activeLocation?.id) || ""}
+                onChange={(event) => handleEntitySelect(event.target.value)}
+                className="min-w-[124px] max-w-[180px] rounded-[10px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--node-text-primary)] outline-none transition focus:border-[var(--node-accent)]"
+              >
+                {entityOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="flex gap-1 rounded-full border border-[var(--node-border)] p-1">
@@ -204,27 +217,11 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
         </div>
 
         {parentTitle ? (
-          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="mt-3">
             <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
               <div className="border-b border-[var(--node-border)] px-4 py-4">
-                <div className="mb-4 space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
-                    {isCharacter ? "当前角色" : "当前场景"}
-                  </label>
-                  <select
-                    value={(isCharacter ? activeCharacter?.id : activeLocation?.id) || ""}
-                    onChange={(event) => handleEntitySelect(event.target.value)}
-                    className="w-full rounded-[16px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-3 py-2.5 text-[12px] font-medium text-[var(--node-text-primary)] outline-none transition focus:border-[var(--node-accent)]"
-                  >
-                    {entityOptions.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <div className="flex items-start gap-3">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
+                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
                     {selectedVariant?.avatarUrl ? (
                       <img src={selectedVariant.avatarUrl} alt={selectedVariant.title} className="h-full w-full rounded-[20px] object-cover" />
                     ) : isCharacter ? (
@@ -232,6 +229,21 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                     ) : (
                       <MapPinned size={22} />
                     )}
+                    {selectedVariant ? (
+                      <label className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-[var(--node-border)] bg-[rgba(15,18,16,0.92)] text-white shadow-[0_8px_18px_rgba(0,0,0,0.24)]">
+                        <Upload size={11} />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            void handleAvatarUpload(selectedVariant.id, file);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                    ) : null}
                   </div>
                   <div className="min-w-0">
                     <div className="text-[18px] font-semibold tracking-[-0.02em] text-[var(--node-text-primary)]">{parentTitle}</div>
@@ -303,7 +315,38 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                           绑定语法 {selectedVariant.mention}
                         </div>
                       ) : null}
+                      {variantCards.length > 1 ? (
+                        <div className="mt-4">
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                            {isCharacter ? "形态切换" : "分区切换"}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {variantCards.map((variant) => {
+                              const isActive = variant.id === selectedVariant.id;
+                              return (
+                                <button
+                                  key={variant.id}
+                                  type="button"
+                                  onClick={() => updateNodeData(id, { selectedVariantId: variant.id })}
+                                  className={`rounded-full border px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.12em] transition ${
+                                    isActive
+                                      ? "border-[var(--node-accent)] bg-[var(--node-surface)] text-[var(--node-text-primary)]"
+                                      : "border-[var(--node-border)] text-[var(--node-text-secondary)] hover:border-[var(--node-border-strong)]"
+                                  }`}
+                                >
+                                  {variant.title}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="mt-3 text-[12px] leading-6 text-[var(--node-text-primary)]">{selectedVariant.description}</div>
+                      {typeof selectedVariant.assetsCount === "number" ? (
+                        <div className="mt-3 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
+                          {selectedVariant.assetsCount} design assets
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <div className="mt-2 text-[12px] leading-6 text-[var(--node-text-secondary)]">
@@ -311,110 +354,6 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
                     </div>
                   )}
                 </div>
-              </div>
-            </section>
-
-            <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
-              <div className="flex items-center justify-between border-b border-[var(--node-border)] px-4 py-3">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                    {isCharacter ? "身份形态卡" : "场景分区卡"}
-                  </div>
-                  <div className="mt-1 text-[11px] text-[var(--node-text-secondary)]">
-                    {isCharacter ? "这个角色的可执行形态与定模入口" : "这个场景的可执行分区与定模入口"}
-                  </div>
-                </div>
-                <div className="rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                  {variantCards.length}
-                </div>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {variantCards.length ? (
-                  <div className="grid grid-cols-1 gap-3">
-                    {variantCards.map((variant) => {
-                      const isActive = variant.id === selectedVariant?.id;
-                      return (
-                        <article
-                          key={variant.id}
-                          className={`rounded-[22px] border p-3 transition ${
-                            isActive
-                              ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)]"
-                              : "border-[var(--node-border)] bg-[var(--node-surface)] hover:border-[var(--node-border-strong)]"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => updateNodeData(id, { selectedVariantId: variant.id })}
-                            className="w-full text-left"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-[var(--node-border)] bg-[var(--node-surface-strong)]">
-                                {variant.avatarUrl ? (
-                                  <img src={variant.avatarUrl} alt={variant.title} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-[var(--node-accent)]">
-                                    {isCharacter ? <UserRound size={20} /> : <MapPinned size={20} />}
-                                  </div>
-                                )}
-                                <label className="absolute bottom-1 right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-[var(--node-border)] bg-[rgba(15,18,16,0.88)] text-white">
-                                  <Upload size={12} />
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(event) => {
-                                      const file = event.target.files?.[0];
-                                      void handleAvatarUpload(variant.id, file);
-                                      event.currentTarget.value = "";
-                                    }}
-                                  />
-                                </label>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="truncate text-[13px] font-semibold text-[var(--node-text-primary)]">{variant.title}</div>
-                                    <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
-                                      {variant.subtitle}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {variant.isDefault ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-emerald-200">
-                                        <BadgeCheck size={9} />
-                                        Default
-                                      </span>
-                                    ) : null}
-                                    <div className="rounded-full border border-[var(--node-border)] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                                      {variant.badge}
-                                    </div>
-                                  </div>
-                                </div>
-                                {variant.mention ? (
-                                  <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                                    {variant.mention}
-                                  </div>
-                                ) : null}
-                                <div className="mt-3 text-[12px] leading-6 text-[var(--node-text-primary)]">
-                                  {variant.description}
-                                </div>
-                                {typeof variant.assetsCount === "number" ? (
-                                  <div className="mt-3 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                                    {variant.assetsCount} design assets
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          </button>
-                        </article>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-[12px] text-[var(--node-text-secondary)]">
-                    {isCharacter ? "当前角色还没有形态卡片。" : "当前场景还没有分区卡片。"}
-                  </div>
-                )}
               </div>
             </section>
           </div>
