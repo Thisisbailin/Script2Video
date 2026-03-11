@@ -183,9 +183,9 @@ export const FloatingActionBar: React.FC<Props> = ({
   const compactTabClass =
     "inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition active:translate-y-px";
   const embeddedLabelClass =
-    "group inline-flex h-8 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px] font-medium tracking-[-0.01em] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+    "group inline-flex h-8 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel))] px-3 text-[11px] font-medium tracking-[-0.01em] text-[var(--app-text-secondary)] shadow-[0_10px_24px_-18px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition hover:border-[var(--app-border-strong)] hover:bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel-soft))] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const toolbarChipClass =
-    "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
+    "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] shadow-[0_10px_24px_-18px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[linear-gradient(180deg,var(--app-panel-strong),var(--app-panel-soft))] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const getPopoverStyle = (anchorRect: DOMRect | null, desiredWidth: number): React.CSSProperties | undefined => {
     if (typeof window === "undefined") return undefined;
     if (!anchorRect) return undefined;

@@ -2,6 +2,7 @@ import type { ProjectContext, Shot, TokenUsage, Character, Location, CharacterFo
 import { ensureStableId, ensureTypedStableId } from "../utils/id";
 import { OPENROUTER_RESPONSES_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_RESPONSES_BASE_URL } from "../constants";
 import { createQwenResponse } from "./qwenResponsesService";
+import { SHOT_FIELD_LABELS, SHOT_REQUIRED_STRING_KEYS, getShotMinimumCountFromGuide, sanitizeShotList } from "../utils/shotSchema";
 
 // --- HELPERS ---
 
@@ -1376,46 +1377,39 @@ export const generateEpisodeShots = async (
     1. **语言**：除专有名词（如 Dutch Angle, Rim Light）外，全流程使用**中文**。
     2. **格式**：分镜号格式必须为：**场景号-本场镜号**。例如：第12集第2场的第1个镜头，ID应为 **"12-2-01"**。
     3. **不要输出表格**。必须返回一个 JSON 对象，顶层为 "shots" 数组。
-    4. 每个 shot 对象必须严格包含以下字段：
-       - id, duration, shotType, focalLength, movement
-       - composition, blocking, dialogue
-       - sound, lightingVfx, editingNotes, notes
-       - soraPrompt, storyboardPrompt
+    4. 每个 shot 对象必须严格包含以下字段，字段顺序与分镜表表头一致：
+       - ${SHOT_REQUIRED_STRING_KEYS.join(", ")}
     5. **每个字段都要可执行**：避免散文化，尽量用专业术语 + 动作动词开头；多条信息用中文分号 “；” 分隔。
     6. **soraPrompt/storyboardPrompt**：字段请务必保持为空字符串。
+    7. 以下字段绝对不能留空：${[
+      SHOT_FIELD_LABELS.id,
+      SHOT_FIELD_LABELS.duration,
+      SHOT_FIELD_LABELS.shotType,
+      SHOT_FIELD_LABELS.focalLength,
+      SHOT_FIELD_LABELS.movement,
+      SHOT_FIELD_LABELS.composition,
+      SHOT_FIELD_LABELS.blocking,
+      SHOT_FIELD_LABELS.lightingVfx,
+      SHOT_FIELD_LABELS.editingNotes,
+      SHOT_FIELD_LABELS.notes,
+    ].join("、")}。
   `;
 
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = parseStructuredJson<{ shots?: Shot[] }>(text, raw, "generateEpisodeShots");
-  const shots = Array.isArray(parsed?.shots)
-    ? parsed.shots.map((shot) => {
-      const description =
-        typeof shot.description === "string" && shot.description.trim()
-          ? shot.description
-          : [
-            shot.composition,
-            shot.blocking,
-            shot.lightingVfx,
-            shot.sound,
-            shot.notes,
-          ]
-            .filter(Boolean)
-            .join("；");
-      return {
-        ...shot,
-        focalLength: typeof shot.focalLength === "string" ? shot.focalLength : "",
-        composition: typeof shot.composition === "string" ? shot.composition : "",
-        blocking: typeof shot.blocking === "string" ? shot.blocking : "",
-        sound: typeof shot.sound === "string" ? shot.sound : "",
-        lightingVfx: typeof shot.lightingVfx === "string" ? shot.lightingVfx : "",
-        editingNotes: typeof shot.editingNotes === "string" ? shot.editingNotes : "",
-        notes: typeof shot.notes === "string" ? shot.notes : "",
-        description: description || "",
-        soraPrompt: typeof shot.soraPrompt === "string" ? shot.soraPrompt : "",
-        storyboardPrompt: typeof shot.storyboardPrompt === "string" ? shot.storyboardPrompt : ""
-      };
-    })
-    : [];
+  const { shots, issues } = sanitizeShotList(Array.isArray(parsed?.shots) ? parsed.shots : [], {
+    mode: "llm",
+    requireStructuredId: true,
+    allowGeneratedIds: false,
+    minCount: getShotMinimumCountFromGuide(guide),
+  });
+  if (issues.length > 0) {
+    const summary = issues
+      .slice(0, 5)
+      .map((issue) => (issue.shotId ? `${issue.shotId}: ${issue.message}` : issue.message))
+      .join(" | ");
+    throw new Error(`Phase 2 分镜结构不合法，已拒绝写入。${summary}`);
+  }
   return {
     shots,
     usage

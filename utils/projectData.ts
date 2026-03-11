@@ -1,6 +1,7 @@
 import { Character, CharacterForm, DesignAssetItem, Episode, Location, LocationZone, ProjectContext, ProjectData, Shot } from "../types";
 import { ensureStableId, ensureTypedStableId } from "./id";
 import { INITIAL_PROJECT_DATA } from "../constants";
+import { sanitizeShot } from "./shotSchema";
 
 const stripConflictMarkers = (value: string) => {
   const cleaned = value
@@ -108,31 +109,19 @@ export const normalizeVideoParams = (params?: Shot["videoParams"]) => {
 };
 
 const normalizeShot = (shot: any): Shot => {
-  if (!shot || typeof shot !== "object") return shot as Shot;
+  const { shot: normalized } = sanitizeShot(shot, {
+    mode: "project",
+    requireStructuredId: false,
+    allowGeneratedIds: true,
+  });
   return {
-    ...shot,
-    id: toSafeString(shot.id),
-    duration: toSafeString(shot.duration),
-    shotType: toSafeString(shot.shotType),
-    focalLength: toSafeString(shot.focalLength),
-    movement: toSafeString(shot.movement),
-    composition: toSafeString(shot.composition),
-    blocking: toSafeString(shot.blocking),
-    description: toSafeString(shot.description),
-    dialogue: toSafeString(shot.dialogue),
-    sound: toSafeString(shot.sound),
-    lightingVfx: toSafeString(shot.lightingVfx),
-    editingNotes: toSafeString(shot.editingNotes),
-    notes: toSafeString(shot.notes),
-    soraPrompt: toSafeString(shot.soraPrompt),
-    storyboardPrompt: toSafeString(shot.storyboardPrompt),
-    difficulty: typeof shot.difficulty === "number" ? shot.difficulty : undefined,
-    finalVideoPrompt: toOptionalString(shot.finalVideoPrompt),
-    videoStatus: toSafeString(shot.videoStatus),
-    videoParams: normalizeVideoParams(shot.videoParams),
-    videoUrl: toOptionalString(shot.videoUrl),
-    videoId: toOptionalString(shot.videoId),
-    videoErrorMsg: toOptionalString(shot.videoErrorMsg)
+    ...normalized,
+    finalVideoPrompt: toOptionalString(shot?.finalVideoPrompt),
+    videoStatus: toOptionalString(shot?.videoStatus) as Shot["videoStatus"],
+    videoParams: normalizeVideoParams(shot?.videoParams),
+    videoUrl: toOptionalString(shot?.videoUrl),
+    videoId: toOptionalString(shot?.videoId),
+    videoErrorMsg: toOptionalString(shot?.videoErrorMsg),
   };
 };
 

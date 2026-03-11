@@ -1,3 +1,5 @@
+import { SHOT_REQUIRED_STRING_KEYS } from "../../utils/shotSchema";
+
 type ValidationResult = { ok: true } | { ok: false; error: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -50,14 +52,14 @@ export const validateProjectPayload = (data: unknown): ValidationResult => {
     for (let j = 0; j < ep.shots.length; j += 1) {
       const shot = ep.shots[j];
       if (!isRecord(shot)) return { ok: false, error: `episodes[${i}].shots[${j}] is not an object` };
-      const required = ["id", "duration", "shotType", "movement", "description", "dialogue", "soraPrompt"] as const;
+      const required = SHOT_REQUIRED_STRING_KEYS;
       for (const key of required) {
         if (!isString(shot[key])) {
           return { ok: false, error: `episodes[${i}].shots[${j}].${key} is not a string` };
         }
       }
-      if (shot.storyboardPrompt !== undefined && !isString(shot.storyboardPrompt)) {
-        return { ok: false, error: `episodes[${i}].shots[${j}].storyboardPrompt is not a string` };
+      if (!isString(shot.description)) {
+        return { ok: false, error: `episodes[${i}].shots[${j}].description is not a string` };
       }
       if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
         return { ok: false, error: `episodes[${i}].shots[${j}].difficulty is not a number` };
@@ -142,14 +144,14 @@ export const validateProjectDelta = (delta: unknown): ValidationResult => {
       const shot = delta.shots[i];
       if (!isRecord(shot)) return { ok: false, error: `delta.shots[${i}] is not an object` };
       if (!isNumber(shot.episodeId)) return { ok: false, error: `delta.shots[${i}].episodeId is not a number` };
-      const required = ["id", "duration", "shotType", "movement", "description", "dialogue", "soraPrompt"] as const;
+      const required = SHOT_REQUIRED_STRING_KEYS;
       for (const key of required) {
         if (!isString(shot[key])) {
           return { ok: false, error: `delta.shots[${i}].${key} is not a string` };
         }
       }
-      if (shot.storyboardPrompt !== undefined && !isString(shot.storyboardPrompt)) {
-        return { ok: false, error: `delta.shots[${i}].storyboardPrompt is not a string` };
+      if (!isString(shot.description)) {
+        return { ok: false, error: `delta.shots[${i}].description is not a string` };
       }
       if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
         return { ok: false, error: `delta.shots[${i}].difficulty is not a number` };

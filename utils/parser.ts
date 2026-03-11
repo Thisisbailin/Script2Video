@@ -14,6 +14,7 @@ import {
   SceneMetadata,
 } from "../types";
 import { ensureStableId } from "./id";
+import { SHOT_CSV_COLUMNS, sanitizeShot } from "./shotSchema";
 
 // Helper: Parse scenes from episode content
 const normalizeDigits = (text: string) =>
@@ -292,24 +293,7 @@ export const parseScriptToEpisodes = (rawText: string): Episode[] => {
 
 // 1. CSV EXPORT (Robust, Best Compatibility)
 export const exportToCSV = (episodes: Episode[]) => {
-  const headers = [
-    'Episode',
-    'Shot ID',
-    'Duration',
-    'Shot Size',
-    'Focal Length',
-    'Movement',
-    'Composition',
-    'Blocking',
-    'Dialogue',
-    'Sound',
-    'Lighting/VFX',
-    'Editing Notes',
-    'Notes',
-    'Difficulty',
-    'Sora Prompt',
-    'Storyboard Prompt'
-  ];
+  const headers = SHOT_CSV_COLUMNS.map((column) => column.header);
   
   // Add Byte Order Mark (BOM) so Excel recognizes formatting as UTF-8 automatically
   let csvContent = '\ufeff' + headers.map(h => `"${h}"`).join(',') + '\n';
@@ -506,23 +490,23 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
     return -1;
   };
 
-  const epIdx = findHeaderIndex(["Episode", "集数", "剧集"]);
-  const idIdx = findHeaderIndex(["Shot ID", "镜号"]);
-  const durIdx = findHeaderIndex(["Duration", "时长"]);
-  const typeIdx = findHeaderIndex(["Shot Size", "Type", "景别"]);
-  const lensIdx = findHeaderIndex(["Focal Length", "焦段建议", "焦段"]);
-  const moveIdx = findHeaderIndex(["Movement", "运镜"]);
-  const compIdx = findHeaderIndex(["Composition", "机位/构图", "机位", "构图"]);
-  const blockIdx = findHeaderIndex(["Blocking", "演员调度/动作表演", "演员调度", "动作表演"]);
-  const dialIdx = findHeaderIndex(["Dialogue", "台词/OS", "台词"]);
-  const soundIdx = findHeaderIndex(["Sound", "声音"]);
-  const lightIdx = findHeaderIndex(["Lighting/VFX", "光色/VFX", "光色", "VFX"]);
-  const editIdx = findHeaderIndex(["Editing Notes", "剪辑维度", "剪辑"]);
-  const notesIdx = findHeaderIndex(["Notes", "备注", "备注（氛围/情绪）"]);
-  const diffIdx = findHeaderIndex(["Difficulty", "难度"]);
+  const epIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[0].aliases]);
+  const idIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[1].aliases]);
+  const durIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[2].aliases]);
+  const typeIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[3].aliases]);
+  const lensIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[4].aliases]);
+  const moveIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[5].aliases]);
+  const compIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[6].aliases]);
+  const blockIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[7].aliases]);
+  const dialIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[8].aliases]);
+  const soundIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[9].aliases]);
+  const lightIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[10].aliases]);
+  const editIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[11].aliases]);
+  const notesIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[12].aliases]);
+  const diffIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[13].aliases]);
   const descIdx = findHeaderIndex(["Description", "画面描述"]);
-  const soraIdx = findHeaderIndex(["Sora Prompt", "Sora提示词"]);
-  const storyboardIdx = findHeaderIndex(["Storyboard Prompt", "Storyboard提示词"]);
+  const soraIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[14].aliases]);
+  const storyboardIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[15].aliases]);
 
   if (epIdx === -1 || idIdx === -1) {
     throw new Error("Invalid CSV Format: Missing 'Episode' or 'Shot ID' headers.");
@@ -536,7 +520,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
     while (cols.length < headers.length) cols.push('');
 
     const episodeTitle = cols[epIdx];
-    const shot: Shot = {
+    const { shot } = sanitizeShot({
       id: cols[idIdx],
       duration: cols[durIdx] || '',
       shotType: cols[typeIdx] || '',
@@ -544,7 +528,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
       movement: cols[moveIdx] || '',
       composition: compIdx >= 0 ? (cols[compIdx] || '') : '',
       blocking: blockIdx >= 0 ? (cols[blockIdx] || '') : '',
-      difficulty: diffIdx >= 0 ? Number(cols[diffIdx] || 0) : undefined,
+      difficulty: diffIdx >= 0 ? (cols[diffIdx] || '') : undefined,
       description: descIdx >= 0 ? (cols[descIdx] || '') : '',
       dialogue: cols[dialIdx] || '',
       sound: soundIdx >= 0 ? (cols[soundIdx] || '') : '',
@@ -553,13 +537,7 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
       notes: notesIdx >= 0 ? (cols[notesIdx] || '') : '',
       soraPrompt: soraIdx >= 0 ? (cols[soraIdx] || '') : '',
       storyboardPrompt: storyboardIdx >= 0 ? (cols[storyboardIdx] || '') : ''
-    };
-
-    if (!shot.description) {
-      shot.description = [shot.composition, shot.blocking, shot.lightingVfx, shot.sound, shot.notes]
-        .filter(Boolean)
-        .join("；");
-    }
+    }, { mode: "csv", requireStructuredId: false, allowGeneratedIds: true });
 
     if (!shotMap.has(episodeTitle)) {
       shotMap.set(episodeTitle, []);
