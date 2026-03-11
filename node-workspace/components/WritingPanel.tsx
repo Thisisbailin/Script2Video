@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, ChevronDown, ChevronRight, Plus, Sparkles } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronRight, Plus, Sparkles } from "lucide-react";
 import type { Character, Episode, ProjectData } from "../../types";
 import { parseScriptToEpisodes } from "../../utils/parser";
 
@@ -196,6 +196,8 @@ const countCharactersInBody = (body: string) => {
   return Array.from(new Set(matches.map((item) => item.slice(1))));
 };
 
+const joinNodes = (parts: React.ReactNode[]) => parts.flatMap((part, index) => (index === 0 ? [part] : [<br key={`br-${index}`} />, part]));
+
 export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) => {
   const [draft, setDraft] = useState<WritingEpisode[]>(() =>
     buildDraftFromEpisodes(projectData.episodes, projectData.rawScript)
@@ -203,7 +205,10 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<number>(() => draft[0]?.id || 1);
   const [selectedSceneId, setSelectedSceneId] = useState<string>(() => draft[0]?.scenes[0]?.id || "1-1");
   const [cursorPos, setCursorPos] = useState(0);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+  const [dismissedMentionStart, setDismissedMentionStart] = useState<number | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
 
   const knownCharacters = useMemo(
     () => (projectData.context.characters || []).filter((character) => !!character?.name?.trim()),
@@ -367,12 +372,14 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
     const textBefore = selectedScene.body.slice(0, cursorPos);
     const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
     if (!match) return null;
+    const start = textBefore.lastIndexOf("@");
+    if (dismissedMentionStart !== null && dismissedMentionStart === start) return null;
     return {
       query: match[1] || "",
-      start: textBefore.lastIndexOf("@"),
+      start,
       end: cursorPos,
     };
-  }, [cursorPos, selectedScene.body]);
+  }, [cursorPos, dismissedMentionStart, selectedScene.body]);
 
   const filteredCharacters = useMemo(() => {
     if (!mentionState) return [];
@@ -385,11 +392,22 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
     }).slice(0, 8);
   }, [knownCharacters, mentionState]);
 
+  useEffect(() => {
+    setActiveMentionIndex(0);
+  }, [mentionState?.query, selectedScene.id]);
+
+  useEffect(() => {
+    if (!mentionState) {
+      setDismissedMentionStart(null);
+    }
+  }, [mentionState]);
+
   const insertMention = (characterName: string) => {
     if (!mentionState) return;
     const nextText = `${selectedScene.body.slice(0, mentionState.start)}@${characterName}${selectedScene.body.slice(mentionState.end)}`;
     const nextPos = mentionState.start + characterName.length + 1;
     patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, body: nextText }));
+    setDismissedMentionStart(null);
     requestAnimationFrame(() => {
       const editor = editorRef.current;
       if (!editor) return;
@@ -398,6 +416,132 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
       editor.selectionEnd = nextPos;
       setCursorPos(nextPos);
     });
+  };
+
+  const syncEditorScroll = () => {
+    const editor = editorRef.current;
+    const highlight = highlightRef.current;
+    if (!editor || !highlight) return;
+    highlight.scrollTop = editor.scrollTop;
+    highlight.scrollLeft = editor.scrollLeft;
+  };
+
+  const renderWritingLine = useCallback(
+    (line: string, lineIndex: number) => {
+      if (!line) return <span className="writing-line-empty"> </span>;
+
+      const mentionRegex = /@([\w\u4e00-\u9fa5-]+)/g;
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      const pushMentions = (text: string, keyPrefix: string) => {
+        const inner: React.ReactNode[] = [];
+        let localLastIndex = 0;
+        mentionRegex.lastIndex = 0;
+        let innerMatch: RegExpExecArray | null;
+        while ((innerMatch = mentionRegex.exec(text))) {
+          const full = innerMatch[0];
+          const name = innerMatch[1];
+          const start = innerMatch.index;
+          const end = start + full.length;
+          if (start > localLastIndex) {
+            inner.push(text.slice(localLastIndex, start));
+          }
+          const character = characterMap.get(name);
+          inner.push(
+            <span
+              key={`${keyPrefix}-${name}-${start}`}
+              className="text-mention"
+              data-kind="character"
+              data-status={character ? "match" : "missing"}
+              data-tooltip={buildCharacterDetail(character) || undefined}
+            >
+              @{name}
+            </span>
+          );
+          localLastIndex = end;
+        }
+        if (localLastIndex < text.length) {
+          inner.push(text.slice(localLastIndex));
+        }
+        return inner;
+      };
+
+      const actionMatch = line.match(/^\s*#\s*(.*)$/);
+      if (actionMatch) {
+        parts.push(
+          <span key={`action-${lineIndex}`} className="writing-token writing-token-action">
+            #{" "}
+          </span>
+        );
+        parts.push(...pushMentions(actionMatch[1], `action-body-${lineIndex}`));
+        return <>{parts}</>;
+      }
+
+      const osVoMatch = line.match(/^(\s*@[\w\u4e00-\u9fa5-]+)(\s+\/\s*(os|vo)\b)(.*)$/i);
+      if (osVoMatch) {
+        parts.push(...pushMentions(osVoMatch[1], `speaker-${lineIndex}`));
+        parts.push(
+          <span key={`mode-${lineIndex}`} className="writing-token writing-token-mode">
+            {osVoMatch[2]}
+          </span>
+        );
+        if (osVoMatch[4]) {
+          parts.push(...pushMentions(osVoMatch[4], `tail-${lineIndex}`));
+        }
+        return <>{parts}</>;
+      }
+
+      const dialogueMatch = line.match(/^(\s*@[\w\u4e00-\u9fa5-]+\s*[：:])(.*)$/);
+      if (dialogueMatch) {
+        parts.push(...pushMentions(dialogueMatch[1], `dialogue-head-${lineIndex}`));
+        if (dialogueMatch[2]) {
+          parts.push(...pushMentions(dialogueMatch[2], `dialogue-tail-${lineIndex}`));
+        }
+        return <>{parts}</>;
+      }
+
+      return <>{pushMentions(line, `plain-${lineIndex}`)}</>;
+    },
+    [characterMap]
+  );
+
+  const highlightedDraftBody = useMemo(
+    () =>
+      joinNodes(
+        selectedScene.body.split(/\r?\n/).map((line, index) => (
+          <React.Fragment key={`line-${index}`}>{renderWritingLine(line, index)}</React.Fragment>
+        ))
+      ),
+    [renderWritingLine, selectedScene.body]
+  );
+
+  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!mentionState || !filteredCharacters.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveMentionIndex((current) => (current + 1) % filteredCharacters.length);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveMentionIndex((current) => (current - 1 + filteredCharacters.length) % filteredCharacters.length);
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      insertMention(filteredCharacters[activeMentionIndex]?.name || filteredCharacters[0].name);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setDismissedMentionStart(mentionState.start);
+    }
   };
 
   const applyToProject = () => {
@@ -604,27 +748,46 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
             </div>
 
             <div className="relative mt-4">
+              <div
+                ref={highlightRef}
+                aria-hidden="true"
+                className="writing-editor-highlight pointer-events-none absolute inset-0 z-0 overflow-auto whitespace-pre-wrap rounded-[26px] border border-[var(--app-border)] px-5 py-5 font-sans text-[15px] leading-8"
+              >
+                {highlightedDraftBody}
+              </div>
               <textarea
                 ref={editorRef}
                 value={selectedScene.body}
                 onChange={(event) =>
                   patchScene(selectedEpisode.id, selectedScene.id, (scene) => ({ ...scene, body: event.target.value }))
                 }
-                onSelect={(event) => setCursorPos(event.currentTarget.selectionStart || 0)}
-                onKeyUp={(event) => setCursorPos(event.currentTarget.selectionStart || 0)}
+                onScroll={syncEditorScroll}
+                onClick={(event) => {
+                  setDismissedMentionStart(null);
+                  setCursorPos(event.currentTarget.selectionStart || 0);
+                }}
+                onSelect={(event) => {
+                  setDismissedMentionStart(null);
+                  setCursorPos(event.currentTarget.selectionStart || 0);
+                }}
+                onKeyUp={(event) => {
+                  if (event.key !== "Escape") setDismissedMentionStart(null);
+                  setCursorPos(event.currentTarget.selectionStart || 0);
+                }}
+                onKeyDown={handleEditorKeyDown}
                 rows={18}
                 placeholder={"# 红烛高照，洛青舟坐在桌边。\n@洛青舟 /os 我竟堂堂博士穿成了庶子。\n@婚服女子：......\n# 外面的风声压了过来。"}
-                className="w-full rounded-[26px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-5 font-sans text-[15px] leading-8 text-[var(--app-text-primary)] outline-none transition focus:border-[var(--app-border-strong)]"
+                className="writing-editor relative z-10 w-full rounded-[26px] border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-5 font-sans text-[15px] leading-8 outline-none transition focus:border-[var(--app-border-strong)]"
               />
 
               {mentionState && filteredCharacters.length > 0 ? (
                 <div className="mention-picker animate-in fade-in slide-in-from-top-1 absolute left-5 top-5 z-30 w-[320px]">
                   <div className="mention-picker-header">
                     <div className="mention-picker-title">角色绑定</div>
-                    <div className="text-[10px] text-[var(--app-text-muted)]">输入 @ 后继续键入，回车前选择角色</div>
+                    <div className="text-[10px] text-[var(--app-text-muted)]">↑↓ 选择，Enter / Tab 插入，Esc 关闭</div>
                   </div>
                   <div className="mention-picker-grid">
-                    {filteredCharacters.map((character) => (
+                    {filteredCharacters.map((character, index) => (
                       <button
                         key={character.id}
                         type="button"
@@ -632,7 +795,7 @@ export const WritingPanel: React.FC<Props> = ({ projectData, setProjectData }) =
                           event.preventDefault();
                           insertMention(character.name);
                         }}
-                        className="mention-picker-item"
+                        className={`mention-picker-item ${index === activeMentionIndex ? "is-active" : ""}`}
                         title={buildCharacterDetail(character)}
                       >
                         <span className="font-semibold">@{character.name}</span>

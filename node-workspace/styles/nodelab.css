@@ -620,6 +620,62 @@ body.qalam-resizing * {
   background: var(--node-surface-strong);
 }
 
+.mention-picker-item.is-active {
+  border-color: color-mix(in srgb, var(--node-accent) 72%, transparent);
+  background: color-mix(in srgb, var(--node-accent) 18%, var(--node-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--node-accent) 28%, transparent);
+}
+
+.writing-editor,
+.writing-editor-highlight {
+  min-height: 540px;
+  tab-size: 2;
+}
+
+.writing-editor {
+  resize: vertical;
+  color: transparent;
+  caret-color: var(--app-text-primary);
+  -webkit-text-fill-color: transparent;
+}
+
+.writing-editor::selection {
+  background: color-mix(in srgb, var(--node-accent) 30%, transparent);
+}
+
+.writing-editor-highlight {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    var(--app-panel-soft);
+  color: var(--app-text-primary);
+}
+
+.writing-line-empty {
+  opacity: 0;
+}
+
+.writing-token {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.18rem;
+  border-radius: 999px;
+  padding: 0.04rem 0.48rem;
+  font-size: 0.76em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.writing-token-action {
+  background: color-mix(in srgb, #f59e0b 22%, transparent);
+  color: color-mix(in srgb, #fcd34d 72%, white);
+}
+
+.writing-token-mode {
+  background: color-mix(in srgb, var(--node-accent) 18%, transparent);
+  color: color-mix(in srgb, var(--node-accent) 78%, white);
+}
+
 .image-input-shell {
   display: flex;
   flex-direction: column;

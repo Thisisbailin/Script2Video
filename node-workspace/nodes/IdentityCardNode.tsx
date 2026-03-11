@@ -91,8 +91,20 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
   }, [activeCharacter, activeLocation, avatarOverrides, designAssets, isCharacter]);
 
   const selectedVariant = useMemo(() => {
-    return variantCards.find((item) => item.id === data.selectedVariantId) ?? variantCards[0] ?? null;
-  }, [data.selectedVariantId, variantCards]);
+    if (!variantCards.length) return null;
+    if (data.selectedVariantId) {
+      const matched = variantCards.find((item) => item.id === data.selectedVariantId);
+      if (matched) return matched;
+    }
+    if (isCharacter) {
+      const preferredId = getDefaultCharacterForm(activeCharacter)?.id;
+      if (preferredId) {
+        const matched = variantCards.find((item) => item.id === preferredId);
+        if (matched) return matched;
+      }
+    }
+    return variantCards[0] ?? null;
+  }, [activeCharacter, data.selectedVariantId, isCharacter, variantCards]);
   const primaryMention = getCharacterMentionLabel(activeCharacter);
   const mentionAliases = getCharacterMentionAliases(activeCharacter);
   const defaultForm = getDefaultCharacterForm(activeCharacter);
@@ -150,6 +162,7 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
   const parentBody = isCharacter
     ? activeCharacter?.bio || "暂无角色简介。"
     : activeLocation?.description || activeLocation?.visuals || "暂无场景描述。";
+  const entityOptions = isCharacter ? characters : locations;
 
   return (
     <BaseNode title={data.title || "角色 / 场景身份卡片节点"} outputs={["text"]} selected={selected}>
@@ -190,30 +203,26 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
           </div>
         </div>
 
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {(isCharacter ? characters : locations).map((item) => {
-            const isActive = item.id === (isCharacter ? activeCharacter?.id : activeLocation?.id);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleEntitySelect(item.id)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
-                  isActive
-                    ? "border-[var(--node-accent)] bg-[var(--node-surface-strong)] text-[var(--node-text-primary)]"
-                    : "border-[var(--node-border)] text-[var(--node-text-secondary)] hover:border-[var(--node-border-strong)]"
-                }`}
-              >
-                {item.name}
-              </button>
-            );
-          })}
-        </div>
-
         {parentTitle ? (
-          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
             <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
               <div className="border-b border-[var(--node-border)] px-4 py-4">
+                <div className="mb-4 space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-[0.16em] text-[var(--node-text-secondary)]">
+                    {isCharacter ? "当前角色" : "当前场景"}
+                  </label>
+                  <select
+                    value={(isCharacter ? activeCharacter?.id : activeLocation?.id) || ""}
+                    onChange={(event) => handleEntitySelect(event.target.value)}
+                    className="w-full rounded-[16px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] px-3 py-2.5 text-[12px] font-medium text-[var(--node-text-primary)] outline-none transition focus:border-[var(--node-accent)]"
+                  >
+                    {entityOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex items-start gap-3">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-[var(--node-border)] bg-[var(--node-surface-strong)] text-[var(--node-accent)]">
                     {selectedVariant?.avatarUrl ? (
@@ -307,16 +316,21 @@ export const IdentityCardNode: React.FC<Props & { selected?: boolean }> = ({ id,
 
             <section className="flex min-h-0 flex-col rounded-[24px] border border-[var(--node-border)] bg-[var(--node-surface)]/70">
               <div className="flex items-center justify-between border-b border-[var(--node-border)] px-4 py-3">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
-                  {isCharacter ? "Forms" : "Zones"}
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--node-text-secondary)]">
+                    {isCharacter ? "身份形态卡" : "场景分区卡"}
+                  </div>
+                  <div className="mt-1 text-[11px] text-[var(--node-text-secondary)]">
+                    {isCharacter ? "这个角色的可执行形态与定模入口" : "这个场景的可执行分区与定模入口"}
+                  </div>
                 </div>
                 <div className="rounded-full border border-[var(--node-border)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                  {variantCards.length} {isCharacter ? "forms" : "zones"}
+                  {variantCards.length}
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-3">
                 {variantCards.length ? (
-                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3">
                     {variantCards.map((variant) => {
                       const isActive = variant.id === selectedVariant?.id;
                       return (
