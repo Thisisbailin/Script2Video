@@ -314,7 +314,6 @@ export const exportToCSV = (episodes: Episode[]) => {
         shot.lightingVfx || '',
         shot.editingNotes || '',
         shot.notes || '',
-        shot.difficulty ?? '',
         shot.soraPrompt,
         shot.storyboardPrompt
       ];
@@ -374,7 +373,6 @@ export const exportToXLS = (episodes: Episode[]) => {
   .col-type { width: 90px; }
   .col-lens { width: 110px; }
   .col-move { width: 80px; }
-  .col-diff { width: 70px; }
   .col-comp { width: 260px; }
   .col-block { width: 260px; }
   .col-dial { width: 200px; }
@@ -389,20 +387,19 @@ export const exportToXLS = (episodes: Episode[]) => {
 <body>
 <table>
   <tr>
-    <th>Episode</th>
-    <th class="col-id">Shot ID</th>
-    <th class="col-dur">Duration</th>
-    <th class="col-type">Shot Size</th>
-    <th class="col-lens">Focal Length</th>
-    <th class="col-move">Movement</th>
-    <th class="col-comp">Composition</th>
-    <th class="col-block">Blocking</th>
-    <th class="col-dial">Dialogue</th>
-    <th class="col-sound">Sound</th>
-    <th class="col-light">Lighting/VFX</th>
-    <th class="col-edit">Editing Notes</th>
-    <th class="col-notes">Notes</th>
-    <th class="col-diff">Difficulty</th>
+    <th>剧集</th>
+    <th class="col-id">镜号</th>
+    <th class="col-dur">时长</th>
+    <th class="col-type">景别</th>
+    <th class="col-lens">焦段</th>
+    <th class="col-move">运镜</th>
+    <th class="col-comp">机位/构图</th>
+    <th class="col-block">调度/表演</th>
+    <th class="col-dial">台词/OS</th>
+    <th class="col-sound">声音</th>
+    <th class="col-light">光色/VFX</th>
+    <th class="col-edit">剪辑</th>
+    <th class="col-notes">备注（氛围/情绪）</th>
     <th class="col-sora">Sora Prompt</th>
     <th class="col-storyboard">Storyboard Prompt</th>
   </tr>`;
@@ -423,7 +420,6 @@ export const exportToXLS = (episodes: Episode[]) => {
         <td>${shot.lightingVfx || ''}</td>
         <td>${shot.editingNotes || ''}</td>
         <td>${shot.notes || ''}</td>
-        <td>${shot.difficulty ?? ''}</td>
         <td>${shot.soraPrompt}</td>
         <td>${shot.storyboardPrompt}</td>
       </tr>`;
@@ -503,10 +499,8 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
   const lightIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[10].aliases]);
   const editIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[11].aliases]);
   const notesIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[12].aliases]);
-  const diffIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[13].aliases]);
-  const descIdx = findHeaderIndex(["Description", "画面描述"]);
-  const soraIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[14].aliases]);
-  const storyboardIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[15].aliases]);
+  const soraIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[13].aliases]);
+  const storyboardIdx = findHeaderIndex([...SHOT_CSV_COLUMNS[14].aliases]);
 
   if (epIdx === -1 || idIdx === -1) {
     throw new Error("Invalid CSV Format: Missing 'Episode' or 'Shot ID' headers.");
@@ -528,8 +522,6 @@ export const parseCSVToShots = (csvText: string): Map<string, Shot[]> => {
       movement: cols[moveIdx] || '',
       composition: compIdx >= 0 ? (cols[compIdx] || '') : '',
       blocking: blockIdx >= 0 ? (cols[blockIdx] || '') : '',
-      difficulty: diffIdx >= 0 ? (cols[diffIdx] || '') : undefined,
-      description: descIdx >= 0 ? (cols[descIdx] || '') : '',
       dialogue: cols[dialIdx] || '',
       sound: soundIdx >= 0 ? (cols[soundIdx] || '') : '',
       lightingVfx: lightIdx >= 0 ? (cols[lightIdx] || '') : '',

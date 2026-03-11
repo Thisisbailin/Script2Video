@@ -73,12 +73,6 @@ export const validateProjectData = (data: unknown): ValidationResult => {
           return { ok: false, error: `episodes[${i}].shots[${j}].${key} is not a string` };
         }
       }
-      if (!isString(shot.description)) {
-        return { ok: false, error: `episodes[${i}].shots[${j}].description is not a string` };
-      }
-      if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
-        return { ok: false, error: `episodes[${i}].shots[${j}].difficulty is not a number` };
-      }
       if (shot.videoStatus !== undefined && !isString(shot.videoStatus)) {
         return { ok: false, error: `episodes[${i}].shots[${j}].videoStatus is not a string` };
       }

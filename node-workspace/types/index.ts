@@ -245,21 +245,19 @@ export interface NoteNodeData extends BaseNodeData {
 
 export interface ShotNodeData extends BaseNodeData {
   shotId: string;
-  description: string;
   duration: string;
   shotType: string;
-  focalLength?: string;
+  focalLength: string;
   movement: string;
-  composition?: string;
-  blocking?: string;
-  difficulty?: number;
-  dialogue?: string;
-  sound?: string;
-  lightingVfx?: string;
-  editingNotes?: string;
-  notes?: string;
-  soraPrompt?: string;
-  storyboardPrompt?: string;
+  composition: string;
+  blocking: string;
+  dialogue: string;
+  sound: string;
+  lightingVfx: string;
+  editingNotes: string;
+  notes: string;
+  soraPrompt: string;
+  storyboardPrompt: string;
   viewMode?: "card" | "table";
 }
 

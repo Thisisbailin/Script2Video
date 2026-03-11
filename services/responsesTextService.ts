@@ -2,7 +2,7 @@ import type { ProjectContext, Shot, TokenUsage, Character, Location, CharacterFo
 import { ensureStableId, ensureTypedStableId } from "../utils/id";
 import { OPENROUTER_RESPONSES_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_RESPONSES_BASE_URL } from "../constants";
 import { createQwenResponse } from "./qwenResponsesService";
-import { SHOT_FIELD_LABELS, SHOT_REQUIRED_STRING_KEYS, getShotMinimumCountFromGuide, sanitizeShotList } from "../utils/shotSchema";
+import { SHOT_FIELD_LABELS, SHOT_REQUIRED_STRING_KEYS, buildShotOverview, getShotMinimumCountFromGuide, sanitizeShotList } from "../utils/shotSchema";
 
 // --- HELPERS ---
 
@@ -1301,14 +1301,14 @@ export const generateEpisodeShots = async (
             id: { type: Type.STRING, description: "镜号，严格格式: 场景号-镜号 (如 1-1-01)" },
             duration: { type: Type.STRING, description: "预估时长，例如 3s" },
             shotType: { type: Type.STRING, description: "景别，例如 MCU / CU / WS / OTS" },
-            focalLength: { type: Type.STRING, description: "焦段建议，如 24–28mm / 50mm / 85–100mm Macro" },
+            focalLength: { type: Type.STRING, description: "焦段，如 24–28mm / 50mm / 85–100mm Macro" },
             movement: { type: Type.STRING, description: "运镜，例如 Dolly In / Pan L→R / Static" },
             composition: { type: Type.STRING, description: "机位/构图：角度/方位；FG/MG/BG；主体位置" },
-            blocking: { type: Type.STRING, description: "演员调度/动作表演：起始状态→关键动作→落点" },
+            blocking: { type: Type.STRING, description: "调度/表演：起始状态→关键动作→落点" },
             dialogue: { type: Type.STRING, description: "台词或OS，无台词留空" },
             sound: { type: Type.STRING, description: "声音设计：AMB/SFX/MUSIC 等" },
             lightingVfx: { type: Type.STRING, description: "光色/VFX：Key/Fill/Rim/色温/特效" },
-            editingNotes: { type: Type.STRING, description: "剪辑维度：1-3 个标签，用分号分隔" },
+            editingNotes: { type: Type.STRING, description: "剪辑：1-3 个标签，用分号分隔" },
             notes: { type: Type.STRING, description: "备注（氛围/情绪）" },
             soraPrompt: { type: Type.STRING, description: "留空字符串" },
             storyboardPrompt: { type: Type.STRING, description: "留空字符串" },
@@ -1458,7 +1458,7 @@ export const generateSoraPrompts = async (
     lightingVfx: s.lightingVfx,
     editingNotes: s.editingNotes,
     notes: s.notes,
-    desc: s.description
+    overview: buildShotOverview(s),
   }));
 
   const systemInstruction = "角色设定：你是一位精通Sora文生图模型的提示词专家。";
@@ -1547,7 +1547,7 @@ export const generateStoryboardPrompts = async (
     lightingVfx: s.lightingVfx,
     editingNotes: s.editingNotes,
     notes: s.notes,
-    description: s.description,
+    overview: buildShotOverview(s),
     dialogue: s.dialogue,
   }));
 

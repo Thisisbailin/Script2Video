@@ -39,16 +39,14 @@ export interface Shot {
   id: string; // e.g., "1-1-01" (SceneID-ShotNumber)
   duration: string;
   shotType: string; // 景别 (Shot Size)
-  focalLength: string; // 焦段建议
+  focalLength: string; // 焦段
   movement: string; // 运镜
   composition: string; // 机位/构图
-  blocking: string; // 演员调度/动作表演
-  difficulty?: number; // 0-10 scale for production complexity
-  description: string; // legacy/combined summary for downstream prompts
+  blocking: string; // 调度/表演
   dialogue: string; // 台词/OS
   sound: string; // 声音
   lightingVfx: string; // 光色/VFX
-  editingNotes: string; // 剪辑维度
+  editingNotes: string; // 剪辑
   notes: string; // 备注（氛围/情绪）
   soraPrompt: string;
   storyboardPrompt: string; // Phase 4: GPT-4o-style storyboard prompt (Chinese)

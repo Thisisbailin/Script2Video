@@ -4,37 +4,52 @@ export const SHOT_FIELD_LABELS = {
   id: "镜号",
   duration: "时长",
   shotType: "景别",
-  focalLength: "焦段建议",
+  focalLength: "焦段",
   movement: "运镜",
   composition: "机位/构图",
-  blocking: "演员调度/动作表演",
+  blocking: "调度/表演",
   dialogue: "台词/OS",
   sound: "声音",
   lightingVfx: "光色/VFX",
-  editingNotes: "剪辑维度",
+  editingNotes: "剪辑",
   notes: "备注（氛围/情绪）",
-  difficulty: "难度",
   soraPrompt: "Sora Prompt",
   storyboardPrompt: "Storyboard Prompt",
 } as const;
 
+export const SHOT_TABLE_COLUMNS = [
+  { key: "id", label: "镜号" },
+  { key: "duration", label: "时长" },
+  { key: "shotType", label: "景别" },
+  { key: "focalLength", label: "焦段" },
+  { key: "movement", label: "运镜" },
+  { key: "composition", label: "机位/构图" },
+  { key: "blocking", label: "调度/表演" },
+  { key: "dialogue", label: "台词/OS" },
+  { key: "sound", label: "声音" },
+  { key: "lightingVfx", label: "光色/VFX" },
+  { key: "editingNotes", label: "剪辑" },
+  { key: "notes", label: "备注（氛围/情绪）" },
+  { key: "soraPrompt", label: "Sora Prompt" },
+  { key: "storyboardPrompt", label: "Storyboard Prompt" },
+] as const satisfies readonly { key: keyof Shot; label: string }[];
+
 export const SHOT_CSV_COLUMNS = [
-  { key: "episode", header: "Episode", aliases: ["Episode", "集数", "剧集"] },
-  { key: "id", header: "Shot ID", aliases: ["Shot ID", "镜号"] },
-  { key: "duration", header: "Duration", aliases: ["Duration", "时长"] },
-  { key: "shotType", header: "Shot Size", aliases: ["Shot Size", "Type", "景别"] },
-  { key: "focalLength", header: "Focal Length", aliases: ["Focal Length", "焦段建议", "焦段"] },
-  { key: "movement", header: "Movement", aliases: ["Movement", "运镜"] },
-  { key: "composition", header: "Composition", aliases: ["Composition", "机位/构图", "机位", "构图"] },
-  { key: "blocking", header: "Blocking", aliases: ["Blocking", "演员调度/动作表演", "演员调度", "动作表演"] },
-  { key: "dialogue", header: "Dialogue", aliases: ["Dialogue", "台词/OS", "台词"] },
-  { key: "sound", header: "Sound", aliases: ["Sound", "声音"] },
-  { key: "lightingVfx", header: "Lighting/VFX", aliases: ["Lighting/VFX", "光色/VFX", "光色", "VFX"] },
-  { key: "editingNotes", header: "Editing Notes", aliases: ["Editing Notes", "剪辑维度", "剪辑"] },
-  { key: "notes", header: "Notes", aliases: ["Notes", "备注", "备注（氛围/情绪）"] },
-  { key: "difficulty", header: "Difficulty", aliases: ["Difficulty", "难度"] },
-  { key: "soraPrompt", header: "Sora Prompt", aliases: ["Sora Prompt", "Sora提示词"] },
-  { key: "storyboardPrompt", header: "Storyboard Prompt", aliases: ["Storyboard Prompt", "Storyboard提示词"] },
+  { key: "episode", header: "剧集", aliases: ["剧集"] },
+  { key: "id", header: "镜号", aliases: ["镜号"] },
+  { key: "duration", header: "时长", aliases: ["时长"] },
+  { key: "shotType", header: "景别", aliases: ["景别"] },
+  { key: "focalLength", header: "焦段", aliases: ["焦段"] },
+  { key: "movement", header: "运镜", aliases: ["运镜"] },
+  { key: "composition", header: "机位/构图", aliases: ["机位/构图"] },
+  { key: "blocking", header: "调度/表演", aliases: ["调度/表演"] },
+  { key: "dialogue", header: "台词/OS", aliases: ["台词/OS"] },
+  { key: "sound", header: "声音", aliases: ["声音"] },
+  { key: "lightingVfx", header: "光色/VFX", aliases: ["光色/VFX"] },
+  { key: "editingNotes", header: "剪辑", aliases: ["剪辑"] },
+  { key: "notes", header: "备注（氛围/情绪）", aliases: ["备注（氛围/情绪）"] },
+  { key: "soraPrompt", header: "Sora Prompt", aliases: ["Sora Prompt"] },
+  { key: "storyboardPrompt", header: "Storyboard Prompt", aliases: ["Storyboard Prompt"] },
 ] as const;
 
 export const SHOT_REQUIRED_STRING_KEYS = [
@@ -97,15 +112,8 @@ const toOptionalText = (value: unknown) => {
   return text || undefined;
 };
 
-const toDifficulty = (value: unknown) => {
-  if (value === undefined || value === null || value === "") return undefined;
-  const num = typeof value === "number" ? value : Number(String(value).trim());
-  if (!Number.isFinite(num)) return undefined;
-  return Math.min(10, Math.max(0, Math.round(num * 10) / 10));
-};
-
-export const buildShotDescription = (shot: Partial<Shot>) =>
-  [shot.composition, shot.blocking, shot.lightingVfx, shot.sound, shot.notes]
+export const buildShotOverview = (shot: Partial<Shot>) =>
+  [shot.composition, shot.blocking, shot.dialogue, shot.sound, shot.lightingVfx, shot.editingNotes, shot.notes]
     .map((item) => toText(item))
     .filter(Boolean)
     .join("；");
@@ -135,7 +143,6 @@ export const sanitizeShot = (input: unknown, options: SanitizeOptions) => {
     movement: toText(shot.movement),
     composition: toText(shot.composition),
     blocking: toText(shot.blocking),
-    description: toText(shot.description),
     dialogue: toText(shot.dialogue),
     sound: toText(shot.sound),
     lightingVfx: toText(shot.lightingVfx),
@@ -143,7 +150,6 @@ export const sanitizeShot = (input: unknown, options: SanitizeOptions) => {
     notes: toText(shot.notes),
     soraPrompt: toText(shot.soraPrompt),
     storyboardPrompt: toText(shot.storyboardPrompt),
-    difficulty: toDifficulty(shot.difficulty),
     videoStatus: toOptionalText(shot.videoStatus) as Shot["videoStatus"],
     videoUrl: toOptionalText(shot.videoUrl),
     videoId: toOptionalText(shot.videoId),
@@ -153,10 +159,6 @@ export const sanitizeShot = (input: unknown, options: SanitizeOptions) => {
     videoParams: typeof shot.videoParams === "object" && shot.videoParams !== null ? (shot.videoParams as Shot["videoParams"]) : undefined,
     isApproved: typeof shot.isApproved === "boolean" ? shot.isApproved : undefined,
   };
-
-  if (!normalized.description) {
-    normalized.description = buildShotDescription(normalized);
-  }
 
   const issues: ShotSchemaIssue[] = [];
 

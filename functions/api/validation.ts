@@ -58,12 +58,6 @@ export const validateProjectPayload = (data: unknown): ValidationResult => {
           return { ok: false, error: `episodes[${i}].shots[${j}].${key} is not a string` };
         }
       }
-      if (!isString(shot.description)) {
-        return { ok: false, error: `episodes[${i}].shots[${j}].description is not a string` };
-      }
-      if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
-        return { ok: false, error: `episodes[${i}].shots[${j}].difficulty is not a number` };
-      }
     }
   }
 
@@ -149,12 +143,6 @@ export const validateProjectDelta = (delta: unknown): ValidationResult => {
         if (!isString(shot[key])) {
           return { ok: false, error: `delta.shots[${i}].${key} is not a string` };
         }
-      }
-      if (!isString(shot.description)) {
-        return { ok: false, error: `delta.shots[${i}].description is not a string` };
-      }
-      if (shot.difficulty !== undefined && !isNumber(shot.difficulty)) {
-        return { ok: false, error: `delta.shots[${i}].difficulty is not a number` };
       }
     }
   }

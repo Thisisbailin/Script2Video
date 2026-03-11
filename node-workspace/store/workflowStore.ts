@@ -705,17 +705,19 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "shot":
       return {
         shotId: "S-1",
-        description: "",
         duration: "3s",
         shotType: "Medium Shot",
         focalLength: "",
         movement: "Static",
         composition: "",
         blocking: "",
+        dialogue: "",
         sound: "",
         lightingVfx: "",
         editingNotes: "",
         notes: "",
+        soraPrompt: "",
+        storyboardPrompt: "",
         viewMode: "card",
       } as ShotNodeData;
   }

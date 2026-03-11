@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Episode, Shot, VideoParams } from '../types';
 import { Play, Loader2, AlertCircle, Download, CheckCircle, Video, ChevronRight, ChevronDown, Sliders, MonitorPlay, FileText, RefreshCcw, AlignLeft, ChevronLeft, ImagePlus, Wand2, X, Clock, Layers } from 'lucide-react';
+import { buildShotOverview } from '../utils/shotSchema';
 
 interface Props {
   episodes: Episode[];
@@ -484,7 +485,7 @@ export const VideoStudio: React.FC<Props> = ({ episodes, onGenerateVideo, onRemi
                         <AlignLeft size={10} /> Shot Details
                     </div>
                     <div className="p-4 space-y-4">
-                        <div><p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium">{activeShot.description}</p></div>
+                        <div><p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium">{buildShotOverview(activeShot) || "暂无分镜细节。"}</p></div>
                         {activeShot.dialogue && (<div className="pl-3 border-l-2 border-indigo-500/50"><span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Dialogue</span><p className="text-sm text-gray-600 dark:text-gray-300 italic">"{activeShot.dialogue}"</p></div>)}
                         <div className="flex flex-wrap gap-2 pt-2">
                             <span className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">{activeShot.shotType}</span>

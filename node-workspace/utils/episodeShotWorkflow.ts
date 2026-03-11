@@ -9,6 +9,7 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from "../types";
+import { buildShotOverview } from "../../utils/shotSchema";
 
 const estimateTextNodeHeight = (text: string) => {
   const safe = (text || "").trim();
@@ -51,8 +52,9 @@ export const buildEpisodeShotWorkflow = ({
 
   let yCursor = topPadding;
   const layouts = episode.shots.map((shot) => {
-    const soraHeight = estimateTextNodeHeight(shot.soraPrompt || shot.description || "");
-    const storyboardHeight = estimateTextNodeHeight(shot.storyboardPrompt || shot.description || "");
+    const shotOverview = buildShotOverview(shot);
+    const soraHeight = estimateTextNodeHeight(shot.soraPrompt || shotOverview);
+    const storyboardHeight = estimateTextNodeHeight(shot.storyboardPrompt || shotOverview);
     const promptBlockHeight = soraHeight + promptGap + storyboardHeight;
     const wanBlockHeight = estimatedWanHeight * 2 + promptGap;
     const blockHeight = Math.max(estimatedShotHeight, promptBlockHeight, wanBlockHeight);
@@ -94,14 +96,12 @@ export const buildEpisodeShotWorkflow = ({
       extent: "parent",
       data: {
         shotId: shot.id,
-        description: shot.description,
         duration: shot.duration,
         shotType: shot.shotType,
         focalLength: shot.focalLength,
         movement: shot.movement,
         composition: shot.composition,
         blocking: shot.blocking,
-        difficulty: shot.difficulty,
         dialogue: shot.dialogue,
         sound: shot.sound,
         lightingVfx: shot.lightingVfx,

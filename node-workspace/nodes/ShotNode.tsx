@@ -1,277 +1,165 @@
-import React, { useRef, useLayoutEffect } from "react";
-import { Timer, MoveRight, MessageSquare, Star, Table, LayoutList } from 'lucide-react';
+import React from "react";
+import { Timer, MoveRight, Table, LayoutList } from "lucide-react";
 import { ShotNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { BaseNode } from "./BaseNode";
 
 type Props = {
-    id: string;
-    data: ShotNodeData;
+  id: string;
+  data: ShotNodeData;
 };
 
+const DETAIL_FIELDS: Array<{ key: keyof ShotNodeData; label: string; minHeight: number }> = [
+  { key: "composition", label: "机位/构图", minHeight: 68 },
+  { key: "blocking", label: "调度/表演", minHeight: 68 },
+  { key: "dialogue", label: "台词/OS", minHeight: 52 },
+  { key: "sound", label: "声音", minHeight: 52 },
+  { key: "lightingVfx", label: "光色/VFX", minHeight: 52 },
+  { key: "editingNotes", label: "剪辑", minHeight: 52 },
+  { key: "notes", label: "备注（氛围/情绪）", minHeight: 52 },
+];
+
 export const ShotNode: React.FC<Props & { selected?: boolean }> = ({ id, data, selected }) => {
-    const { updateNodeData } = useWorkflowStore();
-    const descriptionRef = useRef<HTMLTextAreaElement>(null);
-    const dialogueRef = useRef<HTMLTextAreaElement>(null);
+  const { updateNodeData } = useWorkflowStore();
+  const isTableView = (data.viewMode || "card") === "table";
 
-    const viewMode = data.viewMode || "card";
-    const isTableView = viewMode === "table";
+  const updateField = (key: keyof ShotNodeData, value: string) => {
+    updateNodeData(id, { [key]: value });
+  };
 
-    const autoResize = (textarea: HTMLTextAreaElement | null) => {
-        if (textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = (textarea.scrollHeight) + 'px';
-        }
-    };
+  const renderTextarea = (key: keyof ShotNodeData, label: string, minHeight: number) => (
+    <div key={String(key)} className="space-y-2">
+      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">{label}</label>
+      <textarea
+        className="node-textarea w-full resize-none text-[11px] leading-relaxed outline-none"
+        style={{ minHeight }}
+        value={(data[key] as string) || ""}
+        onChange={(event) => updateField(key, event.target.value)}
+      />
+    </div>
+  );
 
-    useLayoutEffect(() => {
-        autoResize(descriptionRef.current);
-        autoResize(dialogueRef.current);
-    }, [data.description, data.dialogue, data.composition, data.blocking, data.sound, data.lightingVfx, data.editingNotes, data.notes]);
-
-    const renderStars = (difficulty?: number) => {
-        const rating = Math.min(Math.max((difficulty ?? 5) / 2, 0), 5);
-        return (
-            <div className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => {
-                    const active = rating >= i + 1;
-                    return (
-                        <Star
-                            key={i}
-                            size={10}
-                            className={active ? "text-amber-400" : "text-[var(--node-text-secondary)] opacity-10"}
-                            fill={active ? "currentColor" : "none"}
-                        />
-                    );
-                })}
-            </div>
-        );
-    };
-
-    return (
-        <BaseNode
-            title={data.shotId || "S-1"}
-            onTitleChange={(title) => updateNodeData(id, { shotId: title })}
-            inputs={["image"]}
-            outputs={["text"]}
-            selected={selected}
-        >
-            <div className="flex flex-col gap-4 flex-1">
-                {!isTableView && (
-                    <div className="flex flex-col gap-4">
-                        <div className="node-surface rounded-2xl p-4 transition-all">
-                            <textarea
-                                ref={descriptionRef}
-                                className="bg-transparent w-full text-[13px] leading-relaxed outline-none resize-none transition-all placeholder:text-[var(--node-text-secondary)] font-bold"
-                                value={data.description}
-                                onChange={(e) => {
-                                    updateNodeData(id, { description: e.target.value });
-                                    autoResize(e.target);
-                                }}
-                                onFocus={(e) => autoResize(e.target)}
-                                placeholder="Enter shot description..."
-                                style={{ height: 'auto' }}
-                            />
-                        </div>
-
-                        {data.dialogue && (
-                            <div className="relative">
-                                <div className="node-surface text-[11px] italic text-[var(--node-text-secondary)] rounded-xl px-4 py-3 flex items-start gap-3">
-                                    <MessageSquare size={12} className="mt-1 flex-shrink-0 opacity-20" />
-                                    <textarea
-                                        ref={dialogueRef}
-                                        className="bg-transparent w-full outline-none resize-none p-0 text-[var(--node-text-secondary)]"
-                                        value={data.dialogue}
-                                        onChange={(e) => {
-                                            updateNodeData(id, { dialogue: e.target.value });
-                                            autoResize(e.target);
-                                        }}
-                                        onFocus={(e) => autoResize(e.target)}
-                                        placeholder="Dialogue..."
-                                        style={{ height: 'auto' }}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center justify-between">
-                                <div className="node-pill flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5">
-                                    <Timer size={12} className="opacity-40" />
-                                    <input
-                                        className="bg-transparent w-8 outline-none"
-                                        value={data.duration}
-                                        onChange={(e) => updateNodeData(id, { duration: e.target.value })}
-                                    />
-                                </div>
-                                {renderStars(data.difficulty)}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                                <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
-                                    <input
-                                        className="bg-transparent text-[9px] font-black text-[var(--node-accent)] uppercase tracking-[0.2em] outline-none text-center appearance-none"
-                                        value={data.shotType}
-                                        onChange={(e) => updateNodeData(id, { shotType: e.target.value })}
-                                        placeholder="SHOT TYPE"
-                                        style={{ width: Math.max(data.shotType?.length || 4, 4) + 'ch' }}
-                                    />
-                                </div>
-
-                                <div className="h-1 w-1 rounded-full bg-[var(--node-text-secondary)] opacity-20" />
-
-                                <div className="node-pill inline-flex items-center gap-1 px-3 py-1">
-                                    <MoveRight size={10} className="text-[var(--node-text-secondary)] opacity-40 shrink-0" />
-                                    <input
-                                        className="bg-transparent text-[9px] text-[var(--node-text-secondary)] font-bold uppercase tracking-widest outline-none appearance-none"
-                                        value={data.movement}
-                                        onChange={(e) => updateNodeData(id, { movement: e.target.value })}
-                                        placeholder="MOVEMENT"
-                                        style={{ width: Math.max(data.movement?.length || 4, 4) + 'ch' }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {isTableView && (
-                    <div className="node-surface rounded-2xl p-4 transition-all space-y-3">
-                        <div className="grid grid-cols-[90px_1fr] gap-2 items-center text-[11px]">
-                            <div className="text-[var(--node-text-secondary)] font-bold">时长</div>
-                            <input
-                                className="node-control node-control--tight text-[11px] font-semibold px-2"
-                                value={data.duration}
-                                onChange={(e) => updateNodeData(id, { duration: e.target.value })}
-                            />
-
-                            <div className="text-[var(--node-text-secondary)] font-bold">景别</div>
-                            <input
-                                className="node-control node-control--tight text-[11px] font-semibold px-2"
-                                value={data.shotType}
-                                onChange={(e) => updateNodeData(id, { shotType: e.target.value })}
-                            />
-
-                            <div className="text-[var(--node-text-secondary)] font-bold">焦段</div>
-                            <input
-                                className="node-control node-control--tight text-[11px] font-semibold px-2"
-                                value={data.focalLength || ""}
-                                onChange={(e) => updateNodeData(id, { focalLength: e.target.value })}
-                            />
-
-                            <div className="text-[var(--node-text-secondary)] font-bold">运镜</div>
-                            <input
-                                className="node-control node-control--tight text-[11px] font-semibold px-2"
-                                value={data.movement}
-                                onChange={(e) => updateNodeData(id, { movement: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">机位/构图</label>
-                            <textarea
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[60px]"
-                                value={data.composition || ""}
-                                onChange={(e) => updateNodeData(id, { composition: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">调度/动作</label>
-                            <textarea
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[60px]"
-                                value={data.blocking || ""}
-                                onChange={(e) => updateNodeData(id, { blocking: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">台词/OS</label>
-                            <textarea
-                                ref={dialogueRef}
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[44px]"
-                                value={data.dialogue || ""}
-                                onChange={(e) => updateNodeData(id, { dialogue: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">声音</label>
-                            <textarea
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[44px]"
-                                value={data.sound || ""}
-                                onChange={(e) => updateNodeData(id, { sound: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">光色/VFX</label>
-                            <textarea
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[44px]"
-                                value={data.lightingVfx || ""}
-                                onChange={(e) => updateNodeData(id, { lightingVfx: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">剪辑维度</label>
-                            <textarea
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[44px]"
-                                value={data.editingNotes || ""}
-                                onChange={(e) => updateNodeData(id, { editingNotes: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">备注/氛围</label>
-                            <textarea
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[44px]"
-                                value={data.notes || ""}
-                                onChange={(e) => updateNodeData(id, { notes: e.target.value })}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)]">画面描述(兼容)</label>
-                            <textarea
-                                ref={descriptionRef}
-                                className="node-textarea w-full text-[11px] leading-relaxed outline-none resize-none min-h-[60px]"
-                                value={data.description || ""}
-                                onChange={(e) => {
-                                    updateNodeData(id, { description: e.target.value });
-                                    autoResize(e.target);
-                                }}
-                                onFocus={(e) => autoResize(e.target)}
-                            />
-                        </div>
-                    </div>
-                )}
-                <div className="pt-1 flex items-center justify-between">
-                    <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
-                        <input
-                            className="bg-transparent text-[9px] font-black text-[var(--node-accent)] uppercase tracking-[0.2em] outline-none text-center appearance-none"
-                            value={data.shotId || ""}
-                            onChange={(e) => updateNodeData(id, { shotId: e.target.value })}
-                            placeholder="SHOT ID"
-                            style={{ width: Math.max(data.shotId?.length || 4, 4) + 'ch' }}
-                        />
-                    </div>
-                    <button
-                        className="node-pill inline-flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)] hover:text-[var(--node-text-primary)] transition-all"
-                        onClick={() => updateNodeData(id, { viewMode: isTableView ? "card" : "table" })}
-                    >
-                        {isTableView ? <LayoutList size={10} /> : <Table size={10} />}
-                        {isTableView ? "Card View" : "Table View"}
-                    </button>
+  return (
+    <BaseNode
+      title={data.shotId || "S-1"}
+      onTitleChange={(title) => updateNodeData(id, { shotId: title })}
+      inputs={["image"]}
+      outputs={["text"]}
+      selected={selected}
+    >
+      <div className="flex flex-1 flex-col gap-4">
+        {!isTableView && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="node-pill flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest">
+                <Timer size={12} className="opacity-40" />
+                <input
+                  className="w-10 bg-transparent outline-none"
+                  value={data.duration}
+                  onChange={(event) => updateField("duration", event.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm">
+                  <input
+                    className="bg-transparent text-[9px] font-black uppercase tracking-[0.2em] text-[var(--node-accent)] outline-none"
+                    value={data.shotType}
+                    onChange={(event) => updateField("shotType", event.target.value)}
+                    placeholder="景别"
+                    style={{ width: Math.max(data.shotType.length || 2, 4) + "ch" }}
+                  />
                 </div>
+                <div className="node-pill inline-flex items-center px-3 py-1">
+                  <input
+                    className="bg-transparent text-[9px] font-bold uppercase tracking-widest text-[var(--node-text-secondary)] outline-none"
+                    value={data.focalLength}
+                    onChange={(event) => updateField("focalLength", event.target.value)}
+                    placeholder="焦段"
+                    style={{ width: Math.max(data.focalLength.length || 2, 4) + "ch" }}
+                  />
+                </div>
+                <div className="node-pill inline-flex items-center gap-1 px-3 py-1">
+                  <MoveRight size={10} className="shrink-0 opacity-40 text-[var(--node-text-secondary)]" />
+                  <input
+                    className="bg-transparent text-[9px] font-bold uppercase tracking-widest text-[var(--node-text-secondary)] outline-none"
+                    value={data.movement}
+                    onChange={(event) => updateField("movement", event.target.value)}
+                    placeholder="运镜"
+                    style={{ width: Math.max(data.movement.length || 2, 4) + "ch" }}
+                  />
+                </div>
+              </div>
             </div>
-        </BaseNode>
-    );
+
+            <div className="node-surface rounded-2xl p-4 transition-all">
+              {renderTextarea("composition", "机位/构图", 88)}
+            </div>
+
+            <div className="node-surface rounded-2xl p-4 transition-all">
+              {renderTextarea("blocking", "调度/表演", 88)}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {DETAIL_FIELDS.slice(2).map((field) => renderTextarea(field.key, field.label, field.minHeight))}
+            </div>
+          </div>
+        )}
+
+        {isTableView && (
+          <div className="node-surface space-y-3 rounded-2xl p-4 transition-all">
+            <div className="grid grid-cols-[90px_1fr] items-center gap-2 text-[11px]">
+              <div className="font-bold text-[var(--node-text-secondary)]">时长</div>
+              <input
+                className="node-control node-control--tight px-2 text-[11px] font-semibold"
+                value={data.duration}
+                onChange={(event) => updateField("duration", event.target.value)}
+              />
+
+              <div className="font-bold text-[var(--node-text-secondary)]">景别</div>
+              <input
+                className="node-control node-control--tight px-2 text-[11px] font-semibold"
+                value={data.shotType}
+                onChange={(event) => updateField("shotType", event.target.value)}
+              />
+
+              <div className="font-bold text-[var(--node-text-secondary)]">焦段</div>
+              <input
+                className="node-control node-control--tight px-2 text-[11px] font-semibold"
+                value={data.focalLength}
+                onChange={(event) => updateField("focalLength", event.target.value)}
+              />
+
+              <div className="font-bold text-[var(--node-text-secondary)]">运镜</div>
+              <input
+                className="node-control node-control--tight px-2 text-[11px] font-semibold"
+                value={data.movement}
+                onChange={(event) => updateField("movement", event.target.value)}
+              />
+            </div>
+
+            {DETAIL_FIELDS.map((field) => renderTextarea(field.key, field.label, field.minHeight))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-1">
+          <div className="node-pill node-pill--accent inline-flex items-center px-3 py-1 shadow-sm transition-all duration-200">
+            <input
+              className="bg-transparent text-center text-[9px] font-black uppercase tracking-[0.2em] text-[var(--node-accent)] outline-none"
+              value={data.shotId}
+              onChange={(event) => updateField("shotId", event.target.value)}
+              placeholder="SHOT ID"
+              style={{ width: Math.max(data.shotId.length || 4, 4) + "ch" }}
+            />
+          </div>
+          <button
+            className="node-pill inline-flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-[var(--node-text-secondary)] transition-all hover:text-[var(--node-text-primary)]"
+            onClick={() => updateNodeData(id, { viewMode: isTableView ? "card" : "table" })}
+          >
+            {isTableView ? <LayoutList size={10} /> : <Table size={10} />}
+            {isTableView ? "Card View" : "Table View"}
+          </button>
+        </div>
+      </div>
+    </BaseNode>
+  );
 };

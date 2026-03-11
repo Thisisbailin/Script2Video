@@ -5,6 +5,7 @@ import { BaseNode } from "./BaseNode";
 import { StoryboardBoardNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { buildEpisodeShotWorkflow, getSuggestedCanvasOrigin } from "../utils/episodeShotWorkflow";
+import { SHOT_TABLE_COLUMNS } from "../../utils/shotSchema";
 
 type Props = {
   id: string;
@@ -12,16 +13,20 @@ type Props = {
 };
 
 const COLUMNS = [
-  { label: "镜头", width: 96 },
-  { label: "画面描述", width: 280 },
-  { label: "景别 / 焦段", width: 170 },
-  { label: "运镜 / 构图", width: 220 },
-  { label: "调度 / 表演", width: 220 },
-  { label: "台词 / 声音", width: 200 },
-  { label: "光色 / VFX", width: 180 },
-  { label: "剪辑 / 备注", width: 180 },
-  { label: "Sora Prompt", width: 280 },
-  { label: "Storyboard Prompt", width: 280 },
+  { label: "镜号", width: 110 },
+  { label: "时长", width: 90 },
+  { label: "景别", width: 110 },
+  { label: "焦段", width: 120 },
+  { label: "运镜", width: 120 },
+  { label: "机位/构图", width: 260 },
+  { label: "调度/表演", width: 240 },
+  { label: "台词/OS", width: 220 },
+  { label: "声音", width: 180 },
+  { label: "光色/VFX", width: 220 },
+  { label: "剪辑", width: 180 },
+  { label: "备注（氛围/情绪）", width: 220 },
+  { label: "Sora Prompt", width: 320 },
+  { label: "Storyboard Prompt", width: 340 },
 ] as const;
 
 const MIN_COLUMN_WIDTH = 88;
@@ -236,7 +241,7 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
                     </div>
 
                     {shots.length ? (
-                      shots.map((shot, shotIndex) => {
+                      shots.map((shot) => {
                         const rowKey = shot.id;
                         const rowHeight = rowHeights[rowKey] || 116;
                         return (
@@ -246,36 +251,11 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
                             style={{ minHeight: rowHeight }}
                           >
                             <div className="grid h-full" style={{ gridTemplateColumns }}>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={`${shotIndex + 1}`} secondary={shot.id} tertiary={shot.duration} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.description} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.shotType} secondary={shot.focalLength} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.movement} secondary={shot.composition} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.blocking} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.dialogue} secondary={shot.sound} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.lightingVfx} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.editingNotes} secondary={shot.notes} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.soraPrompt} />
-                              </div>
-                              <div className="px-4 py-3">
-                                <ValueStack primary={shot.storyboardPrompt} />
-                              </div>
+                              {SHOT_TABLE_COLUMNS.map((column) => (
+                                <div key={`${shot.id}-${column.key}`} className="px-4 py-3">
+                                  <ValueStack primary={shot[column.key]} secondary={column.key === "id" ? `${shotIndex + 1}` : undefined} />
+                                </div>
+                              ))}
                             </div>
                             <div
                               onPointerDown={(event) => startRowResize(rowKey, event)}
