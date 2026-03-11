@@ -34,6 +34,7 @@ export interface ImageInputNodeData extends BaseNodeData {
   zoneTag?: string;
   label?: string;
   atMentions?: TextNodeData['atMentions'];
+  entityBindings?: EntityBinding[];
 }
 
 export type ShapeType = "rectangle" | "circle" | "arrow" | "freehand" | "text";
@@ -92,6 +93,27 @@ export interface AnnotationNodeData extends BaseNodeData {
   outputImage: string | null;
 }
 
+export interface EntityBinding {
+  id: string;
+  rawText: string;
+  status: "resolved" | "missing";
+  entityType: "character" | "form" | "zone" | "unknown";
+  entityId?: string;
+  characterId?: string;
+  formId?: string;
+  formName?: string;
+  aliasValue?: string;
+  summary?: string;
+  detail?: string;
+  locationId?: string;
+  locationName?: string;
+  zoneId?: string;
+  start: number;
+  end: number;
+  resolutionSource?: "manual" | "auto";
+  version?: number;
+}
+
 export interface TextNodeData extends BaseNodeData {
   title: string;
   text: string;
@@ -109,6 +131,7 @@ export interface TextNodeData extends BaseNodeData {
     locationName?: string;
     zoneId?: string;
   }[];
+  entityBindings?: EntityBinding[];
 }
 
 export interface ScriptBoardNodeData extends BaseNodeData {

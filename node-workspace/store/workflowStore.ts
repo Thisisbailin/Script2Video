@@ -549,7 +549,13 @@ interface WorkflowStore {
 
   // Helpers
   getNodeById: (id: string) => WorkflowNode | undefined;
-  getConnectedInputs: (nodeId: string) => { images: string[]; text: string | null; atMentions?: TextNodeData['atMentions']; imageRefs?: { src: string; formTag?: string | null; zoneTag?: string | null }[] };
+  getConnectedInputs: (nodeId: string) => {
+    images: string[];
+    text: string | null;
+    atMentions?: TextNodeData['atMentions'];
+    entityBindings?: TextNodeData["entityBindings"];
+    imageRefs?: { src: string; formTag?: string | null; zoneTag?: string | null }[];
+  };
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
   removeGlobalHistoryItem: (id: string) => void;
@@ -933,6 +939,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const images: string[] = [];
     const texts: string[] = [];
     const mentions: TextNodeData['atMentions'] = [];
+    const entityBindings: TextNodeData["entityBindings"] = [];
     const imageRefs: { src: string; formTag?: string | null; zoneTag?: string | null }[] = [];
     edges
       .filter((edge) => edge.target === nodeId)
@@ -965,9 +972,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             const value = (sourceNode.data as TextNodeData).text;
             if (value && value.trim()) texts.push(value.trim());
             const ats = (sourceNode.data as TextNodeData).atMentions;
+            const bindings = (sourceNode.data as TextNodeData).entityBindings;
             if (ats && ats.length) {
               ats.forEach((m) => {
                 if (!mentions.find((x) => x?.name === m.name)) mentions.push(m);
+              });
+            }
+            if (bindings && bindings.length) {
+              bindings.forEach((binding) => {
+                if (!entityBindings.find((item) => item.id === binding.id)) entityBindings.push(binding);
               });
             }
           } else if (sourceNode.type === "scriptBoard") {
@@ -983,7 +996,13 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         }
       });
     const text = texts.length ? texts.join("\n\n") : null;
-    return { images, text, atMentions: mentions.length ? mentions : undefined, imageRefs: imageRefs.length ? imageRefs : undefined };
+    return {
+      images,
+      text,
+      atMentions: mentions.length ? mentions : undefined,
+      entityBindings: entityBindings.length ? entityBindings : undefined,
+      imageRefs: imageRefs.length ? imageRefs : undefined,
+    };
   },
 
   validateWorkflow: () => {

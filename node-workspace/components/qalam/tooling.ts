@@ -134,6 +134,7 @@ export const TOOL_DEFS: AgentTool[] = [
           type: "object",
           properties: {
             id: { type: "string" },
+            slug: { type: "string" },
             name: { type: "string" },
             role: { type: "string" },
             isMain: { type: "boolean" },
@@ -142,6 +143,35 @@ export const TOOL_DEFS: AgentTool[] = [
             episodeUsage: { type: "string" },
             archetype: { type: "string" },
             tags: { type: "array", items: { type: "string" } },
+            aliases: {
+              type: "array",
+              items: {
+                anyOf: [
+                  { type: "string" },
+                  {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      value: { type: "string" },
+                      kind: { type: "string", enum: ["primary", "alias", "title", "short", "legacy"] },
+                      normalized: { type: "string" },
+                    },
+                    required: ["value"],
+                  },
+                ],
+              },
+            },
+            status: { type: "string", enum: ["draft", "verified", "locked", "archived"] },
+            version: { type: "integer" },
+            binding: {
+              type: "object",
+              properties: {
+                canonicalMention: { type: "string" },
+                defaultFormId: { type: "string" },
+                defaultVoiceScope: { type: "string", enum: ["character", "form"] },
+                mentionPolicy: { type: "string", enum: ["character-first", "form-first"] },
+              },
+            },
             forms: {
               type: "array",
               items: {
@@ -149,6 +179,11 @@ export const TOOL_DEFS: AgentTool[] = [
                 properties: {
                   id: { type: "string" },
                   formName: { type: "string" },
+                  characterId: { type: "string" },
+                  key: { type: "string" },
+                  type: { type: "string", enum: ["default", "age", "costume", "identity", "state", "disguise", "battle", "special"] },
+                  isDefault: { type: "boolean" },
+                  aliases: { type: "array", items: { type: "string" } },
                   episodeRange: { type: "string" },
                   description: { type: "string" },
                   visualTags: { type: "string" },

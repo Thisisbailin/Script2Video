@@ -3,38 +3,20 @@ import { BaseNode } from "./BaseNode";
 import { ImageInputNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { AtSign, ImagePlus } from "lucide-react";
-import type { Character, CharacterForm, Location, LocationZone } from "../../types";
+import {
+  buildMentionIndex,
+  buildMentionTargets,
+  computeMentionData,
+  MentionTarget,
+  resolveMentionTarget,
+  toSearch,
+} from "../utils/entityBindings";
 
 type Props = {
   id: string;
   data: ImageInputNodeData;
   selected?: boolean;
 };
-
-type MentionKind = "form" | "zone" | "unknown";
-
-type MentionTarget = {
-  kind: Exclude<MentionKind, "unknown">;
-  name: string;
-  label: string;
-  search: string;
-  characterId?: string;
-  characterName?: string;
-  formName?: string;
-  locationId?: string;
-  locationName?: string;
-  zoneId?: string;
-  summary?: string;
-  detail?: string;
-};
-
-const mentionPriority: Record<MentionKind, number> = {
-  form: 0,
-  zone: 1,
-  unknown: 2,
-};
-
-const toSearch = (value: string) => value.toLowerCase();
 
 const escapeHtml = (value: string) =>
   value
@@ -148,38 +130,6 @@ const getCaretRect = (el: HTMLElement) => {
   return rect;
 };
 
-const buildFormDetail = (character: Character, form: CharacterForm) => {
-  const lines = [
-    character?.name ? `角色：${character.name}` : "",
-    character?.role ? `身份：${character.role}` : "",
-    form.episodeRange ? `区间：${form.episodeRange}` : "",
-    form.identityOrState ? `状态：${form.identityOrState}` : "",
-    form.visualTags ? `视觉：${form.visualTags}` : "",
-    form.description ? form.description : "",
-  ].filter(Boolean);
-  return lines.join("\n");
-};
-
-const buildZoneDetail = (location: Location, zone: LocationZone) => {
-  const kindLabel: Record<LocationZone["kind"], string> = {
-    interior: "内景",
-    exterior: "外景",
-    transition: "过渡",
-    unspecified: "未标注",
-  };
-  const lines = [
-    location?.name ? `场景：${location.name}` : "",
-    zone?.name ? `分区：${zone.name}` : "",
-    zone?.kind ? `类型：${kindLabel[zone.kind] || zone.kind}` : "",
-    zone?.episodeRange ? `区间：${zone.episodeRange}` : "",
-    zone?.layoutNotes ? `布局：${zone.layoutNotes}` : "",
-    zone?.keyProps ? `道具：${zone.keyProps}` : "",
-    zone?.lightingWeather ? `光色：${zone.lightingWeather}` : "",
-    zone?.materialPalette ? `材质：${zone.materialPalette}` : "",
-  ].filter(Boolean);
-  return lines.join("\n");
-};
-
 export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -204,121 +154,36 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const mentionTargets = useMemo(() => {
     const chars = labContext?.context?.characters || [];
     const locations = labContext?.context?.locations || [];
-
-    const formTargets: MentionTarget[] = chars.flatMap((c) =>
-      (c.forms || [])
-        .filter((f) => !!f.formName)
-        .map((f) => {
-          const label = c.name ? `${f.formName} · ${c.name}` : f.formName;
-          return {
-            kind: "form" as const,
-            name: f.formName,
-            label,
-            search: toSearch([
-              f.formName,
-              c.name,
-              c.role,
-              f.episodeRange,
-              f.identityOrState,
-              f.visualTags,
-            ]
-              .filter(Boolean)
-              .join(" ")),
-            characterId: c.id,
-            characterName: c.name,
-            formName: f.formName,
-            summary: f.description,
-            detail: buildFormDetail(c, f),
-          };
-        })
-    );
-
-    const zoneTargets: MentionTarget[] = locations.flatMap((loc) =>
-      (loc.zones || [])
-        .filter((z) => !!z.name)
-        .map((z) => {
-          const label = loc.name ? `${z.name} · ${loc.name}` : z.name;
-          return {
-            kind: "zone" as const,
-            name: z.name,
-            label,
-            search: toSearch(
-              [z.name, loc.name, z.episodeRange, z.layoutNotes, z.keyProps, z.lightingWeather]
-                .filter(Boolean)
-                .join(" ")
-            ),
-            locationId: loc.id,
-            locationName: loc.name,
-            zoneId: z.id,
-            summary: z.layoutNotes || z.keyProps || z.lightingWeather || "",
-            detail: buildZoneDetail(loc, z),
-          };
-        })
-    );
-
+    const targets = buildMentionTargets(chars, locations);
     return {
-      forms: formTargets,
-      zones: zoneTargets,
-      all: [...formTargets, ...zoneTargets],
+      forms: targets.forms,
+      zones: targets.zones,
+      all: [...targets.forms, ...targets.zones],
     };
   }, [labContext]);
 
   const mentionIndex = useMemo(() => {
-    const map = new Map<string, MentionTarget[]>();
-    mentionTargets.all.forEach((item) => {
-      const key = toSearch(item.name);
-      const list = map.get(key) || [];
-      list.push(item);
-      map.set(key, list);
-    });
-    return map;
+    return buildMentionIndex(mentionTargets.all);
   }, [mentionTargets]);
 
   const resolveMention = useCallback(
     (name: string) => {
-      const list = mentionIndex.get(toSearch(name)) || [];
-      if (!list.length) return null;
-      return list.slice().sort((a, b) => mentionPriority[a.kind] - mentionPriority[b.kind])[0];
+      return resolveMentionTarget(name, mentionIndex);
     },
     [mentionIndex]
   );
 
-  const parseMentions = (text: string) => {
-    const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
-    const names: string[] = [];
-    matches.forEach((m) => {
-      const name = m.slice(1);
-      if (!names.includes(name)) names.push(name);
-    });
-    return names;
-  };
-
   const computeMentionMeta = useCallback(
     (text: string) => {
-      const names = parseMentions(text);
-      return names.map((n) => {
-        const hit = resolveMention(n);
-        return {
-          name: n,
-          status: hit ? "match" : "missing",
-          kind: hit?.kind || "unknown",
-          characterId: hit?.characterId,
-          formName: hit?.formName,
-          summary: hit?.summary,
-          detail: hit?.detail,
-          locationId: hit?.locationId,
-          locationName: hit?.locationName,
-          zoneId: hit?.zoneId,
-        };
-      });
+      return computeMentionData(text, mentionIndex);
     },
-    [resolveMention]
+    [mentionIndex]
   );
 
   const mentionState = useMemo(() => {
     const pos = Math.min(cursorPos, labelDraft.length);
     const textBefore = labelDraft.slice(0, pos);
-    const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
+    const match = textBefore.match(/@([\w\u4e00-\u9fa5\-\/]*)$/);
     if (!match) return null;
     const prevChar = textBefore.length > 1 ? textBefore[textBefore.length - match[0].length - 1] : "";
     if (prevChar && !/\s|[\(\[\{,，。:：;；"“”'‘’]/.test(prevChar)) return null;
@@ -347,7 +212,7 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
     if (!labelDraft) return "";
     const parts: string[] = [];
     let lastIndex = 0;
-    const regex = /@([\w\u4e00-\u9fa5-]+)/g;
+    const regex = /@([\w\u4e00-\u9fa5\-\/]+)/g;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(labelDraft))) {
       const start = match.index;
@@ -379,11 +244,12 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const commitLabel = useCallback(
     (next: string) => {
       const mentions = computeMentionMeta(next);
-      const match = mentions.find((m) => m.status === "match" && m.kind === "form")
-        || mentions.find((m) => m.status === "match" && m.kind === "zone");
+      const match = mentions.atMentions.find((m) => m.status === "match" && m.kind === "form")
+        || mentions.atMentions.find((m) => m.status === "match" && m.kind === "zone");
       updateNodeData(id, {
         label: next,
-        atMentions: mentions,
+        atMentions: mentions.atMentions,
+        entityBindings: mentions.entityBindings,
         formTag: match?.kind === "form" ? match.name : undefined,
         zoneTag: match?.kind === "zone" ? match.name : undefined,
       });
@@ -410,7 +276,7 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
     const end = mentionState ? mentionState.end : cursorPos;
     const before = labelDraft.slice(0, start);
     const after = labelDraft.slice(end);
-    const insertion = `@${target.name} `;
+    const insertion = `@${target.kind === "character" ? (target.characterName || target.name) : target.name} `;
     const next = `${before}${insertion}${after}`;
     const nextPos = start + insertion.length;
     setLabelDraft(next);

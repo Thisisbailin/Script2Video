@@ -1,5 +1,5 @@
 import type { Character, Location } from "../../types";
-import { ensureStableId } from "../../utils/id";
+import { ensureStableId, ensureTypedStableId } from "../../utils/id";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
 const editUnderstandingResourceParameters = {
@@ -125,14 +125,34 @@ const parseArgs = (input: unknown): ParsedArgs => {
 const upsertCharacter = (characters: Character[], args: Extract<ParsedArgs, { resourceType: "character_profile" }>) => {
   const existingIndex = characters.findIndex((item) => item.name === args.name);
   const existing = existingIndex >= 0 ? characters[existingIndex] : undefined;
+  const characterId = ensureTypedStableId(existing?.id, "char");
+  const primaryAlias = {
+    id: ensureStableId(existing?.aliases?.find((item) => item.kind === "primary")?.id, "alias"),
+    value: args.name,
+    kind: "primary" as const,
+    normalized: args.name.trim().toLowerCase(),
+  };
   const next: Character = {
-    id: ensureStableId(existing?.id, "char"),
+    id: characterId,
+    slug: existing?.slug,
     name: args.name,
     role: args.role ?? existing?.role ?? "",
     isMain: args.isMain ?? existing?.isMain ?? false,
     isCore: existing?.isCore,
     bio: args.bio ?? existing?.bio ?? "",
     forms: existing?.forms || [],
+    aliases: [
+      primaryAlias,
+      ...((existing?.aliases || []).filter((item) => item.kind !== "primary" && item.value.trim().toLowerCase() !== primaryAlias.normalized)),
+    ],
+    status: existing?.status ?? "draft",
+    binding: {
+      canonicalMention: args.name,
+      defaultFormId: existing?.binding?.defaultFormId || existing?.forms?.find((form) => form.isDefault)?.id || existing?.forms?.[0]?.id,
+      defaultVoiceScope: existing?.binding?.defaultVoiceScope ?? "character",
+      mentionPolicy: existing?.binding?.mentionPolicy ?? "character-first",
+    },
+    version: typeof existing?.version === "number" ? existing.version + 1 : 1,
     appearanceCount: existing?.appearanceCount,
     assetPriority: existing?.assetPriority,
     archetype: existing?.archetype,

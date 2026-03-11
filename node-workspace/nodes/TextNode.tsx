@@ -3,38 +3,19 @@ import { BaseNode } from "./BaseNode";
 import { TextNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { AtSign } from "lucide-react";
-import type { Character, CharacterForm, Location, LocationZone } from "../../types";
+import {
+    buildMentionIndex,
+    buildMentionTargets,
+    computeMentionData,
+    MentionTarget,
+    resolveMentionTarget,
+    toSearch,
+} from "../utils/entityBindings";
 
 type Props = {
     id: string;
     data: TextNodeData;
 };
-
-type MentionKind = "form" | "zone" | "character" | "unknown";
-
-type MentionTarget = {
-    kind: Exclude<MentionKind, "unknown">;
-    name: string;
-    label: string;
-    search: string;
-    characterId?: string;
-    characterName?: string;
-    formName?: string;
-    locationId?: string;
-    locationName?: string;
-    zoneId?: string;
-    summary?: string;
-    detail?: string;
-};
-
-const mentionPriority: Record<MentionKind, number> = {
-    form: 0,
-    character: 1,
-    zone: 2,
-    unknown: 3,
-};
-
-const toSearch = (value: string) => value.toLowerCase();
 
 const escapeHtml = (value: string) =>
     value
@@ -148,47 +129,6 @@ const getCaretRect = (el: HTMLElement) => {
     return rect;
 };
 
-const buildFormDetail = (character: Character, form: CharacterForm) => {
-    const lines = [
-        character?.name ? `角色：${character.name}` : "",
-        character?.role ? `身份：${character.role}` : "",
-        form.episodeRange ? `区间：${form.episodeRange}` : "",
-        form.identityOrState ? `状态：${form.identityOrState}` : "",
-        form.visualTags ? `视觉：${form.visualTags}` : "",
-        form.description ? form.description : "",
-    ].filter(Boolean);
-    return lines.join("\n");
-};
-
-const buildCharacterDetail = (character: Character) => {
-    const lines = [
-        character?.name ? `角色：${character.name}` : "",
-        character?.role ? `身份：${character.role}` : "",
-        character?.bio ? character.bio : "",
-    ].filter(Boolean);
-    return lines.join("\n");
-};
-
-const buildZoneDetail = (location: Location, zone: LocationZone) => {
-    const kindLabel: Record<LocationZone["kind"], string> = {
-        interior: "内景",
-        exterior: "外景",
-        transition: "过渡",
-        unspecified: "未标注",
-    };
-    const lines = [
-        location?.name ? `场景：${location.name}` : "",
-        zone?.name ? `分区：${zone.name}` : "",
-        zone?.kind ? `类型：${kindLabel[zone.kind] || zone.kind}` : "",
-        zone?.episodeRange ? `区间：${zone.episodeRange}` : "",
-        zone?.layoutNotes ? `布局：${zone.layoutNotes}` : "",
-        zone?.keyProps ? `道具：${zone.keyProps}` : "",
-        zone?.lightingWeather ? `光色：${zone.lightingWeather}` : "",
-        zone?.materialPalette ? `材质：${zone.materialPalette}` : "",
-    ].filter(Boolean);
-    return lines.join("\n");
-};
-
 export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, selected }) => {
     const { updateNodeData, labContext } = useWorkflowStore();
     const editorRef = useRef<HTMLDivElement>(null);
@@ -208,122 +148,31 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     const mentionTargets = useMemo(() => {
         const chars = labContext?.context?.characters || [];
         const locations = labContext?.context?.locations || [];
-
-        const formTargets: MentionTarget[] = chars.flatMap((c) =>
-            (c.forms || [])
-                .filter((f) => !!f.formName)
-                .map((f) => {
-                    const label = c.name ? `${f.formName} · ${c.name}` : f.formName;
-                    return {
-                        kind: "form" as const,
-                        name: f.formName,
-                        label,
-                        search: toSearch([f.formName, c.name, c.role, f.episodeRange, f.identityOrState, f.visualTags].filter(Boolean).join(" ")),
-                        characterId: c.id,
-                        characterName: c.name,
-                        formName: f.formName,
-                        summary: f.description,
-                        detail: buildFormDetail(c, f),
-                    };
-                })
-        );
-
-        const characterTargets: MentionTarget[] = chars
-            .filter((c) => !!c.name)
-            .map((c) => ({
-                kind: "character" as const,
-                name: c.name,
-                label: c.name,
-                search: toSearch([c.name, c.role, c.bio, ...(c.tags || [])].filter(Boolean).join(" ")),
-                characterId: c.id,
-                characterName: c.name,
-                summary: c.bio,
-                detail: buildCharacterDetail(c),
-            }));
-
-        const zoneTargets: MentionTarget[] = locations.flatMap((loc) =>
-            (loc.zones || [])
-                .filter((z) => !!z.name)
-                .map((z) => {
-                    const label = loc.name ? `${z.name} · ${loc.name}` : z.name;
-                    return {
-                        kind: "zone" as const,
-                        name: z.name,
-                        label,
-                        search: toSearch([z.name, loc.name, z.episodeRange, z.layoutNotes, z.keyProps, z.lightingWeather].filter(Boolean).join(" ")),
-                        locationId: loc.id,
-                        locationName: loc.name,
-                        zoneId: z.id,
-                        summary: z.layoutNotes || z.keyProps || z.lightingWeather || "",
-                        detail: buildZoneDetail(loc, z),
-                    };
-                })
-        );
-
-        return {
-            forms: formTargets,
-            characters: characterTargets,
-            zones: zoneTargets,
-            all: [...formTargets, ...characterTargets, ...zoneTargets],
-        };
+        return buildMentionTargets(chars, locations);
     }, [labContext]);
 
     const mentionIndex = useMemo(() => {
-        const map = new Map<string, MentionTarget[]>();
-        mentionTargets.all.forEach((item) => {
-            const key = toSearch(item.name);
-            const list = map.get(key) || [];
-            list.push(item);
-            map.set(key, list);
-        });
-        return map;
+        return buildMentionIndex(mentionTargets.all);
     }, [mentionTargets]);
 
     const resolveMention = useCallback(
         (name: string) => {
-            const list = mentionIndex.get(toSearch(name)) || [];
-            if (!list.length) return null;
-            return list.slice().sort((a, b) => mentionPriority[a.kind] - mentionPriority[b.kind])[0];
+            return resolveMentionTarget(name, mentionIndex);
         },
         [mentionIndex]
     );
 
-    const parseMentions = (text: string) => {
-        const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
-        const names: string[] = [];
-        matches.forEach((m) => {
-            const name = m.slice(1);
-            if (!names.includes(name)) names.push(name);
-        });
-        return names;
-    };
-
     const computeMentionMeta = useCallback(
         (text: string) => {
-            const names = parseMentions(text);
-            return names.map((n) => {
-                const hit = resolveMention(n);
-                return {
-                    name: n,
-                    status: hit ? "match" : "missing",
-                    kind: hit?.kind || "unknown",
-                    characterId: hit?.characterId,
-                    formName: hit?.formName,
-                    summary: hit?.summary,
-                    detail: hit?.detail,
-                    locationId: hit?.locationId,
-                    locationName: hit?.locationName,
-                    zoneId: hit?.zoneId,
-                };
-            });
+            return computeMentionData(text, mentionIndex);
         },
-        [resolveMention]
+        [mentionIndex]
     );
 
     const mentionState = useMemo(() => {
         const pos = Math.min(cursorPos, draftText.length);
         const textBefore = draftText.slice(0, pos);
-        const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
+        const match = textBefore.match(/@([\w\u4e00-\u9fa5\-\/]*)$/);
         if (!match) return null;
         const prevChar = textBefore.length > 1 ? textBefore[textBefore.length - match[0].length - 1] : "";
         if (prevChar && !/\s|[\(\[\{,，。:：;；"“”'‘’]/.test(prevChar)) return null;
@@ -357,7 +206,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         if (!draftText) return "";
         const parts: string[] = [];
         let lastIndex = 0;
-        const regex = /@([\w\u4e00-\u9fa5-]+)/g;
+        const regex = /@([\w\u4e00-\u9fa5\-\/]+)/g;
         let match: RegExpExecArray | null;
         while ((match = regex.exec(draftText))) {
             const start = match.index;
@@ -398,7 +247,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         isLocalUpdateRef.current = true;
         skipNextCursorUpdateRef.current = true;
         const mentions = computeMentionMeta(next);
-        updateNodeData(id, { text: next, atMentions: mentions });
+        updateNodeData(id, { text: next, atMentions: mentions.atMentions, entityBindings: mentions.entityBindings });
         requestAnimationFrame(() => {
             if (!el) return;
             el.focus();
@@ -417,7 +266,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         if (!isComposingRef.current) {
             isLocalUpdateRef.current = true;
             const mentions = computeMentionMeta(value);
-            updateNodeData(id, { text: value, atMentions: mentions });
+            updateNodeData(id, { text: value, atMentions: mentions.atMentions, entityBindings: mentions.entityBindings });
         }
     }, [computeMentionMeta, id, updateNodeData]);
 
@@ -426,7 +275,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         const end = mentionState ? mentionState.end : cursorPos;
         const before = draftText.slice(0, start);
         const after = draftText.slice(end);
-        const insertion = `@${target.name} `;
+        const insertion = `@${target.kind === "character" ? (target.characterName || target.name) : target.name} `;
         const next = `${before}${insertion}${after}`;
         const nextPos = start + insertion.length;
         setDraftText(next);
@@ -434,7 +283,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         pendingSelectionRef.current = nextPos;
         isLocalUpdateRef.current = true;
         const mentions = computeMentionMeta(next);
-        updateNodeData(id, { text: next, atMentions: mentions });
+        updateNodeData(id, { text: next, atMentions: mentions.atMentions, entityBindings: mentions.entityBindings });
         requestAnimationFrame(() => {
             const el = editorRef.current;
             if (!el) return;
@@ -527,7 +376,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         const text = data.text || draftText;
         if (!text.includes("@")) return;
         const mentions = computeMentionMeta(text);
-        updateNodeData(id, { atMentions: mentions });
+        updateNodeData(id, { atMentions: mentions.atMentions, entityBindings: mentions.entityBindings });
     }, [computeMentionMeta, data.text, draftText, id, mentionTargets, updateNodeData]);
 
     useEffect(() => {
@@ -612,7 +461,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         if (!isComposingRef.current && draftText !== data.text) {
                             isLocalUpdateRef.current = true;
                             const mentions = computeMentionMeta(draftText);
-                            updateNodeData(id, { text: draftText, atMentions: mentions });
+                            updateNodeData(id, { text: draftText, atMentions: mentions.atMentions, entityBindings: mentions.entityBindings });
                         }
                     }}
                     onCompositionStart={() => {

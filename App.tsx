@@ -39,6 +39,7 @@ import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
 import { MaterialsPanel } from './node-workspace/components/MaterialsPanel';
 import { UnderstandingPanel } from './node-workspace/components/UnderstandingPanel';
+import { WritingPanel } from './node-workspace/components/WritingPanel';
 import { SyncPanel } from './node-workspace/components/SyncPanel';
 import { InfoPanel } from './node-workspace/components/InfoPanel';
 import { ProjectorModule } from './components/ProjectorModule';
@@ -2153,11 +2154,20 @@ const App: React.FC = () => {
   let labModalTitle: string | null = null;
   let labModalWidth: number | string | undefined = undefined;
   let labModalContent: React.ReactNode = null;
-  if (openLabModal === "script") {
+  if (openLabModal === "writing") {
+    labModalTitle = "Writing";
+    labModalWidth = 1440;
+    labModalContent = (
+      <WritingPanel
+        projectData={projectData}
+        setProjectData={setProjectData}
+      />
+    );
+  } else if (openLabModal === "script") {
     labModalTitle = "Script";
     labModalWidth = 960;
     labModalContent = (
-      <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} characters={projectData.context.characters} />
+      <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />
     );
   } else if (openLabModal === "shots") {
     labModalTitle = "Shots";

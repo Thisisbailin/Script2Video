@@ -13,30 +13,60 @@ type Props = {
 
 export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const { updateNodeData, getConnectedInputs } = useWorkflowStore();
+  const labContext = useWorkflowStore((state) => state.labContext);
   const { runVideoGen } = useLabExecutor();
   const [showAdvanced, setShowAdvanced] = useState(true);
   const [progress, setProgress] = useState(0);
 
-  const { text: connectedText, images: connectedImages, atMentions, imageRefs } = getConnectedInputs(id);
+  const { text: connectedText, images: connectedImages, atMentions, entityBindings, imageRefs } = getConnectedInputs(id);
   const isLoading = data.status === "loading";
-  const formMentions = useMemo(
-    () => (atMentions || []).filter((m) => !m.kind || m.kind === "form"),
-    [atMentions]
-  );
+  const resolvedFormMentions = useMemo(() => {
+    const characters = labContext?.context?.characters || [];
+    const results: Array<{ name: string; status: "match" | "missing"; formId?: string }> = [];
+    const pushUnique = (item: { name: string; status: "match" | "missing"; formId?: string }) => {
+      if (results.find((entry) => entry.name === item.name && entry.formId === item.formId)) return;
+      results.push(item);
+    };
+    (entityBindings || []).forEach((binding) => {
+      if (binding.status !== "resolved") return;
+      if (binding.entityType === "form" && binding.characterId && binding.formId) {
+        const character = characters.find((entry) => entry.id === binding.characterId);
+        const form = character?.forms?.find((entry) => entry.id === binding.formId);
+        if (!form) return;
+        pushUnique({ name: form.formName, status: "match", formId: form.id });
+        return;
+      }
+      if (binding.entityType === "character" && binding.characterId) {
+        const character = characters.find((entry) => entry.id === binding.characterId);
+        const defaultForm =
+          (character?.binding?.defaultFormId
+            ? character?.forms?.find((entry) => entry.id === character.binding?.defaultFormId)
+            : undefined) ||
+          character?.forms?.find((entry) => entry.isDefault) ||
+          character?.forms?.[0];
+        if (!defaultForm) return;
+        pushUnique({ name: defaultForm.formName, status: "match", formId: defaultForm.id });
+      }
+    });
+    if (results.length) return results;
+    return (atMentions || [])
+      .filter((m) => !m.kind || m.kind === "form")
+      .map((m) => ({ name: m.formName || m.name, status: m.status, formId: (m as any).formId }));
+  }, [atMentions, entityBindings, labContext?.context?.characters]);
 
   const derivedSubjects = useMemo(() => {
     if (data.subjects && data.subjects.length) return data.subjects.map(s => ({ name: s.id || "subject", status: 'manual', images: s.images?.length || 0 }));
-    if (data.useCharacters !== false && formMentions.length) {
-      return formMentions.map((m, idx) => ({
-        name: m.formName || m.name,
+    if (data.useCharacters !== false && resolvedFormMentions.length) {
+      return resolvedFormMentions.map((m, idx) => ({
+        name: m.name,
         status: m.status,
-        images: (imageRefs || []).filter((r) => r.formTag && r.formTag.toLowerCase() === (m.formName || m.name).toLowerCase()).length
-          || (connectedImages.length ? Math.ceil(connectedImages.length / formMentions.length) : 0),
+        images: (imageRefs || []).filter((r) => r.formTag && r.formTag.toLowerCase() === m.name.toLowerCase()).length
+          || (connectedImages.length ? Math.ceil(connectedImages.length / resolvedFormMentions.length) : 0),
         order: idx + 1,
       }));
     }
     return [];
-  }, [data.subjects, data.useCharacters, formMentions, connectedImages.length, imageRefs]);
+  }, [data.subjects, data.useCharacters, resolvedFormMentions, connectedImages.length, imageRefs]);
 
   useEffect(() => {
     if (!isLoading) {

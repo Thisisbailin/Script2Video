@@ -400,6 +400,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const [bgTheme, setBgTheme] = useState<ThemeKey>("dark");
   const [bgPattern, setBgPattern] = useState<PatternKey>("grid");
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [themeAnchor, setThemeAnchor] = useState<DOMRect | null>(null);
   const [showAgentSettings, setShowAgentSettings] = useState(false);
   const [isQalamCollapsed, setIsQalamCollapsed] = useState(true);
   const [qalamOpenRequest, setQalamOpenRequest] = useState(0);
@@ -835,6 +836,52 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     }
   }, [activeTheme.bg, backgroundStyle]);
 
+  useEffect(() => {
+    if (!showThemeModal) return;
+
+    const updateAnchor = () => {
+      if (typeof document === "undefined") return;
+      const anchor = document.querySelector("[data-theme-trigger]") as HTMLElement | null;
+      if (anchor) {
+        setThemeAnchor(anchor.getBoundingClientRect());
+      }
+    };
+
+    updateAnchor();
+    window.addEventListener("resize", updateAnchor);
+    window.addEventListener("scroll", updateAnchor, true);
+
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+      window.removeEventListener("scroll", updateAnchor, true);
+    };
+  }, [showThemeModal]);
+
+  const themeModalStyle = useMemo<React.CSSProperties>(() => {
+    if (typeof window === "undefined" || !themeAnchor) {
+      return {
+        right: 24,
+        bottom: 80,
+        width: "min(420px,calc(100vw-24px))",
+      };
+    }
+
+    const viewportPadding = 12;
+    const width = Math.min(420, window.innerWidth - viewportPadding * 2);
+    const left = Math.max(
+      viewportPadding,
+      Math.min(themeAnchor.left + themeAnchor.width / 2 - width / 2, window.innerWidth - viewportPadding - width)
+    );
+    const bottom = Math.max(16, window.innerHeight - themeAnchor.top + 12);
+
+    return {
+      left,
+      bottom,
+      width,
+      maxWidth: `calc(100vw - ${viewportPadding * 2}px)`,
+    };
+  }, [themeAnchor]);
+
   return (
     <div className="h-full w-full flex flex-col app-text-primary" style={backgroundStyle}>
       <div
@@ -926,7 +973,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
         </div>
       </div>
       <div
-        className={`fixed left-1/2 bottom-4 z-40 pointer-events-none -translate-x-1/2 transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-x-0 bottom-4 z-40 flex justify-center pointer-events-none transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isQalamCollapsed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
@@ -958,7 +1005,12 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             onExportUnderstandingJson={onExportUnderstandingJson}
             onOpenStats={onOpenStats}
             onToggleTheme={onToggleTheme}
-            onOpenTheme={() => setShowThemeModal(true)}
+            onOpenTheme={(anchorRect) => {
+              if (anchorRect) {
+                setThemeAnchor(anchorRect);
+              }
+              setShowThemeModal(true);
+            }}
             isDarkMode={isDarkMode}
             onOpenSyncPanel={onOpenSyncPanel}
             syncIndicator={syncIndicator}
@@ -1026,7 +1078,10 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
       {showThemeModal && (
         <>
           <div className="theme-modal-backdrop fixed inset-0 z-50" onClick={() => setShowThemeModal(false)} />
-          <div className="theme-modal fixed bottom-20 right-6 z-50 w-[min(420px,calc(100vw-24px))] max-h-[min(72dvh,720px)] overflow-x-hidden overflow-y-auto rounded-[28px] p-4 sm:p-4.5">
+          <div
+            className="theme-modal fixed z-50 max-h-[min(72dvh,720px)] overflow-x-hidden overflow-y-auto rounded-[28px] p-4 sm:p-4.5"
+            style={themeModalStyle}
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="theme-modal-eyebrow">Workspace Styling</div>

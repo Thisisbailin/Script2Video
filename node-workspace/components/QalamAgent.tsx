@@ -21,7 +21,7 @@ import { QalamChatContent } from "./qalam/QalamChatContent";
 import type { ChatMessage, Message } from "./qalam/types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { inferRequestedOutcome } from "../../agents/adapters/qalamMessageAdapter";
-import type { Script2VideoAgentBridge, WorkflowNodeLookupInput } from "../../agents/bridge/script2videoBridge";
+import type { Script2VideoAgentBridge, WorkflowBuilderHandle, WorkflowNodeLookupInput } from "../../agents/bridge/script2videoBridge";
 import { createNodeWorkflowWithBridge } from "../../agents/bridge/workflowBuilder";
 import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
 import { createHttpScript2VideoAgentRuntime } from "../../agents/runtime/httpClient";
@@ -99,8 +99,8 @@ const lookupWorkflowNodeSnapshot = (
     nodeId: node.id,
     nodeRef: resolvedRef || Object.entries(nodeRefs).find(([, value]) => value === node.id)?.[0],
     nodeType: node.type,
-    inputHandles: handles.inputs,
-    outputHandles: handles.outputs,
+    inputHandles: handles.inputs as WorkflowBuilderHandle[],
+    outputHandles: handles.outputs as WorkflowBuilderHandle[],
   };
 };
 
@@ -122,7 +122,7 @@ const resolveAgentRuntimeTarget = (
 };
 
 const parseMentions = (text: string) => {
-  const matches = text.match(/@([\w\u4e00-\u9fa5-]+)/g) || [];
+  const matches: string[] = text.match(/@([\w\u4e00-\u9fa5\-\/]+)/g) || [];
   const names: string[] = [];
   matches.forEach((m) => {
     const name = m.slice(1);
@@ -365,10 +365,10 @@ export const QalamAgent: React.FC<Props> = ({
           nodeType: type,
           node_type: type,
           title: resolvedTitle,
-          defaultOutputHandle: nodeHandles.outputs[0] ?? null,
-          default_output_handle: nodeHandles.outputs[0] ?? null,
-          defaultInputHandles: nodeHandles.inputs,
-          default_input_handles: nodeHandles.inputs,
+          defaultOutputHandle: (nodeHandles.outputs[0] as WorkflowBuilderHandle | undefined) ?? null,
+          default_output_handle: (nodeHandles.outputs[0] as WorkflowBuilderHandle | undefined) ?? null,
+          defaultInputHandles: nodeHandles.inputs as WorkflowBuilderHandle[],
+          default_input_handles: nodeHandles.inputs as WorkflowBuilderHandle[],
         };
       },
       getWorkflowNode: ({ nodeId, nodeRef }) =>
@@ -507,12 +507,19 @@ export const QalamAgent: React.FC<Props> = ({
     const targets: Array<{ kind: "character" | "location"; name: string; label: string; search: string; id?: string }> = [];
     (projectData.context?.characters || []).forEach((c) => {
       if (!c?.name) return;
-      targets.push({
-        kind: "character",
-        name: c.name,
-        label: `角色 · ${c.name}`,
-        search: toSearch(c.name),
-        id: c.id,
+      const aliases = [c.name, ...((c.aliases || []).map((item) => item.value))].filter(Boolean);
+      const seen = new Set<string>();
+      aliases.forEach((alias) => {
+        const key = toSearch(alias);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        targets.push({
+          kind: "character",
+          name: alias,
+          label: alias === c.name ? `角色 · ${c.name}` : `角色 · ${c.name}（别名）`,
+          search: toSearch([alias, c.name, c.role, c.bio, ...(c.tags || [])].filter(Boolean).join(" ")),
+          id: c.id,
+        });
       });
     });
     (projectData.context?.locations || []).forEach((l) => {
@@ -539,7 +546,7 @@ export const QalamAgent: React.FC<Props> = ({
   const mentionState = useMemo(() => {
     const pos = Math.min(cursorPos, input.length);
     const textBefore = input.slice(0, pos);
-    const match = textBefore.match(/@([\w\u4e00-\u9fa5-]*)$/);
+    const match = textBefore.match(/@([\w\u4e00-\u9fa5\-\/]*)$/);
     if (!match) return null;
     return {
       query: match[1] || "",

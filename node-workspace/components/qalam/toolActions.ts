@@ -1,31 +1,127 @@
 import type { Character, Episode, Location, ProjectData, Scene } from "../../../types";
-import { createStableId, ensureStableId } from "../../../utils/id";
+import { createStableId, ensureStableId, ensureTypedStableId } from "../../../utils/id";
 
 type UpsertResult = { next: ProjectData; result: any };
 type ReadResult = { result: any };
 
 const hasKey = (obj: any, key: string) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+const toTrimmedString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+const toOptionalString = (value: unknown) => {
+  const trimmed = toTrimmedString(value);
+  return trimmed || undefined;
+};
+const slugifyIdentityKey = (value: string, fallback: string) => {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_/]+/g, "-")
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized || fallback;
+};
+const uniqStrings = (values: Array<string | undefined | null>) => {
+  const seen = new Set<string>();
+  return values
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => {
+      if (!item) return false;
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+const normalizeCharacterAliases = (inputAliases: any[] | undefined, name: string, existingAliases: Character["aliases"] = []) => {
+  const source = Array.isArray(inputAliases) ? inputAliases : existingAliases || [];
+  const seen = new Set<string>();
+  const aliases = source
+    .map((entry: any, index) => {
+      const value = typeof entry === "string" ? entry.trim() : toTrimmedString(entry?.value);
+      if (!value) return null;
+      const normalized = value.toLowerCase();
+      if (seen.has(normalized)) return null;
+      seen.add(normalized);
+      return {
+        id: ensureStableId(typeof entry === "object" ? entry?.id : undefined, "alias"),
+        value,
+        kind:
+          entry?.kind === "primary" || entry?.kind === "alias" || entry?.kind === "title" || entry?.kind === "short" || entry?.kind === "legacy"
+            ? entry.kind
+            : index === 0
+              ? "alias"
+              : "alias",
+        normalized,
+      };
+    })
+    .filter(Boolean) as NonNullable<Character["aliases"]>;
+
+  const primaryValue = name.trim();
+  if (primaryValue) {
+    const normalized = primaryValue.toLowerCase();
+    const existingPrimary = aliases.find((item) => item.normalized === normalized);
+    if (existingPrimary) {
+      existingPrimary.kind = "primary";
+      existingPrimary.value = primaryValue;
+      existingPrimary.normalized = normalized;
+    } else {
+      aliases.unshift({
+        id: ensureStableId(undefined, "alias"),
+        value: primaryValue,
+        kind: "primary",
+        normalized,
+      });
+    }
+  }
+  return aliases;
+};
+const finalizeCharacterForms = (forms: any[], characterId: string) => {
+  let defaultAssigned = false;
+  const normalized = forms.map((form, index) => {
+    const next = {
+      ...form,
+      id: ensureStableId(form?.id, "form"),
+      characterId,
+      key: toOptionalString(form?.key) || slugifyIdentityKey(toTrimmedString(form?.formName), index === 0 ? "default" : `form-${index + 1}`),
+      aliases: uniqStrings(Array.isArray(form?.aliases) ? form.aliases : []),
+      formName: toTrimmedString(form?.formName) || "默认",
+      episodeRange: toTrimmedString(form?.episodeRange),
+      description: toTrimmedString(form?.description),
+      visualTags: toTrimmedString(form?.visualTags),
+    };
+    const shouldBeDefault = form?.isDefault === true && !defaultAssigned;
+    if (shouldBeDefault) defaultAssigned = true;
+    return {
+      ...next,
+      isDefault: shouldBeDefault,
+    };
+  });
+  if (!defaultAssigned && normalized[0]) normalized[0].isDefault = true;
+  return normalized;
+};
 
 const mergeCharacterForms = (
   existingForms: any[],
   incomingForms: any[] | undefined,
   mode: "merge" | "replace",
-  formsToDelete: string[]
+  formsToDelete: string[],
+  characterId: string
 ) => {
   if (!Array.isArray(existingForms)) existingForms = [];
   const deleteSet = new Set(formsToDelete || []);
   if (!Array.isArray(incomingForms)) {
-    return existingForms.filter((form) => !deleteSet.has(form.id));
+    return finalizeCharacterForms(existingForms.filter((form) => !deleteSet.has(form.id)), characterId);
   }
-
-  const normalizedIncoming = incomingForms.map((form) => ({
-    ...form,
-    id: ensureStableId(form?.id, "form"),
-  }));
+  const normalizedIncoming = incomingForms.map((form) => ({ ...form }));
 
   if (mode === "replace") {
     const next = normalizedIncoming.map((form) => ({
-      id: form.id,
+      id: ensureStableId(form?.id, "form"),
+      characterId,
+      key: toOptionalString(form?.key),
+      type: form?.type,
+      isDefault: form?.isDefault === true,
+      aliases: uniqStrings(Array.isArray(form?.aliases) ? form.aliases : []),
       formName: form.formName || "默认",
       episodeRange: form.episodeRange || "",
       description: form.description || "",
@@ -50,18 +146,29 @@ const mergeCharacterForms = (
       voicePrompt: form.voicePrompt,
       previewAudioUrl: form.previewAudioUrl,
     }));
-    return next.filter((form) => !deleteSet.has(form.id));
+    return finalizeCharacterForms(next.filter((form) => !deleteSet.has(form.id)), characterId);
   }
 
   const nextForms = existingForms.map((form) => ({ ...form }));
   const indexById = new Map(nextForms.map((form, idx) => [form.id, idx]));
+  const indexByName = new Map(
+    nextForms.map((form, idx) => [toTrimmedString(form.formName || "默认").toLowerCase(), idx])
+  );
   const additions: any[] = [];
 
   normalizedIncoming.forEach((incoming) => {
-    const idx = indexById.get(incoming.id);
+    const incomingId = toOptionalString(incoming?.id);
+    const incomingNameKey = toTrimmedString(incoming?.formName || "默认").toLowerCase();
+    const idx = (incomingId ? indexById.get(incomingId) : undefined) ?? indexByName.get(incomingNameKey);
     if (idx !== undefined) {
       const current = nextForms[idx];
       const updated = { ...current };
+      updated.id = current.id || ensureStableId(incomingId, "form");
+      updated.characterId = characterId;
+      if (hasKey(incoming, "key")) updated.key = incoming.key;
+      if (hasKey(incoming, "type")) updated.type = incoming.type;
+      if (hasKey(incoming, "isDefault")) updated.isDefault = incoming.isDefault === true;
+      if (hasKey(incoming, "aliases")) updated.aliases = uniqStrings(Array.isArray(incoming.aliases) ? incoming.aliases : []);
       if (hasKey(incoming, "formName")) updated.formName = incoming.formName;
       if (hasKey(incoming, "episodeRange")) updated.episodeRange = incoming.episodeRange;
       if (hasKey(incoming, "description")) updated.description = incoming.description;
@@ -89,7 +196,12 @@ const mergeCharacterForms = (
       return;
     }
     additions.push({
-      id: incoming.id,
+      id: ensureStableId(incomingId, "form"),
+      characterId,
+      key: toOptionalString(incoming?.key),
+      type: incoming?.type,
+      isDefault: incoming?.isDefault === true,
+      aliases: uniqStrings(Array.isArray(incoming?.aliases) ? incoming.aliases : []),
       formName: incoming.formName || "默认",
       episodeRange: incoming.episodeRange || "",
       description: incoming.description || "",
@@ -116,7 +228,7 @@ const mergeCharacterForms = (
     });
   });
 
-  return [...nextForms, ...additions].filter((form) => !deleteSet.has(form.id));
+  return finalizeCharacterForms([...nextForms, ...additions].filter((form) => !deleteSet.has(form.id)), characterId);
 };
 
 const mergeLocationZones = (
@@ -249,27 +361,41 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
   if (!existing && !name) {
     throw new Error("缺少角色名称，无法创建角色。");
   }
-  const id = input.id || existing?.id || createStableId("char");
+  const id = ensureTypedStableId(input.id || existing?.id, "char");
 
   let next: Character = existing
     ? { ...existing }
     : {
         id,
         name: name || "",
+        slug: slugifyIdentityKey(name || id, id),
         role: "",
         isMain: false,
         bio: "",
         forms: [],
+        aliases: [],
+        status: "draft",
+        binding: {
+          canonicalMention: name || "",
+          defaultVoiceScope: "character",
+          mentionPolicy: "character-first",
+        },
+        version: 1,
       };
 
   if (mergeStrategy === "replace") {
     next = {
       id,
       name: name || existing?.name || "",
+      slug: existing?.slug || slugifyIdentityKey(name || existing?.name || id, id),
       role: "",
       isMain: false,
       bio: "",
       forms: Array.isArray(existing?.forms) ? existing?.forms : [],
+      aliases: existing?.aliases,
+      status: existing?.status,
+      binding: existing?.binding,
+      version: existing?.version,
       assetPriority: existing?.assetPriority,
       archetype: existing?.archetype,
       episodeUsage: existing?.episodeUsage,
@@ -286,6 +412,9 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
   if (hasKey(input, "archetype")) next.archetype = input.archetype;
   if (hasKey(input, "episodeUsage")) next.episodeUsage = input.episodeUsage;
   if (hasKey(input, "tags")) next.tags = input.tags;
+  if (hasKey(input, "slug")) next.slug = input.slug;
+  if (hasKey(input, "status")) next.status = input.status;
+  if (hasKey(input, "version")) next.version = input.version;
 
   const hasIncomingForms = Array.isArray(input.forms);
   if (hasIncomingForms || formsToDelete.length > 0) {
@@ -293,9 +422,45 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
       next.forms || [],
       hasIncomingForms ? input.forms : undefined,
       formsMode,
-      formsToDelete
+      formsToDelete,
+      id
     );
   }
+  if (!Array.isArray(next.forms)) next.forms = [];
+  next.forms = finalizeCharacterForms(next.forms, id);
+
+  next.id = id;
+  next.slug = toOptionalString(next.slug) || slugifyIdentityKey(next.name || id, id);
+  next.aliases = normalizeCharacterAliases(Array.isArray(input.aliases) ? input.aliases : undefined, next.name || "", next.aliases);
+  const bindingInput = input.binding && typeof input.binding === "object" ? input.binding : {};
+  const explicitDefaultFormId = toOptionalString(bindingInput.defaultFormId);
+  const availableDefaultFormId =
+    (explicitDefaultFormId && next.forms.find((form) => form.id === explicitDefaultFormId)?.id) ||
+    next.forms.find((form) => form.isDefault)?.id ||
+    next.forms[0]?.id;
+  next.binding = {
+    canonicalMention:
+      toOptionalString(bindingInput.canonicalMention) ||
+      next.aliases?.find((item) => item.kind === "primary")?.value ||
+      next.name,
+    defaultFormId: availableDefaultFormId,
+    defaultVoiceScope:
+      bindingInput.defaultVoiceScope === "form" || bindingInput.defaultVoiceScope === "character"
+        ? bindingInput.defaultVoiceScope
+        : next.binding?.defaultVoiceScope || "character",
+    mentionPolicy:
+      bindingInput.mentionPolicy === "form-first" || bindingInput.mentionPolicy === "character-first"
+        ? bindingInput.mentionPolicy
+        : next.binding?.mentionPolicy || "character-first",
+  };
+  next.status =
+    next.status === "draft" || next.status === "verified" || next.status === "locked" || next.status === "archived"
+      ? next.status
+      : "draft";
+  next.version =
+    typeof input.version === "number" && Number.isFinite(input.version)
+      ? input.version
+      : Math.max(1, (typeof existing?.version === "number" ? existing.version : 0) + 1);
 
   const designAssets = updateDesignAssetsForCharacter(prev.designAssets || [], next, formsToDelete);
   const updatedChars = [...chars];
@@ -316,6 +481,8 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
       action: existing ? "updated" : "created",
       id: next.id,
       name: next.name,
+      canonicalMention: next.binding?.canonicalMention,
+      defaultFormId: next.binding?.defaultFormId,
       formsCount: (next.forms || []).length,
     },
   };

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   User,
@@ -70,7 +70,7 @@ type Props = {
   onOpenModule?: (key: ModuleKey) => void;
   onOpenStats?: () => void;
   onToggleTheme?: () => void;
-  onOpenTheme?: () => void;
+  onOpenTheme?: (anchorRect?: DOMRect) => void;
   isDarkMode?: boolean;
   onOpenSyncPanel?: () => void;
   syncIndicator?: { label: string; color: string } | null;
@@ -158,6 +158,9 @@ export const FloatingActionBar: React.FC<Props> = ({
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const nodesButtonRef = useRef<HTMLButtonElement>(null);
+  const [accountAnchorRect, setAccountAnchorRect] = useState<DOMRect | null>(null);
+  const [projectAnchorRect, setProjectAnchorRect] = useState<DOMRect | null>(null);
+  const [nodesAnchorRect, setNodesAnchorRect] = useState<DOMRect | null>(null);
   const rootClass = isEmbedded
     ? "relative z-30 w-full"
     : floating
@@ -183,18 +186,17 @@ export const FloatingActionBar: React.FC<Props> = ({
     "group inline-flex h-8 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 text-[11px] font-medium tracking-[-0.01em] text-[var(--app-text-secondary)] transition hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
   const toolbarChipClass =
     "group inline-flex h-9 items-center gap-2 rounded-full border border-[var(--app-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))] px-3.5 text-[11px] font-semibold tracking-[0.01em] text-[var(--app-text-secondary)] transition duration-200 hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text-primary)] active:translate-y-px";
-  const getPopoverStyle = (buttonRef: React.RefObject<HTMLButtonElement>, desiredWidth: number): React.CSSProperties | undefined => {
+  const getPopoverStyle = (anchorRect: DOMRect | null, desiredWidth: number): React.CSSProperties | undefined => {
     if (typeof window === "undefined") return undefined;
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return undefined;
+    if (!anchorRect) return undefined;
     const viewportPadding = 16;
     const width = Math.min(desiredWidth, window.innerWidth - viewportPadding * 2);
     const left = Math.max(
       viewportPadding,
-      Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - viewportPadding - width)
+      Math.min(anchorRect.left + anchorRect.width / 2 - width / 2, window.innerWidth - viewportPadding - width)
     );
     const gap = 12;
-    const bottom = Math.max(16, window.innerHeight - rect.top + gap);
+    const bottom = Math.max(16, window.innerHeight - anchorRect.top + gap);
     return {
       position: "fixed",
       left,
@@ -203,9 +205,35 @@ export const FloatingActionBar: React.FC<Props> = ({
       maxWidth: `calc(100vw - ${viewportPadding * 2}px)`,
     };
   };
-  const templatePopoverStyle = useMemo(() => getPopoverStyle(projectButtonRef, 408), [showTemplate]);
-  const palettePopoverStyle = useMemo(() => getPopoverStyle(nodesButtonRef, 720), [showPalette]);
-  const fileMenuPopoverStyle = useMemo(() => getPopoverStyle(accountButtonRef, 420), [showFileMenu]);
+  const templatePopoverStyle = useMemo(() => getPopoverStyle(projectAnchorRect, 408), [projectAnchorRect]);
+  const palettePopoverStyle = useMemo(() => getPopoverStyle(nodesAnchorRect, 720), [nodesAnchorRect]);
+  const fileMenuPopoverStyle = useMemo(() => getPopoverStyle(accountAnchorRect, 420), [accountAnchorRect]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!showFileMenu && !showTemplate && !showPalette) return undefined;
+
+    const updateAnchors = () => {
+      if (showFileMenu && accountButtonRef.current) {
+        setAccountAnchorRect(accountButtonRef.current.getBoundingClientRect());
+      }
+      if (showTemplate && projectButtonRef.current) {
+        setProjectAnchorRect(projectButtonRef.current.getBoundingClientRect());
+      }
+      if (showPalette && nodesButtonRef.current) {
+        setNodesAnchorRect(nodesButtonRef.current.getBoundingClientRect());
+      }
+    };
+
+    updateAnchors();
+    window.addEventListener("resize", updateAnchors);
+    window.addEventListener("scroll", updateAnchors, true);
+
+    return () => {
+      window.removeEventListener("resize", updateAnchors);
+      window.removeEventListener("scroll", updateAnchors, true);
+    };
+  }, [showFileMenu, showPalette, showTemplate]);
 
   const panelActions = [
     { label: "剧本面板", hint: "按集与场景浏览剧本", meta: "Panel", onClick: onAddScriptBoard, Icon: BookOpen, tone: "text-sky-300", surface: "bg-sky-500/12" },
@@ -223,6 +251,7 @@ export const FloatingActionBar: React.FC<Props> = ({
     { label: "WAN Ref Vid", hint: "Wan 2.6 reference-to-video", meta: "Motion", onClick: onAddWanReferenceVideoGen, Icon: Video, tone: "text-fuchsia-300", surface: "bg-fuchsia-500/12" },
   ];
   const projectModules = [
+    { key: "writing" as ModuleKey, label: "Writing", desc: "结构化写作", Icon: FileCode, tone: "text-fuchsia-300", surface: "bg-fuchsia-500/10" },
     { key: "script" as ModuleKey, label: "Script", desc: "剧本与解析", Icon: FileText, tone: "text-sky-300", surface: "bg-sky-500/10" },
     { key: "shots" as ModuleKey, label: "Shots", desc: "分镜与镜头", Icon: List, tone: "text-amber-300", surface: "bg-amber-500/10" },
     { key: "understanding" as ModuleKey, label: "理解", desc: "理解快照", Icon: BookOpen, tone: "text-yellow-200", surface: "bg-yellow-500/10" },
@@ -317,7 +346,7 @@ export const FloatingActionBar: React.FC<Props> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <div className={sectionEyebrowClass}>Workspace</div>
-                  <div className="text-[10px] text-[var(--app-text-muted)]">8 modules</div>
+                  <div className="text-[10px] text-[var(--app-text-muted)]">{projectModules.length} modules</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {projectModules.map(({ key, label, desc, Icon, tone, surface }) => (
@@ -1051,7 +1080,8 @@ export const FloatingActionBar: React.FC<Props> = ({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 ref={accountButtonRef}
-                onClick={() => {
+                onClick={(event) => {
+                  setAccountAnchorRect(event.currentTarget.getBoundingClientRect());
                   setShowFileMenu((v) => !v);
                   setShowPalette(false);
                   setShowTemplate(false);
@@ -1066,7 +1096,8 @@ export const FloatingActionBar: React.FC<Props> = ({
 
               <button
                 ref={projectButtonRef}
-                onClick={() => {
+                onClick={(event) => {
+                  setProjectAnchorRect(event.currentTarget.getBoundingClientRect());
                   setShowTemplate((v) => !v);
                   setShowPalette(false);
                   setShowFileMenu(false);
@@ -1098,7 +1129,8 @@ export const FloatingActionBar: React.FC<Props> = ({
 
               <button
                 ref={nodesButtonRef}
-                onClick={() => {
+                onClick={(event) => {
+                  setNodesAnchorRect(event.currentTarget.getBoundingClientRect());
                   setShowPalette((v) => !v);
                   setShowFileMenu(false);
                   setShowTemplate(false);
@@ -1112,14 +1144,15 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
-                onClick={() => {
+                onClick={(event) => {
                   setShowPalette(false);
                   setShowTemplate(false);
                   setShowFileMenu(false);
                   setShowWip(false);
-                  onOpenTheme?.();
+                  onOpenTheme?.(event.currentTarget.getBoundingClientRect());
                   onToggleTheme?.();
                 }}
+                data-theme-trigger
                 className={toolbarChipClass}
                 title={syncIndicator?.label || "Theme"}
               >
@@ -1143,7 +1176,8 @@ export const FloatingActionBar: React.FC<Props> = ({
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
               <button
                 ref={accountButtonRef}
-                onClick={() => {
+                onClick={(event) => {
+                  setAccountAnchorRect(event.currentTarget.getBoundingClientRect());
                   setShowFileMenu((v) => !v);
                   setShowPalette(false);
                   setShowTemplate(false);
@@ -1158,7 +1192,8 @@ export const FloatingActionBar: React.FC<Props> = ({
 
               <button
                 ref={projectButtonRef}
-                onClick={() => {
+                onClick={(event) => {
+                  setProjectAnchorRect(event.currentTarget.getBoundingClientRect());
                   setShowTemplate((v) => !v);
                   setShowPalette(false);
                   setShowFileMenu(false);
@@ -1189,7 +1224,8 @@ export const FloatingActionBar: React.FC<Props> = ({
 
               <button
                 ref={nodesButtonRef}
-                onClick={() => {
+                onClick={(event) => {
+                  setNodesAnchorRect(event.currentTarget.getBoundingClientRect());
                   setShowPalette((v) => !v);
                   setShowFileMenu(false);
                   setShowTemplate(false);
@@ -1203,14 +1239,15 @@ export const FloatingActionBar: React.FC<Props> = ({
               </button>
 
               <button
-                onClick={() => {
+                onClick={(event) => {
                   setShowPalette(false);
                   setShowTemplate(false);
                   setShowFileMenu(false);
                   setShowWip(false);
-                  onOpenTheme?.();
+                  onOpenTheme?.(event.currentTarget.getBoundingClientRect());
                   onToggleTheme?.();
                 }}
+                data-theme-trigger
                 className={embeddedLabelClass}
                 title={syncIndicator?.label || "Theme"}
               >

@@ -1,5 +1,5 @@
 import { Character, CharacterForm, DesignAssetItem, Episode, Location, LocationZone, ProjectContext, ProjectData, Shot } from "../types";
-import { ensureStableId } from "./id";
+import { ensureStableId, ensureTypedStableId } from "./id";
 import { INITIAL_PROJECT_DATA } from "../constants";
 
 const stripConflictMarkers = (value: string) => {
@@ -37,6 +37,68 @@ const toOptionalNumber = (value: unknown) => {
     if (Number.isFinite(num)) return num;
   }
   return undefined;
+};
+
+const slugifyIdentityKey = (value: string, fallback: string) => {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_/]+/g, "-")
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized || fallback;
+};
+
+const normalizeCharacterAliases = (character: any, name: string) => {
+  const rawAliases = Array.isArray(character?.aliases) ? character.aliases : [];
+  const seen = new Set<string>();
+  const aliases = rawAliases
+    .map((entry: any, index: number) => {
+      const value = typeof entry === "string" ? entry.trim() : toSafeString(entry?.value).trim();
+      if (!value) return null;
+      const normalized = value.toLowerCase();
+      if (seen.has(normalized)) return null;
+      seen.add(normalized);
+      return {
+        id: ensureStableId(typeof entry === "object" ? entry?.id : undefined, "alias"),
+        value,
+        kind:
+          entry?.kind === "primary" || entry?.kind === "alias" || entry?.kind === "title" || entry?.kind === "short" || entry?.kind === "legacy"
+            ? entry.kind
+            : index === 0
+              ? "alias"
+              : "alias",
+        normalized,
+      };
+    })
+    .filter(Boolean) as NonNullable<Character["aliases"]>;
+
+  if (name.trim()) {
+    const normalized = name.trim().toLowerCase();
+    if (!seen.has(normalized)) {
+      aliases.unshift({
+        id: ensureStableId(undefined, "alias"),
+        value: name.trim(),
+        kind: "primary",
+        normalized,
+      });
+    } else {
+      const primary = aliases.find((item) => item.value.trim().toLowerCase() === normalized);
+      if (primary) primary.kind = "primary";
+    }
+  }
+
+  const legacyId = typeof character?.id === "string" ? character.id.trim() : "";
+  if (legacyId && !legacyId.startsWith("char-") && legacyId.toLowerCase() !== name.trim().toLowerCase() && !seen.has(legacyId.toLowerCase())) {
+    aliases.push({
+      id: ensureStableId(undefined, "alias"),
+      value: legacyId,
+      kind: "legacy",
+      normalized: legacyId.toLowerCase(),
+    });
+  }
+  return aliases;
 };
 
 export const normalizeVideoParams = (params?: Shot["videoParams"]) => {
@@ -99,6 +161,21 @@ const normalizeCharacterForm = (form: any): CharacterForm => {
   return {
     ...form,
     id: ensureStableId(form.id, "form"),
+    characterId: toOptionalString(form.characterId),
+    key: toOptionalString(form.key),
+    type:
+      form.type === "default" ||
+      form.type === "age" ||
+      form.type === "costume" ||
+      form.type === "identity" ||
+      form.type === "state" ||
+      form.type === "disguise" ||
+      form.type === "battle" ||
+      form.type === "special"
+        ? form.type
+        : undefined,
+    isDefault: typeof form.isDefault === "boolean" ? form.isDefault : undefined,
+    aliases: Array.isArray(form.aliases) ? form.aliases.map((item: any) => toSafeString(item)).filter(Boolean) : undefined,
     formName: toSafeString(form.formName),
     episodeRange: toSafeString(form.episodeRange),
     description: toSafeString(form.description),
@@ -133,17 +210,53 @@ const normalizeCharacter = (character: any): Character => {
       forms: []
     };
   }
+  const name = toSafeString(character.name);
+  const characterId = ensureTypedStableId(character.id, "char");
   const forms = Array.isArray(character.forms)
     ? character.forms.map(normalizeCharacterForm)
     : [];
+  const normalizedForms = forms.map((form, index) => {
+    const fallbackKey = index === 0 ? "default" : `form-${index + 1}`;
+    return {
+      ...form,
+      characterId,
+      key: form.key || slugifyIdentityKey(form.formName || "", fallbackKey),
+      isDefault: typeof form.isDefault === "boolean" ? form.isDefault : index === 0,
+    };
+  });
+  const aliases = normalizeCharacterAliases(character, name);
+  const canonicalMention = aliases.find((item) => item.kind === "primary")?.value || name || characterId;
+  const defaultFormId = normalizedForms.find((item) => item.isDefault)?.id || normalizedForms[0]?.id;
   return {
     ...character,
-    id: toSafeString(character.id || character.name),
-    name: toSafeString(character.name),
+    id: characterId,
+    slug: toOptionalString(character.slug) || slugifyIdentityKey(name, characterId),
+    name,
     role: toSafeString(character.role),
     isMain: typeof character.isMain === "boolean" ? character.isMain : false,
     bio: toSafeString(character.bio),
-    forms,
+    forms: normalizedForms,
+    aliases,
+    status:
+      character.status === "draft" ||
+      character.status === "verified" ||
+      character.status === "locked" ||
+      character.status === "archived"
+        ? character.status
+        : "draft",
+    binding: {
+      canonicalMention,
+      defaultFormId,
+      defaultVoiceScope:
+        character.binding?.defaultVoiceScope === "form" || character.binding?.defaultVoiceScope === "character"
+          ? character.binding.defaultVoiceScope
+          : "character",
+      mentionPolicy:
+        character.binding?.mentionPolicy === "form-first" || character.binding?.mentionPolicy === "character-first"
+          ? character.binding.mentionPolicy
+          : "character-first",
+    },
+    version: typeof character.version === "number" && Number.isFinite(character.version) ? character.version : 1,
     assetPriority: character.assetPriority,
     archetype: toOptionalString(character.archetype),
     episodeUsage: toOptionalString(character.episodeUsage)
@@ -223,11 +336,17 @@ const remapDesignAssets = (assets: DesignAssetItem[], context: ProjectContext): 
 
   (context.characters || []).forEach((char) => {
     (char.forms || []).forEach((form) => {
-      const oldRefId = `${char.id}|${form.formName}`;
       const newRefId = `${char.id}|${form.id}`;
-      if (oldRefId !== newRefId) {
-        formRefMap.set(oldRefId, { refId: newRefId, label: `${char.name} · ${form.formName}` });
-      }
+      const legacyRefIds = new Set<string>([
+        `${char.id}|${form.formName}`,
+        `${char.name}|${form.formName}`,
+      ]);
+      (char.aliases || []).forEach((alias) => legacyRefIds.add(`${alias.value}|${form.formName}`));
+      legacyRefIds.forEach((oldRefId) => {
+        if (oldRefId !== newRefId) {
+          formRefMap.set(oldRefId, { refId: newRefId, label: `${char.name} · ${form.formName}` });
+        }
+      });
     });
   });
 

@@ -99,6 +99,7 @@ export const getSceneScriptSchema = z.object({
 export const upsertCharacterSchema = z.object({
   character: z.object({
     id: z.string().optional(),
+    slug: z.string().optional(),
     name: z.string(),
     role: z.string().optional(),
     isMain: z.boolean().optional(),
@@ -107,10 +108,34 @@ export const upsertCharacterSchema = z.object({
     episodeUsage: z.string().optional(),
     archetype: z.string().optional(),
     tags: z.array(z.string()).optional(),
+    aliases: z.array(
+      z.union([
+        z.string(),
+        z.object({
+          id: z.string().optional(),
+          value: z.string(),
+          kind: z.enum(["primary", "alias", "title", "short", "legacy"]).optional(),
+          normalized: z.string().optional(),
+        }),
+      ])
+    ).optional(),
+    status: z.enum(["draft", "verified", "locked", "archived"]).optional(),
+    version: z.number().int().optional(),
+    binding: z.object({
+      canonicalMention: z.string().optional(),
+      defaultFormId: z.string().optional(),
+      defaultVoiceScope: z.enum(["character", "form"]).optional(),
+      mentionPolicy: z.enum(["character-first", "form-first"]).optional(),
+    }).optional(),
     forms: z.array(
       z.object({
         id: z.string().optional(),
         formName: z.string(),
+        characterId: z.string().optional(),
+        key: z.string().optional(),
+        type: z.enum(["default", "age", "costume", "identity", "state", "disguise", "battle", "special"]).optional(),
+        isDefault: z.boolean().optional(),
+        aliases: z.array(z.string()).optional(),
         episodeRange: z.string(),
         description: z.string().optional(),
         visualTags: z.string().optional(),

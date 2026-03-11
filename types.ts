@@ -113,6 +113,11 @@ export type ActiveTab = 'script' | 'understanding' | 'table' | 'visuals' | 'vide
 export interface CharacterForm {
   id: string;
   formName: string; // e.g. "Youth", "Blackened", "General"
+  characterId?: string;
+  key?: string;
+  type?: "default" | "age" | "costume" | "identity" | "state" | "disguise" | "battle" | "special";
+  isDefault?: boolean;
+  aliases?: string[];
   episodeRange: string; // e.g. "Ep 1-5"
   description: string;
   visualTags: string;
@@ -139,14 +144,33 @@ export interface CharacterForm {
   previewAudioUrl?: string;
 }
 
+export interface CharacterAlias {
+  id: string;
+  value: string;
+  kind: "primary" | "alias" | "title" | "short" | "legacy";
+  normalized?: string;
+}
+
+export interface CharacterBindingProfile {
+  canonicalMention: string;
+  defaultFormId?: string;
+  defaultVoiceScope?: "character" | "form";
+  mentionPolicy?: "character-first" | "form-first";
+}
+
 export interface Character {
   id: string;
+  slug?: string;
   name: string;
   role: string; // e.g. Protagonist, Antagonist
   isMain: boolean; // Determines if we do deep analysis
   isCore?: boolean; // AI判定的核心角色标记（辅助字段）
   bio: string; // General bio
   forms: CharacterForm[]; // Specific visual/personality stages
+  aliases?: CharacterAlias[];
+  status?: "draft" | "verified" | "locked" | "archived";
+  binding?: CharacterBindingProfile;
+  version?: number;
   appearanceCount?: number; // 解析出现次数
   assetPriority?: "high" | "medium" | "low";
   archetype?: string;

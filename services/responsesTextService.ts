@@ -1,5 +1,5 @@
 import type { ProjectContext, Shot, TokenUsage, Character, Location, CharacterForm, LocationZone, TextServiceConfig, TextProvider } from "../types";
-import { ensureStableId } from "../utils/id";
+import { ensureStableId, ensureTypedStableId } from "../utils/id";
 import { OPENROUTER_RESPONSES_BASE_URL, QWEN_DEFAULT_MODEL, QWEN_RESPONSES_BASE_URL } from "../constants";
 import { createQwenResponse } from "./qwenResponsesService";
 
@@ -380,6 +380,29 @@ export const addUsage = (u1: TokenUsage, u2: TokenUsage): TokenUsage => ({
   totalTokens: u1.totalTokens + u2.totalTokens
 });
 
+const slugifyIdentityKey = (value: string, fallback: string) => {
+  const normalized = (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_/]+/g, "-")
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized || fallback;
+};
+
+const normalizeGeneratedCharacterForms = (forms: any[] | undefined, characterId: string) =>
+  (forms ?? []).map((f: any, index: number) => ({
+    ...f,
+    id: ensureStableId(f?.id, "form"),
+    characterId,
+    key:
+      typeof f?.key === "string" && f.key.trim()
+        ? f.key.trim()
+        : slugifyIdentityKey(f?.formName || "", index === 0 ? "default" : `form-${index + 1}`),
+    isDefault: typeof f?.isDefault === "boolean" ? f.isDefault : index === 0,
+  }));
+
 // Helper to format character list for prompts
 const formatCharContext = (context: ProjectContext): string => {
   return context.characters.map(c =>
@@ -663,11 +686,27 @@ export const identifyCharacters = async (
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
   const rawChars = parseStructuredJson<{ characters: any[] }>(text, raw, "identifyCharacters").characters;
 
-  const chars: Character[] = rawChars.map((c: any) => ({
-    ...c,
-    id: c.name,
-    forms: (c.forms ?? []).map((f: any) => ({ ...f, id: ensureStableId(f?.id, "form") }))
-  }));
+  const chars: Character[] = rawChars.map((c: any) => {
+    const characterId = ensureTypedStableId(c?.id, "char");
+    const forms = normalizeGeneratedCharacterForms(c?.forms, characterId);
+    return {
+      ...c,
+      id: characterId,
+      slug: slugifyIdentityKey(c?.name || "", characterId),
+      aliases: c?.name
+        ? [{ id: ensureStableId(undefined, "alias"), value: c.name, kind: "primary", normalized: String(c.name).toLowerCase() }]
+        : [],
+      binding: {
+        canonicalMention: c?.name || characterId,
+        defaultFormId: forms[0]?.id,
+        defaultVoiceScope: "character",
+        mentionPolicy: "character-first",
+      },
+      status: "draft",
+      version: 1,
+      forms,
+    };
+  });
 
   return { characters: chars, usage };
 };
@@ -723,18 +762,32 @@ export const generateCharacterBriefs = async (
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = parseStructuredJson<{ characters?: any[] }>(text, raw, "generateCharacterBriefs");
   const rawCharacters = parsed.characters || [];
-  const characters: Character[] = rawCharacters.map((c: any) => ({
-    id: c.name,
-    name: c.name,
-    role: c.role || "",
-    isMain: false,
-    bio: c.bio || "",
-    forms: [],
-    assetPriority: c.assetPriority || "low",
-    archetype: c.archetype,
-    episodeUsage: c.episodeUsage,
-    tags: c.tags
-  }));
+  const characters: Character[] = rawCharacters.map((c: any) => {
+    const characterId = ensureTypedStableId(c?.id, "char");
+    return {
+      id: characterId,
+      slug: slugifyIdentityKey(c?.name || "", characterId),
+      name: c.name,
+      role: c.role || "",
+      isMain: false,
+      bio: c.bio || "",
+      forms: [],
+      aliases: c?.name
+        ? [{ id: ensureStableId(undefined, "alias"), value: c.name, kind: "primary", normalized: String(c.name).toLowerCase() }]
+        : [],
+      binding: {
+        canonicalMention: c?.name || characterId,
+        defaultVoiceScope: "character",
+        mentionPolicy: "character-first",
+      },
+      status: "draft",
+      version: 1,
+      assetPriority: c.assetPriority || "low",
+      archetype: c.archetype,
+      episodeUsage: c.episodeUsage,
+      tags: c.tags
+    };
+  });
 
   return { characters, usage };
 };
@@ -831,22 +884,35 @@ export const generateCharacterRosterBriefs = async (
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = parseStructuredJson<{ characters?: any[] }>(text, raw, "generateCharacterRosterBriefs");
   const rawCharacters = parsed.characters || [];
-  const characters: Character[] = rawCharacters.map((c: any) => ({
-    id: c.name,
-    name: c.name,
-    role: c.role || "",
-    isMain: !!c.isCore,
-    isCore: !!c.isCore,
-    bio: c.bio || "",
-    forms: (c.forms ?? []).map((f: any) => ({
-      ...f,
-      id: ensureStableId(f?.id, "form"),
-    })),
-    assetPriority: c.assetPriority || "medium",
-    archetype: c.archetype,
-    episodeUsage: c.episodeUsage,
-    tags: c.tags
-  }));
+  const characters: Character[] = rawCharacters.map((c: any) => {
+    const characterId = ensureTypedStableId(c?.id, "char");
+    const forms = normalizeGeneratedCharacterForms(c?.forms, characterId);
+    return {
+      id: characterId,
+      slug: slugifyIdentityKey(c?.name || "", characterId),
+      name: c.name,
+      role: c.role || "",
+      isMain: !!c.isCore,
+      isCore: !!c.isCore,
+      bio: c.bio || "",
+      forms,
+      aliases: c?.name
+        ? [{ id: ensureStableId(undefined, "alias"), value: c.name, kind: "primary", normalized: String(c.name).toLowerCase() }]
+        : [],
+      binding: {
+        canonicalMention: c?.name || characterId,
+        defaultFormId: forms[0]?.id,
+        defaultVoiceScope: "character",
+        mentionPolicy: "character-first",
+      },
+      status: "draft",
+      version: 1,
+      assetPriority: c.assetPriority || "medium",
+      archetype: c.archetype,
+      episodeUsage: c.episodeUsage,
+      tags: c.tags
+    };
+  });
 
   return { characters, usage };
 };
@@ -954,7 +1020,7 @@ export const analyzeCharacterDepth = async (
   const { text, usage, raw } = await generateText(config, prompt, schema, systemInstruction);
   const parsed = parseStructuredJson<any>(text, raw, "analyzeCharacterDepth");
   return {
-    forms: (parsed.forms || []).map((f: any) => ({ ...f, id: ensureStableId(f?.id, "form") })),
+    forms: normalizeGeneratedCharacterForms(parsed.forms, ensureTypedStableId(character?.name, "char")),
     bio: parsed.bio,
     archetype: parsed.archetype,
     episodeUsage: parsed.episodeUsage,
