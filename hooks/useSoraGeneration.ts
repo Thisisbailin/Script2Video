@@ -1,10 +1,8 @@
 import { useCallback } from 'react';
-import { AppConfig, ProjectData, TokenUsage, WorkflowStep } from '../types';
+import { ActiveTab, AppConfig, ProjectData, TokenUsage, WorkflowStep } from '../types';
 import * as ResponsesTextService from '../services/responsesTextService';
 import { findNextSoraIndex, isEpisodeSoraComplete } from '../utils/episodes';
 import { Shot } from '../types';
-
-type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats';
 
 type SoraGenParams = {
   projectDataRef: React.MutableRefObject<ProjectData>;
@@ -149,7 +147,7 @@ export const useSoraGeneration = ({
       });
 
       updateStats('soraGen', true);
-      setActiveTab('table');
+      setActiveTab('lab');
       setProcessing(false);
       setCurrentEpIndex(index);
 

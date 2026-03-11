@@ -253,7 +253,7 @@ export const StoryboardBoardNode: React.FC<Props & { selected?: boolean }> = ({ 
                             <div className="grid h-full" style={{ gridTemplateColumns }}>
                               {SHOT_TABLE_COLUMNS.map((column) => (
                                 <div key={`${shot.id}-${column.key}`} className="px-4 py-3">
-                                  <ValueStack primary={shot[column.key]} secondary={column.key === "id" ? `${shotIndex + 1}` : undefined} />
+                                  <ValueStack primary={shot[column.key]} />
                                 </div>
                               ))}
                             </div>

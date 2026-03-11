@@ -1082,7 +1082,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
             className="theme-modal fixed z-50 max-h-[min(72dvh,720px)] overflow-x-hidden overflow-y-auto rounded-[28px] p-4 sm:p-4.5"
             style={themeModalStyle}
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
               <div>
                 <div className="theme-modal-eyebrow">Workspace Styling</div>
                 <div className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">主题与样式</div>
@@ -1090,13 +1090,6 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                   调整底色、表面层次和背景纹理。
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowThemeModal(false)}
-                className="h-9 w-9 rounded-full border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
-              >
-                ×
-              </button>
             </div>
             <div className="mt-5">
               <div className="mb-2.5 text-[10px] uppercase tracking-[0.26em] app-text-muted">颜色主题</div>

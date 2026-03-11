@@ -3,8 +3,6 @@ import type { LucideIcon } from "lucide-react";
 
 export type ModuleKey =
   | "writing"
-  | "script"
-  | "shots"
   | "characters"
   | "scenes"
   | "understanding"
@@ -25,8 +23,6 @@ type Props = {
 export const ModuleBar: React.FC<Props> = ({ modules, onOpen }) => {
   const accent: Record<ModuleKey, string> = {
     writing: "#c084fc",
-    script: "#a78bfa",
-    shots: "#34d399",
     characters: "#34d399",
     scenes: "#22d3ee",
     understanding: "#facc15",

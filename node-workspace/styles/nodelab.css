@@ -1077,7 +1077,7 @@ body.qalam-resizing * {
 }
 
 .theme-modal::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .theme-modal::-webkit-scrollbar-track {
@@ -1085,8 +1085,14 @@ body.qalam-resizing * {
 }
 
 .theme-modal::-webkit-scrollbar-thumb {
-  background: var(--app-panel-soft);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.theme-modal::-webkit-scrollbar-thumb:hover {
+  background: var(--app-border-strong);
 }
 
 .theme-preset-card[data-active="true"],
@@ -1142,11 +1148,12 @@ body.qalam-resizing * {
 
 .qalam-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: var(--app-panel-soft) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
 
 .qalam-scrollbar::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 .qalam-scrollbar::-webkit-scrollbar-track {
@@ -1154,8 +1161,14 @@ body.qalam-resizing * {
 }
 
 .qalam-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--app-panel-soft);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.qalam-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--app-border-strong);
 }
 
 .node-card-body {

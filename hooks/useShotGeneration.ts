@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
-import { AppConfig, ProjectData, WorkflowStep } from '../types';
+import { ActiveTab, AppConfig, ProjectData, WorkflowStep } from '../types';
 import * as ResponsesTextService from '../services/responsesTextService';
-
-type ActiveTab = 'assets' | 'script' | 'understanding' | 'table' | 'visuals' | 'video' | 'stats';
 
 type ShotGenParams = {
   projectDataRef: React.MutableRefObject<ProjectData>;
@@ -97,7 +95,7 @@ export const useShotGeneration = ({
       });
 
       updateStats('shotGen', true);
-      setActiveTab('table');
+      setActiveTab('lab');
 
       const nextIndex = index + 1;
       if (autoNext && nextIndex < projectDataRef.current.episodes.length) {

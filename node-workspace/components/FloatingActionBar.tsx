@@ -158,6 +158,9 @@ export const FloatingActionBar: React.FC<Props> = ({
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const nodesButtonRef = useRef<HTMLButtonElement>(null);
+  const fileMenuPanelRef = useRef<HTMLDivElement>(null);
+  const templatePanelRef = useRef<HTMLDivElement>(null);
+  const palettePanelRef = useRef<HTMLDivElement>(null);
   const [accountAnchorRect, setAccountAnchorRect] = useState<DOMRect | null>(null);
   const [projectAnchorRect, setProjectAnchorRect] = useState<DOMRect | null>(null);
   const [nodesAnchorRect, setNodesAnchorRect] = useState<DOMRect | null>(null);
@@ -235,6 +238,36 @@ export const FloatingActionBar: React.FC<Props> = ({
     };
   }, [showFileMenu, showPalette, showTemplate]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    if (!showFileMenu && !showTemplate && !showPalette) return undefined;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      const insideOpenPanel =
+        (showFileMenu && fileMenuPanelRef.current?.contains(target)) ||
+        (showTemplate && templatePanelRef.current?.contains(target)) ||
+        (showPalette && palettePanelRef.current?.contains(target));
+
+      if (insideOpenPanel) return;
+
+      const insideTrigger =
+        accountButtonRef.current?.contains(target) ||
+        projectButtonRef.current?.contains(target) ||
+        nodesButtonRef.current?.contains(target);
+
+      if (insideTrigger) return;
+      closeMenus();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [showFileMenu, showPalette, showTemplate]);
+
   const panelActions = [
     { label: "剧本面板", hint: "按集与场景浏览剧本", meta: "Panel", onClick: onAddScriptBoard, Icon: BookOpen, tone: "text-sky-300", surface: "bg-sky-500/12" },
     { label: "分镜表面板", hint: "可调列宽和行高的表格", meta: "Table", onClick: onAddStoryboardBoard, Icon: List, tone: "text-amber-300", surface: "bg-amber-500/12" },
@@ -252,8 +285,6 @@ export const FloatingActionBar: React.FC<Props> = ({
   ];
   const projectModules = [
     { key: "writing" as ModuleKey, label: "Writing", desc: "结构化写作", Icon: FileCode, tone: "text-fuchsia-300", surface: "bg-fuchsia-500/10" },
-    { key: "script" as ModuleKey, label: "Script", desc: "剧本与解析", Icon: FileText, tone: "text-sky-300", surface: "bg-sky-500/10" },
-    { key: "shots" as ModuleKey, label: "Shots", desc: "分镜与镜头", Icon: List, tone: "text-amber-300", surface: "bg-amber-500/10" },
     { key: "understanding" as ModuleKey, label: "理解", desc: "理解快照", Icon: BookOpen, tone: "text-yellow-200", surface: "bg-yellow-500/10" },
     { key: "materials" as ModuleKey, label: "素材", desc: "生成素材库", Icon: Sparkles, tone: "text-blue-200", surface: "bg-blue-500/10" },
     { key: "projector" as ModuleKey, label: "放映机", desc: "视听实验室", Icon: Projector, tone: "text-rose-300", surface: "bg-rose-500/10" },
@@ -307,6 +338,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Template Menu */}
         {showTemplate && (
           <div
+            ref={templatePanelRef}
             className={`fixed animate-in fade-in slide-in-from-bottom-2 duration-200 ${panelClass}`}
             style={{ ...panelStyle, ...templatePopoverStyle }}
           >
@@ -317,31 +349,6 @@ export const FloatingActionBar: React.FC<Props> = ({
                   更像目录视图的项目浮窗，保证常规页面高度也能完整操作。
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onTryMe?.();
-                  closeMenus();
-                }}
-                className="w-full rounded-[24px] border border-[var(--app-border)] bg-[linear-gradient(145deg,rgba(196,164,132,0.12),rgba(118,145,125,0.06))] px-4 py-4 text-left transition hover:border-[var(--app-border-strong)] hover:bg-[linear-gradient(145deg,rgba(196,164,132,0.16),rgba(118,145,125,0.1))] active:translate-y-px"
-                aria-label="载入示例"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-[rgba(255,255,255,0.06)] text-[#d8ccb7]">
-                    <Sparkles size={17} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-[13px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">从示例项目开始</div>
-                      <ChevronsRight size={16} className="text-[var(--app-text-secondary)]" />
-                    </div>
-                    <div className="mt-1 text-[11px] leading-5 text-[var(--app-text-secondary)]">
-                      快速载入脚本、资产与节点结构。
-                    </div>
-                  </div>
-                </div>
-              </button>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
@@ -452,6 +459,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* Plus Palette */}
         {showPalette && (
           <div
+            ref={palettePanelRef}
             className={`fixed animate-in fade-in slide-in-from-bottom-2 duration-300 ${panelClass}`}
             style={{ ...panelStyle, ...palettePopoverStyle }}
           >
@@ -536,6 +544,7 @@ export const FloatingActionBar: React.FC<Props> = ({
         {/* File Menu */}
         {showFileMenu && (
           <div
+            ref={fileMenuPanelRef}
             className={`fixed animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${panelClass}`}
             style={{ ...panelStyle, ...fileMenuPopoverStyle }}
           >

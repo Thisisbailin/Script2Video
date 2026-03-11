@@ -1,7 +1,5 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { FileText, List, Palette, MonitorPlay, Sparkles, BarChart2 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { useUser, useClerk, useAuth } from './lib/auth';
 import { ProjectData, AppConfig, WorkflowStep, Episode, Shot, TokenUsage, AnalysisSubStep, VideoParams, ActiveTab, SyncState, SyncStatus, Character } from './types';
 import { INITIAL_PROJECT_DATA, INITIAL_VIDEO_CONFIG, INITIAL_TEXT_CONFIG, INITIAL_MULTIMODAL_CONFIG } from './constants';
@@ -30,11 +28,9 @@ import { useShotGeneration } from './hooks/useShotGeneration';
 import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { useStoryboardGeneration } from './hooks/useStoryboardGeneration';
 import { AppShell } from './components/layout/AppShell';
-import { Header, WorkflowCard } from './components/layout/Header';
+import { WorkflowCard } from './components/layout/Header';
 import { ConflictModal } from './components/ConflictModal';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
-import { ScriptViewer } from './modules/script/ScriptViewer';
-import { ShotsModule } from './modules/shots/ShotsModule';
 import { VideoModule } from './modules/video/VideoModule';
 import { NodeLab } from './node-workspace/components/NodeLab';
 import { MaterialsPanel } from './node-workspace/components/MaterialsPanel';
@@ -414,14 +410,23 @@ const App: React.FC = () => {
     activeTab: ActiveTab;
   }>({
     key: UI_STATE_STORAGE_KEY,
-    initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'script' },
+    initialValue: { step: WorkflowStep.IDLE, analysisStep: AnalysisSubStep.IDLE, currentEpIndex: 0, activeTab: 'lab' },
     deserialize: (value) => {
       const parsed = JSON.parse(value);
+      const parsedActiveTab = parsed.activeTab;
       return {
         step: parsed.step ?? WorkflowStep.IDLE,
         analysisStep: parsed.analysisStep ?? AnalysisSubStep.IDLE,
         currentEpIndex: parsed.currentEpIndex ?? 0,
-        activeTab: parsed.activeTab ?? 'script'
+        activeTab:
+          parsedActiveTab === 'understanding' ||
+          parsedActiveTab === 'visuals' ||
+          parsedActiveTab === 'video' ||
+          parsedActiveTab === 'lab' ||
+          parsedActiveTab === 'stats' ||
+          parsedActiveTab === 'projector'
+            ? parsedActiveTab
+            : 'lab'
       };
     },
     serialize: (value) => JSON.stringify(value)
@@ -856,7 +861,7 @@ const App: React.FC = () => {
       setStep(WorkflowStep.IDLE);
       setAnalysisStep(AnalysisSubStep.IDLE);
       setCurrentEpIndex(0);
-      setActiveTab('script');
+      setActiveTab('lab');
       localStorage.removeItem(PROJECT_STORAGE_KEY);
       localStorage.removeItem(UI_STATE_STORAGE_KEY);
       localStorage.removeItem(LOCAL_BACKUP_KEY);
@@ -993,7 +998,7 @@ const App: React.FC = () => {
         };
       });
       if (episodes.length > 0) setCurrentEpIndex(0);
-      setActiveTab('script');
+      setActiveTab('lab');
 
     } else if (type === 'csvShots') {
       try {
@@ -1013,7 +1018,7 @@ const App: React.FC = () => {
           return { ...prev, episodes: updatedEpisodes };
         });
         alert(`Successfully imported shots for ${shotMap.size} episodes.`);
-        setActiveTab('table');
+        setActiveTab('lab');
       } catch (e: any) {
         alert("Error importing CSV: " + e.message);
       }
@@ -1085,7 +1090,7 @@ const App: React.FC = () => {
       }));
 
       if (episodes.length > 0) setCurrentEpIndex(0);
-      setActiveTab('script');
+      setActiveTab('lab');
       setStep(WorkflowStep.IDLE);
       setProcessing(false);
 
@@ -1963,19 +1968,6 @@ const App: React.FC = () => {
   };
 
   // --- Render Helpers ---
-  const currentEpisode = projectData.episodes[currentEpIndex];
-  const hasGeneratedShots = projectData.episodes.some(ep => ep.shots.length > 0);
-  const hasUnderstandingData = Boolean(
-    projectData.context.projectSummary ||
-    projectData.context.episodeSummaries.length > 0 ||
-    projectData.context.characters.length > 0 ||
-    projectData.context.locations.length > 0
-  );
-  const getActiveModelName = () => {
-    if (activeTab === 'visuals') return config.multimodalConfig.model || 'Multimodal';
-    if (activeTab === 'video') return config.videoConfig.model || 'Video';
-    return config.textConfig.model;
-  };
   const statusLabel = (status: SyncStatus) => {
     switch (status) {
       case "synced":
@@ -2021,10 +2013,6 @@ const App: React.FC = () => {
     };
     return { label: agg.label, color: colorMap[agg.state] || "#a5b4fc" };
   })();
-  const providerLabel = config.textConfig.provider === 'openrouter' ? 'OpenRouter' : config.textConfig.provider === 'qwen' ? 'Qwen' : 'Qwen';
-  const activeModelLabel = `${providerLabel} | ${getActiveModelName()}`;
-  const safeEpisode = currentEpisode || projectData.episodes[0];
-  const tabOptions: { key: ActiveTab; label: string; icon: LucideIcon; hidden?: boolean }[] = [];
 
   const handleExportCsv = () => exportToCSV(projectData.episodes);
   const handleExportXls = () => exportToXLS(projectData.episodes);
@@ -2061,7 +2049,6 @@ const App: React.FC = () => {
     };
   }, [showWorkflow]);
 
-  const headerNode = null;
   const workflowPanelStyle = useMemo<React.CSSProperties>(() => {
     if (!workflowAnchor || typeof window === "undefined") {
       return { right: 16, bottom: 16 };
@@ -2076,25 +2063,8 @@ const App: React.FC = () => {
     return { left, bottom };
   }, [workflowAnchor]);
 
-  const hasStoryboardPrompts = useMemo(
-    () => projectData.episodes.some((ep) => ep.shots.some((shot) => (shot.storyboardPrompt || "").trim().length > 0)),
-    [projectData.episodes]
-  );
-
-  const showStoryboard = step >= WorkflowStep.GENERATE_STORYBOARD || hasStoryboardPrompts;
-
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
-      case 'script':
-        return <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} characters={projectData.context.characters} />;
-      case 'table':
-        return (
-          <ShotsModule
-            shots={projectData.episodes[currentEpIndex]?.shots || []}
-            showSora={step >= WorkflowStep.GENERATE_SORA}
-            showStoryboard={showStoryboard}
-          />
-        );
       case 'lab':
         return (
           <div className="h-full">
@@ -2163,22 +2133,6 @@ const App: React.FC = () => {
         setProjectData={setProjectData}
       />
     );
-  } else if (openLabModal === "script") {
-    labModalTitle = "Script";
-    labModalWidth = 960;
-    labModalContent = (
-      <ScriptViewer episode={safeEpisode} rawScript={projectData.rawScript} />
-    );
-  } else if (openLabModal === "shots") {
-    labModalTitle = "Shots";
-    labModalWidth = 1100;
-    labModalContent = (
-      <ShotsModule
-        shots={projectData.episodes[currentEpIndex]?.shots || []}
-        showSora={step >= WorkflowStep.GENERATE_SORA}
-        showStoryboard={showStoryboard}
-      />
-    );
   } else if (openLabModal === "understanding") {
     labModalTitle = "理解";
     labModalWidth = 980;
@@ -2200,7 +2154,7 @@ const App: React.FC = () => {
   }
 
   if (appView === "landing") {
-    return <LandingPage isDarkMode={isDarkMode} onEnterApp={closeLandingPage} />;
+    return <LandingPage isDarkMode={isDarkMode} onEnterApp={closeLandingPage} onTryMe={handleTryMe} />;
   }
 
   return (

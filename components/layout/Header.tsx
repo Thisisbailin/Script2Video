@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film, X } from "lucide-react";
+import { Video, Download, Sparkles, ChevronDown, ChevronUp, User, Shield, Upload, FolderOpen, FileText, BrainCircuit, List, Palette, MonitorPlay, Layers, Film } from "lucide-react";
 import { ActiveTab, AnalysisSubStep, Episode, WorkflowStep, SyncState, SyncStatus } from "../../types";
 import { isEpisodeSoraComplete, isEpisodeStoryboardComplete } from "../../utils/episodes";
 
@@ -648,7 +648,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
 
   return (
     <div className="w-[460px] max-h-[calc(100vh-140px)] overflow-hidden rounded-2xl app-panel flex flex-col">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--app-border)]">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--app-border)]">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500/30 via-teal-500/10 to-transparent border border-[var(--app-border)] flex items-center justify-center">
             <Layers size={16} className="text-emerald-200" />
@@ -658,17 +658,8 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
             <div className="text-[11px] text-[var(--app-text-muted)]">{focusLabel}</div>
           </div>
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-full border border-[var(--app-border)] hover:border-[var(--app-border-strong)] hover:bg-[var(--app-panel-muted)] transition"
-            title="关闭"
-          >
-            <X size={14} className="mx-auto text-[var(--app-text-secondary)]" />
-          </button>
-        )}
       </div>
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2 overflow-x-auto">
+      <div className="scrollbar-none px-4 pt-3 pb-2 flex items-center gap-2 overflow-x-auto">
         {[
           { key: 1 as const, label: "Phase 1", meta: phase1Progress },
           { key: 2 as const, label: "Phase 2", meta: phase2Progress },
@@ -692,7 +683,7 @@ export const WorkflowCard: React.FC<{ workflow: WorkflowProps; onClose?: () => v
           );
         })}
       </div>
-      <div className="px-4 pb-4 space-y-3 overflow-y-auto">
+      <div className="qalam-scrollbar px-4 pb-4 space-y-3 overflow-y-auto">
         {activePhase === 1 && (
           <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-3 space-y-3">
             <div className="flex items-center justify-between">
