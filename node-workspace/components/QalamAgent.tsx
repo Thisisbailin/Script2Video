@@ -579,7 +579,7 @@ export const QalamAgent: React.FC<Props> = ({
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > 132 ? "auto" : "hidden";
   }, []);
-  const { sendMessage: runAgentMessage } = useScript2VideoAgent({
+  const { sendMessage: runAgentMessage, cancel: cancelAgentRun } = useScript2VideoAgent({
     runtime,
     sessionId: activeConversation?.id || conversationState.activeId || "qalam-default",
     setMessages,
@@ -722,6 +722,23 @@ export const QalamAgent: React.FC<Props> = ({
         setProjectData(runResult.updatedProjectData);
       }
     } catch (err: any) {
+      const message = String(err?.message || err || "");
+      const isAborted =
+        err?.name === "AbortError" ||
+        message.includes("aborted") ||
+        message.includes("AbortError") ||
+        message.includes("用户已停止") ||
+        message.includes("已取消");
+      if (isAborted) {
+        setMessages((prev) => {
+          const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
+          return [
+            ...prev,
+            { role: "assistant", text: "已停止当前任务。", kind: "chat", order: nextOrder },
+          ];
+        });
+        return;
+      }
       setMessages((prev) => {
         const nextOrder = prev.reduce((max, message) => Math.max(max, message.order || 0), 0) + 1;
         return [
@@ -741,6 +758,14 @@ export const QalamAgent: React.FC<Props> = ({
     setInput("");
     await submitText(nextInput);
   }, [canSend, input, submitText]);
+
+  const handleComposerAction = useCallback(() => {
+    if (isSending) {
+      cancelAgentRun();
+      return;
+    }
+    void sendMessage();
+  }, [cancelAgentRun, isSending, sendMessage]);
 
   const moodVisual = () => {
     if (isSending || mood === "loading") {
@@ -1009,10 +1034,11 @@ export const QalamAgent: React.FC<Props> = ({
               </div>
             </div>
             <button
-              onClick={sendMessage}
-              disabled={!canSend}
+              onClick={handleComposerAction}
+              disabled={!isSending && !canSend}
               className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--app-accent-strong)] text-white transition hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:bg-[var(--app-accent)]/60 disabled:text-white/75"
-              title="发送"
+              title={isSending ? "停止生成" : "发送"}
+              aria-label={isSending ? "停止生成" : "发送"}
             >
               {isSending ? (
                 <CircleNotch size={16} className="animate-spin" weight="bold" />

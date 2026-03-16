@@ -640,7 +640,7 @@ export const createScript2VideoAgentRuntime = ({
         : isMaxTurns
           ? toolEvents.length
             ? `Agent 在工具调用中未能收敛，已中止。${toolTrace ? ` 最近工具链路：${toolTrace}` : ""}`
-            : "Agent 未产出可识别的最终输出，已在 8 个回合后中止。"
+            : `Agent 未产出可识别的最终输出，已在 ${AGENT_MAX_TURNS} 个回合后中止。`
           : error?.message || "Agent runtime 执行失败";
       emitTrace("result", "error", "Run failed", message);
       options?.onEvent?.({ type: "run_failed", runId, error: message });

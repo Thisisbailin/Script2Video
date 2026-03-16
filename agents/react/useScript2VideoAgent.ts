@@ -92,6 +92,16 @@ const humanizeToolName = (name: string) => {
   }
 };
 
+const isAbortLikeError = (value: unknown) => {
+  const message = String(value || "");
+  return (
+    message.includes("AbortError") ||
+    message.includes("aborted") ||
+    message.includes("已取消") ||
+    message.includes("用户已停止")
+  );
+};
+
 type StatusKind = "reasoning" | "response";
 
 const completeStatusMessage = (
@@ -365,15 +375,19 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       if (event.type === "run_failed") {
         activeRunIdRef.current = null;
         activeRunStartedAtRef.current = null;
+        const aborted = isAbortLikeError(event.error);
         setMessages((prev) => {
           let withStatus = finalizeActiveReasoningStatus(prev, event.runId, "error");
           withStatus = finalizeActiveResponseStatus(withStatus, event.runId, "error", {
-            headline: "回复中断",
-            detail: event.error,
+            headline: aborted ? "已停止" : "回复中断",
+            detail: aborted ? "当前任务已由你手动停止。" : event.error,
           });
           delete activeReasoningStatusIdRef.current[event.runId];
           delete activeResponseStatusIdRef.current[event.runId];
           delete statusSequenceRef.current[event.runId];
+          if (aborted) {
+            return withStatus;
+          }
           return [
             ...withStatus,
             {
