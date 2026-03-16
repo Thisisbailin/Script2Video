@@ -50,6 +50,28 @@ const clipLength = (value: unknown) => (typeof value === "string" ? value.trim()
 
 const isValidNodeRef = (value: string) => /^[a-z][a-z0-9_:-]{1,63}$/i.test(value);
 
+const toArray = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const extractStoryboardRows = (args: Record<string, unknown>) => {
+  const directRows = toArray(args.shots ?? args.rows);
+  if (directRows.length > 0) return directRows;
+  const sceneBlocks = toArray(args.scene_blocks ?? args.sceneBlocks);
+  if (sceneBlocks.length === 0) return [];
+  return sceneBlocks.flatMap((block) => {
+    if (!block || typeof block !== "object") return [];
+    return toArray((block as Record<string, unknown>).shots ?? (block as Record<string, unknown>).rows);
+  });
+};
+
 const findGuide = (projectData: ProjectData, itemId?: string, name?: string) =>
   [
     { item_id: "globalStyleGuide", title: "Style Guide", text: projectData.globalStyleGuide || "" },
@@ -244,7 +266,7 @@ export const createScript2VideoToolInputGuardrails = (
           const bioLength = clipLength(args.bio);
           const descriptionLength = clipLength(args.description);
           const visualsLength = clipLength(args.visuals);
-          const shots = Array.isArray(args.shots) ? args.shots : [];
+          const shots = extractStoryboardRows(args);
 
           if (!["project_summary", "episode_summary", "character_profile", "scene_profile", "episode_storyboard"].includes(resourceType)) {
             return ToolGuardrailFunctionOutputFactory.rejectContent(
@@ -317,7 +339,7 @@ export const createScript2VideoToolInputGuardrails = (
             }
             if (!shots.length) {
               return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "分镜表写入至少需要 1 条 shots 数据。",
+                "分镜表写入至少需要 1 条 rows/shots 数据。请直接复用 read_project_resource 返回的 rows。",
                 { resourceType, episodeId }
               );
             }

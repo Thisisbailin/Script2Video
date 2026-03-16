@@ -51,7 +51,49 @@ const editUnderstandingResourceParameters = {
     shots: {
       type: "array",
       description:
-        "Complete shot rows for episode_storyboard. Use the canonical columns: id, duration, shotType, focalLength, movement, composition, blocking, dialogue, sound, lightingVfx, editingNotes, notes, soraPrompt, storyboardPrompt.",
+        "Complete shot rows for episode_storyboard. Use the canonical columns: id, duration, shotType, focalLength, movement, composition, blocking, dialogue, sound, lightingVfx, editingNotes, notes, soraPrompt, storyboardPrompt. Prefer reusing episode_storyboard.rows from read_project_resource directly.",
+      minItems: 1,
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          duration: { type: "string" },
+          shotType: { type: "string" },
+          focalLength: { type: "string" },
+          movement: { type: "string" },
+          composition: { type: "string" },
+          blocking: { type: "string" },
+          dialogue: { type: "string" },
+          sound: { type: "string" },
+          lightingVfx: { type: "string" },
+          editingNotes: { type: "string" },
+          notes: { type: "string" },
+          soraPrompt: { type: "string" },
+          storyboardPrompt: { type: "string" },
+        },
+        required: [
+          "id",
+          "duration",
+          "shotType",
+          "focalLength",
+          "movement",
+          "composition",
+          "blocking",
+          "dialogue",
+          "sound",
+          "lightingVfx",
+          "editingNotes",
+          "notes",
+          "soraPrompt",
+          "storyboardPrompt",
+        ],
+      },
+    },
+    rows: {
+      type: "array",
+      description:
+        "Alias of shots for episode_storyboard writes. This matches the rows field returned by read_project_resource(resource_type=episode_storyboard).",
+      minItems: 1,
       items: {
         type: "object",
         properties: {
@@ -117,6 +159,28 @@ const toOptionalString = (value: unknown) => {
   return trimmed || undefined;
 };
 
+const toArray = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const extractStoryboardRows = (raw: Record<string, unknown>) => {
+  const directRows = toArray(raw.shots ?? raw.rows);
+  if (directRows.length > 0) return directRows;
+  const sceneBlocks = toArray(raw.scene_blocks ?? raw.sceneBlocks);
+  if (sceneBlocks.length === 0) return [];
+  return sceneBlocks.flatMap((block) => {
+    if (!block || typeof block !== "object") return [];
+    return toArray((block as Record<string, unknown>).shots ?? (block as Record<string, unknown>).rows);
+  });
+};
+
 const deriveEpisodeStatus = (shots: Shot[]): Episode["status"] => {
   if (!shots.length) return "pending";
   if (shots.every((shot) => shot.storyboardPrompt.trim().length > 0)) return "review_storyboard";
@@ -164,9 +228,11 @@ const parseArgs = (input: unknown): ParsedArgs => {
 
   if (resourceType === "episode_storyboard") {
     const episodeId = toPositiveInteger(raw.episode_id ?? raw.episodeId);
-    const shots = Array.isArray(raw.shots) ? raw.shots : [];
+    const shots = extractStoryboardRows(raw);
     if (!episodeId) throw new Error("episode_storyboard 需要 episode_id。");
-    if (!shots.length) throw new Error("episode_storyboard 需要至少 1 条 shots。");
+    if (!shots.length) {
+      throw new Error("episode_storyboard 需要至少 1 条 rows/shots 数据。请直接传入 read_project_resource 返回的 rows。");
+    }
     return { resourceType, episodeId, shots: shots as Shot[] };
   }
 

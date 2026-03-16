@@ -16,6 +16,7 @@ const BASE_INSTRUCTION = [
   "If a required summary, guide, or storyboard is missing, state what is missing instead of repeating list_project_resources or read_project_resource.",
   "For durable project editing, prefer edit_project_resource. Use resource_type=project_summary, episode_summary, character_profile, scene_profile, or episode_storyboard as needed.",
   "When writing episode_storyboard, use the canonical storyboard columns exactly: id, duration, shotType, focalLength, movement, composition, blocking, dialogue, sound, lightingVfx, editingNotes, notes, soraPrompt, storyboardPrompt.",
+  "When writing episode_storyboard after a read, prefer reusing the returned rows array directly. edit_project_resource accepts rows or shots, and also accepts scene_blocks by flattening their inner shots.",
   "For operation in the current V1, prefer create_workflow_node and connect_workflow_nodes.",
   "Use create_workflow_node to create nodes one by one. Current supported node types are text, imageGen, scriptBoard, storyboardBoard, and identityCard. Always provide a short stable node_ref so later steps can refer to the node semantically.",
   "scriptBoard and storyboardBoard are agent-oriented lookup panels, not generic dumps. When using them, always provide episode_id so the panel stays scoped to one episode instead of loading everything.",

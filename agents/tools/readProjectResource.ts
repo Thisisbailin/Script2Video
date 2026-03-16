@@ -216,6 +216,7 @@ export const readProjectResourceToolDef = {
         scene_count: (episode.scenes || []).length,
         shot_count: rows.length,
         columns,
+        shots: rows,
         rows,
         scene_blocks: sceneBlocks,
       };
