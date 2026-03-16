@@ -131,11 +131,24 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
   const statusSequenceRef = useRef<Record<string, number>>({});
   const activeReasoningStatusIdRef = useRef<Record<string, string | undefined>>({});
   const activeResponseStatusIdRef = useRef<Record<string, string | undefined>>({});
+  const streamedMessageSeenRef = useRef<Record<string, boolean>>({});
+  const toolFailureCountsRef = useRef<Record<string, Record<string, number>>>({});
+  const runAbortMessageRef = useRef<Record<string, string | undefined>>({});
+  const revealTimersRef = useRef<Record<string, number[]>>({});
 
   const createStatusId = useCallback((runId: string, kind: StatusKind) => {
     const next = (statusSequenceRef.current[runId] || 0) + 1;
     statusSequenceRef.current[runId] = next;
     return `${runId}-${kind}-${next}`;
+  }, []);
+
+  const clearRevealTimers = useCallback((runId?: string) => {
+    if (typeof window === "undefined") return;
+    const runIds = runId ? [runId] : Object.keys(revealTimersRef.current);
+    runIds.forEach((id) => {
+      (revealTimersRef.current[id] || []).forEach((timer) => window.clearTimeout(timer));
+      delete revealTimersRef.current[id];
+    });
   }, []);
 
   const ensureActiveStatusId = useCallback(
@@ -166,11 +179,135 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
     []
   );
 
+  const finalizeDanglingToolCalls = useCallback((messages: Message[], runId: string, error: string) => {
+    const existingResults = new Set(
+      messages
+        .filter((message) => message.kind === "tool_result" && message.tool.runId === runId)
+        .map((message) => message.tool.callId)
+        .filter(Boolean)
+    );
+
+    const pendingTools = messages.filter(
+      (message) =>
+        message.kind === "tool" &&
+        message.tool.runId === runId &&
+        message.tool.status === "running" &&
+        message.tool.callId
+    );
+
+    if (!pendingTools.length) return messages;
+
+    const next = messages.map((message) => {
+      if (message.kind !== "tool" || message.tool.runId !== runId || message.tool.status !== "running") return message;
+      return {
+        ...message,
+        tool: {
+          ...message.tool,
+          status: "error",
+          summary: error,
+        },
+      };
+    });
+
+    let order = nextMessageOrder(next);
+    const syntheticResults: Message[] = pendingTools
+      .filter((message) => message.tool.callId && !existingResults.has(message.tool.callId))
+      .map((message) => ({
+        role: "assistant" as const,
+        kind: "tool_result" as const,
+        order: order++,
+        tool: {
+          callId: message.tool.callId,
+          runId,
+          name: message.tool.name,
+          status: "error" as const,
+          summary: error,
+        },
+      }));
+
+    return syntheticResults.length ? [...next, ...syntheticResults] : next;
+  }, []);
+
+  const revealAssistantMessage = useCallback(
+    (runId: string, text: string, planItems?: string[]) => {
+      if (typeof window === "undefined") {
+        setMessages((prev) =>
+          upsertStreamingAssistantMessage(prev, runId, (current) => ({
+            role: "assistant",
+            kind: "chat",
+            order: current?.order || nextMessageOrder(prev),
+            text,
+            meta: {
+              ...current?.meta,
+              runId,
+              isStreaming: false,
+              planItems,
+            },
+          }))
+        );
+        return;
+      }
+
+      clearRevealTimers(runId);
+      const total = text.length;
+      const chunkSize = total > 900 ? 56 : total > 420 ? 40 : 24;
+      const delay = total > 900 ? 20 : 16;
+      const slices: string[] = [];
+      for (let index = 0; index < total; index += chunkSize) {
+        slices.push(text.slice(0, Math.min(total, index + chunkSize)));
+      }
+      if (!slices.length) slices.push("");
+
+      setMessages((prev) =>
+        upsertStreamingAssistantMessage(prev, runId, (current) => ({
+          role: "assistant",
+          kind: "chat",
+          order: current?.order || nextMessageOrder(prev),
+          text: "",
+          meta: {
+            ...current?.meta,
+            runId,
+            isStreaming: true,
+          },
+        }))
+      );
+
+      revealTimersRef.current[runId] = slices.map((slice, index) =>
+        window.setTimeout(() => {
+          const isLast = index === slices.length - 1;
+          setMessages((prev) =>
+            upsertStreamingAssistantMessage(prev, runId, (current) => ({
+              role: "assistant",
+              kind: "chat",
+              order: current?.order || nextMessageOrder(prev),
+              text: slice,
+              meta: {
+                ...current?.meta,
+                runId,
+                isStreaming: !isLast,
+                planItems: isLast ? planItems : current?.meta?.planItems,
+              },
+            }))
+          );
+          if (isLast) {
+            clearRevealTimers(runId);
+          }
+        }, index * delay)
+      );
+    },
+    [clearRevealTimers, setMessages]
+  );
+
+  useEffect(() => () => clearRevealTimers(), [clearRevealTimers]);
+
   const handleEvent = useCallback(
     (event: AgentRuntimeEvent) => {
       if (event.type === "run_started") {
         activeRunIdRef.current = event.runId;
         activeRunStartedAtRef.current = Date.now();
+        streamedMessageSeenRef.current[event.runId] = false;
+        toolFailureCountsRef.current[event.runId] = {};
+        runAbortMessageRef.current[event.runId] = undefined;
         return;
       }
 
@@ -228,6 +365,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       }
 
       if (event.type === "message_delta") {
+        streamedMessageSeenRef.current[event.runId] = true;
         const responseStatusId = ensureActiveStatusId(event.runId, "response");
         setMessages((prev) =>
           upsertStatusMessage(
@@ -269,8 +407,8 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       if (event.type === "tool_called") {
         recordAgentToolCalled(event.call);
         const actionLabel = humanizeToolName(event.call.name);
+        const runId = activeRunIdRef.current;
         setMessages((prev) => {
-          const runId = activeRunIdRef.current;
           const withReasoningCompleted = runId ? finalizeActiveReasoningStatus(prev, runId, "success") : prev;
           return [
             ...withReasoningCompleted,
@@ -280,6 +418,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
               order: nextMessageOrder(withReasoningCompleted),
               tool: {
                 callId: event.call.callId,
+                runId: runId || undefined,
                 name: event.call.name,
                 status: "running",
                 summary: event.call.summary || actionLabel,
@@ -292,6 +431,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
 
       if (event.type === "tool_completed") {
         recordAgentToolCompleted(event.call);
+        const runId = activeRunIdRef.current;
         setMessages((prev) => [
           ...upsertToolStatus(prev, event.call.callId, "success", event.call.summary),
           {
@@ -300,6 +440,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
             order: nextMessageOrder(prev),
             tool: {
               callId: event.call.callId,
+              runId: runId || undefined,
               name: event.call.name,
               status: "success",
               summary: event.call.summary,
@@ -312,6 +453,19 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
 
       if (event.type === "tool_failed") {
         recordAgentToolFailed(event.call, event.error);
+        const runId = activeRunIdRef.current;
+        if (runId) {
+          const currentFailures = toolFailureCountsRef.current[runId] || {};
+          const nextFailures = (currentFailures[event.call.name] || 0) + 1;
+          toolFailureCountsRef.current[runId] = {
+            ...currentFailures,
+            [event.call.name]: nextFailures,
+          };
+          if (nextFailures >= 5 && abortRef.current && !abortRef.current.signal.aborted) {
+            runAbortMessageRef.current[runId] = `${event.call.name} 在本轮中已连续失败 ${nextFailures} 次，任务已停止。请修正工具链逻辑后再继续。`;
+            abortRef.current.abort();
+          }
+        }
         setMessages((prev) => [
           ...upsertToolStatus(prev, event.call.callId, "error", event.error),
           {
@@ -320,6 +474,7 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
             order: nextMessageOrder(prev),
             tool: {
               callId: event.call.callId,
+              runId: runId || undefined,
               name: event.call.name,
               status: "error",
               summary: event.error,
@@ -330,36 +485,52 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
       }
 
       if (event.type === "message_completed") {
+        const built = buildAssistantChatMessage(event.text);
+        const hasStreamedDelta = streamedMessageSeenRef.current[event.runId];
         setMessages((prev) => {
-          const built = buildAssistantChatMessage(event.text);
-          const withStreamedAnswer = upsertStreamingAssistantMessage(prev, event.runId, (current) => {
-            return current
-              ? {
-                  ...current,
-                  order: current.order || nextMessageOrder(prev),
-                  text: event.text || current.text,
-                  meta: {
-                    ...current.meta,
-                    runId: event.runId,
-                    isStreaming: false,
-                    planItems: built.meta?.planItems,
-                  },
-                }
-              : {
-                  ...built,
-                  order: nextMessageOrder(prev),
-                  meta: {
-                    ...built.meta,
-                    runId: event.runId,
-                    isStreaming: false,
-                  },
-                };
-          });
+          const withStreamedAnswer = hasStreamedDelta
+            ? upsertStreamingAssistantMessage(prev, event.runId, (current) => {
+                return current
+                  ? {
+                      ...current,
+                      order: current.order || nextMessageOrder(prev),
+                      text: event.text || current.text,
+                      meta: {
+                        ...current.meta,
+                        runId: event.runId,
+                        isStreaming: false,
+                        planItems: built.meta?.planItems,
+                      },
+                    }
+                  : {
+                      ...built,
+                      order: nextMessageOrder(prev),
+                      meta: {
+                        ...built.meta,
+                        runId: event.runId,
+                        isStreaming: false,
+                      },
+                    };
+              })
+            : upsertStreamingAssistantMessage(prev, event.runId, (current) => ({
+                role: "assistant",
+                kind: "chat",
+                order: current?.order || nextMessageOrder(prev),
+                text: "",
+                meta: {
+                  ...current?.meta,
+                  runId: event.runId,
+                  isStreaming: true,
+                },
+              }));
           return finalizeActiveResponseStatus(withStreamedAnswer, event.runId, "success", {
             headline: "回复完成",
             detail: "回答已生成完成。",
           });
         });
+        if (!hasStreamedDelta && event.text) {
+          window.setTimeout(() => revealAssistantMessage(event.runId, event.text, built.meta?.planItems), 0);
+        }
         return;
       }
 
@@ -369,22 +540,32 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
         delete activeReasoningStatusIdRef.current[event.runId];
         delete activeResponseStatusIdRef.current[event.runId];
         delete statusSequenceRef.current[event.runId];
+        delete streamedMessageSeenRef.current[event.runId];
+        delete toolFailureCountsRef.current[event.runId];
+        delete runAbortMessageRef.current[event.runId];
         return;
       }
 
       if (event.type === "run_failed") {
         activeRunIdRef.current = null;
         activeRunStartedAtRef.current = null;
-        const aborted = isAbortLikeError(event.error);
+        const forcedAbortMessage = runAbortMessageRef.current[event.runId];
+        const finalError = forcedAbortMessage || event.error;
+        const aborted = !forcedAbortMessage && isAbortLikeError(event.error);
+        clearRevealTimers(event.runId);
         setMessages((prev) => {
-          let withStatus = finalizeActiveReasoningStatus(prev, event.runId, "error");
+          let withStatus = finalizeDanglingToolCalls(prev, event.runId, finalError);
+          withStatus = finalizeActiveReasoningStatus(withStatus, event.runId, "error");
           withStatus = finalizeActiveResponseStatus(withStatus, event.runId, "error", {
             headline: aborted ? "已停止" : "回复中断",
-            detail: aborted ? "当前任务已由你手动停止。" : event.error,
+            detail: aborted ? "当前任务已由你手动停止。" : finalError,
           });
           delete activeReasoningStatusIdRef.current[event.runId];
           delete activeResponseStatusIdRef.current[event.runId];
           delete statusSequenceRef.current[event.runId];
+          delete streamedMessageSeenRef.current[event.runId];
+          delete toolFailureCountsRef.current[event.runId];
+          delete runAbortMessageRef.current[event.runId];
           if (aborted) {
             return withStatus;
           }
@@ -394,13 +575,13 @@ export const useScript2VideoAgent = ({ runtime, sessionId, setMessages }: Option
               role: "assistant",
               kind: "chat",
               order: nextMessageOrder(withStatus),
-              text: `请求失败: ${event.error}`,
+              text: `请求失败: ${finalError}`,
             },
           ];
         });
       }
     },
-    [createStatusId, ensureActiveStatusId, finalizeActiveReasoningStatus, finalizeActiveResponseStatus, setMessages]
+    [clearRevealTimers, createStatusId, ensureActiveStatusId, finalizeActiveReasoningStatus, finalizeActiveResponseStatus, finalizeDanglingToolCalls, revealAssistantMessage, setMessages]
   );
 
   const sendMessage = useCallback(

@@ -10,6 +10,7 @@ export type ToolPayload = {
   evidence?: string[];
   output?: string;
   callId?: string;
+  runId?: string;
 };
 
 export type ChatMessage = {
