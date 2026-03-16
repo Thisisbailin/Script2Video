@@ -906,11 +906,11 @@ export const QalamAgent: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <QalamChatContent messages={messages} isSending={isSending} />
       </div>
 
-      <div className="qalam-composer-shell relative px-4 pb-4 pt-3">
+      <div className="qalam-composer-shell relative shrink-0 px-4 pb-4 pt-3">
         <div
           className="qalam-subtle-surface rounded-[24px] p-3"
           style={{

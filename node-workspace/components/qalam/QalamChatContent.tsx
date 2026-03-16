@@ -1054,7 +1054,7 @@ export const QalamChatContent: React.FC<Props> = ({ messages, isSending, classNa
   }, [messages, isSending]);
 
   return (
-    <div ref={messagesRef} className={`qalam-scrollbar flex-1 overflow-y-auto px-4 py-4 space-y-3 ${className}`}>
+    <div ref={messagesRef} className={`qalam-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3 ${className}`}>
       {displayMessages.map((item) => {
         const isUser = item.kind === "chat" && item.message.role === "user";
         const isAssistantPanel = item.kind === "chat" && !isUser;
