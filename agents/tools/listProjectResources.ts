@@ -82,6 +82,7 @@ export const listProjectResourcesToolDef = {
         episode_id: episode.id,
         label: episode.title || `第${episode.id}集`,
         scene_count: (episode.scenes || []).length,
+        shot_count: (episode.shots || []).length,
         has_summary: Boolean((episode.summary || "").trim() || data.context?.episodeSummaries?.some((entry) => entry.episodeId === episode.id && entry.summary?.trim())),
       }));
       return {

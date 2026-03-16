@@ -32,6 +32,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Accept",
 };
 
+const EDGE_AGENT_MAX_TURNS = 50;
+
 const resolveApiKey = (env: Record<string, unknown>, provider: "qwen" | "openrouter") => {
   const value =
     provider === "openrouter"
@@ -273,7 +275,7 @@ export const onRequestPost = async (context: any) => {
         let accumulatedReasoning = "";
         const result = await runner.run(agent, body.run.userText.trim(), {
           stream: true,
-          maxTurns: 4,
+          maxTurns: EDGE_AGENT_MAX_TURNS,
           signal: context.request.signal,
           session,
           sessionInputCallback: createEdgeSessionInputCallback(),

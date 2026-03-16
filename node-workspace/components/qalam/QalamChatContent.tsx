@@ -767,7 +767,7 @@ const renderToolOutput = (tool: ToolPayload) => {
 };
 
 const READ_TOOL_NAMES = new Set(["list_project_resources", "read_project_resource", "search_project_resource", "get_episode_script", "get_scene_script", "read_project_data", "read_script_data", "search_script_data"]);
-const WRITE_TOOL_NAMES = new Set(["edit_understanding_resource", "write_project_summary", "write_episode_summary", "upsert_character", "upsert_location"]);
+const WRITE_TOOL_NAMES = new Set(["edit_project_resource", "write_project_summary", "write_episode_summary", "upsert_character", "upsert_location"]);
 const OPERATE_TOOL_NAMES = new Set([
   "create_workflow_node",
   "connect_workflow_nodes",

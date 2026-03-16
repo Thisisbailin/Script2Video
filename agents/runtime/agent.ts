@@ -42,6 +42,8 @@ const STABILIZATION_DISABLED_TOOLS = [
   "create_node_workflow",
 ] as const;
 
+const AGENT_MAX_TURNS = 50;
+
 type RuntimeDeps = {
   bridge: Script2VideoAgentBridge;
   skillLoader: Script2VideoSkillLoader;
@@ -427,13 +429,13 @@ export const createScript2VideoAgentRuntime = ({
       );
       debugLog(runId, "run() invoked", {
         input: input.userText.trim(),
-        maxTurns: 8,
+        maxTurns: AGENT_MAX_TURNS,
         stream: useStreaming,
       });
       const result = useStreaming
         ? await run(agent, input.userText.trim(), {
           signal: options?.signal,
-          maxTurns: 8,
+          maxTurns: AGENT_MAX_TURNS,
           session,
           context: {
             runtimeMode: "browser",
@@ -443,7 +445,7 @@ export const createScript2VideoAgentRuntime = ({
         })
         : await run(agent, input.userText.trim(), {
             signal: options?.signal,
-            maxTurns: 8,
+            maxTurns: AGENT_MAX_TURNS,
             session,
             context: {
               runtimeMode: "browser",

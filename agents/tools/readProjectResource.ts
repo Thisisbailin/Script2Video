@@ -1,5 +1,6 @@
 import { getEpisodeScript } from "../../node-workspace/components/qalam/toolActions";
 import { getSceneScript } from "../../node-workspace/components/qalam/toolActions";
+import { SHOT_TABLE_COLUMNS } from "../../utils/shotSchema";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
 const readProjectResourceParameters = {
@@ -9,6 +10,7 @@ const readProjectResourceParameters = {
       type: "string",
       enum: [
         "episode_script",
+        "episode_storyboard",
         "scene_script",
         "project_summary",
         "episode_summary",
@@ -48,6 +50,7 @@ const readProjectResourceParameters = {
 
 type ResourceType =
   | "episode_script"
+  | "episode_storyboard"
   | "scene_script"
   | "project_summary"
   | "episode_summary"
@@ -90,6 +93,7 @@ const parseArgs = (input: unknown) => {
   if (
     ![
       "episode_script",
+      "episode_storyboard",
       "scene_script",
       "project_summary",
       "episode_summary",
@@ -101,7 +105,7 @@ const parseArgs = (input: unknown) => {
     throw new Error(`read_project_resource 不支持 resource_type=${resourceType}`);
   }
 
-  if ((resourceType === "episode_script" || resourceType === "episode_summary") && !episodeId) {
+  if ((resourceType === "episode_script" || resourceType === "episode_storyboard" || resourceType === "episode_summary") && !episodeId) {
     throw new Error(`${resourceType} 需要 episode_id。`);
   }
 
@@ -132,7 +136,7 @@ const clipText = (value: string, maxChars?: number) => {
 export const readProjectResourceToolDef = {
   name: "read_project_resource",
   description:
-    "Read a concrete script or understanding resource from the current project. Supports episode script, scene script, project summary, episode summary, character profile, and scene profile.",
+    "Read a concrete script, storyboard, or understanding resource from the current project. Supports episode script, episode storyboard, scene script, project summary, episode summary, character profile, and scene profile.",
   parameters: readProjectResourceParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);
@@ -161,6 +165,60 @@ export const readProjectResourceToolDef = {
             episode_id: args.episodeId,
             warnings: Array.isArray(result?.warnings) ? result.warnings : [],
           };
+    }
+
+    if (args.resourceType === "episode_storyboard") {
+      const episode = (data.episodes || []).find((item) => item.id === args.episodeId);
+      if (!episode) {
+        return {
+          resource_type: "episode_storyboard",
+          found: false,
+          episode_id: args.episodeId,
+          warnings: ["episode_not_found"],
+        };
+      }
+
+      const columns = SHOT_TABLE_COLUMNS.map((column) => ({
+        key: column.key,
+        label: column.label,
+      }));
+      const rows = (episode.shots || []).map((shot) => ({
+        id: shot.id,
+        duration: clipText(shot.duration || "", args.maxChars),
+        shotType: clipText(shot.shotType || "", args.maxChars),
+        focalLength: clipText(shot.focalLength || "", args.maxChars),
+        movement: clipText(shot.movement || "", args.maxChars),
+        composition: clipText(shot.composition || "", args.maxChars),
+        blocking: clipText(shot.blocking || "", args.maxChars),
+        dialogue: clipText(shot.dialogue || "", args.maxChars),
+        sound: clipText(shot.sound || "", args.maxChars),
+        lightingVfx: clipText(shot.lightingVfx || "", args.maxChars),
+        editingNotes: clipText(shot.editingNotes || "", args.maxChars),
+        notes: clipText(shot.notes || "", args.maxChars),
+        soraPrompt: clipText(shot.soraPrompt || "", args.maxChars),
+        storyboardPrompt: clipText(shot.storyboardPrompt || "", args.maxChars),
+      }));
+      const sceneBlocks = (episode.scenes || []).map((scene) => {
+        const shots = rows.filter((shot) => shot.id.startsWith(`${scene.id}-`));
+        return {
+          scene_id: scene.id,
+          scene_title: scene.title,
+          shot_count: shots.length,
+          shots,
+        };
+      });
+
+      return {
+        resource_type: "episode_storyboard",
+        found: true,
+        episode_id: episode.id,
+        label: episode.title || `第${episode.id}集`,
+        scene_count: (episode.scenes || []).length,
+        shot_count: rows.length,
+        columns,
+        rows,
+        scene_blocks: sceneBlocks,
+      };
     }
 
     if (args.resourceType === "scene_script") {
@@ -289,6 +347,10 @@ export const readProjectResourceToolDef = {
     switch (output?.resource_type) {
       case "episode_script":
         return output?.found ? `已读取 ${output?.label || `第 ${output?.episode_id} 集`} 正文` : `未找到第 ${output?.episode_id ?? "?"} 集`;
+      case "episode_storyboard":
+        return output?.found
+          ? `已读取 ${output?.label || `第 ${output?.episode_id} 集`} 分镜表（${output?.shot_count ?? 0} 条）`
+          : `未找到第 ${output?.episode_id ?? "?"} 集分镜表`;
       case "scene_script":
         return output?.found ? `已读取场景 ${output?.scene_id}` : "未找到目标场景";
       case "project_summary":

@@ -9,6 +9,7 @@ import {
   type ToolOutputGuardrailDefinition,
 } from "@openai/agents";
 import type { ProjectData } from "../../types";
+import { sanitizeShotList } from "../../utils/shotSchema";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
 export type Script2VideoGuardrailContext = {
@@ -162,7 +163,7 @@ export const createScript2VideoToolInputGuardrails = (
           const itemId = typeof (args.item_id ?? args.itemId) === "string" ? String(args.item_id ?? args.itemId).trim() : "";
           const name = typeof args.name === "string" ? args.name.trim() : "";
 
-          if (resourceType === "episode_script" || resourceType === "episode_summary") {
+          if (resourceType === "episode_script" || resourceType === "episode_storyboard" || resourceType === "episode_summary") {
             const exists = (projectData.episodes || []).some((episode) => episode.id === episodeId);
             if (!exists) {
               return ToolGuardrailFunctionOutputFactory.rejectContent(
@@ -229,10 +230,10 @@ export const createScript2VideoToolInputGuardrails = (
     ];
   }
 
-  if (toolName === "edit_understanding_resource") {
+  if (toolName === "edit_project_resource") {
     return [
       defineToolInputGuardrail({
-        name: "edit_understanding_resource_guardrail",
+        name: "edit_project_resource_guardrail",
         run: async ({ toolCall }) => {
           const args = parseToolArguments((toolCall as any).arguments);
           const projectData = bridge.getProjectData();
@@ -243,10 +244,11 @@ export const createScript2VideoToolInputGuardrails = (
           const bioLength = clipLength(args.bio);
           const descriptionLength = clipLength(args.description);
           const visualsLength = clipLength(args.visuals);
+          const shots = Array.isArray(args.shots) ? args.shots : [];
 
-          if (!["project_summary", "episode_summary", "character_profile", "scene_profile"].includes(resourceType)) {
+          if (!["project_summary", "episode_summary", "character_profile", "scene_profile", "episode_storyboard"].includes(resourceType)) {
             return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "edit_understanding_resource 仅支持 project_summary、episode_summary、character_profile、scene_profile。",
+              "edit_project_resource 仅支持 project_summary、episode_summary、character_profile、scene_profile、episode_storyboard。",
               { resourceType }
             );
           }
@@ -301,6 +303,33 @@ export const createScript2VideoToolInputGuardrails = (
               return ToolGuardrailFunctionOutputFactory.rejectContent(
                 "场景 description 过短，至少提供 8 个字符。",
                 { resourceType, name, descriptionLength }
+              );
+            }
+          }
+
+          if (resourceType === "episode_storyboard") {
+            const episode = (projectData.episodes || []).find((item) => item.id === episodeId);
+            if (!episode) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(
+                `第 ${episodeId || "?"} 集不存在，不能写入分镜表。请先 list_project_resources 查看剧本目录。`,
+                { resourceType, episodeId }
+              );
+            }
+            if (!shots.length) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(
+                "分镜表写入至少需要 1 条 shots 数据。",
+                { resourceType, episodeId }
+              );
+            }
+            const { issues } = sanitizeShotList(shots, {
+              mode: "project",
+              requireStructuredId: true,
+              allowGeneratedIds: false,
+            });
+            if (issues.length > 0) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(
+                `分镜表结构不合法：${issues[0]?.message || "存在格式错误"}`,
+                { resourceType, episodeId, issueCount: issues.length }
               );
             }
           }
@@ -442,10 +471,10 @@ export const createScript2VideoToolInputGuardrails = (
 };
 
 export const createScript2VideoToolOutputGuardrails = (toolName: string): ToolOutputGuardrailDefinition[] => {
-  if (toolName === "edit_understanding_resource") {
+  if (toolName === "edit_project_resource") {
     return [
       defineToolOutputGuardrail({
-        name: "edit_understanding_resource_output_guardrail",
+        name: "edit_project_resource_output_guardrail",
         run: async ({ output }) => {
           const result = output && typeof output === "object" ? (output as Record<string, unknown>) : null;
           if (!result || result.updated !== true || typeof result.resource_type !== "string") {

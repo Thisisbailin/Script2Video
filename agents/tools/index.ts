@@ -71,12 +71,7 @@ export const createScript2VideoTools = ({
             summary,
           };
           emitEvent?.({ type: "tool_completed", call: completedCall });
-          return JSON.stringify({
-            status: "success",
-            tool: toolDef.name,
-            summary,
-            output,
-          });
+          return output;
         } catch (error: any) {
           const failedCall: AgentExecutedToolCall = {
             ...runningCall,

@@ -1,4 +1,5 @@
-import type { Character, Location } from "../../types";
+import type { Character, Episode, Location, Shot } from "../../types";
+import { SHOT_TABLE_COLUMNS, sanitizeShotList } from "../../utils/shotSchema";
 import { ensureStableId, ensureTypedStableId } from "../../utils/id";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
@@ -7,8 +8,8 @@ const editUnderstandingResourceParameters = {
   properties: {
     resource_type: {
       type: "string",
-      enum: ["project_summary", "episode_summary", "character_profile", "scene_profile"],
-      description: "Understanding resource type to write.",
+      enum: ["project_summary", "episode_summary", "character_profile", "scene_profile", "episode_storyboard"],
+      description: "Project resource type to write.",
     },
     episode_id: {
       type: "integer",
@@ -47,17 +48,58 @@ const editUnderstandingResourceParameters = {
       type: "string",
       description: "Scene visual notes.",
     },
+    shots: {
+      type: "array",
+      description:
+        "Complete shot rows for episode_storyboard. Use the canonical columns: id, duration, shotType, focalLength, movement, composition, blocking, dialogue, sound, lightingVfx, editingNotes, notes, soraPrompt, storyboardPrompt.",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          duration: { type: "string" },
+          shotType: { type: "string" },
+          focalLength: { type: "string" },
+          movement: { type: "string" },
+          composition: { type: "string" },
+          blocking: { type: "string" },
+          dialogue: { type: "string" },
+          sound: { type: "string" },
+          lightingVfx: { type: "string" },
+          editingNotes: { type: "string" },
+          notes: { type: "string" },
+          soraPrompt: { type: "string" },
+          storyboardPrompt: { type: "string" },
+        },
+        required: [
+          "id",
+          "duration",
+          "shotType",
+          "focalLength",
+          "movement",
+          "composition",
+          "blocking",
+          "dialogue",
+          "sound",
+          "lightingVfx",
+          "editingNotes",
+          "notes",
+          "soraPrompt",
+          "storyboardPrompt",
+        ],
+      },
+    },
   },
   required: ["resource_type"],
 } as const;
 
-type ResourceType = "project_summary" | "episode_summary" | "character_profile" | "scene_profile";
+type ResourceType = "project_summary" | "episode_summary" | "character_profile" | "scene_profile" | "episode_storyboard";
 
 type ParsedArgs =
   | { resourceType: "project_summary"; summary: string }
   | { resourceType: "episode_summary"; episodeId: number; summary: string }
   | { resourceType: "character_profile"; name: string; role?: string; bio?: string; isMain?: boolean }
-  | { resourceType: "scene_profile"; name: string; sceneType?: "core" | "secondary"; description?: string; visuals?: string };
+  | { resourceType: "scene_profile"; name: string; sceneType?: "core" | "secondary"; description?: string; visuals?: string }
+  | { resourceType: "episode_storyboard"; episodeId: number; shots: Shot[] };
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -75,14 +117,23 @@ const toOptionalString = (value: unknown) => {
   return trimmed || undefined;
 };
 
+const deriveEpisodeStatus = (shots: Shot[]): Episode["status"] => {
+  if (!shots.length) return "pending";
+  if (shots.every((shot) => shot.storyboardPrompt.trim().length > 0)) return "review_storyboard";
+  if (shots.every((shot) => shot.soraPrompt.trim().length > 0)) return "review_sora";
+  return "confirmed_shots";
+};
+
+const formatIssues = (issues: string[]) => issues.slice(0, 6).join("；");
+
 const parseArgs = (input: unknown): ParsedArgs => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("edit_understanding_resource 需要对象参数。");
+    throw new Error("edit_project_resource 需要对象参数。");
   }
   const raw = input as Record<string, unknown>;
   const resourceType = toTrimmedString(raw.resource_type ?? raw.resourceType) as ResourceType;
-  if (!["project_summary", "episode_summary", "character_profile", "scene_profile"].includes(resourceType)) {
-    throw new Error("edit_understanding_resource 需要合法的 resource_type。");
+  if (!["project_summary", "episode_summary", "character_profile", "scene_profile", "episode_storyboard"].includes(resourceType)) {
+    throw new Error("edit_project_resource 需要合法的 resource_type。");
   }
 
   if (resourceType === "project_summary") {
@@ -109,6 +160,14 @@ const parseArgs = (input: unknown): ParsedArgs => {
       throw new Error("character_profile 至少需要 role、bio、is_main 之一。");
     }
     return { resourceType, name, role, bio, isMain };
+  }
+
+  if (resourceType === "episode_storyboard") {
+    const episodeId = toPositiveInteger(raw.episode_id ?? raw.episodeId);
+    const shots = Array.isArray(raw.shots) ? raw.shots : [];
+    if (!episodeId) throw new Error("episode_storyboard 需要 episode_id。");
+    if (!shots.length) throw new Error("episode_storyboard 需要至少 1 条 shots。");
+    return { resourceType, episodeId, shots: shots as Shot[] };
   }
 
   const name = toTrimmedString(raw.name);
@@ -199,9 +258,9 @@ const upsertLocation = (locations: Location[], args: Extract<ParsedArgs, { resou
 };
 
 export const editUnderstandingResourceToolDef = {
-  name: "edit_understanding_resource",
+  name: "edit_project_resource",
   description:
-    "Edit understanding resources in the project knowledge base. Supports project_summary, episode_summary, character_profile, and scene_profile.",
+    "Edit project resources in the knowledge base. Supports project_summary, episode_summary, character_profile, scene_profile, and episode_storyboard.",
   parameters: editUnderstandingResourceParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);
@@ -227,7 +286,7 @@ export const editUnderstandingResourceToolDef = {
       const projectData = bridge.getProjectData();
       const episode = (projectData.episodes || []).find((item) => item.id === args.episodeId);
       if (!episode) {
-        throw new Error(`edit_understanding_resource 未找到第 ${args.episodeId} 集。`);
+        throw new Error(`edit_project_resource 未找到第 ${args.episodeId} 集。`);
       }
       bridge.updateProjectData((prev) => {
         const updatedEpisodes = (prev.episodes || []).map((item) =>
@@ -276,6 +335,58 @@ export const editUnderstandingResourceToolDef = {
       };
     }
 
+    if (args.resourceType === "episode_storyboard") {
+      const projectData = bridge.getProjectData();
+      const episode = (projectData.episodes || []).find((item) => item.id === args.episodeId);
+      if (!episode) {
+        throw new Error(`edit_project_resource 未找到第 ${args.episodeId} 集。`);
+      }
+
+      const { shots, issues } = sanitizeShotList(args.shots, {
+        mode: "project",
+        requireStructuredId: true,
+        allowGeneratedIds: false,
+      });
+
+      const sceneIds = new Set((episode.scenes || []).map((scene) => scene.id));
+      const bindingIssues = shots.flatMap((shot, index) => {
+        const sceneId = shot.id.split("-").slice(0, -1).join("-");
+        if (!sceneId || sceneIds.has(sceneId)) return [];
+        return [`第 ${index + 1} 条镜号 ${shot.id} 没有匹配到本集 scene id`];
+      });
+
+      if (issues.length || bindingIssues.length) {
+        const messages = [...issues.map((issue) => issue.message), ...bindingIssues];
+        throw new Error(`edit_project_resource 校验失败：${formatIssues(messages)}`);
+      }
+
+      const nextStatus = deriveEpisodeStatus(shots);
+      bridge.updateProjectData((prev) => ({
+        ...prev,
+        episodes: (prev.episodes || []).map((item) =>
+          item.id === args.episodeId
+            ? {
+                ...item,
+                shots,
+                status: nextStatus,
+                errorMsg: undefined,
+              }
+            : item
+        ),
+      }));
+
+      return {
+        updated: true,
+        resource_type: args.resourceType,
+        episode_id: episode.id,
+        episode_label: episode.title || `第${episode.id}集`,
+        field: "episodes[].shots",
+        shot_count: shots.length,
+        status: nextStatus,
+        columns: SHOT_TABLE_COLUMNS.map((column) => ({ key: column.key, label: column.label })),
+      };
+    }
+
     const projectData = bridge.getProjectData();
     const result = upsertLocation(projectData.context?.locations || [], args);
     bridge.updateProjectData((prev) => ({
@@ -303,10 +414,12 @@ export const editUnderstandingResourceToolDef = {
         return `已写入第 ${output?.episode_id ?? "?"} 集摘要（${output?.chars || 0} 字）`;
       case "character_profile":
         return `${output?.created ? "已创建" : "已更新"}角色档案 ${output?.name || ""}`.trim();
+      case "episode_storyboard":
+        return `已写入 ${output?.episode_label || `第 ${output?.episode_id ?? "?"} 集`} 分镜表（${output?.shot_count ?? 0} 条）`;
       case "scene_profile":
         return `${output?.created ? "已创建" : "已更新"}场景档案 ${output?.name || ""}`.trim();
       default:
-        return "已编辑理解资产";
+        return "已编辑项目资产";
     }
   },
 };

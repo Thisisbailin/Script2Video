@@ -350,33 +350,49 @@ const THEME_PRESETS: Record<ThemeKey, ThemePreset> = {
   },
 };
 
-const getPatternDefinitions = (theme: ThemePreset): Record<Exclude<PatternKey, "none">, { image: string; size: (scale: number) => string; position?: string }> => ({
+const boostAlpha = (color: string, multiplier: number) => {
+  const match = color.match(/rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/i);
+  if (!match) return color;
+  const [, r, g, b, a] = match;
+  const nextAlpha = Math.min(1, Number.parseFloat(a) * multiplier);
+  return `rgba(${r}, ${g}, ${b}, ${nextAlpha})`;
+};
+
+const getPatternDefinitions = (
+  theme: ThemePreset,
+  intensity = 1
+): Record<Exclude<PatternKey, "none">, { image: string; size: (scale: number) => string; position?: string }> => {
+  const primary = boostAlpha(theme.pattern, intensity);
+  const secondary = boostAlpha(theme.patternSoft, intensity);
+
+  return ({
   dots: {
     image:
-      `radial-gradient(circle at 1px 1px, ${theme.pattern} 1px, transparent 0), radial-gradient(circle at 1px 1px, ${theme.patternSoft} 1px, transparent 0)`,
+      `radial-gradient(circle at 1px 1px, ${primary} 1px, transparent 0), radial-gradient(circle at 1px 1px, ${secondary} 1px, transparent 0)`,
     size: (scale) => `${30 * scale}px ${30 * scale}px, ${30 * scale}px ${30 * scale}px`,
     position: "0 0, 15px 15px",
   },
   grid: {
-    image: `linear-gradient(${theme.patternSoft} 1px, transparent 1px), linear-gradient(90deg, ${theme.patternSoft} 1px, transparent 1px)`,
+    image: `linear-gradient(${secondary} 1px, transparent 1px), linear-gradient(90deg, ${secondary} 1px, transparent 1px)`,
     size: (scale) => `${38 * scale}px ${38 * scale}px`,
   },
   cross: {
     image:
-      `linear-gradient(${theme.patternSoft} 1px, transparent 1px), linear-gradient(90deg, ${theme.patternSoft} 1px, transparent 1px), radial-gradient(circle, ${theme.patternSoft} 1px, transparent 1px)`,
+      `linear-gradient(${secondary} 1px, transparent 1px), linear-gradient(90deg, ${secondary} 1px, transparent 1px), radial-gradient(circle, ${secondary} 1px, transparent 1px)`,
     size: (scale) => `${36 * scale}px ${36 * scale}px, ${36 * scale}px ${36 * scale}px, ${36 * scale}px ${36 * scale}px`,
     position: "0 0, 0 0, 18px 18px",
   },
   lines: {
-    image: `linear-gradient(0deg, ${theme.patternSoft} 1px, transparent 1px)`,
+    image: `linear-gradient(0deg, ${secondary} 1px, transparent 1px)`,
     size: (scale) => `${34 * scale}px ${34 * scale}px`,
   },
   diagonal: {
     image:
-      `linear-gradient(135deg, ${theme.patternSoft} 12.5%, transparent 12.5%, transparent 50%, ${theme.patternSoft} 50%, ${theme.patternSoft} 62.5%, transparent 62.5%, transparent)`,
+      `linear-gradient(135deg, ${secondary} 12.5%, transparent 12.5%, transparent 50%, ${secondary} 50%, ${secondary} 62.5%, transparent 62.5%, transparent)`,
     size: (scale) => `${32 * scale}px ${32 * scale}px`,
   },
-});
+  });
+};
 
 const NodeLabInner: React.FC<NodeLabProps> = ({
   projectData,
@@ -712,7 +728,14 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
   const selectedGroup = getSelectedGroup();
 
   const activeTheme = useMemo(() => THEME_PRESETS[bgTheme], [bgTheme]);
-  const patternDefinitions = useMemo(() => getPatternDefinitions(activeTheme), [activeTheme]);
+  const patternDefinitions = useMemo(
+    () => getPatternDefinitions(activeTheme, activeTheme.scheme === "light" ? 1.45 : 1),
+    [activeTheme]
+  );
+  const patternPreviewDefinitions = useMemo(
+    () => getPatternDefinitions(activeTheme, activeTheme.scheme === "light" ? 2.2 : 1.2),
+    [activeTheme]
+  );
   const patternOptions: { key: PatternKey; label: string }[] = [
     { key: "dots", label: "Dots" },
     { key: "grid", label: "Grid" },
@@ -1105,7 +1128,7 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                     <button
                       key={key}
                       onClick={() => setBgTheme(key)}
-                      className="theme-preset-card rounded-[20px] border px-3 py-3 text-left transition"
+                      className="theme-preset-card flex min-h-[208px] flex-col rounded-[20px] border px-3 py-3 text-left transition"
                       data-active={isActive}
                       style={isActive ? {
                         borderColor: theme.accentStrong,
@@ -1113,28 +1136,29 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                         background: `linear-gradient(180deg, ${theme.panelSoft}, ${theme.panelMuted})`,
                       } : undefined}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                      <div className="relative min-h-[58px]">
+                        <div className={isActive ? "pr-16" : undefined}>
                           <div className="text-[14px] font-semibold tracking-[-0.02em] text-[var(--app-text-primary)]">{theme.label}</div>
-                          <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-[var(--app-text-muted)]">{theme.description}</div>
+                          <div className="mt-1 line-clamp-3 text-[10px] leading-4 text-[var(--app-text-muted)]">{theme.description}</div>
                         </div>
                         {isActive && (
                           <span
-                            className="rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em]"
+                            className="absolute right-0 top-0 rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em]"
                             style={{ color: theme.accentStrong, background: theme.accentSoft }}
                           >
                             Active
                           </span>
                         )}
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-1.5">
+                      <div className="mt-4 grid grid-cols-3 gap-1.5">
                         <span className="h-8 rounded-[12px] border border-white/5" style={{ background: theme.bg }} />
                         <span className="h-8 rounded-[12px] border border-white/5" style={{ background: theme.panel }} />
                         <span className="h-8 rounded-[12px] border border-white/5" style={{ background: theme.accent }} />
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-[0.16em] app-text-muted">
-                        <span>Base / Surface / Accent</span>
-                        <span style={{ color: isActive ? theme.accentStrong : undefined }}>Tone</span>
+                      <div className="mt-3 grid grid-cols-3 gap-1.5 text-[9px] uppercase tracking-[0.16em] app-text-muted">
+                        <span>Base</span>
+                        <span>Surface</span>
+                        <span style={{ color: isActive ? theme.accentStrong : undefined }}>Accent</span>
                       </div>
                     </button>
                   );
@@ -1156,14 +1180,16 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
                     } : undefined}
                   >
                     <span
-                      className="theme-pattern-preview h-8 rounded-[12px] border border-white/5"
+                      className="theme-pattern-preview h-10 rounded-[12px] border border-white/5"
                       style={item.key === "none"
-                        ? { background: activeTheme.panelMuted }
+                        ? {
+                            background: `linear-gradient(180deg, ${activeTheme.panelStrong}, ${activeTheme.panelMuted})`,
+                          }
                         : {
-                            backgroundColor: activeTheme.panelMuted,
-                            backgroundImage: patternDefinitions[item.key as Exclude<PatternKey, "none">].image,
-                            backgroundSize: patternDefinitions[item.key as Exclude<PatternKey, "none">].size(0.55),
-                            backgroundPosition: patternDefinitions[item.key as Exclude<PatternKey, "none">].position ?? "0 0",
+                            backgroundColor: activeTheme.panelStrong,
+                            backgroundImage: `linear-gradient(180deg, ${activeTheme.accentSoft}, transparent 70%), ${patternPreviewDefinitions[item.key as Exclude<PatternKey, "none">].image}`,
+                            backgroundSize: `100% 100%, ${patternPreviewDefinitions[item.key as Exclude<PatternKey, "none">].size(0.62)}`,
+                            backgroundPosition: `0 0, ${patternPreviewDefinitions[item.key as Exclude<PatternKey, "none">].position ?? "0 0"}`,
                           }}
                     />
                     <span className="text-[13px] font-medium text-[var(--app-text-primary)]">{item.label}</span>
