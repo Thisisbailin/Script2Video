@@ -868,7 +868,7 @@ export const QalamAgent: React.FC<Props> = ({
           }}
         />
       )}
-      <div className="relative z-20 flex items-center justify-between px-4 py-3">
+      <div className="qalam-header-shell relative z-20 flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="text-[20px] font-semibold tracking-[-0.03em] text-[var(--app-text-primary)]">Qalam</div>
           <button
@@ -906,14 +906,11 @@ export const QalamAgent: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="relative flex-1 min-h-0">
-        <div className="qalam-edge-fade qalam-edge-fade-top" />
+      <div className="flex-1 min-h-0">
         <QalamChatContent messages={messages} isSending={isSending} />
-        <div className="qalam-edge-fade qalam-edge-fade-bottom" />
       </div>
 
-      <div className="relative px-4 pb-4 pt-3">
-        <div className="qalam-edge-fade qalam-edge-fade-composer" />
+      <div className="qalam-composer-shell relative px-4 pb-4 pt-3">
         <div
           className="qalam-subtle-surface rounded-[24px] p-3"
           style={{
