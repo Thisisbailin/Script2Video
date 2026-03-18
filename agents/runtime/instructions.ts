@@ -1,5 +1,11 @@
 import type { RunContext } from "@openai/agents";
-import type { AgentUiContext, Script2VideoAgentEnvironment, Script2VideoRunContext, Script2VideoSkillDefinition } from "./types";
+import type {
+  AgentUiContext,
+  Script2VideoAgentEnvironment,
+  Script2VideoAgentMemory,
+  Script2VideoRunContext,
+  Script2VideoSkillDefinition,
+} from "./types";
 
 const BASE_INSTRUCTION = [
   "You are the Script2Video creative operating agent.",
@@ -8,6 +14,7 @@ const BASE_INSTRUCTION = [
   "Respond directly when no project state, project facts, or workflow change is needed.",
   "Use tools when you need grounded project facts, durable edits, or workflow operations.",
   "You receive a structured environment snapshot in run context. Treat it as your first project map.",
+  "You also receive a compact session memory snapshot. Treat it as compressed working memory, not as guaranteed project truth.",
   "Choose your own strategy. Use the environment snapshot first, then inspect the project only as much as needed.",
   "Treat project data and completed tool results as the source of truth.",
   "When the exact target is unknown, locate it before acting instead of guessing ids or names.",
@@ -87,6 +94,31 @@ const formatEnvironmentInstruction = (environment?: Script2VideoAgentEnvironment
   return lines.join("\n");
 };
 
+const formatMemoryInstruction = (memory?: Script2VideoAgentMemory) => {
+  if (!memory) return "";
+  const lines: string[] = ["[Session Memory]"];
+  if (memory.recentTurns.length) {
+    lines.push(
+      `Recent Turns: ${memory.recentTurns.map((turn) => `${turn.role}: ${turn.text}`).join(" | ")}`
+    );
+  }
+  if (memory.recentSuccessfulTools.length) {
+    lines.push(
+      `Recent Successful Tools: ${memory.recentSuccessfulTools
+        .map((tool) => `${tool.toolName}: ${tool.summary}`)
+        .join(" | ")}`
+    );
+  }
+  if (memory.recentFailedTools.length) {
+    lines.push(
+      `Recent Failed Tools: ${memory.recentFailedTools
+        .map((tool) => `${tool.toolName}: ${tool.summary}`)
+        .join(" | ")}`
+    );
+  }
+  return lines.length > 1 ? lines.join("\n") : "";
+};
+
 export const composeAgentInstructions = ({
   enabledSkills,
 }: {
@@ -95,7 +127,8 @@ export const composeAgentInstructions = ({
   const overlays = enabledSkills.map((skill) => `# Skill: ${skill.title}\n${skill.systemOverlay.trim()}`);
   return (runContext: RunContext<Script2VideoRunContext>) => {
     const environmentBlock = formatEnvironmentInstruction(runContext.context?.agentEnvironment);
+    const memoryBlock = formatMemoryInstruction(runContext.context?.agentMemory);
     const uiBlock = uiContextInstruction(runContext.context?.uiContext as AgentUiContext | undefined);
-    return [BASE_INSTRUCTION, environmentBlock, ...overlays, uiBlock].filter(Boolean).join("\n\n");
+    return [BASE_INSTRUCTION, environmentBlock, memoryBlock, ...overlays, uiBlock].filter(Boolean).join("\n\n");
   };
 };

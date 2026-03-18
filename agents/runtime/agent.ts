@@ -15,6 +15,7 @@ import { normalizeQalamToolSettings } from "../../node-workspace/components/qala
 import { createScript2VideoInputGuardrails, createScript2VideoOutputGuardrails } from "./guardrails";
 import { buildAgentEnvironment } from "./environment";
 import { composeAgentInstructions } from "./instructions";
+import { buildAgentMemorySnapshot, buildRunInputItems, createAgentSessionInputCallback } from "./memory";
 import { readPersistedAgentSessionMessages } from "./session";
 import { CODEX_RESPONSES_BASE_URL, OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import type {
@@ -384,16 +385,20 @@ export const createScript2VideoAgentRuntime = ({
       bridge,
       disabledTools,
     }).map((tool) => tool.name);
+    const sessionMessages = readPersistedAgentSessionMessages(input.sessionId);
+    const agentMemory = buildAgentMemorySnapshot(sessionMessages);
     const runContext: Script2VideoRunContext = {
       runtimeMode: "browser",
       agentEnvironment: buildAgentEnvironment({
         projectData: bridge.getProjectData(),
         runtimeMode: "browser",
         enabledTools: enabledToolNames,
-        sessionMessages: readPersistedAgentSessionMessages(input.sessionId),
+        sessionMessages,
       }),
+      agentMemory,
       uiContext: input.uiContext,
     };
+    const runInputItems = buildRunInputItems(input);
     const resolvedToolChoice = enabledToolNames.length > 0 ? "auto" : "none";
     debugLog(runId, "tool catalog", {
       enabled: enabledToolNames,
@@ -452,17 +457,19 @@ export const createScript2VideoAgentRuntime = ({
         stream: useStreaming,
       });
       const result = useStreaming
-        ? await run(agent, input.userText.trim(), {
+        ? await run(agent, runInputItems, {
           signal: options?.signal,
           maxTurns: AGENT_MAX_TURNS,
           session,
+          sessionInputCallback: createAgentSessionInputCallback(agentMemory),
           context: runContext,
           stream: true,
         })
-        : await run(agent, input.userText.trim(), {
+        : await run(agent, runInputItems, {
             signal: options?.signal,
             maxTurns: AGENT_MAX_TURNS,
             session,
+            sessionInputCallback: createAgentSessionInputCallback(agentMemory),
             context: runContext,
           });
       if (useStreaming) {

@@ -14,10 +14,11 @@ import {
 import OpenAI from "openai";
 import { CODEX_RESPONSES_BASE_URL, OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import { createScript2VideoTools } from "../../agents/tools";
-import { createEdgeSessionInputCallback, EdgeMemorySession, readEdgeSessionMessages } from "../../agents/runtime/edgeSession";
+import { EdgeMemorySession, readEdgeSessionMessages } from "../../agents/runtime/edgeSession";
 import { buildAgentEnvironment } from "../../agents/runtime/environment";
 import { createScript2VideoInputGuardrails, createScript2VideoOutputGuardrails } from "../../agents/runtime/guardrails";
 import { composeAgentInstructions } from "../../agents/runtime/instructions";
+import { buildAgentMemorySnapshot, buildRunInputItems, createAgentSessionInputCallback } from "../../agents/runtime/memory";
 import {
   AGENT_HTTP_STREAM_CONTENT_TYPE,
   serializeAgentStreamPacket,
@@ -279,16 +280,20 @@ export const onRequestPost = async (context: any) => {
             "operate_project_resource",
           ],
         });
+        const sessionMessages = readEdgeSessionMessages(body.run.sessionId);
+        const agentMemory = buildAgentMemorySnapshot(sessionMessages);
         const runContext: Script2VideoRunContext = {
           runtimeMode: "edge_full",
           agentEnvironment: buildAgentEnvironment({
             projectData: bridgeState.bridge.getProjectData(),
             runtimeMode: "edge_full",
             enabledTools: enabledTools.map((tool) => tool.name),
-            sessionMessages: readEdgeSessionMessages(body.run.sessionId),
+            sessionMessages,
           }),
+          agentMemory,
           uiContext: body.run.uiContext,
         };
+        const runInputItems = buildRunInputItems(body.run);
 
         const agent = new Agent<Script2VideoRunContext>({
           name: "Script2Video Edge Agent",
@@ -323,12 +328,12 @@ export const onRequestPost = async (context: any) => {
 
         let accumulatedText = "";
         let accumulatedReasoning = "";
-        const result = await runner.run(agent, body.run.userText.trim(), {
+        const result = await runner.run(agent, runInputItems, {
           stream: true,
           maxTurns: EDGE_AGENT_MAX_TURNS,
           signal: context.request.signal,
           session,
-          sessionInputCallback: createEdgeSessionInputCallback(),
+          sessionInputCallback: createAgentSessionInputCallback(agentMemory),
           context: runContext,
         });
 

@@ -25,17 +25,10 @@ const getEdgeSessionMap = () => {
 
 const cloneItem = <T,>(value: T): T => structuredClone(value);
 
-const isReplayableSessionItem = (item: AgentInputItem) => {
-  if (!item || typeof item !== "object") return false;
-  const role = (item as any).role;
-  return role === "user" || role === "assistant";
-};
-
-const trimReplayableItems = (items: AgentInputItem[], limit?: number) => {
-  const replayable = items.filter(isReplayableSessionItem);
-  if (limit === undefined) return replayable.map(cloneItem);
+const trimSessionItems = (items: AgentInputItem[], limit?: number) => {
+  if (limit === undefined) return items.map(cloneItem);
   if (limit <= 0) return [];
-  return replayable.slice(Math.max(replayable.length - limit, 0)).map(cloneItem);
+  return items.slice(Math.max(items.length - limit, 0)).map(cloneItem);
 };
 
 const clipText = (value: string, limit: number) => {
@@ -167,7 +160,7 @@ export class EdgeMemorySession implements Session {
   async getItems(limit?: number): Promise<AgentInputItem[]> {
     const record = getEdgeSessionMap().get(this.sessionId);
     const items = record?.items || [];
-    return trimReplayableItems(items, limit);
+    return trimSessionItems(items, limit);
   }
 
   async addItems(items: AgentInputItem[]): Promise<void> {

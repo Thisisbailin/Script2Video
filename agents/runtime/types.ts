@@ -69,6 +69,25 @@ export type AgentEnvironmentRecentAction = {
   createdAt?: number;
 };
 
+export type AgentMemoryTurn = {
+  role: "user" | "assistant";
+  text: string;
+  createdAt?: number;
+};
+
+export type AgentMemoryToolRecord = {
+  toolName: string;
+  status: "success" | "error";
+  summary: string;
+  createdAt?: number;
+};
+
+export type Script2VideoAgentMemory = {
+  recentTurns: AgentMemoryTurn[];
+  recentSuccessfulTools: AgentMemoryToolRecord[];
+  recentFailedTools: AgentMemoryToolRecord[];
+};
+
 export type Script2VideoAgentEnvironment = {
   project: AgentEnvironmentProjectDigest;
   capabilityManifest: AgentEnvironmentCapabilityManifest;
@@ -85,6 +104,7 @@ export type Script2VideoAgentEnvironment = {
 export type Script2VideoRunContext = {
   runtimeMode: "browser" | "edge_full";
   agentEnvironment: Script2VideoAgentEnvironment;
+  agentMemory: Script2VideoAgentMemory;
   uiContext?: AgentUiContext;
 };
 
