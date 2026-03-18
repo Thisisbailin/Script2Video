@@ -29,6 +29,7 @@ import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { useStoryboardGeneration } from './hooks/useStoryboardGeneration';
 import { AppShell } from './components/layout/AppShell';
 import { WorkflowCard } from './components/layout/Header';
+import { IdentityHoverBar } from './components/layout/IdentityHoverBar';
 import { ConflictModal } from './components/ConflictModal';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { VideoModule } from './modules/video/VideoModule';
@@ -378,6 +379,11 @@ const App: React.FC = () => {
 
   const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
   const setAppConfigStore = useWorkflowStore(state => state.setAppConfig);
+  const { addNode: addWorkflowNode, nodes: workflowNodes, viewport: workflowViewport } = useWorkflowStore((state) => ({
+    addNode: state.addNode,
+    nodes: state.nodes,
+    viewport: state.viewport,
+  }));
 
   useEffect(() => {
     setAppConfigStore(config);
@@ -2063,6 +2069,40 @@ const App: React.FC = () => {
     return { left, bottom };
   }, [workflowAnchor]);
 
+  const handleLoadIdentityCard = useCallback((identityId: string) => {
+    if (!identityId) return;
+    if (activeTab !== 'lab') setActiveTab('lab');
+
+    const existing = workflowNodes.find(
+      (node) => node.type === 'identityCard' && (node.data as any).identityId === identityId
+    );
+
+    if (existing) {
+      useWorkflowStore.setState((state) => ({
+        nodes: state.nodes.map((node) => ({
+          ...node,
+          selected: node.id === existing.id,
+        })),
+      }));
+      return;
+    }
+
+    const zoom = workflowViewport?.zoom || 1;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 960;
+    const position = workflowViewport
+      ? {
+          x: (-workflowViewport.x + viewportWidth * 0.54) / zoom,
+          y: (-workflowViewport.y + viewportHeight * 0.22) / zoom,
+        }
+      : { x: 280, y: 180 };
+
+    addWorkflowNode('identityCard', position, undefined, {
+      identityId,
+      title: '身份证卡片',
+    });
+  }, [activeTab, addWorkflowNode, setActiveTab, workflowNodes, workflowViewport]);
+
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
       case 'lab':
@@ -2161,7 +2201,7 @@ const App: React.FC = () => {
     <>
       <AppShell
         isDarkMode={isDarkMode}
-        header={null}
+        header={<IdentityHoverBar projectData={projectData} onSelectIdentity={handleLoadIdentityCard} />}
         banner={
           !isSyncBannerDismissed && (
             <SyncStatusBanner
