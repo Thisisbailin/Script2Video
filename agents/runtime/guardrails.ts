@@ -3,7 +3,6 @@ import {
   defineToolInputGuardrail,
   defineToolOutputGuardrail,
   type InputGuardrail,
-  type InputGuardrailFunction,
   type OutputGuardrail,
   type ToolInputGuardrailDefinition,
   type ToolOutputGuardrailDefinition,
@@ -13,8 +12,7 @@ import { sanitizeShotList } from "../../utils/shotSchema";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
 export type Script2VideoGuardrailContext = {
-  runtimeMode: "browser" | "edge_read_only" | "edge_full";
-  requestedOutcome?: "answer" | "understanding_document" | "node_workflow" | "auto";
+  runtimeMode: "browser" | "edge_full";
 };
 
 const extractInputText = (input: string | any[]) => {
@@ -47,7 +45,6 @@ const parseToolArguments = (value: unknown) => {
 };
 
 const clipLength = (value: unknown) => (typeof value === "string" ? value.trim().length : 0);
-
 const isValidNodeRef = (value: string) => /^[a-z][a-z0-9_:-]{1,63}$/i.test(value);
 
 const toArray = (value: unknown): unknown[] => {
@@ -102,27 +99,6 @@ export const createScript2VideoInputGuardrails = (): InputGuardrail[] => [
       return {
         tripwireTriggered: false,
         outputInfo: { chars: text.length },
-      };
-    },
-  },
-  {
-    name: "edge_read_only_mode_guardrail",
-    runInParallel: false,
-    execute: async ({ context }) => {
-      const guardrailContext = (context?.context as Script2VideoGuardrailContext | undefined) || undefined;
-      if (
-        guardrailContext?.runtimeMode === "edge_read_only" &&
-        (guardrailContext.requestedOutcome === "understanding_document" ||
-          guardrailContext.requestedOutcome === "node_workflow")
-      ) {
-        return {
-          tripwireTriggered: true,
-          outputInfo: { message: "当前 Edge runtime 仅支持查阅能力，请先切回 browser runtime 再执行编辑或操作。" },
-        };
-      }
-      return {
-        tripwireTriggered: false,
-        outputInfo: { mode: guardrailContext?.runtimeMode || "browser" },
       };
     },
   },
@@ -276,13 +252,11 @@ export const createScript2VideoToolInputGuardrails = (
             );
           }
 
-          if (resourceType === "project_summary") {
-            if (summaryLength < 12) {
-              return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "项目摘要过短，至少提供 12 个字符再写入。",
-                { resourceType, summaryLength }
-              );
-            }
+          if (resourceType === "project_summary" && summaryLength < 12) {
+            return ToolGuardrailFunctionOutputFactory.rejectContent("项目摘要过短，至少提供 12 个字符再写入。", {
+              resourceType,
+              summaryLength,
+            });
           }
 
           if (resourceType === "episode_summary") {
@@ -294,10 +268,10 @@ export const createScript2VideoToolInputGuardrails = (
               );
             }
             if (summaryLength < 12) {
-              return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "分集摘要过短，至少提供 12 个字符再写入。",
-                { resourceType, summaryLength }
-              );
+              return ToolGuardrailFunctionOutputFactory.rejectContent("分集摘要过短，至少提供 12 个字符再写入。", {
+                resourceType,
+                summaryLength,
+              });
             }
           }
 
@@ -306,10 +280,11 @@ export const createScript2VideoToolInputGuardrails = (
               return ToolGuardrailFunctionOutputFactory.rejectContent("角色档案写入需要 name。");
             }
             if (bioLength > 0 && bioLength < 8) {
-              return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "角色 bio 过短，至少提供 8 个字符，避免写入无效档案。",
-                { resourceType, name, bioLength }
-              );
+              return ToolGuardrailFunctionOutputFactory.rejectContent("角色 bio 过短，至少提供 8 个字符。", {
+                resourceType,
+                name,
+                bioLength,
+              });
             }
           }
 
@@ -318,15 +293,14 @@ export const createScript2VideoToolInputGuardrails = (
               return ToolGuardrailFunctionOutputFactory.rejectContent("场景档案写入需要 name。");
             }
             if (descriptionLength === 0 && visualsLength === 0 && typeof args.type !== "string") {
-              return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "场景档案至少需要 description、visuals 或 type 之一。"
-              );
+              return ToolGuardrailFunctionOutputFactory.rejectContent("场景档案至少需要 description、visuals 或 type 之一。");
             }
             if (descriptionLength > 0 && descriptionLength < 8) {
-              return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "场景 description 过短，至少提供 8 个字符。",
-                { resourceType, name, descriptionLength }
-              );
+              return ToolGuardrailFunctionOutputFactory.rejectContent("场景 description 过短，至少提供 8 个字符。", {
+                resourceType,
+                name,
+                descriptionLength,
+              });
             }
           }
 
@@ -363,128 +337,129 @@ export const createScript2VideoToolInputGuardrails = (
     ];
   }
 
-  if (toolName === "create_workflow_node") {
+  if (toolName === "operate_project_resource") {
     return [
       defineToolInputGuardrail({
-        name: "create_workflow_node_guardrail",
+        name: "operate_project_resource_guardrail",
         run: async ({ toolCall }) => {
           const args = parseToolArguments((toolCall as any).arguments);
-          const nodeRef = typeof (args.node_ref ?? args.nodeRef) === "string" ? String(args.node_ref ?? args.nodeRef).trim() : "";
-          const nodeType = typeof (args.node_type ?? args.nodeType) === "string" ? String(args.node_type ?? args.nodeType).trim() : "";
-          const textLength = clipLength(args.text);
-          if (!nodeRef) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent("create_workflow_node 必须提供稳定的 node_ref。");
-          }
-          if (!isValidNodeRef(nodeRef)) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "node_ref 必须使用简洁稳定的标识，例如 bull_prompt、poster_image，不要使用空格或整句描述。",
-              { nodeRef }
-            );
-          }
-          if (bridge.getWorkflowNode({ nodeRef })) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              `node_ref=${nodeRef} 已存在。请改用新的 node_ref，避免覆盖引用。`,
-              { nodeRef }
-            );
-          }
-          if (!["text", "imageGen", "scriptBoard", "storyboardBoard", "identityCard"].includes(nodeType)) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "当前 create_workflow_node 只支持 text、imageGen、scriptBoard、storyboardBoard、identityCard。",
-              { nodeType }
-            );
-          }
-          if (nodeType === "text" && textLength < 4) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "文本节点内容过短，至少提供 4 个字符。",
-              { nodeRef, textLength }
-            );
-          }
-          if (nodeType === "identityCard") {
-            const entityType =
-              typeof (args.entity_type ?? args.entityType) === "string"
-                ? String(args.entity_type ?? args.entityType).trim()
+          const resourceType =
+            typeof (args.resource_type ?? args.resourceType) === "string"
+              ? String(args.resource_type ?? args.resourceType).trim()
+              : "";
+
+          if (resourceType === "workflow_node") {
+            const nodeRef = typeof (args.node_ref ?? args.nodeRef) === "string" ? String(args.node_ref ?? args.nodeRef).trim() : "";
+            const nodeKind = typeof (args.node_kind ?? args.nodeKind) === "string" ? String(args.node_kind ?? args.nodeKind).trim() : "";
+            const textLength = clipLength(args.text);
+            const episodeId = Number(args.episode_id ?? args.episodeId);
+            const characterId =
+              typeof (args.character_id ?? args.characterId) === "string"
+                ? String(args.character_id ?? args.characterId).trim()
                 : "";
-            if (entityType && entityType !== "character" && entityType !== "scene") {
+
+            if (!nodeRef) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent("workflow_node 必须提供稳定的 node_ref。");
+            }
+            if (!isValidNodeRef(nodeRef)) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent("node_ref 必须使用简洁稳定的标识。", {
+                nodeRef,
+              });
+            }
+            if (bridge.getWorkflowNode({ nodeRef })) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(`node_ref=${nodeRef} 已存在。请改用新的 node_ref。`, {
+                nodeRef,
+              });
+            }
+            if (!["text", "script_board", "storyboard_board", "character_card"].includes(nodeKind)) {
               return ToolGuardrailFunctionOutputFactory.rejectContent(
-                "identityCard 节点只支持 entity_type=character 或 scene。",
-                { nodeRef, entityType }
+                "workflow_node 当前只支持 text、script_board、storyboard_board、character_card。",
+                { nodeKind }
               );
             }
-          }
-          return ToolGuardrailFunctionOutputFactory.allow({ nodeRef, nodeType });
-        },
-      }),
-    ];
-  }
-
-  if (toolName === "connect_workflow_nodes") {
-    return [
-      defineToolInputGuardrail({
-        name: "connect_workflow_nodes_guardrail",
-        run: async ({ toolCall }) => {
-          const args = parseToolArguments((toolCall as any).arguments);
-          const sourceRef = typeof (args.source_ref ?? args.sourceRef) === "string" ? String(args.source_ref ?? args.sourceRef).trim() : "";
-          const targetRef = typeof (args.target_ref ?? args.targetRef) === "string" ? String(args.target_ref ?? args.targetRef).trim() : "";
-          const sourceNodeId =
-            typeof (args.source_node_id ?? args.sourceNodeId) === "string" ? String(args.source_node_id ?? args.sourceNodeId).trim() : "";
-          const targetNodeId =
-            typeof (args.target_node_id ?? args.targetNodeId) === "string" ? String(args.target_node_id ?? args.targetNodeId).trim() : "";
-          const source = bridge.getWorkflowNode({ nodeRef: sourceRef || undefined, nodeId: sourceNodeId || undefined });
-          const target = bridge.getWorkflowNode({ nodeRef: targetRef || undefined, nodeId: targetNodeId || undefined });
-
-          if (!source || !target) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "连接前必须引用已存在节点。请先创建节点，并复用 create_workflow_node 返回的 node_ref。",
-              {
-                sourceRef,
-                targetRef,
-                sourceNodeId,
-                targetNodeId,
+            if (nodeKind === "text" && textLength < 4) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent("文本节点内容过短，至少提供 4 个字符。", {
+                nodeRef,
+                textLength,
+              });
+            }
+            if ((nodeKind === "script_board" || nodeKind === "storyboard_board") && !Number.isInteger(episodeId)) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(`${nodeKind} 需要合法的 episode_id。`, {
+                nodeRef,
+                episodeId,
+              });
+            }
+            if (nodeKind === "character_card") {
+              if (!characterId) {
+                return ToolGuardrailFunctionOutputFactory.rejectContent("character_card 需要 character_id。");
               }
-            );
-          }
-
-          if (source.nodeId === target.nodeId) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent("不能把节点连接到自己。");
-          }
-
-          const sourceHandle = typeof (args.source_handle ?? args.sourceHandle) === "string" ? String(args.source_handle ?? args.sourceHandle).trim() : "";
-          const targetHandle = typeof (args.target_handle ?? args.targetHandle) === "string" ? String(args.target_handle ?? args.targetHandle).trim() : "";
-          const sourceCanOutputText = source.outputHandles.includes("text" as any);
-          const targetCanInputText = target.inputHandles.includes("text" as any);
-          const resolvedSourceHandle = sourceHandle || (sourceCanOutputText ? "text" : "");
-          const resolvedTargetHandle =
-            targetHandle ||
-            (sourceCanOutputText && targetCanInputText ? "text" : "");
-
-          if (!resolvedSourceHandle || !resolvedTargetHandle) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              `当前无法自动推断 ${source.nodeType} -> ${target.nodeType} 的首尾端口，请显式提供 source_handle 和 target_handle。`,
-              {
-                sourceType: source.nodeType,
-                targetType: target.nodeType,
+              const exists = (bridge.getProjectData().context?.characters || []).some((character) => character.id === characterId);
+              if (!exists) {
+                return ToolGuardrailFunctionOutputFactory.rejectContent("目标角色不存在。请先查阅角色档案再创建角色卡片。", {
+                  characterId,
+                });
               }
-            );
+            }
+            return ToolGuardrailFunctionOutputFactory.allow({ resourceType, nodeRef, nodeKind });
           }
 
-          if (!source.outputHandles.includes(resolvedSourceHandle as any) || !target.inputHandles.includes(resolvedTargetHandle as any)) {
-            return ToolGuardrailFunctionOutputFactory.rejectContent(
-              "提供的首尾端口不属于目标节点，请改用默认端口或检查节点类型。",
-              {
+          if (resourceType === "workflow_connection") {
+            const sourceRef =
+              typeof (args.source_ref ?? args.sourceRef) === "string" ? String(args.source_ref ?? args.sourceRef).trim() : "";
+            const targetRef =
+              typeof (args.target_ref ?? args.targetRef) === "string" ? String(args.target_ref ?? args.targetRef).trim() : "";
+            const sourceNodeId =
+              typeof (args.source_node_id ?? args.sourceNodeId) === "string" ? String(args.source_node_id ?? args.sourceNodeId).trim() : "";
+            const targetNodeId =
+              typeof (args.target_node_id ?? args.targetNodeId) === "string" ? String(args.target_node_id ?? args.targetNodeId).trim() : "";
+            const source = bridge.getWorkflowNode({ nodeRef: sourceRef || undefined, nodeId: sourceNodeId || undefined });
+            const target = bridge.getWorkflowNode({ nodeRef: targetRef || undefined, nodeId: targetNodeId || undefined });
+
+            if (!source || !target) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(
+                "workflow_connection 只能连接已存在节点。请先创建节点，并复用 node_ref。",
+                { sourceRef, targetRef, sourceNodeId, targetNodeId }
+              );
+            }
+            if (source.nodeId === target.nodeId) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent("不能把节点连接到自己。");
+            }
+
+            const sourceHandle =
+              typeof (args.source_handle ?? args.sourceHandle) === "string" ? String(args.source_handle ?? args.sourceHandle).trim() : "";
+            const targetHandle =
+              typeof (args.target_handle ?? args.targetHandle) === "string" ? String(args.target_handle ?? args.targetHandle).trim() : "";
+            const sourceCanOutputText = source.outputHandles.includes("text" as any);
+            const targetCanInputText = target.inputHandles.includes("text" as any);
+            const resolvedSourceHandle = sourceHandle || (sourceCanOutputText ? "text" : "");
+            const resolvedTargetHandle = targetHandle || (sourceCanOutputText && targetCanInputText ? "text" : "");
+
+            if (!resolvedSourceHandle || !resolvedTargetHandle) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent(
+                `当前无法自动推断 ${source.nodeType} -> ${target.nodeType} 的端口，请显式提供 source_handle 和 target_handle。`,
+                { sourceType: source.nodeType, targetType: target.nodeType }
+              );
+            }
+            if (!source.outputHandles.includes(resolvedSourceHandle as any) || !target.inputHandles.includes(resolvedTargetHandle as any)) {
+              return ToolGuardrailFunctionOutputFactory.rejectContent("提供的端口不属于目标节点，请检查节点类型或显式端口。", {
                 sourceType: source.nodeType,
                 targetType: target.nodeType,
                 sourceHandle: resolvedSourceHandle,
                 targetHandle: resolvedTargetHandle,
-              }
-            );
+              });
+            }
+
+            return ToolGuardrailFunctionOutputFactory.allow({
+              resourceType,
+              sourceRef: source.nodeRef,
+              targetRef: target.nodeRef,
+            });
           }
 
-          return ToolGuardrailFunctionOutputFactory.allow({
-            sourceRef: source.nodeRef,
-            targetRef: target.nodeRef,
-            sourceType: source.nodeType,
-            targetType: target.nodeType,
-          });
+          return ToolGuardrailFunctionOutputFactory.rejectContent(
+            "operate_project_resource 仅支持 workflow_node 和 workflow_connection。",
+            { resourceType }
+          );
         },
       }),
     ];
@@ -512,44 +487,40 @@ export const createScript2VideoToolOutputGuardrails = (toolName: string): ToolOu
     ];
   }
 
-  if (toolName === "create_workflow_node") {
+  if (toolName === "operate_project_resource") {
     return [
       defineToolOutputGuardrail({
-        name: "create_workflow_node_output_guardrail",
+        name: "operate_project_resource_output_guardrail",
         run: async ({ output }) => {
           const result = output && typeof output === "object" ? (output as Record<string, unknown>) : null;
-          const nodeId = typeof result?.node_id === "string" ? result.node_id : typeof result?.nodeId === "string" ? result.nodeId : "";
-          const nodeRef = typeof result?.node_ref === "string" ? result.node_ref : typeof result?.nodeRef === "string" ? result.nodeRef : "";
-          if (!nodeId || !nodeRef) {
-            return ToolGuardrailFunctionOutputFactory.throwException({
-              toolName,
-              reason: "missing_node_identity",
-            });
+          const resourceType = typeof result?.resource_type === "string" ? result.resource_type : "";
+          if (resourceType === "workflow_node") {
+            const nodeId = typeof result?.node_id === "string" ? result.node_id : "";
+            const nodeRef = typeof result?.node_ref === "string" ? result.node_ref : "";
+            if (!nodeId || !nodeRef) {
+              return ToolGuardrailFunctionOutputFactory.throwException({
+                toolName,
+                reason: "missing_node_identity",
+              });
+            }
+            return ToolGuardrailFunctionOutputFactory.allow({ resourceType, nodeId, nodeRef });
           }
-          return ToolGuardrailFunctionOutputFactory.allow({ nodeId, nodeRef });
-        },
-      }),
-    ];
-  }
-
-  if (toolName === "connect_workflow_nodes") {
-    return [
-      defineToolOutputGuardrail({
-        name: "connect_workflow_nodes_output_guardrail",
-        run: async ({ output }) => {
-          const result = output && typeof output === "object" ? (output as Record<string, unknown>) : null;
-          const edgeId = typeof result?.edge_id === "string" ? result.edge_id : typeof result?.edgeId === "string" ? result.edgeId : "";
-          const sourceNodeId =
-            typeof result?.source_node_id === "string" ? result.source_node_id : typeof result?.sourceNodeId === "string" ? result.sourceNodeId : "";
-          const targetNodeId =
-            typeof result?.target_node_id === "string" ? result.target_node_id : typeof result?.targetNodeId === "string" ? result.targetNodeId : "";
-          if (!edgeId || !sourceNodeId || !targetNodeId) {
-            return ToolGuardrailFunctionOutputFactory.throwException({
-              toolName,
-              reason: "missing_edge_identity",
-            });
+          if (resourceType === "workflow_connection") {
+            const edgeId = typeof result?.edge_id === "string" ? result.edge_id : "";
+            const sourceNodeId = typeof result?.source_node_id === "string" ? result.source_node_id : "";
+            const targetNodeId = typeof result?.target_node_id === "string" ? result.target_node_id : "";
+            if (!edgeId || !sourceNodeId || !targetNodeId) {
+              return ToolGuardrailFunctionOutputFactory.throwException({
+                toolName,
+                reason: "missing_edge_identity",
+              });
+            }
+            return ToolGuardrailFunctionOutputFactory.allow({ resourceType, edgeId, sourceNodeId, targetNodeId });
           }
-          return ToolGuardrailFunctionOutputFactory.allow({ edgeId, sourceNodeId, targetNodeId });
+          return ToolGuardrailFunctionOutputFactory.throwException({
+            toolName,
+            reason: "invalid_output_shape",
+          });
         },
       }),
     ];

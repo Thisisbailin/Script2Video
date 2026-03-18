@@ -1,254 +1,6 @@
-import type { AgentTool, AgentToolCall } from "../../../services/toolingTypes";
+import type { AgentToolCall } from "../../../services/toolingTypes";
 import type { ToolMessage } from "./types";
 import type { QalamToolSettings } from "../../../types";
-
-export const TOOL_DEFS: AgentTool[] = [
-  {
-    type: "function",
-    name: "get_episode_script",
-    description: "Read a specific episode from the parsed script, including scene list and optional summary.",
-    parameters: {
-      type: "object",
-      properties: {
-        episodeId: { type: "integer", description: "Episode number (1-based)." },
-        episodeTitle: { type: "string", description: "Episode title or label to match." },
-        maxChars: { type: "integer", description: "Max chars for episode content (default 4000)." },
-        maxScenes: { type: "integer", description: "Max scenes to return in the scene list (default 50)." },
-        includeSceneList: { type: "boolean", description: "Include the episode scene list. Default true." },
-        includeEpisodeSummary: { type: "boolean", description: "Include the episode summary if available. Default true." },
-        includeCharacters: { type: "boolean", description: "Include parsed episode characters. Default true." },
-      },
-      required: [],
-    },
-  },
-  {
-    type: "function",
-    name: "get_scene_script",
-    description: "Read a specific scene from the parsed script by scene id or scene index.",
-    parameters: {
-      type: "object",
-      properties: {
-        episodeId: { type: "integer", description: "Episode number (1-based)." },
-        episodeTitle: { type: "string", description: "Episode title or label to match." },
-        sceneId: { type: "string", description: "Scene id like 1-3." },
-        sceneIndex: { type: "integer", description: "Scene index within the episode (1-based)." },
-        maxChars: { type: "integer", description: "Max chars for scene content (default 2400)." },
-        includeEpisodeSummary: { type: "boolean", description: "Include the episode summary if available. Default true." },
-        includeCharacters: { type: "boolean", description: "Include parsed episode characters. Default true." },
-        includeSceneMetadata: { type: "boolean", description: "Include parsed scene metadata. Default true." },
-      },
-      required: [],
-    },
-  },
-  {
-    type: "function",
-    name: "read_project_data",
-    description: "Read project data: script, understanding, characters, locations. Supports episode/scene lookup and search.",
-    parameters: {
-      type: "object",
-      properties: {
-        episodeId: { type: "integer", description: "Episode number (1-based)." },
-        episodeTitle: { type: "string", description: "Episode title or label to match." },
-        sceneId: { type: "string", description: "Scene id like 1-3." },
-        sceneIndex: { type: "integer", description: "Scene index within episode (1-based)." },
-        characterId: { type: "string", description: "Character id." },
-        characterName: { type: "string", description: "Character name to match." },
-        locationId: { type: "string", description: "Location id." },
-        locationName: { type: "string", description: "Location name to match." },
-        query: { type: "string", description: "Text to search within script." },
-        queryScopes: {
-          type: "array",
-          items: {
-            type: "string",
-            enum: ["script", "understanding", "characters", "locations"],
-          },
-        },
-        include: {
-          type: "array",
-          items: {
-            type: "string",
-            enum: [
-              "episodeContent",
-              "sceneContent",
-              "sceneList",
-              "episodeCharacters",
-              "matches",
-              "projectSummary",
-              "episodeSummary",
-              "episodeSummaries",
-              "characters",
-              "character",
-              "locations",
-              "location",
-              "rawScript",
-            ],
-          },
-        },
-        maxChars: { type: "integer", description: "Max chars per content field (default 1200)." },
-        maxMatches: { type: "integer", description: "Max matches for search results (default 5)." },
-        maxItems: { type: "integer", description: "Max items for lists (default 20)." },
-      },
-      required: [],
-    },
-  },
-  {
-    type: "function",
-    name: "search_script_data",
-    description: "Search parsed script data to locate relevant episodes/scenes.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Search query." },
-        episodeId: { type: "integer", description: "Limit search to a specific episode (1-based)." },
-        episodeTitle: { type: "string", description: "Limit search to an episode title." },
-        maxMatches: { type: "integer", description: "Max matches (default 8)." },
-        maxSnippetChars: { type: "integer", description: "Max snippet length per match (default 200)." },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    type: "function",
-    name: "create_text_node",
-    description: "Create a text node in NodeLab. Use for drafting prompts or notes.",
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Text node title (optional)." },
-        text: { type: "string", description: "Text node content." },
-        x: { type: "number", description: "X position in canvas coordinates (optional)." },
-        y: { type: "number", description: "Y position in canvas coordinates (optional)." },
-        parentId: { type: "string", description: "Optional parent group node id." },
-      },
-      required: ["text"],
-    },
-  },
-  {
-    type: "function",
-    name: "upsert_character",
-    description: "Create or update a character (with forms). Supports partial updates.",
-    parameters: {
-      type: "object",
-      properties: {
-        character: {
-          type: "object",
-          properties: {
-            id: { type: "string" },
-            slug: { type: "string" },
-            name: { type: "string" },
-            role: { type: "string" },
-            isMain: { type: "boolean" },
-            bio: { type: "string" },
-            assetPriority: { type: "string", enum: ["high", "medium", "low"] },
-            episodeUsage: { type: "string" },
-            archetype: { type: "string" },
-            tags: { type: "array", items: { type: "string" } },
-            aliases: {
-              type: "array",
-              items: {
-                anyOf: [
-                  { type: "string" },
-                  {
-                    type: "object",
-                    properties: {
-                      id: { type: "string" },
-                      value: { type: "string" },
-                      kind: { type: "string", enum: ["primary", "alias", "title", "short", "legacy"] },
-                      normalized: { type: "string" },
-                    },
-                    required: ["value"],
-                  },
-                ],
-              },
-            },
-            status: { type: "string", enum: ["draft", "verified", "locked", "archived"] },
-            version: { type: "integer" },
-            binding: {
-              type: "object",
-              properties: {
-                canonicalMention: { type: "string" },
-                defaultFormId: { type: "string" },
-                defaultVoiceScope: { type: "string", enum: ["character", "form"] },
-                mentionPolicy: { type: "string", enum: ["character-first", "form-first"] },
-              },
-            },
-            forms: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  formName: { type: "string" },
-                  characterId: { type: "string" },
-                  key: { type: "string" },
-                  type: { type: "string", enum: ["default", "age", "costume", "identity", "state", "disguise", "battle", "special"] },
-                  isDefault: { type: "boolean" },
-                  aliases: { type: "array", items: { type: "string" } },
-                  episodeRange: { type: "string" },
-                  description: { type: "string" },
-                  visualTags: { type: "string" },
-                  identityOrState: { type: "string" },
-                },
-                required: ["formName", "episodeRange"],
-              },
-            },
-          },
-          required: ["name"],
-        },
-        mergeStrategy: { type: "string", enum: ["patch", "replace"] },
-        formsMode: { type: "string", enum: ["merge", "replace"] },
-        formsToDelete: { type: "array", items: { type: "string" } },
-        evidence: { type: "array", items: { type: "string" } },
-      },
-      required: ["character"],
-    },
-  },
-  {
-    type: "function",
-    name: "upsert_location",
-    description: "Create or update a location (with zones). Supports partial updates.",
-    parameters: {
-      type: "object",
-      properties: {
-        location: {
-          type: "object",
-          properties: {
-            id: { type: "string" },
-            name: { type: "string" },
-            type: { type: "string", enum: ["core", "secondary"] },
-            description: { type: "string" },
-            visuals: { type: "string" },
-            assetPriority: { type: "string", enum: ["high", "medium", "low"] },
-            episodeUsage: { type: "string" },
-            zones: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  name: { type: "string" },
-                  kind: { type: "string", enum: ["interior", "exterior", "transition", "unspecified"] },
-                  episodeRange: { type: "string" },
-                  layoutNotes: { type: "string" },
-                  keyProps: { type: "string" },
-                  lightingWeather: { type: "string" },
-                  materialPalette: { type: "string" },
-                },
-                required: ["name", "episodeRange"],
-              },
-            },
-          },
-          required: ["name"],
-        },
-        mergeStrategy: { type: "string", enum: ["patch", "replace"] },
-        zonesMode: { type: "string", enum: ["merge", "replace"] },
-        zonesToDelete: { type: "array", items: { type: "string" } },
-        evidence: { type: "array", items: { type: "string" } },
-      },
-      required: ["location"],
-    },
-  },
-];
 
 export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined) => {
   const projectData = value?.projectData || {};
@@ -270,27 +22,6 @@ export const normalizeQalamToolSettings = (value: QalamToolSettings | undefined)
   };
 };
 
-export const getQalamToolDefs = (settings: ReturnType<typeof normalizeQalamToolSettings>) => {
-  const allowProjectData = settings.projectData.enabled !== false;
-  const allowWorkflowBuilder = settings.workflowBuilder.enabled !== false;
-  const allowCharacterLocation = settings.characterLocation.enabled !== false;
-  return TOOL_DEFS.filter((tool) => {
-    if (tool.type !== "function") return true;
-    if (
-      !allowProjectData &&
-      (tool.name === "get_episode_script" ||
-        tool.name === "get_scene_script" ||
-        tool.name === "read_project_data" ||
-        tool.name === "search_script_data")
-    ) {
-      return false;
-    }
-    if (!allowWorkflowBuilder && tool.name === "create_text_node") return false;
-    if (!allowCharacterLocation && (tool.name === "upsert_character" || tool.name === "upsert_location")) return false;
-    return true;
-  });
-};
-
 export const parseToolArguments = (value: string) => {
   if (!value) return {};
   try {
@@ -301,52 +32,20 @@ export const parseToolArguments = (value: string) => {
 };
 
 export const buildToolSummary = (name: string, args: any) => {
-  if (name === "get_episode_script") {
-    const ep = args?.episodeId || args?.episodeTitle || "";
-    return ep ? `剧集查阅：${ep}` : "剧集查阅";
+  if (name === "list_project_resources") {
+    return `资源目录：${args?.resource_type || "project"}`;
   }
-  if (name === "get_scene_script") {
-    const ep = args?.episodeId || args?.episodeTitle || "";
-    const sc = args?.sceneId || args?.sceneIndex || "";
-    const parts = [];
-    if (ep) parts.push(`集 ${ep}`);
-    if (sc) parts.push(`场景 ${sc}`);
-    return parts.length ? `场景查阅：${parts.join(" · ")}` : "场景查阅";
+  if (name === "read_project_resource") {
+    return `资源读取：${args?.resource_type || "resource"}`;
   }
-  if (name === "read_project_data" || name === "read_script_data") {
-    const ep = args?.episodeId || args?.episodeTitle || "";
-    const sc = args?.sceneId || args?.sceneIndex || "";
-    const ch = args?.characterName || args?.characterId || "";
-    const loc = args?.locationName || args?.locationId || "";
-    const q = args?.query || "";
-    const parts = [];
-    if (ep) parts.push(`集 ${ep}`);
-    if (sc) parts.push(`场景 ${sc}`);
-    if (ch) parts.push(`角色 ${ch}`);
-    if (loc) parts.push(`场景库 ${loc}`);
-    if (q) parts.push(`检索 "${String(q).slice(0, 24)}"`);
-    return parts.length ? `资料查阅：${parts.join(" · ")}` : "资料查阅";
+  if (name === "search_project_resource") {
+    return `资源搜索：${String(args?.query || "").slice(0, 32)}`;
   }
-  if (name === "search_script_data") {
-    const q = args?.query || "";
-    const ep = args?.episodeId || args?.episodeTitle || "";
-    return ep
-      ? `剧本搜索：${String(q).slice(0, 24)} · 集 ${ep}`
-      : `剧本搜索：${String(q).slice(0, 32)}`;
+  if (name === "edit_project_resource") {
+    return `资源写入：${args?.resource_type || "resource"}`;
   }
-  if (name === "create_text_node") {
-    const title = args?.title || "文本节点";
-    return `新建文本节点：${String(title).slice(0, 24)}`;
-  }
-  if (name === "upsert_character") {
-    const target = args?.character?.name || args?.character?.id || "未命名角色";
-    const formsCount = Array.isArray(args?.character?.forms) ? args.character.forms.length : 0;
-    return `角色：${target} · 形态 ${formsCount} 个`;
-  }
-  if (name === "upsert_location") {
-    const target = args?.location?.name || args?.location?.id || "未命名场景";
-    const zonesCount = Array.isArray(args?.location?.zones) ? args.location.zones.length : 0;
-    return `场景：${target} · 分区 ${zonesCount} 个`;
+  if (name === "operate_project_resource") {
+    return `工作流操作：${args?.resource_type || "workflow"}`;
   }
   return "工具调用";
 };
@@ -356,19 +55,8 @@ export const applyToolDefaults = (
   args: any,
   settings: ReturnType<typeof normalizeQalamToolSettings>
 ) => {
-  if (!args || typeof args !== "object") return args;
-  if (name === "upsert_character") {
-    const next = { ...args };
-    if (!next.mergeStrategy) next.mergeStrategy = settings.characterLocation.mergeStrategy;
-    if (!next.formsMode) next.formsMode = settings.characterLocation.formsMode;
-    return next;
-  }
-  if (name === "upsert_location") {
-    const next = { ...args };
-    if (!next.mergeStrategy) next.mergeStrategy = settings.characterLocation.mergeStrategy;
-    if (!next.zonesMode) next.zonesMode = settings.characterLocation.zonesMode;
-    return next;
-  }
+  void name;
+  void settings;
   return args;
 };
 

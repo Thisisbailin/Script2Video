@@ -1,17 +1,21 @@
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
+export const LIST_PROJECT_RESOURCE_TYPES = [
+  "episodes",
+  "understanding_project",
+  "understanding_episodes",
+  "understanding_characters",
+  "understanding_scenes",
+  "understanding_guides",
+] as const;
+
 const listProjectResourcesParameters = {
   type: "object",
   properties: {
     resource_type: {
       type: "string",
       enum: [
-        "episodes",
-        "understanding_project",
-        "understanding_episodes",
-        "understanding_characters",
-        "understanding_scenes",
-        "understanding_guides",
+        ...LIST_PROJECT_RESOURCE_TYPES,
       ],
       description: "Which resource directory to inspect.",
     },
@@ -32,13 +36,7 @@ const toPositiveInteger = (value: unknown) => {
   return undefined;
 };
 
-type ResourceType =
-  | "episodes"
-  | "understanding_project"
-  | "understanding_episodes"
-  | "understanding_characters"
-  | "understanding_scenes"
-  | "understanding_guides";
+type ResourceType = (typeof LIST_PROJECT_RESOURCE_TYPES)[number];
 
 const parseArgs = (input: unknown) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -51,14 +49,7 @@ const parseArgs = (input: unknown) => {
     throw new Error("list_project_resources 需要 resource_type。");
   }
   if (
-    ![
-      "episodes",
-      "understanding_project",
-      "understanding_episodes",
-      "understanding_characters",
-      "understanding_scenes",
-      "understanding_guides",
-    ].includes(resourceType)
+    !(LIST_PROJECT_RESOURCE_TYPES as readonly string[]).includes(resourceType)
   ) {
     throw new Error(`list_project_resources 不支持 resource_type=${resourceType}`);
   }

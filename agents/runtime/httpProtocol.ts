@@ -2,7 +2,7 @@ import type { ProjectData } from "../../types";
 import type { AgentRuntimeEvent, Script2VideoRunInput, Script2VideoRunResult } from "./types";
 
 export type AgentHttpRuntimeConfig = {
-  provider?: "qwen" | "openrouter";
+  provider?: "qwen" | "openrouter" | "codex";
   model: string;
   baseUrl?: string;
 };

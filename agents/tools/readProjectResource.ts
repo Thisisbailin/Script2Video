@@ -3,21 +3,23 @@ import { getSceneScript } from "../../node-workspace/components/qalam/toolAction
 import { SHOT_TABLE_COLUMNS } from "../../utils/shotSchema";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
+export const READ_PROJECT_RESOURCE_TYPES = [
+  "episode_script",
+  "episode_storyboard",
+  "scene_script",
+  "project_summary",
+  "episode_summary",
+  "character_profile",
+  "scene_profile",
+  "guide_document",
+] as const;
+
 const readProjectResourceParameters = {
   type: "object",
   properties: {
     resource_type: {
       type: "string",
-      enum: [
-        "episode_script",
-        "episode_storyboard",
-        "scene_script",
-        "project_summary",
-        "episode_summary",
-        "character_profile",
-        "scene_profile",
-        "guide_document",
-      ],
+      enum: [...READ_PROJECT_RESOURCE_TYPES],
       description: "Which project resource to read.",
     },
     episode_id: {
@@ -48,15 +50,7 @@ const readProjectResourceParameters = {
   required: ["resource_type"],
 } as const;
 
-type ResourceType =
-  | "episode_script"
-  | "episode_storyboard"
-  | "scene_script"
-  | "project_summary"
-  | "episode_summary"
-  | "character_profile"
-  | "scene_profile"
-  | "guide_document";
+type ResourceType = (typeof READ_PROJECT_RESOURCE_TYPES)[number];
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -91,16 +85,7 @@ const parseArgs = (input: unknown) => {
   }
 
   if (
-    ![
-      "episode_script",
-      "episode_storyboard",
-      "scene_script",
-      "project_summary",
-      "episode_summary",
-      "character_profile",
-      "scene_profile",
-      "guide_document",
-    ].includes(resourceType)
+    !(READ_PROJECT_RESOURCE_TYPES as readonly string[]).includes(resourceType)
   ) {
     throw new Error(`read_project_resource 不支持 resource_type=${resourceType}`);
   }

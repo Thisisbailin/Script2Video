@@ -1,6 +1,15 @@
 import type { Character, Location, ProjectData } from "../../types";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
+export const SEARCH_PROJECT_RESOURCE_SCOPES = [
+  "script",
+  "storyboard",
+  "understanding",
+  "characters",
+  "scenes",
+  "guides",
+] as const;
+
 const searchProjectResourceParameters = {
   type: "object",
   properties: {
@@ -12,7 +21,7 @@ const searchProjectResourceParameters = {
       type: "array",
       items: {
         type: "string",
-        enum: ["script", "storyboard", "understanding", "characters", "scenes", "guides"],
+        enum: [...SEARCH_PROJECT_RESOURCE_SCOPES],
       },
       description: "Optional scopes to search. Defaults to all supported scopes, including storyboard rows.",
     },
@@ -32,7 +41,7 @@ const searchProjectResourceParameters = {
   required: ["query"],
 } as const;
 
-type Scope = "script" | "storyboard" | "understanding" | "characters" | "scenes" | "guides";
+type Scope = (typeof SEARCH_PROJECT_RESOURCE_SCOPES)[number];
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -73,17 +82,17 @@ const parseArgs = (input: unknown) => {
     ? raw.resource_scopes.map((item) => String(item))
     : Array.isArray(raw.resourceScopes)
       ? (raw.resourceScopes as unknown[]).map((item) => String(item))
-      : ["script", "storyboard", "understanding", "characters", "scenes", "guides"];
+      : [...SEARCH_PROJECT_RESOURCE_SCOPES];
 
   const normalizedScopes = scopes.filter((scope): scope is Scope =>
-    ["script", "storyboard", "understanding", "characters", "scenes", "guides"].includes(scope)
+    (SEARCH_PROJECT_RESOURCE_SCOPES as readonly string[]).includes(scope)
   );
 
   return {
     query,
     scopes: normalizedScopes.length
       ? normalizedScopes
-      : (["script", "storyboard", "understanding", "characters", "scenes", "guides"] as Scope[]),
+      : ([...SEARCH_PROJECT_RESOURCE_SCOPES] as Scope[]),
     episodeId: toPositiveInteger(raw.episode_id ?? raw.episodeId),
     maxMatches: Math.max(1, Math.min(20, toPositiveInteger(raw.max_matches ?? raw.maxMatches) || 8)),
     maxChars: Math.max(120, Math.min(1200, toPositiveInteger(raw.max_chars ?? raw.maxChars) || 320)),

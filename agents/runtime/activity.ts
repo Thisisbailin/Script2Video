@@ -65,18 +65,13 @@ const writeActivityMap = (storageKey: string, map: Record<string, AgentToolActiv
 const summarizeArtifact = (call: AgentExecutedToolCall) => {
   const output = call.output as any;
   if (!output || typeof output !== "object") return undefined;
-  if (call.name === "create_text_node" && typeof output.title === "string") {
-    return `Text node · ${output.title}`;
-  }
-  if (call.name === "create_node_workflow") {
-    const nodeCount = Array.isArray(output.nodes) ? output.nodes.length : 0;
-    return `Workflow · ${nodeCount} nodes`;
-  }
-  if (call.name === "upsert_character" && typeof output.name === "string") {
-    return `Character · ${output.name}`;
-  }
-  if (call.name === "upsert_location" && typeof output.name === "string") {
-    return `Location · ${output.name}`;
+  if (call.name === "operate_project_resource") {
+    if (output.resource_type === "workflow_node" && typeof output.title === "string") {
+      return `Workflow node · ${output.title}`;
+    }
+    if (output.resource_type === "workflow_connection") {
+      return `Workflow connection · ${output.source_ref || output.source_node_id || "source"} -> ${output.target_ref || output.target_node_id || "target"}`;
+    }
   }
   return undefined;
 };

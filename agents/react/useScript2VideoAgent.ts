@@ -79,14 +79,8 @@ const humanizeToolName = (name: string) => {
       return "搜索项目内容";
     case "edit_project_resource":
       return "编辑项目资产";
-    case "create_workflow_node":
-      return "创建工作流节点";
-    case "connect_workflow_nodes":
-      return "连接工作流节点";
-    case "operate_project_workflow":
-      return "操作节点工作流";
-    case "create_text_node":
-      return "创建文本节点";
+    case "operate_project_resource":
+      return "操作工作流资源";
     default:
       return name;
   }

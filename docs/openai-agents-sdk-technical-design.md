@@ -88,7 +88,6 @@ export type Script2VideoRunInput = {
   attachments?: AgentAttachment[];
   enabledSkillIds?: string[];
   uiContext?: AgentUiContext;
-  requestedOutcome?: "answer" | "understanding_document" | "node_workflow" | "auto";
 };
 
 export type Script2VideoRunOptions = {

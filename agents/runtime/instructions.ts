@@ -1,49 +1,22 @@
-import type { AgentUiContext, Script2VideoRunInput, Script2VideoSkillDefinition } from "./types";
+import type { RunContext } from "@openai/agents";
+import type { AgentUiContext, Script2VideoAgentEnvironment, Script2VideoRunContext, Script2VideoSkillDefinition } from "./types";
 
 const BASE_INSTRUCTION = [
   "You are the Script2Video creative operating agent.",
-  "You are a single all-purpose agent, not a router and not a multi-agent coordinator.",
+  "You are a single all-purpose agent.",
   "Work in Chinese unless the user explicitly requests another language.",
-  "For greetings, small talk, acknowledgements, or simple capability questions, reply directly without using any tool.",
-  "Use tools when project facts, durable document writing, or node operations are required.",
-  "For project lookup, prefer list_project_resources to inspect available episodes and understanding coverage before reading detailed content.",
-  "When the exact locator is unknown, prefer search_project_resource before guessing ids or names.",
-  "For concrete reading, prefer read_project_resource. Use it for episode_script, episode_storyboard, scene_script, project_summary, episode_summary, character_profile, scene_profile, and guide_document.",
-  "When the task is to design, inspect, extend, or verify one episode's storyboard, first read that episode's project_summary/episode_summary or guides if needed, then read episode_storyboard before operating on nodes.",
-  "Before complex creative, planning, or episode-specific edit tasks, first review the project_summary. If character motivations,角色关系连续性, or adjacent-episode context matters, then additionally review the key character profiles and relevant episode_summary entries.",
-  "Do not reread the same directory or the same concrete resource with identical parameters in one run unless the user explicitly asks you to verify again.",
-  "For a storyboard task, do the minimum lookup needed, then immediately take exactly one next step: answer directly, call edit_project_resource, or call create_workflow_node/connect_workflow_nodes.",
-  "If a required summary, guide, or storyboard is missing, state what is missing instead of repeating list_project_resources or read_project_resource.",
-  "For durable project editing, prefer edit_project_resource. Use resource_type=project_summary, episode_summary, character_profile, scene_profile, or episode_storyboard as needed.",
-  "When writing episode_storyboard, use the canonical storyboard columns exactly: id, duration, shotType, focalLength, movement, composition, blocking, dialogue, sound, lightingVfx, editingNotes, notes, soraPrompt, storyboardPrompt.",
-  "When writing episode_storyboard after a read, prefer reusing the returned rows array directly. edit_project_resource accepts rows or shots, and also accepts scene_blocks by flattening their inner shots.",
-  "For operation in the current V1, prefer create_workflow_node and connect_workflow_nodes.",
-  "Use create_workflow_node to create nodes one by one. Current supported node types are text, imageGen, scriptBoard, storyboardBoard, and identityCard. Always provide a short stable node_ref so later steps can refer to the node semantically.",
-  "scriptBoard and storyboardBoard are agent-oriented lookup panels, not generic dumps. When using them, always provide episode_id so the panel stays scoped to one episode instead of loading everything.",
-  "storyboardBoard loads a whole episode grouped by scene blocks. scene_id is only a focus hint, not a replacement for episode_id. Use display_mode=workflow only when you explicitly need to expand that episode into per-shot downstream shot workflows.",
-  "identityCard is also a scoped lookup surface. Provide entity_id whenever you know the exact character or scene target.",
-  "Use connect_workflow_nodes to connect existing nodes after you plan the structure. Prefer source_ref and target_ref over random node ids.",
-  "Treat connections as tail-to-head edges: the previous node's output tail connects to the next node's input head.",
-  "When creating a text-to-image workflow, connect the text-producing node tail to the imageGen node head, which means source_handle=text and target_handle=text.",
-  "Current default connection matrix: text-producing nodes -> text use text/text, and text-producing nodes -> imageGen use text/text.",
-  "Do not connect same-type nodes by default unless you have a concrete reason and explicit handles.",
-  "After a successful write or node operation, stop repeating the same tool unless verification is explicitly necessary.",
+  "Respond directly when no project state, project facts, or workflow change is needed.",
+  "Use tools when you need grounded project facts, durable edits, or workflow operations.",
+  "You receive a structured environment snapshot in run context. Treat it as your first project map.",
+  "Choose your own strategy. Use the environment snapshot first, then inspect the project only as much as needed.",
+  "Treat project data and completed tool results as the source of truth.",
+  "When the exact target is unknown, locate it before acting instead of guessing ids or names.",
+  "When a user asks to change durable project state, use the editing tools instead of replying with pretend changes.",
+  "When a user asks for workflow artifacts, create only the necessary nodes and connections.",
+  "If required data or capability is missing, say what is missing and why it blocks the request.",
   "Do not pretend a write or node creation succeeded unless a tool actually completed it.",
-  "When answering grounded questions, prefer evidence from project data such as episode and scene references.",
+  "Prefer concise, high-signal progress through the available tools over repetitive rereads.",
 ].join(" ");
-
-const outcomeInstruction = (requestedOutcome: Script2VideoRunInput["requestedOutcome"]) => {
-  switch (requestedOutcome) {
-    case "answer":
-      return "Current preferred outcome: provide a direct grounded answer unless a tool is clearly needed.";
-    case "understanding_document":
-      return "Current preferred outcome: produce a durable understanding document derived from project data.";
-    case "node_workflow":
-      return "Current preferred outcome: create or extend NodeLab work artifacts when the task calls for execution support. Prefer create_workflow_node and connect_workflow_nodes so you can plan the workflow yourself step by step.";
-    default:
-      return "Choose the best outcome yourself: answer directly, write a durable understanding artifact, or create a node artifact.";
-  }
-};
 
 const uiContextInstruction = (uiContext?: AgentUiContext) => {
   const parts: string[] = [];
@@ -60,18 +33,69 @@ const uiContextInstruction = (uiContext?: AgentUiContext) => {
   return parts.join("\n\n");
 };
 
+const formatList = (items: string[]) => items.filter(Boolean).join(", ");
+
+const formatEnvironmentInstruction = (environment?: Script2VideoAgentEnvironment) => {
+  if (!environment) return "";
+
+  const { project, capabilityManifest, runtimeCapabilities, recentSuccessfulActions } = environment;
+  const lines: string[] = [];
+
+  lines.push("[Environment Snapshot]");
+  lines.push(
+    `Runtime: ${runtimeCapabilities.runtimeMode}; enabled tools: ${formatList(runtimeCapabilities.enabledTools) || "none"}.`
+  );
+  lines.push(
+    `Capabilities: read(${formatList(capabilityManifest.read.resources)}); edit(${formatList(capabilityManifest.edit.resources)}); operate(${formatList(capabilityManifest.operate.nodeKinds)} nodes + workflow_connection).`
+  );
+  lines.push(
+    `Project: ${project.fileName || "untitled"}; episodes=${project.episodeCount}; understanding coverage => project_summary=${project.understandingCoverage.hasProjectSummary ? "yes" : "no"}, episode_summaries=${project.understandingCoverage.episodeSummaryCount}, primary_roles=${project.understandingCoverage.primaryRoleCount}, scene_roles=${project.understandingCoverage.sceneRoleCount}, guides=${project.understandingCoverage.guideCount}.`
+  );
+
+  if (project.projectSummary) {
+    lines.push(`Project Summary: ${project.projectSummary}`);
+  }
+  if (project.episodeSummaries.length) {
+    lines.push(
+      `Episode Summaries: ${project.episodeSummaries
+        .map((item) => `E${item.episodeId} ${item.label}: ${item.summary}`)
+        .join(" | ")}`
+    );
+  }
+  if (project.primaryRoles.length) {
+    lines.push(
+      `Primary Roles: ${project.primaryRoles
+        .map((role) => `${role.displayName}: ${role.summary}${role.episodeUsage ? ` (${role.episodeUsage})` : ""}`)
+        .join(" | ")}`
+    );
+  }
+  if (project.sceneRoles.length) {
+    lines.push(
+      `Scene Roles: ${project.sceneRoles
+        .map((role) => `${role.displayName}: ${role.summary}${role.episodeUsage ? ` (${role.episodeUsage})` : ""}`)
+        .join(" | ")}`
+    );
+  }
+  if (recentSuccessfulActions.length) {
+    lines.push(
+      `Recent Successful Actions: ${recentSuccessfulActions
+        .map((item) => `${item.toolName}: ${item.summary}`)
+        .join(" | ")}`
+    );
+  }
+
+  return lines.join("\n");
+};
+
 export const composeAgentInstructions = ({
   enabledSkills,
-  requestedOutcome,
-  uiContext,
 }: {
   enabledSkills: Script2VideoSkillDefinition[];
-  requestedOutcome?: Script2VideoRunInput["requestedOutcome"];
-  uiContext?: AgentUiContext;
 }) => {
   const overlays = enabledSkills.map((skill) => `# Skill: ${skill.title}\n${skill.systemOverlay.trim()}`);
-  const uiBlock = uiContextInstruction(uiContext);
-  return [BASE_INSTRUCTION, outcomeInstruction(requestedOutcome), ...overlays, uiBlock]
-    .filter(Boolean)
-    .join("\n\n");
+  return (runContext: RunContext<Script2VideoRunContext>) => {
+    const environmentBlock = formatEnvironmentInstruction(runContext.context?.agentEnvironment);
+    const uiBlock = uiContextInstruction(runContext.context?.uiContext as AgentUiContext | undefined);
+    return [BASE_INSTRUCTION, environmentBlock, ...overlays, uiBlock].filter(Boolean).join("\n\n");
+  };
 };

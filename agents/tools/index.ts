@@ -2,19 +2,11 @@ import { tool } from "@openai/agents";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import type { AgentExecutedToolCall, AgentRuntimeEvent } from "../runtime/types";
 import { createScript2VideoToolInputGuardrails, createScript2VideoToolOutputGuardrails } from "../runtime/guardrails";
-import { connectWorkflowNodesToolDef } from "./connectWorkflowNodes";
-import { createNodeWorkflowToolDef } from "./createNodeWorkflow";
-import { operateProjectWorkflowToolDef } from "./operateProjectWorkflow";
-import { createWorkflowNodeToolDef } from "./createWorkflowNode";
-import { createTextNodeToolDef } from "./createTextNode";
 import { listProjectResourcesToolDef } from "./listProjectResources";
+import { operateProjectResourceToolDef } from "./operateProjectResource";
 import { pingToolDef } from "./ping";
-import { readProjectDataToolDef } from "./readProjectData";
 import { readProjectResourceToolDef } from "./readProjectResource";
 import { searchProjectResourceToolDef } from "./searchProjectResource";
-import { searchScriptDataToolDef } from "./searchScriptData";
-import { upsertCharacterToolDef } from "./upsertCharacter";
-import { upsertLocationToolDef } from "./upsertLocation";
 import { editUnderstandingResourceToolDef } from "./editUnderstandingResource";
 
 const LOOKUP_TOOL_NAMES = new Set([
@@ -29,15 +21,7 @@ const TOOL_DEFS = [
   readProjectResourceToolDef,
   searchProjectResourceToolDef,
   editUnderstandingResourceToolDef,
-  createWorkflowNodeToolDef,
-  connectWorkflowNodesToolDef,
-  operateProjectWorkflowToolDef,
-  readProjectDataToolDef,
-  searchScriptDataToolDef,
-  upsertCharacterToolDef,
-  upsertLocationToolDef,
-  createTextNodeToolDef,
-  createNodeWorkflowToolDef,
+  operateProjectResourceToolDef,
 ] as const;
 
 const stableSerialize = (value: unknown): string => {

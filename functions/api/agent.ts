@@ -12,9 +12,10 @@ import {
   setTracingExportApiKey,
 } from "@openai/agents";
 import OpenAI from "openai";
-import { OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
+import { CODEX_RESPONSES_BASE_URL, OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import { createScript2VideoTools } from "../../agents/tools";
-import { createEdgeSessionInputCallback, EdgeMemorySession } from "../../agents/runtime/edgeSession";
+import { createEdgeSessionInputCallback, EdgeMemorySession, readEdgeSessionMessages } from "../../agents/runtime/edgeSession";
+import { buildAgentEnvironment } from "../../agents/runtime/environment";
 import { createScript2VideoInputGuardrails, createScript2VideoOutputGuardrails } from "../../agents/runtime/guardrails";
 import { composeAgentInstructions } from "../../agents/runtime/instructions";
 import {
@@ -22,9 +23,11 @@ import {
   serializeAgentStreamPacket,
   type AgentHttpRunRequest,
 } from "../../agents/runtime/httpProtocol";
-import type { AgentRuntimeEvent, Script2VideoRunResult } from "../../agents/runtime/types";
+import type { AgentRuntimeEvent, Script2VideoRunContext, Script2VideoRunResult } from "../../agents/runtime/types";
 import type { AgentExecutedToolCall } from "../../agents/runtime/types";
 import type { ProjectData } from "../../types";
+import { getUserId } from "./_auth";
+import { readUserSecrets } from "./_userSecrets";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -35,11 +38,7 @@ const CORS_HEADERS = {
 const EDGE_AGENT_MAX_TURNS = 50;
 const SUCCESSFUL_ACTION_TOOL_NAMES = new Set([
   "edit_project_resource",
-  "create_workflow_node",
-  "connect_workflow_nodes",
-  "operate_project_workflow",
-  "create_text_node",
-  "create_node_workflow",
+  "operate_project_resource",
 ]);
 
 const resolveApiKey = (env: Record<string, unknown>, provider: "qwen" | "openrouter") => {
@@ -57,6 +56,33 @@ const resolveBaseUrl = (provider: "qwen" | "openrouter", baseUrl?: string) => {
   const configured = (baseUrl || "").trim();
   if (configured) return configured;
   return provider === "openrouter" ? OPENROUTER_RESPONSES_BASE_URL : QWEN_RESPONSES_BASE_URL;
+};
+
+const resolveCodexConnection = async (request: Request, env: Record<string, unknown>) => {
+  const userId = await getUserId(request, env as any);
+  const { secrets } = await readUserSecrets(env as any, userId);
+  const codexAuth = secrets.codexAuth;
+  if (!codexAuth) {
+    throw new Error("Codex is not connected for the current account.");
+  }
+  if (codexAuth.apiKey) {
+    return {
+      apiKey: codexAuth.apiKey,
+      baseURL: "https://api.openai.com/v1",
+      defaultHeaders: undefined as Record<string, string> | undefined,
+    };
+  }
+  if (!codexAuth.accessToken) {
+    throw new Error("Codex connection is missing access_token.");
+  }
+  if (codexAuth.expiresAt && codexAuth.expiresAt <= Date.now() + 60_000) {
+    throw new Error("Codex access token expired. Please reconnect.");
+  }
+  return {
+    apiKey: codexAuth.accessToken,
+    baseURL: CODEX_RESPONSES_BASE_URL,
+    defaultHeaders: codexAuth.accountId ? { "ChatGPT-Account-Id": codexAuth.accountId } : undefined,
+  };
 };
 
 const resolveTracingApiKey = (env: Record<string, unknown>) => {
@@ -182,7 +208,7 @@ export const onRequestPost = async (context: any) => {
   }
 
   const runId = `edge-run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const provider = body.runtime.provider === "openrouter" ? "openrouter" : "qwen";
+  const provider = body.runtime.provider === "openrouter" ? "openrouter" : body.runtime.provider === "codex" ? "codex" : "qwen";
 
   const stream = new ReadableStream<Uint8Array>({
     start: async (controller) => {
@@ -210,10 +236,18 @@ export const onRequestPost = async (context: any) => {
           tracingEnabled,
         });
 
-        const apiKey = resolveApiKey(context.env || {}, provider);
+        const resolvedAuth =
+          provider === "codex"
+            ? await resolveCodexConnection(context.request, context.env || {})
+            : {
+                apiKey: resolveApiKey(context.env || {}, provider),
+                baseURL: resolveBaseUrl(provider, body.runtime.baseUrl),
+                defaultHeaders: undefined as Record<string, string> | undefined,
+              };
         const client = new OpenAI({
-          apiKey,
-          baseURL: resolveBaseUrl(provider, body.runtime.baseUrl),
+          apiKey: resolvedAuth.apiKey,
+          baseURL: resolvedAuth.baseURL,
+          defaultHeaders: resolvedAuth.defaultHeaders,
         });
         setOpenAIAPI("responses");
         setDefaultOpenAIClient(client);
@@ -237,12 +271,29 @@ export const onRequestPost = async (context: any) => {
           },
         });
 
-        const agent = new Agent({
+        const enabledTools = createScript2VideoTools({
+          bridge: bridgeState.bridge,
+          emitEvent: emitRuntimeEvent,
+          disabledTools: [
+            "ping_tool",
+            "operate_project_resource",
+          ],
+        });
+        const runContext: Script2VideoRunContext = {
+          runtimeMode: "edge_full",
+          agentEnvironment: buildAgentEnvironment({
+            projectData: bridgeState.bridge.getProjectData(),
+            runtimeMode: "edge_full",
+            enabledTools: enabledTools.map((tool) => tool.name),
+            sessionMessages: readEdgeSessionMessages(body.run.sessionId),
+          }),
+          uiContext: body.run.uiContext,
+        };
+
+        const agent = new Agent<Script2VideoRunContext>({
           name: "Script2Video Edge Agent",
           instructions: composeAgentInstructions({
             enabledSkills: [],
-            requestedOutcome: body.run.requestedOutcome,
-            uiContext: body.run.uiContext,
           }),
           handoffDescription: "Edge runtime scaffold for Script2Video.",
           model: body.runtime.model,
@@ -253,26 +304,7 @@ export const onRequestPost = async (context: any) => {
           inputGuardrails: createScript2VideoInputGuardrails(),
           outputGuardrails: createScript2VideoOutputGuardrails(),
           resetToolChoice: true,
-          tools: createScript2VideoTools({
-            bridge: bridgeState.bridge,
-            emitEvent: emitRuntimeEvent,
-            disabledTools: [
-              "ping_tool",
-              "create_workflow_node",
-              "connect_workflow_nodes",
-              "operate_project_workflow",
-              "create_text_node",
-              "create_node_workflow",
-              "read_project_data",
-              "search_script_data",
-              "upsert_character",
-              "upsert_location",
-              "write_project_summary",
-              "write_episode_summary",
-              "get_episode_script",
-              "get_scene_script",
-            ],
-          }),
+          tools: enabledTools,
         });
 
         const runner = new Runner({
@@ -285,7 +317,6 @@ export const onRequestPost = async (context: any) => {
             runtimeTarget: "edge",
             provider,
             model: body.runtime.model,
-            requestedOutcome: body.run.requestedOutcome || "auto",
           },
           ...(tracingEnabled ? { tracing: { apiKey: tracingApiKey } } : {}),
         });
@@ -298,10 +329,7 @@ export const onRequestPost = async (context: any) => {
           signal: context.request.signal,
           session,
           sessionInputCallback: createEdgeSessionInputCallback(),
-          context: {
-            runtimeMode: "edge_full",
-            requestedOutcome: body.run.requestedOutcome || "auto",
-          },
+          context: runContext,
         });
 
         const streamReader = result.toStream().getReader();

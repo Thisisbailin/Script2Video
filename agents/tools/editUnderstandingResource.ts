@@ -3,6 +3,14 @@ import { sanitizeShotList } from "../../utils/shotSchema";
 import { ensureStableId, ensureTypedStableId } from "../../utils/id";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
+export const EDIT_PROJECT_RESOURCE_TYPES = [
+  "project_summary",
+  "episode_summary",
+  "character_profile",
+  "scene_profile",
+  "episode_storyboard",
+] as const;
+
 const storyboardRowSchema = {
   type: "object",
   properties: {
@@ -44,7 +52,7 @@ const editUnderstandingResourceParameters = {
   properties: {
     resource_type: {
       type: "string",
-      enum: ["project_summary", "episode_summary", "character_profile", "scene_profile", "episode_storyboard"],
+      enum: [...EDIT_PROJECT_RESOURCE_TYPES],
       description: "Project resource type to write.",
     },
     episode_id: {
@@ -137,7 +145,7 @@ const editUnderstandingResourceParameters = {
   ],
 } as const;
 
-type ResourceType = "project_summary" | "episode_summary" | "character_profile" | "scene_profile" | "episode_storyboard";
+type ResourceType = (typeof EDIT_PROJECT_RESOURCE_TYPES)[number];
 
 type ParsedArgs =
   | { resourceType: "project_summary"; summary: string }
@@ -199,7 +207,7 @@ const parseArgs = (input: unknown): ParsedArgs => {
   }
   const raw = input as Record<string, unknown>;
   const resourceType = toTrimmedString(raw.resource_type ?? raw.resourceType) as ResourceType;
-  if (!["project_summary", "episode_summary", "character_profile", "scene_profile", "episode_storyboard"].includes(resourceType)) {
+  if (!(EDIT_PROJECT_RESOURCE_TYPES as readonly string[]).includes(resourceType)) {
     throw new Error("edit_project_resource 需要合法的 resource_type。");
   }
 

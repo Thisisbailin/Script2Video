@@ -14,6 +14,80 @@ export type AgentUiContext = {
   mentionTags?: Array<{ kind: "character" | "location"; name: string; id?: string }>;
 };
 
+export type AgentEnvironmentProjectDigest = {
+  fileName?: string;
+  episodeCount: number;
+  projectSummary?: string;
+  episodeSummaries: Array<{
+    episodeId: number;
+    label: string;
+    summary: string;
+  }>;
+  primaryRoles: Array<{
+    id: string;
+    mention: string;
+    displayName: string;
+    summary: string;
+    episodeUsage?: string;
+  }>;
+  sceneRoles: Array<{
+    id: string;
+    mention: string;
+    displayName: string;
+    summary: string;
+    episodeUsage?: string;
+  }>;
+  understandingCoverage: {
+    hasProjectSummary: boolean;
+    episodeSummaryCount: number;
+    primaryRoleCount: number;
+    sceneRoleCount: number;
+    guideCount: number;
+  };
+};
+
+export type AgentEnvironmentCapabilityManifest = {
+  read: {
+    tools: string[];
+    resources: string[];
+    scopes: string[];
+  };
+  edit: {
+    tools: string[];
+    resources: string[];
+  };
+  operate: {
+    tools: string[];
+    resources: string[];
+    nodeKinds: string[];
+  };
+};
+
+export type AgentEnvironmentRecentAction = {
+  toolName: string;
+  summary: string;
+  createdAt?: number;
+};
+
+export type Script2VideoAgentEnvironment = {
+  project: AgentEnvironmentProjectDigest;
+  capabilityManifest: AgentEnvironmentCapabilityManifest;
+  runtimeCapabilities: {
+    runtimeMode: "browser" | "edge_full";
+    enabledTools: string[];
+    canRead: boolean;
+    canEdit: boolean;
+    canOperate: boolean;
+  };
+  recentSuccessfulActions: AgentEnvironmentRecentAction[];
+};
+
+export type Script2VideoRunContext = {
+  runtimeMode: "browser" | "edge_full";
+  agentEnvironment: Script2VideoAgentEnvironment;
+  uiContext?: AgentUiContext;
+};
+
 export type AgentExecutedToolCall = {
   callId: string;
   name: string;
@@ -46,7 +120,6 @@ export type Script2VideoRunInput = {
   attachments?: AgentAttachment[];
   enabledSkillIds?: string[];
   uiContext?: AgentUiContext;
-  requestedOutcome?: "answer" | "understanding_document" | "node_workflow" | "auto";
 };
 
 export type Script2VideoRunResult = {
@@ -89,10 +162,11 @@ export type Script2VideoRunOptions = {
 };
 
 export type Script2VideoAgentConfig = {
-  provider?: "qwen" | "openrouter";
+  provider?: "qwen" | "openrouter" | "codex";
   runtimeTarget?: "browser" | "edge";
   apiKey?: string;
   baseUrl?: string;
+  defaultHeaders?: Record<string, string>;
   model: string;
   qalamTools?: QalamToolSettings;
   tracingDisabled?: boolean;
@@ -107,7 +181,6 @@ export type Script2VideoSkillDefinition = {
   title: string;
   description: string;
   systemOverlay: string;
-  preferredOutcome?: "answer" | "understanding_document" | "node_workflow";
   preferredTools?: string[];
   disabledTools?: string[];
 };

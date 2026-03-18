@@ -36,6 +36,7 @@ import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { FloatingActionBar } from "./FloatingActionBar";
 import { ConnectionDropMenu } from "./ConnectionDropMenu";
 import { AssetsPanel } from "./AssetsPanel";
+import { IdentityDock } from "./IdentityDock";
 import { AgentSettingsPanel } from "./AgentSettingsPanel";
 import { QalamAgent } from "./QalamAgent";
 import { ViewportControls } from "./ViewportControls";
@@ -723,6 +724,40 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
     focusTemplate(origin, 0.7);
   }, [projectData, addNodesAndEdges, getTemplateOrigin, focusTemplate]);
 
+  const handleOpenIdentityCard = useCallback(
+    (identityId: string) => {
+      const existingNode = nodes.find(
+        (node) => node.type === "identityCard" && (node.data as { identityId?: string }).identityId === identityId
+      );
+      const currentViewport = viewport || getViewport();
+
+      if (existingNode) {
+        useWorkflowStore.setState((state) => ({
+          nodes: state.nodes.map((node) => ({ ...node, selected: node.id === existingNode.id })),
+        }));
+        setViewport(
+          {
+            x: -existingNode.position.x * currentViewport.zoom + 120,
+            y: -existingNode.position.y * currentViewport.zoom + 96,
+            zoom: currentViewport.zoom,
+          },
+          { duration: 420 }
+        );
+        return;
+      }
+
+      const position = {
+        x: (-currentViewport.x + 180) / currentViewport.zoom,
+        y: (-currentViewport.y + 120) / currentViewport.zoom,
+      };
+      addNode("identityCard", position, undefined, {
+        identityId,
+        title: "Identity Card",
+      });
+    },
+    [addNode, getViewport, nodes, setViewport, viewport]
+  );
+
   const displayNodes = nodes;
   const displayEdges = edges;
   const selectedGroup = getSelectedGroup();
@@ -999,58 +1034,65 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           </div>
         </div>
       </div>
-      <div
-        className={`fixed inset-x-0 bottom-4 z-40 flex justify-center pointer-events-none transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isQalamCollapsed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
-      >
-        <div className={`flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2 ${isQalamCollapsed ? "pointer-events-auto" : "pointer-events-none"}`}>
-          <FloatingActionBar
-            onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
-            onAddScriptBoard={() => handleAddNode("scriptBoard", { x: 140, y: 120 })}
-            onAddStoryboardBoard={() => handleAddNode("storyboardBoard", { x: 180, y: 140 })}
-            onAddIdentityCard={() => handleAddNode("identityCard", { x: 220, y: 160 })}
-            onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
-            onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
-            onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
-            onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
-            onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
-            onAddWanReferenceVideoGen={() => handleAddNode("wanReferenceVideoGen", { x: 540, y: 140 })}
-            onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
-            onImport={() => fileInputRef.current?.click()}
-            onExport={() => saveWorkflow()}
-            onRun={runAll}
-            templates={groupTemplates}
-            canCreateTemplate={!!selectedGroup}
-            onCreateTemplate={handleCreateTemplate}
-            onLoadTemplate={handleLoadTemplate}
-            onDeleteTemplate={handleDeleteTemplate}
-            floating={false}
-            onOpenModule={onOpenModule}
-            onExportCsv={onExportCsv}
-            onExportXls={onExportXls}
-            onExportUnderstandingJson={onExportUnderstandingJson}
-            onOpenStats={onOpenStats}
-            onToggleTheme={onToggleTheme}
-            onOpenTheme={(anchorRect) => {
-              if (anchorRect) {
-                setThemeAnchor(anchorRect);
-              }
-              setShowThemeModal(true);
-            }}
-            isDarkMode={isDarkMode}
-            onOpenSyncPanel={onOpenSyncPanel}
-            syncIndicator={syncIndicator}
-            onOpenInfoPanel={onOpenInfoPanel}
-            onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
-            onResetProject={onResetProject}
-            onSignOut={onSignOut}
-            onAssetLoad={onAssetLoad}
-            accountInfo={accountInfo}
-            onToggleWorkflow={onToggleWorkflow}
-            onOpenQalam={() => setQalamOpenRequest((prev) => prev + 1)}
-            variant="embedded"
-          />
+      <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center pointer-events-none">
+        <div className="group relative flex w-[min(560px,calc(100vw-48px))] flex-col items-center gap-2">
+          {!isQalamCollapsed ? (
+            <div className="pointer-events-auto absolute inset-x-14 bottom-0 h-14 rounded-full" />
+          ) : null}
+          <div
+            className={`transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isQalamCollapsed
+                ? "pointer-events-auto opacity-100 translate-y-0"
+                : "pointer-events-none translate-y-4 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
+            }`}
+          >
+            <FloatingActionBar
+              onAddText={() => handleAddNode("text", { x: 100, y: 100 })}
+              onAddScriptBoard={() => handleAddNode("scriptBoard", { x: 140, y: 120 })}
+              onAddStoryboardBoard={() => handleAddNode("storyboardBoard", { x: 180, y: 140 })}
+              onAddIdentityCard={() => handleAddNode("identityCard", { x: 220, y: 160 })}
+              onAddImage={() => handleAddNode("imageInput", { x: 200, y: 100 })}
+              onAddImageGen={() => handleAddNode("imageGen", { x: 400, y: 100 })}
+              onAddWanImageGen={() => handleAddNode("wanImageGen", { x: 420, y: 120 })}
+              onAddVideoGen={() => handleAddNode("soraVideoGen", { x: 500, y: 100 })}
+              onAddWanVideoGen={() => handleAddNode("wanVideoGen", { x: 520, y: 120 })}
+              onAddWanReferenceVideoGen={() => handleAddNode("wanReferenceVideoGen", { x: 540, y: 140 })}
+              onAddGroup={() => handleAddNode("group", { x: 100, y: 100 })}
+              onImport={() => fileInputRef.current?.click()}
+              onExport={() => saveWorkflow()}
+              onRun={runAll}
+              templates={groupTemplates}
+              canCreateTemplate={!!selectedGroup}
+              onCreateTemplate={handleCreateTemplate}
+              onLoadTemplate={handleLoadTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              floating={false}
+              onOpenModule={onOpenModule}
+              onExportCsv={onExportCsv}
+              onExportXls={onExportXls}
+              onExportUnderstandingJson={onExportUnderstandingJson}
+              onOpenStats={onOpenStats}
+              onToggleTheme={onToggleTheme}
+              onOpenTheme={(anchorRect) => {
+                if (anchorRect) {
+                  setThemeAnchor(anchorRect);
+                }
+                setShowThemeModal(true);
+              }}
+              isDarkMode={isDarkMode}
+              onOpenSyncPanel={onOpenSyncPanel}
+              syncIndicator={syncIndicator}
+              onOpenInfoPanel={onOpenInfoPanel}
+              onToggleAgentSettings={() => setShowAgentSettings((prev) => !prev)}
+              onResetProject={onResetProject}
+              onSignOut={onSignOut}
+              onAssetLoad={onAssetLoad}
+              accountInfo={accountInfo}
+              onToggleWorkflow={onToggleWorkflow}
+              onOpenQalam={() => setQalamOpenRequest((prev) => prev + 1)}
+              variant="embedded"
+            />
+          </div>
           {isQalamCollapsed && (
             <div
               className="qalam-surface w-full rounded-[40px] px-6 py-4"
@@ -1087,9 +1129,37 @@ const NodeLabInner: React.FC<NodeLabProps> = ({
           )}
         </div>
       </div>
-      <div className="fixed bottom-4 right-4 z-30 pointer-events-none">
-        <div className="pointer-events-auto qalam-bottom-assets">
-          <div className="relative h-12 flex items-center">
+      <div className="fixed bottom-4 right-4 z-30 flex flex-col items-end gap-2 pointer-events-none">
+        <div className="group relative">
+          {!isQalamCollapsed ? (
+            <div className="pointer-events-auto absolute inset-0 h-12 rounded-full" />
+          ) : null}
+          <div
+            className={`transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isQalamCollapsed
+                ? "pointer-events-auto opacity-100 translate-y-0"
+                : "pointer-events-none translate-y-3 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
+            }`}
+          >
+            <IdentityDock
+              projectData={projectData}
+              onSelectIdentity={handleOpenIdentityCard}
+              floating={false}
+              inlineAnchor
+            />
+          </div>
+        </div>
+        <div className="group relative qalam-bottom-assets">
+          {!isQalamCollapsed ? (
+            <div className="pointer-events-auto absolute inset-0 h-12 rounded-full" />
+          ) : null}
+          <div
+            className={`transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isQalamCollapsed
+                ? "pointer-events-auto opacity-100 translate-y-0"
+                : "pointer-events-none translate-y-3 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
+            }`}
+          >
             <AssetsPanel
               projectData={projectData}
               onInsertTextNode={handleInsertTextNode}

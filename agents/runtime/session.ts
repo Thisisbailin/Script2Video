@@ -196,6 +196,11 @@ export const readPersistedAgentSession = (
   return record ? toSessionRecordView(record) : null;
 };
 
+export const readPersistedAgentSessionMessages = (
+  sessionId: string,
+  storageKey = DEFAULT_AGENT_SESSION_STORAGE_KEY
+): AgentSessionMessage[] => readLocalStorageSessions(storageKey)[sessionId]?.messages || [];
+
 export const clearPersistedAgentSession = (
   sessionId: string,
   storageKey = DEFAULT_AGENT_SESSION_STORAGE_KEY

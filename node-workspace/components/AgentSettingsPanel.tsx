@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AudioLines,
   AlertCircle,
@@ -18,6 +18,8 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { TextProvider } from "../../types";
 import {
   INITIAL_VIDU_CONFIG,
+  CODEX_DEFAULT_MODEL,
+  CODEX_RESPONSES_BASE_URL,
   OPENROUTER_RESPONSES_BASE_URL,
   QWEN_DEFAULT_MODEL,
   QWEN_RESPONSES_BASE_URL,
@@ -27,6 +29,12 @@ import {
   SORA_DEFAULT_MODEL,
   DEFAULT_QALAM_TOOL_SETTINGS,
 } from "../../constants";
+import { useAuth } from "../../lib/auth";
+import {
+  disconnectCodexAuth,
+  getCodexConnectionStatus,
+  saveCodexAuthJson,
+} from "../../services/codexConnectService";
 import {
   AGENT_SESSION_STORAGE_UPDATED_EVENT,
   clearPersistedAgentSession,
@@ -84,9 +92,9 @@ const TOOL_ITEMS: ToolItem[] = [
     capability: "查阅",
     label: "Inspect",
     title: "项目数据查询",
-    description: "Agent 可以按剧集或具体场景查阅剧本，也可以读取项目摘要、角色和场景库，为回答和后续动作提供证据。",
-    tools: ["get_episode_script", "get_scene_script", "read_project_data", "search_script_data"],
-    surfaces: ["raw script", "episode / scene", "project summary", "character library", "location library"],
+    description: "Agent 通过统一的资源目录、读取与搜索接口查阅剧本、分镜、项目摘要、角色与场景资料，为回答和后续动作取证。",
+    tools: ["list_project_resources", "read_project_resource", "search_project_resource"],
+    surfaces: ["episode script", "episode storyboard", "project summary", "character profile", "scene profile"],
     boundary: "只读，不允许直接修改项目状态。",
     artifact: "返回证据、摘要和结构化片段，作为理解与操作的前置输入。",
     note: "对应第一类能力：查阅。",
@@ -97,12 +105,12 @@ const TOOL_ITEMS: ToolItem[] = [
     key: "asset-library",
     capability: "理解",
     label: "Understand",
-    title: "资产库持久化",
-    description: "Agent 将对项目的理解写回角色库与场景库，让这些理解成为后续可复用、可检索的长期事实层。",
-    tools: ["upsert_character", "upsert_location"],
-    surfaces: ["character records", "character forms", "location records", "location zones"],
-    boundary: "只允许通过结构化 upsert 写入，不允许绕过 schema 直接改 store。",
-    artifact: "形成可持续迭代的理解资产，供后续查阅、分镜和 workflow 创建继续使用。",
+    title: "项目资源写回",
+    description: "Agent 通过统一编辑接口写回项目摘要、分集摘要、角色档案、场景档案与整集分镜表，不再暴露多套专用写入工具。",
+    tools: ["edit_project_resource"],
+    surfaces: ["project summary", "episode summary", "character profile", "scene profile", "episode storyboard"],
+    boundary: "只允许通过结构化 resource write 写入，不允许绕过 schema 直接改项目状态。",
+    artifact: "形成可持续迭代的长期事实层，供后续查阅、分镜和 workflow 创建继续使用。",
     note: "对应第二类能力：理解。",
     status: "ready",
     Icon: Layers,
@@ -112,11 +120,11 @@ const TOOL_ITEMS: ToolItem[] = [
     capability: "操作",
     label: "Operate",
     title: "节点工作流构建",
-    description: "Agent 不只写单个文本节点，而是可以创建 group、节点、连线和暂停边，搭出可执行的 NodeLab 工作流骨架。",
-    tools: ["create_text_node", "create_node_workflow"],
-    surfaces: ["text node", "group wrapper", "multi-node workflow", "typed edges", "pause edges"],
-    boundary: "创建前先校验 handle 与连线合法性；失败会回滚，不留下半成品。",
-    artifact: "输出可继续编辑和执行的 workflow scaffold，承接“查阅”和“理解”的结果。",
+    description: "Agent 通过统一操作接口创建文本节点、剧本面板、分镜表板、角色卡片，并连接这些节点形成最小工作流骨架。",
+    tools: ["operate_project_resource"],
+    surfaces: ["text node", "script board", "storyboard board", "character card", "workflow connection"],
+    boundary: "创建前校验 ref 与资源定位；连线前校验节点存在与 handle 合法性。",
+    artifact: "输出可继续编辑和执行的 workflow scaffold，承接“查阅”和“编辑”的结果。",
     note: "对应第三类能力：操作。",
     status: "ready",
     Icon: Code2,
@@ -260,6 +268,7 @@ const buildConversationTitle = (messages: Array<{ role?: string; text?: string }
 
 export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { config, setConfig } = useConfig("script2video_config_v1");
+  const { getToken, isSignedIn } = useAuth();
   const { applyViduReferenceDemo } = useWorkflowStore();
   const [activeType, setActiveType] = useState<"chat" | "multi" | "video">("chat");
   const [activeMultiProvider, setActiveMultiProvider] = useState<"openrouter" | "qwen">("openrouter");
@@ -278,6 +287,11 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [showQwenRaw, setShowQwenRaw] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [runtimeMetaVersion, setRuntimeMetaVersion] = useState(0);
+  const [codexConnection, setCodexConnection] = useState(config.textConfig.codexConnection || { status: "disconnected" as const });
+  const [isCodexBusy, setIsCodexBusy] = useState(false);
+  const [codexMessage, setCodexMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [codexJsonInput, setCodexJsonInput] = useState("");
+  const codexFileInputRef = useRef<HTMLInputElement | null>(null);
   const [conversationState, setConversationState] = usePersistedState<ConversationState>({
     key: "script2video_qalam_conversations_v1",
     initialValue: { activeId: "", items: [] },
@@ -319,6 +333,16 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       },
     };
   }, [config.textConfig.qalamTools]);
+  const getAuthToken = useCallback(async () => {
+    try {
+      return await getToken({ template: "default" });
+    } catch {
+      return null;
+    }
+  }, [getToken]);
+  const activeAgentProvider = config.textConfig.agentProvider || config.textConfig.provider || "qwen";
+  const activeAgentBaseUrl = config.textConfig.agentBaseUrl || config.textConfig.baseUrl || QWEN_RESPONSES_BASE_URL;
+  const activeAgentModel = config.textConfig.agentModel || config.textConfig.model || QWEN_DEFAULT_MODEL;
   const activeConversation = useMemo(
     () => conversationState.items.find((item) => item.id === conversationState.activeId) || null,
     [conversationState.activeId, conversationState.items]
@@ -465,34 +489,62 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [conversationState.activeId, conversationState.items, setConversationState]);
 
   useEffect(() => {
-    if (!config.textConfig.provider || (config.textConfig.provider === "qwen" && !config.textConfig.baseUrl)) {
+    if (!config.textConfig.agentProvider) {
       setConfig((prev) => ({
         ...prev,
         textConfig: {
           ...prev.textConfig,
-          provider: "qwen" as TextProvider,
-          baseUrl: prev.textConfig.baseUrl || QWEN_RESPONSES_BASE_URL,
-          model: prev.textConfig.model || QWEN_DEFAULT_MODEL,
+          agentProvider: "qwen",
+          agentBaseUrl: prev.textConfig.agentBaseUrl || QWEN_RESPONSES_BASE_URL,
+          agentModel: prev.textConfig.agentModel || QWEN_DEFAULT_MODEL,
         },
       }));
     }
-  }, [config.textConfig.provider, config.textConfig.baseUrl, config.textConfig.model, setConfig]);
+  }, [config.textConfig.agentBaseUrl, config.textConfig.agentModel, config.textConfig.agentProvider, setConfig]);
 
-  const setProvider = (p: TextProvider) => {
+  useEffect(() => {
+    if (!isOpen || activeType !== "chat" || activeAgentProvider !== "codex" || !isSignedIn) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const connection = await getCodexConnectionStatus(getAuthToken);
+        if (cancelled) return;
+        setCodexConnection(connection);
+        setConfig((prev) => ({
+          ...prev,
+          textConfig: {
+            ...prev.textConfig,
+            codexConnection: connection,
+          },
+        }));
+      } catch (error: any) {
+        if (cancelled) return;
+        setCodexMessage({ type: "error", text: error?.message || "Failed to load Codex connection." });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAgentProvider, activeType, getAuthToken, isOpen, isSignedIn, setConfig]);
+
+  const setProvider = (p: TextProvider | "codex") => {
     const nextConfig = { ...config.textConfig };
     if (p === "openrouter") {
-      nextConfig.baseUrl = nextConfig.baseUrl || OPENROUTER_BASE_URL;
-      nextConfig.model = nextConfig.model || "";
+      nextConfig.agentBaseUrl = nextConfig.agentBaseUrl || OPENROUTER_BASE_URL;
+      nextConfig.agentModel = nextConfig.agentModel || "";
     } else if (p === "qwen") {
-      nextConfig.baseUrl = QWEN_RESPONSES_BASE_URL;
-      nextConfig.model = nextConfig.model || QWEN_DEFAULT_MODEL;
+      nextConfig.agentBaseUrl = QWEN_RESPONSES_BASE_URL;
+      nextConfig.agentModel = nextConfig.agentModel || QWEN_DEFAULT_MODEL;
+    } else if (p === "codex") {
+      nextConfig.agentBaseUrl = CODEX_RESPONSES_BASE_URL;
+      nextConfig.agentModel = nextConfig.agentModel || CODEX_DEFAULT_MODEL;
     }
 
     setConfig({
       ...config,
       textConfig: {
         ...nextConfig,
-        provider: p,
+        agentProvider: p,
       },
     });
   };
@@ -547,7 +599,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         ? (process.env?.OPENROUTER_API_KEY || process.env?.VITE_OPENROUTER_API_KEY)
         : undefined);
     const apiKey = config.textConfig.apiKey || envKey;
-    const baseUrl = config.textConfig.baseUrl || OPENROUTER_BASE_URL;
+    const baseUrl = activeAgentBaseUrl || OPENROUTER_BASE_URL;
     if (!apiKey) {
       setTextModelFetchMessage({ type: "error", text: "未检测到 OpenRouter API Key 环境变量。" });
       return;
@@ -575,7 +627,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       const { models, raw } = await fetchQwenModels({
         apiKey: config.textConfig.apiKey || undefined,
-        baseUrl: config.textConfig.baseUrl || QWEN_RESPONSES_BASE_URL,
+        baseUrl: activeAgentBaseUrl || QWEN_RESPONSES_BASE_URL,
       });
       setQwenChatModels(models);
       setQwenModelsRaw(JSON.stringify(raw, null, 2));
@@ -598,8 +650,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             });
           const designDefault = audioIds.find((id) => id.toLowerCase().includes("tts-vd")) || audioIds[0];
           const dubbingDefault = audioIds.find((id) => id.toLowerCase().includes("tts-vc")) || audioIds[0];
-          if (!nextText.model || !models.find((m) => m.id === nextText.model)) {
-            nextText.model = models[0].id;
+          if (!nextText.agentModel || !models.find((m) => m.id === nextText.agentModel)) {
+            nextText.agentModel = models[0].id;
           }
           if (designDefault && (!nextText.voiceDesignModel || !audioIds.includes(nextText.voiceDesignModel))) {
             nextText.voiceDesignModel = designDefault;
@@ -617,6 +669,73 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       setIsLoadingQwenChatModels(false);
     }
   };
+
+  const applyCodexConnection = useCallback((connection: typeof codexConnection) => {
+    setCodexConnection(connection);
+    setConfig((prev) => ({
+      ...prev,
+      textConfig: {
+        ...prev.textConfig,
+        codexConnection: connection,
+      },
+    }));
+  }, [setConfig]);
+
+  const handleSaveCodexJson = useCallback(async (raw: string, successText: string) => {
+    if (!isSignedIn) {
+      setCodexMessage({ type: "error", text: "请先登录 Clerk 账户，再连接 Codex。" });
+      return;
+    }
+    setIsCodexBusy(true);
+    setCodexMessage(null);
+    try {
+      const connection = await saveCodexAuthJson(raw, getAuthToken);
+      applyCodexConnection(connection);
+      setCodexMessage({ type: "success", text: successText });
+    } catch (error: any) {
+      setCodexMessage({ type: "error", text: error?.message || "Codex 连接失败。" });
+    } finally {
+      setIsCodexBusy(false);
+    }
+  }, [applyCodexConnection, getAuthToken, isSignedIn]);
+
+  const handleCodexFilePick = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const raw = await file.text();
+      await handleSaveCodexJson(raw, `已从 ${file.name} 导入 Codex 凭据。`);
+    } catch (error: any) {
+      setCodexMessage({ type: "error", text: error?.message || "读取 auth.json 失败。" });
+    }
+  }, [handleSaveCodexJson]);
+
+  const handleSavePastedCodexJson = useCallback(async () => {
+    if (!codexJsonInput.trim()) {
+      setCodexMessage({ type: "error", text: "请先粘贴 auth.json 内容。" });
+      return;
+    }
+    await handleSaveCodexJson(codexJsonInput, "已保存浏览器粘贴的 Codex 凭据。");
+  }, [codexJsonInput, handleSaveCodexJson]);
+
+  const handleDisconnectCodex = useCallback(async () => {
+    if (!isSignedIn) {
+      setCodexMessage({ type: "error", text: "请先登录 Clerk 账户。" });
+      return;
+    }
+    setIsCodexBusy(true);
+    setCodexMessage(null);
+    try {
+      const connection = await disconnectCodexAuth(getAuthToken);
+      applyCodexConnection(connection);
+      setCodexMessage({ type: "success", text: "已断开 Codex 连接。" });
+    } catch (error: any) {
+      setCodexMessage({ type: "error", text: error?.message || "断开 Codex 失败。" });
+    } finally {
+      setIsCodexBusy(false);
+    }
+  }, [applyCodexConnection, getAuthToken, isSignedIn]);
 
   const renderQwenModelCard = (model: QwenModel, isActive: boolean, onSelect: () => void) => {
     const category = getQwenCategory(model);
@@ -864,14 +983,15 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
                       <div className="text-[11px] uppercase tracking-widest app-text-muted">Chat Providers</div>
                       <div className="text-[11px] text-[var(--app-text-muted)]">
-                        Qalam Agent 已切换到 OpenAI Agents SDK runtime。`Qwen` 是主选路线，`OpenRouter` 作为 OpenAI 兼容备用路线保留；图片附件暂未接入。
+                        Qalam Agent 已切换到 OpenAI Agents SDK runtime。当前支持 `Qwen`、`OpenRouter`，以及面向你本人开发环境的 `Connect Codex`。
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {[
                           { key: "qwen" as TextProvider, label: "Qwen", Icon: QwenIcon },
                           { key: "openrouter" as TextProvider, label: "OpenRouter", Icon: Globe },
+                          { key: "codex" as const, label: "Connect Codex", Icon: Sparkles },
                         ].map(({ key, label, Icon }) => {
-                          const active = config.textConfig.provider === key;
+                          const active = activeAgentProvider === key;
                           return (
                             <button
                               key={key}
@@ -954,11 +1074,11 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
 
-          {activeType === "chat" && config.textConfig.provider === "openrouter" && (
+          {activeType === "chat" && activeAgentProvider === "openrouter" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
               <div>
                 <div className="text-xs text-[var(--app-text-secondary)] mb-1">API Endpoint</div>
-                <div className="text-sm text-[var(--app-text-secondary)]">{config.textConfig.baseUrl || OPENROUTER_BASE_URL}</div>
+                <div className="text-sm text-[var(--app-text-secondary)]">{activeAgentBaseUrl || OPENROUTER_BASE_URL}</div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -980,8 +1100,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 )}
                 {availableTextModels.length > 0 ? (
                   <select
-                    value={config.textConfig.model}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                    value={activeAgentModel}
+                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: e.target.value } })}
                     className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
                   >
                     {availableTextModels.map((m) => (
@@ -994,8 +1114,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   <input
                     type="text"
                     placeholder="e.g. openai/gpt-4.1-mini"
-                    value={config.textConfig.model}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                    value={activeAgentModel}
+                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: e.target.value } })}
                     className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-sky-400 focus:outline-none"
                   />
                 )}
@@ -1006,7 +1126,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {activeType === "chat" && config.textConfig.provider === "qwen" && (
+          {activeType === "chat" && activeAgentProvider === "qwen" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-[var(--app-text-secondary)]">Aliyun Qwen</div>
@@ -1054,8 +1174,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     </div>
                   )}
                   <select
-                    value={config.textConfig.model || QWEN_DEFAULT_MODEL}
-                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, model: e.target.value } })}
+                    value={activeAgentModel || QWEN_DEFAULT_MODEL}
+                    onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: e.target.value } })}
                     className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-amber-300 focus:outline-none"
                   >
                     {(qwenChatModels.length ? qwenChatModels : [{ id: QWEN_DEFAULT_MODEL }]).map((m) => (
@@ -1090,8 +1210,8 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                               {!isCollapsed && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                   {group.items.map((model) =>
-                                    renderQwenModelCard(model, config.textConfig.model === model.id, () =>
-                                      setConfig({ ...config, textConfig: { ...config.textConfig, model: model.id } })
+                                    renderQwenModelCard(model, activeAgentModel === model.id, () =>
+                                      setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: model.id } })
                                     )
                                   )}
                                 </div>
@@ -1123,6 +1243,109 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             </div>
           )}
 
+
+          {activeType === "chat" && activeAgentProvider === "codex" && (
+            <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-[var(--app-text-primary)]">Connect Codex</div>
+                  <div className="text-[11px] text-[var(--app-text-muted)]">
+                    面向你本人开发环境的 beta 连接层。Cloudflare Pages 部署下请在浏览器中上传或粘贴 `auth.json`。
+                  </div>
+                </div>
+                <div className={`rounded-full px-3 py-1 text-[11px] ${
+                  codexConnection.status === "connected"
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : codexConnection.status === "expired"
+                      ? "bg-amber-500/10 text-amber-300"
+                      : "bg-[var(--app-panel-soft)] text-[var(--app-text-secondary)]"
+                }`}>
+                  {codexConnection.status}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 space-y-2 text-[12px] text-[var(--app-text-secondary)]">
+                <div>Endpoint: <span className="text-[var(--app-text-primary)]">{CODEX_RESPONSES_BASE_URL}</span></div>
+                <div>Model: <span className="text-[var(--app-text-primary)]">{activeAgentModel || CODEX_DEFAULT_MODEL}</span></div>
+                {codexConnection.accountId ? <div>Account: <span className="text-[var(--app-text-primary)]">{codexConnection.accountId}</span></div> : null}
+                {codexConnection.email ? <div>Email: <span className="text-[var(--app-text-primary)]">{codexConnection.email}</span></div> : null}
+                {codexConnection.expiresAt ? <div>Expires: <span className="text-[var(--app-text-primary)]">{new Date(codexConnection.expiresAt).toLocaleString()}</span></div> : null}
+                {codexConnection.source ? <div>Source: <span className="text-[var(--app-text-primary)]">{codexConnection.source}</span></div> : null}
+              </div>
+
+              {codexMessage && (
+                <div className={`text-[11px] flex items-center gap-1 ${codexMessage.type === "error" ? "text-red-400" : "text-emerald-300"}`}>
+                  {codexMessage.type === "error" ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                  {codexMessage.text}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => codexFileInputRef.current?.click()}
+                  disabled={isCodexBusy}
+                  className="rounded-full border border-[var(--app-border)] px-3 py-2 text-[11px] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] disabled:opacity-50"
+                >
+                  {isCodexBusy ? "处理中..." : "选择 auth.json"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectCodex}
+                  disabled={isCodexBusy || codexConnection.status === "disconnected"}
+                  className="rounded-full border border-[var(--app-border)] px-3 py-2 text-[11px] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] disabled:opacity-50"
+                >
+                  断开连接
+                </button>
+              </div>
+
+              <input
+                ref={codexFileInputRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={handleCodexFilePick}
+                className="hidden"
+              />
+
+              <div className="space-y-2">
+                <div className="text-[11px] text-[var(--app-text-muted)]">
+                  备用入口：直接粘贴 `~/.codex/auth.json` 的内容，凭据会保存到当前 Clerk 用户的私有 secrets。
+                </div>
+                <textarea
+                  value={codexJsonInput}
+                  onChange={(e) => setCodexJsonInput(e.target.value)}
+                  placeholder='{"tokens":{"access_token":"...","refresh_token":"..."}}'
+                  className="min-h-[140px] w-full resize-y bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-2xl px-3 py-3 text-[12px] text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSavePastedCodexJson}
+                    disabled={isCodexBusy || !codexJsonInput.trim()}
+                    className="rounded-full border border-[var(--app-border)] px-3 py-2 text-[11px] text-[var(--app-text-primary)] hover:border-[var(--app-border-strong)] disabled:opacity-50"
+                  >
+                    保存粘贴内容
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCodexJsonInput("")}
+                    disabled={isCodexBusy || !codexJsonInput}
+                    className="rounded-full border border-[var(--app-border)] px-3 py-2 text-[11px] text-[var(--app-text-secondary)] hover:border-[var(--app-border-strong)] disabled:opacity-50"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+
+              <input
+                type="text"
+                placeholder={CODEX_DEFAULT_MODEL}
+                value={activeAgentModel || CODEX_DEFAULT_MODEL}
+                onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: e.target.value } })}
+                className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+              />
+            </div>
+          )}
 
           {activeType === "multi" && activeMultiProvider === "openrouter" && (
             <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] p-4 space-y-3">
@@ -1330,7 +1553,7 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           <div>
                             <div className="text-[12px] font-semibold text-[var(--app-text-primary)]">操作开关</div>
                             <div className="mt-1 text-[11px] text-[var(--app-text-secondary)]">
-                              控制 Agent 是否可以把理解转成 NodeLab 中的真实节点与 workflow scaffold。
+                              控制 Agent 是否可以把理解转成 NodeLab 中的真实节点与连线。
                             </div>
                           </div>
                           <label className="flex items-center gap-2 text-[11px] text-[var(--app-text-secondary)]">
@@ -1347,19 +1570,19 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                           <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
                             <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Single Node</div>
                             <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
-                              `create_text_node` 负责单个理解文档、提示词包或说明节点。
+                              `operate_project_resource` 负责创建 text、script board、storyboard board、character card。
                             </div>
                           </div>
                           <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
-                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Workflow Scaffold</div>
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Connection</div>
                             <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
-                              `create_node_workflow` 负责 group、多节点、typed edges 与 pause edges。
+                              同一个 `operate_project_resource` 也负责连接已存在节点，形成最小工作流骨架。
                             </div>
                           </div>
                           <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-muted)] px-3 py-3">
                             <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--app-text-muted)]">Safety</div>
                             <div className="mt-2 text-[11px] leading-relaxed text-[var(--app-text-secondary)]">
-                              连线先校验；若创建失败会回滚，不留下半成品 workflow。
+                              创建前校验 ref、剧集与角色定位；连线前校验节点与 handle 合法性。
                             </div>
                           </div>
                         </div>

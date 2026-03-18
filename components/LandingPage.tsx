@@ -27,22 +27,22 @@ const capabilityBlocks = [
   {
     eyebrow: "Inspect",
     title: "读取项目证据",
-    description: "episode / scene / character / location / project data 优先取证。",
-    tools: ["get_episode_script", "get_scene_script", "read_project_data", "search_script_data"],
+    description: "统一通过目录、读取与搜索接口获取 episode、storyboard、summary、character、scene 证据。",
+    tools: ["list_project_resources", "read_project_resource", "search_project_resource"],
     Icon: FileMagnifyingGlass,
   },
   {
     eyebrow: "Understand",
     title: "写回知识层",
-    description: "summary、character forms、scene zones 不留在聊天里，而是进入长期事实层。",
-    tools: ["upsert_character", "upsert_location", "edit_understanding_resource", "write_project_summary"],
+    description: "summary、profile、storyboard 不留在聊天里，而是通过统一资源写接口进入长期事实层。",
+    tools: ["edit_project_resource"],
     Icon: Database,
   },
   {
     eyebrow: "Operate",
     title: "生成 NodeLab 图",
-    description: "把理解继续落成 text node、workflow scaffold、typed edges 与 pause edges。",
-    tools: ["create_text_node", "create_node_workflow", "operate_project_workflow", "connect_workflow_nodes"],
+    description: "把理解继续落成节点与连线，形成最小可操作的 NodeLab 工作区。",
+    tools: ["operate_project_resource"],
     Icon: TreeStructure,
   },
 ];

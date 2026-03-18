@@ -73,6 +73,9 @@ export const validateSecretsPayload = (secrets: unknown): ValidationResult => {
       return { ok: false, error: `${key} is not a string` };
     }
   }
+  if (secrets.codexAuth !== undefined && secrets.codexAuth !== null && !isRecord(secrets.codexAuth)) {
+    return { ok: false, error: "codexAuth is not an object" };
+  }
   return { ok: true };
 };
 

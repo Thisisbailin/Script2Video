@@ -9,6 +9,7 @@ type HttpRuntimeDeps = {
   endpoint: string;
   getRuntimeConfig: () => AgentHttpRunRequest["runtime"];
   getProjectDataSnapshot?: () => AgentHttpRunRequest["projectData"];
+  getAuthToken?: () => Promise<string | null>;
 };
 
 const decodeStreamChunks = async (
@@ -46,6 +47,7 @@ export const createHttpScript2VideoAgentRuntime = ({
   endpoint,
   getRuntimeConfig,
   getProjectDataSnapshot,
+  getAuthToken,
 }: HttpRuntimeDeps): Script2VideoAgentRuntime => ({
   async run(input: Script2VideoRunInput, options?: Script2VideoRunOptions): Promise<Script2VideoRunResult> {
     const requestBody: AgentHttpRunRequest = {
@@ -53,11 +55,13 @@ export const createHttpScript2VideoAgentRuntime = ({
       runtime: getRuntimeConfig(),
       projectData: getProjectDataSnapshot?.(),
     };
+    const authToken = await getAuthToken?.();
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: AGENT_HTTP_STREAM_CONTENT_TYPE,
+        ...(authToken ? { authorization: `Bearer ${authToken}` } : {}),
       },
       body: JSON.stringify(requestBody),
       signal: options?.signal,

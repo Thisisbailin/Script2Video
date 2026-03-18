@@ -17,6 +17,7 @@ type SecretsPayload = {
   textApiKey?: string;
   multiApiKey?: string;
   videoApiKey?: string;
+  codexAuth?: unknown;
 };
 
 export const useSecretsSync = ({
@@ -252,12 +253,14 @@ export const useSecretsSync = ({
       const payload: SecretsPayload = {
         textApiKey: config.textConfig.apiKey || '',
         multiApiKey: config.multimodalConfig.apiKey || '',
-        videoApiKey: config.videoConfig.apiKey || ''
+        videoApiKey: config.videoConfig.apiKey || '',
+        codexAuth: lastSentRef.current?.codexAuth
       };
       if (lastSentRef.current &&
         lastSentRef.current.textApiKey === payload.textApiKey &&
         lastSentRef.current.multiApiKey === payload.multiApiKey &&
-        lastSentRef.current.videoApiKey === payload.videoApiKey) {
+        lastSentRef.current.videoApiKey === payload.videoApiKey &&
+        lastSentRef.current.codexAuth === payload.codexAuth) {
         return;
       }
       const baseVersion = typeof remoteUpdatedAtRef.current === "number" ? remoteUpdatedAtRef.current : 0;

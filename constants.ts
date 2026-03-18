@@ -39,7 +39,9 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
 
 export const QWEN_RESPONSES_BASE_URL = 'https://dashscope.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1';
 export const OPENROUTER_RESPONSES_BASE_URL = 'https://openrouter.ai/api/v1';
+export const CODEX_RESPONSES_BASE_URL = 'https://chatgpt.com/backend-api/codex';
 export const QWEN_DEFAULT_MODEL = 'qwen-plus';
+export const CODEX_DEFAULT_MODEL = 'gpt-5.3-codex';
 export const QWEN_WAN_IMAGE_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 export const QWEN_WAN_VIDEO_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis';
 export const QWEN_WAN_IMAGE_MODEL = 'wan2.6-image';
@@ -64,10 +66,16 @@ export const DEFAULT_QALAM_TOOL_SETTINGS: QalamToolSettings = {
 
 export const INITIAL_TEXT_CONFIG: TextServiceConfig = {
   provider: 'qwen',
+  agentProvider: 'qwen',
   agentRuntimeTarget: 'edge',
   baseUrl: QWEN_RESPONSES_BASE_URL,
   apiKey: '',
   model: QWEN_DEFAULT_MODEL,
+  agentBaseUrl: QWEN_RESPONSES_BASE_URL,
+  agentModel: QWEN_DEFAULT_MODEL,
+  codexConnection: {
+    status: 'disconnected',
+  },
   workModel: '',
   workBaseUrl: '',
   qwenModels: [],

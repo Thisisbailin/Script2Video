@@ -13,8 +13,10 @@ import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 import { createScript2VideoTools } from "../tools";
 import { normalizeQalamToolSettings } from "../../node-workspace/components/qalam/tooling";
 import { createScript2VideoInputGuardrails, createScript2VideoOutputGuardrails } from "./guardrails";
+import { buildAgentEnvironment } from "./environment";
 import { composeAgentInstructions } from "./instructions";
-import { OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
+import { readPersistedAgentSessionMessages } from "./session";
+import { CODEX_RESPONSES_BASE_URL, OPENROUTER_RESPONSES_BASE_URL, QWEN_RESPONSES_BASE_URL } from "../../constants";
 import type {
   AgentExecutedToolCall,
   AgentTraceEntry,
@@ -25,31 +27,19 @@ import type {
   Script2VideoRunInput,
   Script2VideoRunOptions,
   Script2VideoRunResult,
+  Script2VideoRunContext,
   Script2VideoSessionStore,
   Script2VideoSkillLoader,
 } from "./types";
 
 const STABILIZATION_DISABLED_TOOLS = [
   "ping_tool",
-  "read_project_data",
-  "search_script_data",
-  "upsert_character",
-  "upsert_location",
-  "write_project_summary",
-  "write_episode_summary",
-  "operate_project_workflow",
-  "create_text_node",
-  "create_node_workflow",
 ] as const;
 
 const AGENT_MAX_TURNS = 50;
 const SUCCESSFUL_ACTION_TOOL_NAMES = new Set([
   "edit_project_resource",
-  "create_workflow_node",
-  "connect_workflow_nodes",
-  "operate_project_workflow",
-  "create_text_node",
-  "create_node_workflow",
+  "operate_project_resource",
 ]);
 
 type RuntimeDeps = {
@@ -60,7 +50,7 @@ type RuntimeDeps = {
   tracer?: Script2VideoAgentTracer;
 };
 
-const resolveApiKey = (provider: "qwen" | "openrouter" | undefined, apiKey?: string) => {
+const resolveApiKey = (provider: "qwen" | "openrouter" | "codex" | undefined, apiKey?: string) => {
   const env = typeof import.meta !== "undefined" ? import.meta.env : undefined;
   const processEnv = typeof process !== "undefined" ? process.env : undefined;
   const envKey =
@@ -69,18 +59,23 @@ const resolveApiKey = (provider: "qwen" | "openrouter" | undefined, apiKey?: str
         env?.VITE_OPENROUTER_API_KEY ||
         processEnv?.OPENROUTER_API_KEY ||
         processEnv?.VITE_OPENROUTER_API_KEY
-      : env?.QWEN_API_KEY ||
-        env?.VITE_QWEN_API_KEY ||
-        env?.DASHSCOPE_API_KEY ||
-        env?.VITE_DASHSCOPE_API_KEY ||
-        processEnv?.QWEN_API_KEY ||
-        processEnv?.VITE_QWEN_API_KEY ||
-        processEnv?.DASHSCOPE_API_KEY ||
-        processEnv?.VITE_DASHSCOPE_API_KEY ||
-        env?.OPENAI_API_KEY ||
-        env?.VITE_OPENAI_API_KEY ||
-        processEnv?.OPENAI_API_KEY ||
-        processEnv?.VITE_OPENAI_API_KEY;
+      : provider === "codex"
+        ? env?.OPENAI_API_KEY ||
+          env?.VITE_OPENAI_API_KEY ||
+          processEnv?.OPENAI_API_KEY ||
+          processEnv?.VITE_OPENAI_API_KEY
+        : env?.QWEN_API_KEY ||
+          env?.VITE_QWEN_API_KEY ||
+          env?.DASHSCOPE_API_KEY ||
+          env?.VITE_DASHSCOPE_API_KEY ||
+          processEnv?.QWEN_API_KEY ||
+          processEnv?.VITE_QWEN_API_KEY ||
+          processEnv?.DASHSCOPE_API_KEY ||
+          processEnv?.VITE_DASHSCOPE_API_KEY ||
+          env?.OPENAI_API_KEY ||
+          env?.VITE_OPENAI_API_KEY ||
+          processEnv?.OPENAI_API_KEY ||
+          processEnv?.VITE_OPENAI_API_KEY;
   const finalKey = (apiKey || envKey || "").trim();
   if (!finalKey) {
     throw new Error("缺少 OpenAI 兼容 API Key，无法运行新的 Agent runtime。");
@@ -88,10 +83,11 @@ const resolveApiKey = (provider: "qwen" | "openrouter" | undefined, apiKey?: str
   return finalKey;
 };
 
-const resolveBaseUrl = (provider: "qwen" | "openrouter" | undefined, baseUrl?: string) => {
+const resolveBaseUrl = (provider: "qwen" | "openrouter" | "codex" | undefined, baseUrl?: string) => {
   const configured = (baseUrl || "").trim();
   if (configured) return configured;
   if (provider === "openrouter") return OPENROUTER_RESPONSES_BASE_URL;
+  if (provider === "codex") return CODEX_RESPONSES_BASE_URL;
   return QWEN_RESPONSES_BASE_URL;
 };
 
@@ -294,7 +290,6 @@ export const createScript2VideoAgentRuntime = ({
     debugLog(runId, "input", {
       sessionId: input.sessionId,
       userText: input.userText,
-      requestedOutcome: input.requestedOutcome || "auto",
       uiContext: {
         supplementalContextChars: input.uiContext?.supplementalContextText?.length || 0,
         mentionTags: input.uiContext?.mentionTags || [],
@@ -307,7 +302,7 @@ export const createScript2VideoAgentRuntime = ({
     tracer?.onRunStarted(input);
 
     const config = await configProvider.getConfig();
-    const provider = config.provider === "openrouter" ? "openrouter" : "qwen";
+    const provider = config.provider === "openrouter" ? "openrouter" : config.provider === "codex" ? "codex" : "qwen";
     const apiKey = resolveApiKey(provider, config.apiKey);
     const baseURL = resolveBaseUrl(provider, config.baseUrl);
     debugLog(runId, "provider resolved", {
@@ -323,6 +318,7 @@ export const createScript2VideoAgentRuntime = ({
       apiKey,
       baseURL,
       dangerouslyAllowBrowser: true,
+      defaultHeaders: config.defaultHeaders,
     });
     instrumentOpenAIResponsesClient(client, runId);
     setDefaultOpenAIClient(client);
@@ -335,7 +331,7 @@ export const createScript2VideoAgentRuntime = ({
       "runtime",
       "info",
       "Instructions prepared",
-      `skills=${enabledSkills.length} · outcome=${input.requestedOutcome || "auto"}`
+      `skills=${enabledSkills.length}`
     );
 
     const session = await sessionStore.getSession(input.sessionId);
@@ -374,24 +370,30 @@ export const createScript2VideoAgentRuntime = ({
     const disabledTools = enabledSkills.flatMap((skill) => skill?.disabledTools || []);
     disabledTools.push(...STABILIZATION_DISABLED_TOOLS);
     if (!toolSettings.projectData.enabled) {
-      disabledTools.push("get_episode_script", "get_scene_script", "read_project_data", "search_script_data");
-    }
-    if (!toolSettings.characterLocation.enabled) {
-      disabledTools.push("upsert_character", "upsert_location");
+      disabledTools.push(
+        "list_project_resources",
+        "read_project_resource",
+        "search_project_resource",
+        "edit_project_resource"
+      );
     }
     if (!toolSettings.workflowBuilder.enabled) {
-      disabledTools.push(
-        "create_workflow_node",
-        "connect_workflow_nodes",
-        "operate_project_workflow",
-        "create_text_node",
-        "create_node_workflow"
-      );
+      disabledTools.push("operate_project_resource");
     }
     const enabledToolNames = createScript2VideoTools({
       bridge,
       disabledTools,
     }).map((tool) => tool.name);
+    const runContext: Script2VideoRunContext = {
+      runtimeMode: "browser",
+      agentEnvironment: buildAgentEnvironment({
+        projectData: bridge.getProjectData(),
+        runtimeMode: "browser",
+        enabledTools: enabledToolNames,
+        sessionMessages: readPersistedAgentSessionMessages(input.sessionId),
+      }),
+      uiContext: input.uiContext,
+    };
     const resolvedToolChoice = enabledToolNames.length > 0 ? "auto" : "none";
     debugLog(runId, "tool catalog", {
       enabled: enabledToolNames,
@@ -406,12 +408,10 @@ export const createScript2VideoAgentRuntime = ({
       `enabled=${enabledToolNames.length} · disabled=${Array.from(new Set(disabledTools)).length}`,
       enabledToolNames.join(", ")
     );
-    const agent = new Agent({
+    const agent = new Agent<Script2VideoRunContext>({
       name: "Script2Video Agent",
       instructions: composeAgentInstructions({
         enabledSkills: enabledSkills as any,
-        requestedOutcome: input.requestedOutcome,
-        uiContext: input.uiContext,
       }),
       handoffDescription: "Single all-purpose Script2Video creative agent.",
       model: config.model,
@@ -456,20 +456,14 @@ export const createScript2VideoAgentRuntime = ({
           signal: options?.signal,
           maxTurns: AGENT_MAX_TURNS,
           session,
-          context: {
-            runtimeMode: "browser",
-            requestedOutcome: input.requestedOutcome || "auto",
-          },
+          context: runContext,
           stream: true,
         })
         : await run(agent, input.userText.trim(), {
             signal: options?.signal,
             maxTurns: AGENT_MAX_TURNS,
             session,
-            context: {
-              runtimeMode: "browser",
-              requestedOutcome: input.requestedOutcome || "auto",
-            },
+            context: runContext,
           });
       if (useStreaming) {
         await consumeRunStream(result as Awaited<ReturnType<typeof run>>, (streamEvent) => {

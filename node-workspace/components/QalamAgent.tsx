@@ -15,12 +15,12 @@ import {
 } from "@phosphor-icons/react";
 import { useConfig } from "../../hooks/useConfig";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { useAuth } from "../../lib/auth";
 import { ProjectData } from "../../types";
 import { createStableId } from "../../utils/id";
 import { QalamChatContent } from "./qalam/QalamChatContent";
 import type { ChatMessage, Message } from "./qalam/types";
 import { useWorkflowStore } from "../store/workflowStore";
-import { inferRequestedOutcome, shouldPreferBrowserRuntime } from "../../agents/adapters/qalamMessageAdapter";
 import type { Script2VideoAgentBridge, WorkflowBuilderHandle, WorkflowNodeLookupInput } from "../../agents/bridge/script2videoBridge";
 import { createNodeWorkflowWithBridge } from "../../agents/bridge/workflowBuilder";
 import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
@@ -29,6 +29,7 @@ import { LocalSkillLoader } from "../../agents/runtime/skills";
 import { LocalStorageSessionStore } from "../../agents/runtime/session";
 import { useScript2VideoAgent } from "../../agents/react/useScript2VideoAgent";
 import { getNodeHandles, isValidConnection } from "../utils/handles";
+import { getCodexRuntimeToken } from "../../services/codexConnectService";
 
 type Props = {
   projectData: ProjectData;
@@ -113,16 +114,6 @@ const resolvePreferredConnectionHandles = (sourceType: string, targetType: strin
   return null;
 };
 
-const resolveAgentRuntimeTarget = (
-  preferredTarget: "browser" | "edge",
-  inputText: string,
-  requestedOutcome?: "answer" | "understanding_document" | "node_workflow" | "auto"
-) => {
-  if (shouldPreferBrowserRuntime(inputText)) return "browser" as const;
-  if (requestedOutcome === "node_workflow") return "browser" as const;
-  return preferredTarget;
-};
-
 const parseMentions = (text: string) => {
   const matches: string[] = text.match(/@([\w\u4e00-\u9fa5\-\/]+)/g) || [];
   const names: string[] = [];
@@ -131,6 +122,36 @@ const parseMentions = (text: string) => {
     if (!names.includes(name)) names.push(name);
   });
   return names;
+};
+
+const resolveAgentProviderConfig = async (
+  textConfig: any,
+  getAuthToken: () => Promise<string | null>
+) => {
+  const provider = textConfig?.agentProvider || textConfig?.provider || "qwen";
+  const model = textConfig?.agentModel || textConfig?.model || "qwen-plus";
+  const baseUrl = textConfig?.agentBaseUrl || textConfig?.baseUrl;
+  if (provider !== "codex") {
+    return {
+      provider,
+      apiKey: textConfig?.apiKey,
+      baseUrl,
+      model,
+      qalamTools: textConfig?.qalamTools,
+      tracingDisabled: true,
+    };
+  }
+
+  const token = await getCodexRuntimeToken(getAuthToken);
+  return {
+    provider: "codex" as const,
+    apiKey: token.accessToken,
+    baseUrl: token.baseUrl,
+    defaultHeaders: token.accountId ? { "ChatGPT-Account-Id": token.accountId } : undefined,
+    model,
+    qalamTools: textConfig?.qalamTools,
+    tracingDisabled: true,
+  };
 };
 
 const hasEpisodeSceneRef = (text: string) => {
@@ -191,6 +212,14 @@ export const QalamAgent: React.FC<Props> = ({
   renderCollapsedTrigger = true,
 }) => {
   const { config } = useConfig("script2video_config_v1");
+  const { getToken } = useAuth();
+  const getAuthToken = useCallback(async () => {
+    try {
+      return await getToken({ template: "default" });
+    } catch {
+      return null;
+    }
+  }, [getToken]);
   const addNode = useWorkflowStore((state) => state.addNode);
   const updateNodeStyle = useWorkflowStore((state) => state.updateNodeStyle);
   const onConnect = useWorkflowStore((state) => state.onConnect);
@@ -391,7 +420,7 @@ export const QalamAgent: React.FC<Props> = ({
           workflowNodeRefsRef.current
         );
         if (!sourceNode || !targetNode) {
-          throw new Error("connectWorkflowNodes 引用了不存在的节点。请确认 source_ref/target_ref 已由 create_workflow_node 返回。");
+          throw new Error("connectWorkflowNodes 引用了不存在的节点。请确认 source_ref/target_ref 指向已创建的 workflow_node。");
         }
         const sourceHandles = sourceNode.outputHandles;
         const targetHandles = targetNode.inputHandles;
@@ -467,31 +496,27 @@ export const QalamAgent: React.FC<Props> = ({
         skillLoader: skillLoaderRef.current,
         sessionStore: sessionStoreRef.current,
         configProvider: {
-          getConfig: () => ({
-            provider: config.textConfig?.provider,
+          getConfig: async () => ({
+            ...(await resolveAgentProviderConfig(config.textConfig, getAuthToken)),
             runtimeTarget: "browser",
-            apiKey: config.textConfig?.apiKey,
-            baseUrl: config.textConfig?.baseUrl || undefined,
-            model: config.textConfig?.model || "qwen-plus",
-            qalamTools: config.textConfig?.qalamTools,
-            tracingDisabled: true,
           }),
         },
       }),
-    [bridge, config.textConfig?.apiKey, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, config.textConfig?.qalamTools]
+    [bridge, config.textConfig, getAuthToken]
   );
   const edgeRuntime = useMemo(
     () =>
       createHttpScript2VideoAgentRuntime({
         endpoint: "/api/agent",
         getRuntimeConfig: () => ({
-          provider: config.textConfig?.provider,
-          model: config.textConfig?.model || "qwen-plus",
-          baseUrl: config.textConfig?.baseUrl || undefined,
+          provider: config.textConfig?.agentProvider || config.textConfig?.provider,
+          model: config.textConfig?.agentModel || config.textConfig?.model || "qwen-plus",
+          baseUrl: config.textConfig?.agentBaseUrl || config.textConfig?.baseUrl || undefined,
         }),
         getProjectDataSnapshot: () => projectData,
+        getAuthToken,
       }),
-    [config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, projectData]
+    [config.textConfig?.agentBaseUrl, config.textConfig?.agentModel, config.textConfig?.agentProvider, config.textConfig?.baseUrl, config.textConfig?.model, config.textConfig?.provider, getAuthToken, projectData]
   );
   const runtime = useMemo(
     () => ({
@@ -499,8 +524,7 @@ export const QalamAgent: React.FC<Props> = ({
         const preferredTarget =
           config.textConfig?.agentRuntimeTarget ||
           ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "browser" ? "browser" : "edge");
-        const effectiveTarget = resolveAgentRuntimeTarget(preferredTarget, input.userText || "", input.requestedOutcome);
-        return effectiveTarget === "edge" ? edgeRuntime.run(input, options) : browserRuntime.run(input, options);
+        return preferredTarget === "edge" ? edgeRuntime.run(input, options) : browserRuntime.run(input, options);
       },
     }),
     [browserRuntime, config.textConfig?.agentRuntimeTarget, edgeRuntime]
@@ -708,10 +732,8 @@ export const QalamAgent: React.FC<Props> = ({
     setInput("");
     setIsSending(true);
     try {
-      const requestedOutcome = inferRequestedOutcome(cleanedInput);
       const runResult = await runAgentMessage({
         userText: cleanedInput,
-        requestedOutcome,
         uiContext: {
           mentionTags: mentionTags.map((tag) => ({
             kind: tag.kind,
