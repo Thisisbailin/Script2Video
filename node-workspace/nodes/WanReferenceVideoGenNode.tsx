@@ -43,7 +43,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     [referenceImages, referenceVideos]
   );
   const availableProjectRefs = useMemo(() => {
-    const latestByKey = new Map<string, { category: "form" | "zone"; refId: string; label: string; url: string; createdAt: number }>();
+    const latestByKey = new Map<string, { category: "identity"; refId: string; label: string; url: string; createdAt: number }>();
     (labContext.designAssets || []).forEach((asset) => {
       if (!asset?.url || !asset?.refId) return;
       const key = `${asset.category}:${asset.refId}`;
@@ -67,10 +67,10 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
   const mentionHints = useMemo(
     () =>
       (atMentions || [])
-        .filter((mention) => mention.status === "match" && ["form", "zone", "character"].includes(mention.kind || ""))
+        .filter((mention) => mention.status === "match" && mention.kind === "identity")
         .map((mention) => ({
-          label: mention.name,
-          kind: mention.kind || "unknown",
+          label: mention.mention ? `@${mention.mention}` : mention.name,
+          kind: mention.roleKind === "scene" ? "scene" : "person",
         })),
     [atMentions]
   );
@@ -300,7 +300,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
     });
   };
 
-  const handleToggleProjectReference = (target: { category: "form" | "zone"; refId: string; label: string }) => {
+  const handleToggleProjectReference = (target: { category: "identity"; refId: string; label: string }) => {
     const exists = projectReferenceTargets.some(
       (item) => item.category === target.category && item.refId === target.refId
     );
@@ -419,10 +419,10 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
         <div className="node-panel space-y-3 p-3 nodrag">
           <div className="space-y-1">
             <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">
-              角色引用
+              身份引用
             </label>
             <div className="text-[9px] leading-5 text-[var(--node-text-secondary)]">
-              支持图像或视频。执行时会优先把 prompt 里的 <span className="text-[var(--node-text-primary)] font-semibold">@形态 / @场景</span> 自动映射成
+              支持图像或视频。执行时会优先把 prompt 里的 <span className="text-[var(--node-text-primary)] font-semibold">@身份证</span> 自动映射成
               <span className="text-[var(--node-text-primary)] font-semibold"> character1 / character2 / ...</span>，并从项目卡片设计图中取图。
             </div>
           </div>
@@ -434,13 +434,13 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
                   key={`${mention.kind}-${mention.label}`}
                   className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.14em] text-emerald-200"
                 >
-                  @{mention.label}
+                  {mention.label}
                 </span>
               ))}
             </div>
           ) : (
             <div className="rounded-[16px] border border-dashed border-[var(--node-border)] px-3 py-2 text-[9px] leading-5 text-[var(--node-text-secondary)]">
-              提示词里插入 <span className="text-[var(--node-text-primary)] font-semibold">@角色形态</span> 或 <span className="text-[var(--node-text-primary)] font-semibold">@场景分区</span>，
+              提示词里插入 <span className="text-[var(--node-text-primary)] font-semibold">@男主_normal</span> 这类身份证，
               会自动使用项目卡片中的设计图作为引用。
             </div>
           )}
@@ -480,7 +480,7 @@ export const WanReferenceVideoGenNode: React.FC<Props & { selected?: boolean }> 
                             {asset.label}
                           </div>
                           <div className="mt-1 text-[8px] uppercase tracking-[0.14em] text-[var(--node-text-secondary)]">
-                            {asset.category === "form" ? "Character Card" : "Scene Card"}
+                            Identity Card
                           </div>
                         </div>
                       </div>

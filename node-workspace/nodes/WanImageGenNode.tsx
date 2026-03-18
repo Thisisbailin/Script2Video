@@ -5,7 +5,7 @@ import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
 import { RefreshCw, Sparkles, AlertCircle, Download, X } from "lucide-react";
 import { QWEN_WAN_IMAGE_MODEL } from "../../constants";
-import { getCharacterFormLabel } from "../../utils/characterIdentity";
+import { getRoleDisplayLabel } from "../../utils/characterIdentity";
 
 type Props = {
   id: string;
@@ -30,17 +30,14 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
   const outputCount = Math.max(1, Math.min(4, data.outputCount ?? 1));
   const isLoading = data.status === "loading";
 
-  const formOptions = useMemo(() => {
-    const chars = labContext?.context?.characters || [];
-    return chars.flatMap((character) =>
-      (character.forms || []).map((form) => ({
-        id: form.id,
-        characterId: character.id,
-        formName: form.formName,
-        label: getCharacterFormLabel(character, form),
-      }))
-    );
-  }, [labContext]);
+  const identityOptions = useMemo(() => {
+    const roles = labContext?.context?.roles || [];
+    return roles.map((role) => ({
+      id: role.id,
+      mention: role.mention,
+      label: getRoleDisplayLabel(role),
+    }));
+  }, [labContext?.context?.roles]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -166,24 +163,23 @@ export const WanImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, 
           </div>
         )}
 
-        {formOptions.length > 0 && (
+        {identityOptions.length > 0 && (
           <div className="node-panel space-y-2 p-3">
-            <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
+            <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联身份证</label>
             <select
               className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
-              value={data.formId || ""}
+              value={data.identityId || ""}
               onChange={(e) => {
-                const nextFormId = e.target.value || undefined;
-                const selected = formOptions.find((item) => item.id === nextFormId);
+                const nextIdentityId = e.target.value || undefined;
+                const selected = identityOptions.find((item) => item.id === nextIdentityId);
                 updateNodeData(id, {
-                  formId: nextFormId,
-                  characterId: selected?.characterId,
-                  formTag: selected?.formName,
+                  identityId: nextIdentityId,
+                  identityTag: selected?.mention,
                 });
               }}
             >
               <option value="">未指定</option>
-              {formOptions.map((option) => (
+              {identityOptions.map((option) => (
                 <option key={option.id} value={option.id}>{option.label}</option>
               ))}
             </select>

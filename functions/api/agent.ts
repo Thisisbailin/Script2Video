@@ -33,6 +33,14 @@ const CORS_HEADERS = {
 };
 
 const EDGE_AGENT_MAX_TURNS = 50;
+const SUCCESSFUL_ACTION_TOOL_NAMES = new Set([
+  "edit_project_resource",
+  "create_workflow_node",
+  "connect_workflow_nodes",
+  "operate_project_workflow",
+  "create_text_node",
+  "create_node_workflow",
+]);
 
 const resolveApiKey = (env: Record<string, unknown>, provider: "qwen" | "openrouter") => {
   const value =
@@ -83,6 +91,17 @@ const extractTextFromResponseOutput = (output: unknown): string => {
     }
   }
   return parts.join("\n").trim();
+};
+
+const summarizeSuccessfulToolCalls = (toolCalls: AgentExecutedToolCall[]) => {
+  const successfulCalls = toolCalls.filter((toolCall) => toolCall.status === "success" && toolCall.summary?.trim());
+  if (!successfulCalls.length) return "";
+  const prioritizedCalls = successfulCalls.filter((toolCall) => SUCCESSFUL_ACTION_TOOL_NAMES.has(toolCall.name));
+  const source = prioritizedCalls.length ? prioritizedCalls : successfulCalls;
+  const uniqueSummaries = Array.from(
+    new Map(source.map((toolCall) => [toolCall.summary!.trim(), toolCall.summary!.trim()])).values()
+  );
+  return uniqueSummaries.slice(-3).join("\n");
 };
 
 const createEdgeBridgeState = (projectData: ProjectData) => {
@@ -332,7 +351,12 @@ export const onRequestPost = async (context: any) => {
         }
 
         await (result as any).completed;
-        const finalText = String(result.finalOutput || "").trim() || accumulatedText || extractTextFromResponseOutput(result.rawResponses?.at(-1)?.output);
+        const synthesizedToolText = summarizeSuccessfulToolCalls(toolCalls);
+        const finalText =
+          String(result.finalOutput || "").trim() ||
+          accumulatedText ||
+          extractTextFromResponseOutput(result.rawResponses?.at(-1)?.output) ||
+          synthesizedToolText;
         const runResult: Script2VideoRunResult = {
           finalText,
           sessionId: body.run.sessionId,
@@ -366,11 +390,44 @@ export const onRequestPost = async (context: any) => {
         });
         emitResult(controller, runResult);
       } catch (error: any) {
+        const isMaxTurns = error?.name === "MaxTurnsExceededError" || String(error?.message || "").includes("Max turns");
         const isGuardrailError =
           error instanceof InputGuardrailTripwireTriggered ||
           error instanceof OutputGuardrailTripwireTriggered ||
           error instanceof ToolInputGuardrailTripwireTriggered ||
           error instanceof ToolOutputGuardrailTripwireTriggered;
+        const synthesizedToolText = summarizeSuccessfulToolCalls(toolCalls);
+        const hasSuccessfulAction = toolCalls.some(
+          (toolCall) => toolCall.status === "success" && SUCCESSFUL_ACTION_TOOL_NAMES.has(toolCall.name)
+        );
+        if (isMaxTurns && synthesizedToolText && hasSuccessfulAction) {
+          const runResult: Script2VideoRunResult = {
+            finalText: synthesizedToolText,
+            sessionId: body.run.sessionId,
+            outputItems: [
+              ...toolCalls.map((toolCall) => ({ kind: "tool_result", toolCall }) as const),
+              { kind: "text", text: synthesizedToolText },
+            ],
+            toolCalls,
+            updatedProjectData: bridgeState.hasUpdatedProjectData() ? bridgeState.getProjectData() : undefined,
+            tracing: {
+              enabled: tracingEnabled,
+              traceId,
+            },
+          };
+          emitEvent(controller, {
+            type: "message_completed",
+            runId,
+            text: synthesizedToolText,
+          });
+          emitEvent(controller, {
+            type: "run_completed",
+            runId,
+            result: runResult,
+          });
+          emitResult(controller, runResult);
+          return;
+        }
         const message = isGuardrailError
           ? `Guardrail 已拦截当前请求：${error?.message || "请求不符合运行边界。"}`
           : error?.message || "Cloudflare Agent runtime 执行失败";

@@ -15,42 +15,37 @@ import {
   QWEN_WAN_VIDEO_MODEL,
 } from "../../constants";
 import { useCallback } from "react";
-import { Character, DesignAssetItem, Location } from "../../types";
+import { DesignAssetItem, ProjectRoleIdentity } from "../../types";
 import { buildApiUrl } from "../../utils/api";
 import type { EntityBinding } from "../types";
 
 type MentionData = {
   name: string;
   status: "match" | "missing";
-  kind?: "form" | "zone" | "character" | "unknown";
-  characterId?: string;
-  formId?: string;
-  formName?: string;
+  kind?: "identity" | "unknown";
+  identityId?: string;
+  mention?: string;
   aliasValue?: string;
-  locationId?: string;
-  locationName?: string;
-  zoneId?: string;
 };
 
 type ProjectReferenceTargetData = {
-  category: "form" | "zone";
+  category: "identity";
   refId: string;
   label?: string;
 };
 
 type ProjectReferenceAsset = {
-  category: "form" | "zone";
+  category: "identity";
   refId: string;
   label: string;
   url: string;
   createdAt: number;
 };
 
-type BoundFormRef = {
+type BoundIdentityRef = {
   rawText: string;
-  characterId: string;
-  formId: string;
-  formName: string;
+  identityId: string;
+  mention: string;
 };
 
 const parseAtMentions = (text: string): string[] => {
@@ -203,7 +198,7 @@ const mapWanVideoSize = (aspectRatio?: string, resolution?: string) => {
   return sizeMap[res]?.[normalizedRatio] || "1280*720";
 };
 
-const makeProjectRefKey = (category: "form" | "zone", refId: string) => `${category}:${refId}`;
+const makeProjectRefKey = (category: "identity", refId: string) => `${category}:${refId}`;
 
 const buildProjectReferenceIndex = (designAssets: DesignAssetItem[]) => {
   const latestByKey = new Map<string, ProjectReferenceAsset>();
@@ -224,94 +219,32 @@ const buildProjectReferenceIndex = (designAssets: DesignAssetItem[]) => {
   return latestByKey;
 };
 
-const resolveCharacterDefaultForm = (character: Character | undefined) => {
-  if (!character) return undefined;
-  return (
-    (character.binding?.defaultFormId
-      ? (character.forms || []).find((form) => form.id === character.binding?.defaultFormId)
-      : undefined) ||
-    (character.forms || []).find((form) => form.isDefault) ||
-    character.forms?.[0]
-  );
-};
-
-const resolveCharacterReferenceAsset = (
-  characterId: string | undefined,
-  characters: Character[],
-  latestByKey: Map<string, ProjectReferenceAsset>
-) => {
-  if (!characterId) return undefined;
-  const character = characters.find((entry) => entry.id === characterId);
-  if (!character) return undefined;
-  const defaultForm = resolveCharacterDefaultForm(character);
-  if (defaultForm?.id) {
-    const exact = latestByKey.get(makeProjectRefKey("form", `${character.id}|${defaultForm.id}`));
-    if (exact) return exact;
-  }
-  for (const form of character.forms || []) {
-    if (!form.id) continue;
-    const candidate = latestByKey.get(makeProjectRefKey("form", `${character.id}|${form.id}`));
-    if (candidate) return candidate;
-  }
-  return undefined;
-};
-
 const resolveMentionReferenceAsset = (
   mention: MentionData | EntityBinding,
-  characters: Character[],
-  locations: Location[],
+  roles: ProjectRoleIdentity[],
   latestByKey: Map<string, ProjectReferenceAsset>
 ) => {
-  const mentionKind = "entityType" in mention ? mention.entityType : mention.kind;
-  if (mentionKind === "form") {
-    const character = mention.characterId ? characters.find((entry) => entry.id === mention.characterId) : undefined;
-    const matchedForm =
-      ("formId" in mention && mention.formId
-        ? character?.forms?.find((form) => form.id === mention.formId)
-        : undefined) ||
-      character?.forms?.find((form) => form.formName === mention.formName || form.formName === ("name" in mention ? mention.name : mention.rawText.replace(/^@/, "")));
-    if (character?.id && matchedForm?.id) {
-      const exact = latestByKey.get(makeProjectRefKey("form", `${character.id}|${matchedForm.id}`));
-      if (exact) return exact;
-    }
+  const identityId = "entityType" in mention ? mention.identityId : mention.identityId;
+  if (identityId) {
+    const exact = latestByKey.get(makeProjectRefKey("identity", identityId));
+    if (exact) return exact;
   }
 
-  if (mentionKind === "character") {
-    return resolveCharacterReferenceAsset(mention.characterId, characters, latestByKey);
+  const fallbackMention = (("mention" in mention ? mention.mention : undefined) || ("name" in mention ? mention.name : mention.rawText.replace(/^@/, "")) || "").replace(/^@/, "").toLowerCase();
+  if (!fallbackMention) return undefined;
+  const role = roles.find((item) => item.mention.toLowerCase() === fallbackMention || item.displayName.toLowerCase() === `@${fallbackMention}`);
+  if (role) {
+    const exact = latestByKey.get(makeProjectRefKey("identity", role.id));
+    if (exact) return exact;
   }
-
-  if (mentionKind === "zone") {
-    if (mention.locationId && mention.zoneId) {
-      const exact = latestByKey.get(makeProjectRefKey("zone", `${mention.locationId}|${mention.zoneId}`));
-      if (exact) return exact;
-    }
-
-    const byZoneId = mention.zoneId
-      ? Array.from(latestByKey.values()).find(
-          (asset) => asset.category === "zone" && asset.refId.includes(mention.zoneId as string)
-        )
-      : undefined;
-    if (byZoneId) return byZoneId;
-
-    const name = ("name" in mention ? mention.name : mention.rawText.replace(/^@/, "") || "").toLowerCase();
-    if (name) {
-      return Array.from(latestByKey.values()).find(
-        (asset) => asset.category === "zone" && asset.label.toLowerCase().includes(name)
-      );
-    }
-  }
-
-  const fallbackName = ("name" in mention ? mention.name : mention.rawText.replace(/^@/, "") || "").toLowerCase();
-  if (!fallbackName) return undefined;
-  return Array.from(latestByKey.values()).find((asset) => asset.label.toLowerCase().includes(fallbackName));
+  return Array.from(latestByKey.values()).find((asset) => asset.label.toLowerCase().includes(fallbackMention));
 };
 
 const resolvePromptProjectReferences = (
   prompt: string,
   atMentions: MentionData[] | undefined,
   entityBindings: EntityBinding[] | undefined,
-  characters: Character[],
-  locations: Location[],
+  roles: ProjectRoleIdentity[],
   latestByKey: Map<string, ProjectReferenceAsset>
 ) => {
   const refs: ProjectReferenceAsset[] = [];
@@ -319,12 +252,12 @@ const resolvePromptProjectReferences = (
   let rewrittenPrompt = prompt;
 
   const candidates = (entityBindings?.length
-    ? entityBindings.filter((binding) => binding.status === "resolved" && ["form", "zone", "character"].includes(binding.entityType))
-    : (atMentions || []).filter((mention) => mention.status === "match" && ["form", "zone", "character"].includes(mention.kind || ""))) as Array<MentionData | EntityBinding>;
+    ? entityBindings.filter((binding) => binding.status === "resolved" && binding.entityType === "identity")
+    : (atMentions || []).filter((mention) => mention.status === "match" && mention.kind === "identity")) as Array<MentionData | EntityBinding>;
 
   candidates
     .forEach((mention) => {
-      const candidate = resolveMentionReferenceAsset(mention, characters, locations, latestByKey);
+      const candidate = resolveMentionReferenceAsset(mention, roles, latestByKey);
       if (!candidate) return;
       const key = makeProjectRefKey(candidate.category, candidate.refId);
       let slot = slotByKey.get(key);
@@ -343,41 +276,24 @@ const resolvePromptProjectReferences = (
   return { rewrittenPrompt, refs };
 };
 
-const resolveBoundForms = (
+const resolveBoundIdentities = (
   entityBindings: EntityBinding[] | undefined,
-  atMentions: MentionData[] | undefined,
-  characters: Character[]
-): BoundFormRef[] => {
-  const resolved: BoundFormRef[] = [];
-  const pushUnique = (item: BoundFormRef | null | undefined) => {
+  atMentions: MentionData[] | undefined
+): BoundIdentityRef[] => {
+  const resolved: BoundIdentityRef[] = [];
+  const pushUnique = (item: BoundIdentityRef | null | undefined) => {
     if (!item) return;
-    if (resolved.find((entry) => entry.characterId === item.characterId && entry.formId === item.formId)) return;
+    if (resolved.find((entry) => entry.identityId === item.identityId)) return;
     resolved.push(item);
   };
 
   (entityBindings || []).forEach((binding) => {
     if (binding.status !== "resolved") return;
-    if (binding.entityType === "form" && binding.characterId && binding.formId) {
-      const character = characters.find((entry) => entry.id === binding.characterId);
-      const form = character?.forms?.find((entry) => entry.id === binding.formId);
-      if (!character || !form) return;
+    if (binding.entityType === "identity" && binding.identityId) {
       pushUnique({
         rawText: binding.rawText,
-        characterId: character.id,
-        formId: form.id,
-        formName: form.formName,
-      });
-      return;
-    }
-    if (binding.entityType === "character" && binding.characterId) {
-      const character = characters.find((entry) => entry.id === binding.characterId);
-      const form = resolveCharacterDefaultForm(character);
-      if (!character || !form) return;
-      pushUnique({
-        rawText: binding.rawText,
-        characterId: character.id,
-        formId: form.id,
-        formName: form.formName,
+        identityId: binding.identityId,
+        mention: binding.mention || binding.rawText.replace(/^@/, ""),
       });
     }
   });
@@ -385,32 +301,12 @@ const resolveBoundForms = (
   if (resolved.length) return resolved;
 
   (atMentions || []).forEach((mention) => {
-    if (mention.status !== "match") return;
-    if (mention.kind === "form" && mention.characterId) {
-      const character = characters.find((entry) => entry.id === mention.characterId);
-      const form =
-        (mention.formId ? character?.forms?.find((entry) => entry.id === mention.formId) : undefined) ||
-        character?.forms?.find((entry) => entry.formName === mention.formName || entry.formName === mention.name);
-      if (!character || !form) return;
-      pushUnique({
-        rawText: `@${mention.name}`,
-        characterId: character.id,
-        formId: form.id,
-        formName: form.formName,
-      });
-      return;
-    }
-    if (mention.kind === "character" && mention.characterId) {
-      const character = characters.find((entry) => entry.id === mention.characterId);
-      const form = resolveCharacterDefaultForm(character);
-      if (!character || !form) return;
-      pushUnique({
-        rawText: `@${mention.name}`,
-        characterId: character.id,
-        formId: form.id,
-        formName: form.formName,
-      });
-    }
+    if (mention.status !== "match" || mention.kind !== "identity" || !mention.identityId) return;
+    pushUnique({
+      rawText: `@${mention.name}`,
+      identityId: mention.identityId,
+      mention: mention.mention || mention.name,
+    });
   });
 
   return resolved;
@@ -675,17 +571,17 @@ export const useLabExecutor = () => {
     const useCharacters = data.useCharacters !== false;
 
     const labContext = store.labContext;
-    const resolvedForms = resolveBoundForms(entityBindings, atMentions as MentionData[] | undefined, labContext?.context?.characters || []);
-    const mentions = resolvedForms.length ? resolvedForms.map((item) => item.formName) : parseAtMentions(prompt);
-    const resolvedFormByName = new Map(resolvedForms.map((item) => [item.formName.toLowerCase(), item]));
+    const resolvedIdentities = resolveBoundIdentities(entityBindings, atMentions as MentionData[] | undefined);
+    const mentions = resolvedIdentities.length ? resolvedIdentities.map((item) => item.mention) : parseAtMentions(prompt);
+    const resolvedIdentityByMention = new Map(resolvedIdentities.map((item) => [item.mention.toLowerCase(), item]));
 
-    const formImageMap = new Map<string, string[]>();
+    const identityImageMap = new Map<string, string[]>();
     (imageRefs || []).forEach((ref) => {
-      const key = ref.formId || (ref.formTag ? ref.formTag.toLowerCase() : "");
+      const key = ref.identityId || (ref.identityTag ? ref.identityTag.toLowerCase() : "");
       if (key) {
-        const arr = formImageMap.get(key) || [];
+        const arr = identityImageMap.get(key) || [];
         arr.push(ref.src);
-        formImageMap.set(key, arr);
+        identityImageMap.set(key, arr);
       }
     });
 
@@ -710,10 +606,10 @@ export const useLabExecutor = () => {
         ? (() => {
           const buckets = chunkImagesForSubjects(mentions.length);
           return mentions.map((m, idx) => {
-            const hit = resolvedFormByName.get(m.toLowerCase());
-            const mapped = formImageMap.get(hit?.formId || m.toLowerCase()) || [];
+            const hit = resolvedIdentityByMention.get(m.toLowerCase());
+            const mapped = identityImageMap.get(hit?.identityId || m.toLowerCase()) || [];
             return {
-              id: hit?.formId || m,
+              id: hit?.identityId || m,
               images: (mapped.length ? mapped : buckets[idx]) || [],
               voiceId: data.voiceId || "professional_host",
             };
@@ -906,14 +802,12 @@ export const useLabExecutor = () => {
       let promptForRequest = prompt;
       if (isWanReferenceVideoNode) {
         const latestProjectRefs = buildProjectReferenceIndex(store.labContext.designAssets || []);
-        const characters = store.labContext.context.characters || [];
-        const locations = store.labContext.context.locations || [];
+        const roles = store.labContext.context.roles || [];
         const { rewrittenPrompt, refs: promptDrivenRefs } = resolvePromptProjectReferences(
           prompt,
           atMentions as MentionData[] | undefined,
           entityBindings,
-          characters,
-          locations,
+          roles,
           latestProjectRefs
         );
         promptForRequest = rewrittenPrompt;

@@ -13,6 +13,19 @@ type PersistedAgentSessionRecord = {
 
 const cloneItem = <T,>(value: T): T => structuredClone(value);
 
+const isReplayableSessionItem = (item: AgentInputItem) => {
+  if (!item || typeof item !== "object") return false;
+  const role = (item as any).role;
+  return role === "user" || role === "assistant";
+};
+
+const trimReplayableItems = (items: AgentInputItem[], limit?: number) => {
+  const replayable = items.filter(isReplayableSessionItem);
+  if (limit === undefined) return replayable.map(cloneItem);
+  if (limit <= 0) return [];
+  return replayable.slice(Math.max(replayable.length - limit, 0)).map(cloneItem);
+};
+
 const normalizeSessionMessage = (message: any): AgentSessionMessage | null => {
   if (!message || typeof message !== "object") return null;
   const createdAt = typeof message.createdAt === "number" ? message.createdAt : Date.now();
@@ -206,9 +219,7 @@ class LocalStorageAgentSession implements Session {
   async getItems(limit?: number): Promise<AgentInputItem[]> {
     const record = readLocalStorageSessions(this.storageKey)[this.sessionId];
     const items = record?.items || [];
-    if (limit === undefined) return items.map(cloneItem);
-    if (limit <= 0) return [];
-    return items.slice(Math.max(items.length - limit, 0)).map(cloneItem);
+    return trimReplayableItems(items, limit);
   }
 
   async addItems(items: AgentInputItem[]): Promise<void> {
@@ -261,8 +272,7 @@ export class InMemorySessionStore implements Script2VideoSessionStore {
     };
     const session: Session = {
       getSessionId: async () => memory.id,
-      getItems: async (limit?: number) =>
-        (limit === undefined ? memory.items : memory.items.slice(Math.max(memory.items.length - limit, 0))).map(cloneItem),
+      getItems: async (limit?: number) => trimReplayableItems(memory.items, limit),
       addItems: async (items: AgentInputItem[]) => {
         memory.items = [...memory.items, ...items.map(cloneItem)];
       },

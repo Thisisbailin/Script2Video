@@ -12,9 +12,9 @@ const searchProjectResourceParameters = {
       type: "array",
       items: {
         type: "string",
-        enum: ["script", "understanding", "characters", "scenes", "guides"],
+        enum: ["script", "storyboard", "understanding", "characters", "scenes", "guides"],
       },
-      description: "Optional scopes to search. Defaults to all supported scopes.",
+      description: "Optional scopes to search. Defaults to all supported scopes, including storyboard rows.",
     },
     episode_id: {
       type: "integer",
@@ -32,7 +32,7 @@ const searchProjectResourceParameters = {
   required: ["query"],
 } as const;
 
-type Scope = "script" | "understanding" | "characters" | "scenes" | "guides";
+type Scope = "script" | "storyboard" | "understanding" | "characters" | "scenes" | "guides";
 
 const toPositiveInteger = (value: unknown) => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
@@ -73,15 +73,17 @@ const parseArgs = (input: unknown) => {
     ? raw.resource_scopes.map((item) => String(item))
     : Array.isArray(raw.resourceScopes)
       ? (raw.resourceScopes as unknown[]).map((item) => String(item))
-      : ["script", "understanding", "characters", "scenes", "guides"];
+      : ["script", "storyboard", "understanding", "characters", "scenes", "guides"];
 
   const normalizedScopes = scopes.filter((scope): scope is Scope =>
-    ["script", "understanding", "characters", "scenes", "guides"].includes(scope)
+    ["script", "storyboard", "understanding", "characters", "scenes", "guides"].includes(scope)
   );
 
   return {
     query,
-    scopes: normalizedScopes.length ? normalizedScopes : (["script", "understanding", "characters", "scenes", "guides"] as Scope[]),
+    scopes: normalizedScopes.length
+      ? normalizedScopes
+      : (["script", "storyboard", "understanding", "characters", "scenes", "guides"] as Scope[]),
     episodeId: toPositiveInteger(raw.episode_id ?? raw.episodeId),
     maxMatches: Math.max(1, Math.min(20, toPositiveInteger(raw.max_matches ?? raw.maxMatches) || 8)),
     maxChars: Math.max(120, Math.min(1200, toPositiveInteger(raw.max_chars ?? raw.maxChars) || 320)),
@@ -122,6 +124,45 @@ const pushSceneMatches = (matches: any[], locations: Location[], query: string, 
   }
 };
 
+const pushStoryboardMatches = (matches: any[], data: ProjectData, args: ReturnType<typeof parseArgs>, radius: number) => {
+  const targetEpisodes = args.episodeId
+    ? (data.episodes || []).filter((episode) => episode.id === args.episodeId)
+    : data.episodes || [];
+  for (const episode of targetEpisodes) {
+    if (matches.length >= args.maxMatches) break;
+    for (const shot of episode.shots || []) {
+      if (matches.length >= args.maxMatches) break;
+      const haystack = [
+        shot.id,
+        shot.duration,
+        shot.shotType,
+        shot.focalLength,
+        shot.movement,
+        shot.composition,
+        shot.blocking,
+        shot.dialogue,
+        shot.sound,
+        shot.lightingVfx,
+        shot.editingNotes,
+        shot.notes,
+        shot.soraPrompt,
+        shot.storyboardPrompt,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (haystack && includesQuery(haystack, args.query)) {
+        matches.push({
+          scope: "episode_storyboard",
+          episodeId: episode.id,
+          episodeTitle: episode.title,
+          shotId: shot.id,
+          snippet: buildSnippet(haystack, args.query, radius),
+        });
+      }
+    }
+  }
+};
+
 const searchProject = (data: ProjectData, args: ReturnType<typeof parseArgs>) => {
   const matches: any[] = [];
   const radius = Math.max(80, Math.min(240, Math.floor(args.maxChars / 2)));
@@ -156,6 +197,10 @@ const searchProject = (data: ProjectData, args: ReturnType<typeof parseArgs>) =>
         }
       }
     }
+  }
+
+  if (matches.length < args.maxMatches && args.scopes.includes("storyboard")) {
+    pushStoryboardMatches(matches, data, args, radius);
   }
 
   if (matches.length < args.maxMatches && args.scopes.includes("understanding")) {
@@ -214,7 +259,7 @@ const searchProject = (data: ProjectData, args: ReturnType<typeof parseArgs>) =>
 export const searchProjectResourceToolDef = {
   name: "search_project_resource",
   description:
-    "Search script and understanding resources when the exact locator is unknown. Supports script, understanding, characters, scenes, and guides scopes.",
+    "Search project resources when the exact locator is unknown. Supports script, storyboard, understanding, characters, scenes, and guides scopes.",
   parameters: searchProjectResourceParameters,
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);

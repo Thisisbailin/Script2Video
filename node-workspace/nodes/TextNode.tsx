@@ -11,7 +11,6 @@ import {
     resolveMentionTarget,
     toSearch,
 } from "../utils/entityBindings";
-import { getCharacterFormMention } from "../../utils/characterIdentity";
 
 type Props = {
     id: string;
@@ -147,10 +146,9 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
     const [pickerPos, setPickerPos] = useState<{ left: number; top: number } | null>(null);
 
     const mentionTargets = useMemo(() => {
-        const chars = labContext?.context?.characters || [];
-        const locations = labContext?.context?.locations || [];
-        return buildMentionTargets(chars, locations);
-    }, [labContext]);
+        const roles = labContext?.context?.roles || [];
+        return buildMentionTargets(roles);
+    }, [labContext?.context?.roles]);
 
     const mentionIndex = useMemo(() => {
         return buildMentionIndex(mentionTargets.all);
@@ -194,9 +192,9 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         }
         const filterList = (list: MentionTarget[]) => list.filter((item) => item.search.includes(query));
         return {
-            forms: filterList(mentionTargets.forms),
-            characters: filterList(mentionTargets.characters),
-            zones: filterList(mentionTargets.zones),
+            persons: filterList(mentionTargets.persons),
+            scenes: filterList(mentionTargets.scenes),
+            identities: filterList(mentionTargets.identities),
             all: filterList(mentionTargets.all),
         };
     }, [mentionState, mentionTargets]);
@@ -276,20 +274,7 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         const end = mentionState ? mentionState.end : cursorPos;
         const before = draftText.slice(0, start);
         const after = draftText.slice(end);
-        const insertionValue =
-            target.kind === "form"
-                ? getCharacterFormMention(
-                    target.characterId ? (labContext?.context?.characters || []).find((item) => item.id === target.characterId) : undefined,
-                    target.formId
-                        ? (labContext?.context?.characters || [])
-                            .find((item) => item.id === target.characterId)
-                            ?.forms?.find((entry) => entry.id === target.formId)
-                        : undefined
-                ) || target.name
-                : target.kind === "character"
-                    ? (target.characterName || target.name)
-                    : target.name;
-        const insertion = `@${insertionValue} `;
+        const insertion = `@${target.name} `;
         const next = `${before}${insertion}${after}`;
         const nextPos = start + insertion.length;
         setDraftText(next);
@@ -495,13 +480,13 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                         <div className="mention-picker-header">
                             <AtSign size={10} /> 数据绑定
                         </div>
-                        {filteredMentions.forms.length > 0 && (
+                        {filteredMentions.persons.length > 0 && (
                             <div className="mention-picker-section">
-                                <div className="mention-picker-title">角色形态</div>
+                                <div className="mention-picker-title">人物身份证</div>
                                 <div className="mention-picker-grid">
-                                    {filteredMentions.forms.map((f) => (
+                                    {filteredMentions.persons.map((f) => (
                                         <button
-                                            key={`form-${f.name}-${f.characterId}`}
+                                            key={`identity-person-${f.name}-${f.identityId}`}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => insertMention(f)}
                                             className="mention-picker-item"
@@ -513,13 +498,13 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                             </div>
                         )}
 
-                        {filteredMentions.characters.length > 0 && (
+                        {filteredMentions.scenes.length > 0 && (
                             <div className="mention-picker-section">
-                                <div className="mention-picker-title">角色</div>
+                                <div className="mention-picker-title">场景身份证</div>
                                 <div className="mention-picker-grid">
-                                    {filteredMentions.characters.map((c) => (
+                                    {filteredMentions.scenes.map((c) => (
                                         <button
-                                            key={`char-${c.name}-${c.characterId}`}
+                                            key={`identity-scene-${c.name}-${c.identityId}`}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => insertMention(c)}
                                             className="mention-picker-item"
@@ -531,21 +516,9 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
                             </div>
                         )}
 
-                        {filteredMentions.zones.length > 0 && (
+                        {filteredMentions.identities.length === 0 && (
                             <div className="mention-picker-section">
-                                <div className="mention-picker-title">场景分区</div>
-                                <div className="mention-picker-grid">
-                                    {filteredMentions.zones.map((z) => (
-                                        <button
-                                            key={`zone-${z.name}-${z.zoneId}`}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => insertMention(z)}
-                                            className="mention-picker-item"
-                                        >
-                                            {z.label}
-                                        </button>
-                                    ))}
-                                </div>
+                                <div className="mention-picker-title">未找到可绑定身份证</div>
                             </div>
                         )}
                     </div>

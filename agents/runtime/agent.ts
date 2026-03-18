@@ -43,6 +43,14 @@ const STABILIZATION_DISABLED_TOOLS = [
 ] as const;
 
 const AGENT_MAX_TURNS = 50;
+const SUCCESSFUL_ACTION_TOOL_NAMES = new Set([
+  "edit_project_resource",
+  "create_workflow_node",
+  "connect_workflow_nodes",
+  "operate_project_workflow",
+  "create_text_node",
+  "create_node_workflow",
+]);
 
 type RuntimeDeps = {
   bridge: Script2VideoAgentBridge;
@@ -95,6 +103,17 @@ const normalizeText = (value: unknown) => {
   } catch {
     return String(value);
   }
+};
+
+const summarizeSuccessfulToolCalls = (toolCalls: AgentExecutedToolCall[]) => {
+  const successfulCalls = toolCalls.filter((toolCall) => toolCall.status === "success" && toolCall.summary?.trim());
+  if (!successfulCalls.length) return "";
+  const prioritizedCalls = successfulCalls.filter((toolCall) => SUCCESSFUL_ACTION_TOOL_NAMES.has(toolCall.name));
+  const source = prioritizedCalls.length ? prioritizedCalls : successfulCalls;
+  const uniqueSummaries = Array.from(
+    new Map(source.map((toolCall) => [toolCall.summary!.trim(), toolCall.summary!.trim()])).values()
+  );
+  return uniqueSummaries.slice(-3).join("\n");
 };
 
 const debugLog = (runId: string, label: string, payload?: unknown) => {
@@ -568,7 +587,9 @@ export const createScript2VideoAgentRuntime = ({
           normalizeText(latestRawResponse?.providerData || latestRawResponse)
         );
       }
-      const finalText = normalizeText(result.finalOutput) || streamedTextDelta.trim() || streamedResponseText.trim();
+      const synthesizedToolText = summarizeSuccessfulToolCalls(toolEvents);
+      const finalText =
+        normalizeText(result.finalOutput) || streamedTextDelta.trim() || streamedResponseText.trim() || synthesizedToolText;
       const runResult: Script2VideoRunResult = {
         finalText,
         sessionId: input.sessionId,
@@ -610,7 +631,11 @@ export const createScript2VideoAgentRuntime = ({
         .slice(-5)
         .map((toolCall) => `${toolCall.name}:${toolCall.status}${toolCall.summary ? `(${toolCall.summary})` : ""}`)
         .join(" -> ");
-      const fallbackText = streamedTextDelta.trim() || streamedResponseText.trim();
+      const synthesizedToolText = summarizeSuccessfulToolCalls(toolEvents);
+      const hasSuccessfulAction = toolEvents.some(
+        (toolCall) => toolCall.status === "success" && SUCCESSFUL_ACTION_TOOL_NAMES.has(toolCall.name)
+      );
+      const fallbackText = streamedTextDelta.trim() || streamedResponseText.trim() || synthesizedToolText;
       debugLog(runId, "run error", {
         error,
         isMaxTurns,
@@ -620,15 +645,26 @@ export const createScript2VideoAgentRuntime = ({
         streamedResponseText,
         fallbackText,
       });
-      if (isMaxTurns && !toolEvents.length && fallbackText) {
+      if (isMaxTurns && fallbackText && (!toolEvents.length || hasSuccessfulAction)) {
         const runResult: Script2VideoRunResult = {
           finalText: fallbackText,
           sessionId: input.sessionId,
-          outputItems: [{ kind: "text", text: fallbackText }],
-          toolCalls: [],
+          outputItems: [
+            ...toolEvents.map((toolCall) => ({ kind: "tool_result", toolCall }) as const),
+            { kind: "text", text: fallbackText },
+          ],
+          toolCalls: toolEvents,
         };
         debugLog(runId, "fallback text recovered", runResult);
-        emitTrace("result", "success", "Fallback text recovered", "SDK 未识别 finalOutput，已从 raw response 恢复文本。", fallbackText);
+        emitTrace(
+          "result",
+          "success",
+          "Fallback text recovered",
+          hasSuccessfulAction
+            ? "模型未收尾，但已从成功工具结果恢复最小回复。"
+            : "SDK 未识别 finalOutput，已从 raw response 恢复文本。",
+          fallbackText
+        );
         options?.onEvent?.({ type: "message_completed", runId, text: fallbackText });
         options?.onEvent?.({ type: "run_completed", runId, result: runResult });
         tracer?.onRunCompleted(runResult);

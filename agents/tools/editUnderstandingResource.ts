@@ -1,7 +1,43 @@
 import type { Character, Episode, Location, Shot } from "../../types";
-import { SHOT_TABLE_COLUMNS, sanitizeShotList } from "../../utils/shotSchema";
+import { sanitizeShotList } from "../../utils/shotSchema";
 import { ensureStableId, ensureTypedStableId } from "../../utils/id";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
+
+const storyboardRowSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    duration: { type: "string" },
+    shotType: { type: "string" },
+    focalLength: { type: "string" },
+    movement: { type: "string" },
+    composition: { type: "string" },
+    blocking: { type: "string" },
+    dialogue: { type: "string" },
+    sound: { type: "string" },
+    lightingVfx: { type: "string" },
+    editingNotes: { type: "string" },
+    notes: { type: "string" },
+    soraPrompt: { type: "string" },
+    storyboardPrompt: { type: "string" },
+  },
+  required: [
+    "id",
+    "duration",
+    "shotType",
+    "focalLength",
+    "movement",
+    "composition",
+    "blocking",
+    "dialogue",
+    "sound",
+    "lightingVfx",
+    "editingNotes",
+    "notes",
+    "soraPrompt",
+    "storyboardPrompt",
+  ],
+} as const;
 
 const editUnderstandingResourceParameters = {
   type: "object",
@@ -53,85 +89,52 @@ const editUnderstandingResourceParameters = {
       description:
         "Complete shot rows for episode_storyboard. Use the canonical columns: id, duration, shotType, focalLength, movement, composition, blocking, dialogue, sound, lightingVfx, editingNotes, notes, soraPrompt, storyboardPrompt. Prefer reusing episode_storyboard.rows from read_project_resource directly.",
       minItems: 1,
-      items: {
-        type: "object",
-        properties: {
-          id: { type: "string" },
-          duration: { type: "string" },
-          shotType: { type: "string" },
-          focalLength: { type: "string" },
-          movement: { type: "string" },
-          composition: { type: "string" },
-          blocking: { type: "string" },
-          dialogue: { type: "string" },
-          sound: { type: "string" },
-          lightingVfx: { type: "string" },
-          editingNotes: { type: "string" },
-          notes: { type: "string" },
-          soraPrompt: { type: "string" },
-          storyboardPrompt: { type: "string" },
-        },
-        required: [
-          "id",
-          "duration",
-          "shotType",
-          "focalLength",
-          "movement",
-          "composition",
-          "blocking",
-          "dialogue",
-          "sound",
-          "lightingVfx",
-          "editingNotes",
-          "notes",
-          "soraPrompt",
-          "storyboardPrompt",
-        ],
-      },
+      items: storyboardRowSchema,
     },
     rows: {
       type: "array",
       description:
         "Alias of shots for episode_storyboard writes. This matches the rows field returned by read_project_resource(resource_type=episode_storyboard).",
       minItems: 1,
-      items: {
-        type: "object",
-        properties: {
-          id: { type: "string" },
-          duration: { type: "string" },
-          shotType: { type: "string" },
-          focalLength: { type: "string" },
-          movement: { type: "string" },
-          composition: { type: "string" },
-          blocking: { type: "string" },
-          dialogue: { type: "string" },
-          sound: { type: "string" },
-          lightingVfx: { type: "string" },
-          editingNotes: { type: "string" },
-          notes: { type: "string" },
-          soraPrompt: { type: "string" },
-          storyboardPrompt: { type: "string" },
-        },
-        required: [
-          "id",
-          "duration",
-          "shotType",
-          "focalLength",
-          "movement",
-          "composition",
-          "blocking",
-          "dialogue",
-          "sound",
-          "lightingVfx",
-          "editingNotes",
-          "notes",
-          "soraPrompt",
-          "storyboardPrompt",
-        ],
-      },
+      items: storyboardRowSchema,
     },
   },
   required: ["resource_type"],
+  oneOf: [
+    {
+      properties: {
+        resource_type: { const: "project_summary" },
+      },
+      required: ["resource_type", "summary"],
+    },
+    {
+      properties: {
+        resource_type: { const: "episode_summary" },
+      },
+      required: ["resource_type", "episode_id", "summary"],
+    },
+    {
+      properties: {
+        resource_type: { const: "character_profile" },
+      },
+      required: ["resource_type", "name"],
+      anyOf: [{ required: ["role"] }, { required: ["bio"] }, { required: ["is_main"] }],
+    },
+    {
+      properties: {
+        resource_type: { const: "scene_profile" },
+      },
+      required: ["resource_type", "name"],
+      anyOf: [{ required: ["type"] }, { required: ["description"] }, { required: ["visuals"] }],
+    },
+    {
+      properties: {
+        resource_type: { const: "episode_storyboard" },
+      },
+      required: ["resource_type", "episode_id"],
+      anyOf: [{ required: ["rows"] }, { required: ["shots"] }],
+    },
+  ],
 } as const;
 
 type ResourceType = "project_summary" | "episode_summary" | "character_profile" | "scene_profile" | "episode_storyboard";

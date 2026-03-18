@@ -11,7 +11,6 @@ import {
   resolveMentionTarget,
   toSearch,
 } from "../utils/entityBindings";
-import { getCharacterFormMention } from "../../utils/characterIdentity";
 
 type Props = {
   id: string;
@@ -153,15 +152,15 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   }, [data.dimensions?.height, data.dimensions?.width]);
 
   const mentionTargets = useMemo(() => {
-    const chars = labContext?.context?.characters || [];
-    const locations = labContext?.context?.locations || [];
-    const targets = buildMentionTargets(chars, locations);
+    const roles = labContext?.context?.roles || [];
+    const targets = buildMentionTargets(roles);
     return {
-      forms: targets.forms,
-      zones: targets.zones,
-      all: [...targets.forms, ...targets.zones],
+      persons: targets.persons,
+      scenes: targets.scenes,
+      identities: targets.identities,
+      all: targets.all,
     };
-  }, [labContext]);
+  }, [labContext?.context?.roles]);
 
   const mentionIndex = useMemo(() => {
     return buildMentionIndex(mentionTargets.all);
@@ -201,8 +200,9 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
     if (!query) return mentionTargets;
     const filterList = (list: MentionTarget[]) => list.filter((item) => item.search.includes(query));
     return {
-      forms: filterList(mentionTargets.forms),
-      zones: filterList(mentionTargets.zones),
+      persons: filterList(mentionTargets.persons),
+      scenes: filterList(mentionTargets.scenes),
+      identities: filterList(mentionTargets.identities),
       all: filterList(mentionTargets.all),
     };
   }, [mentionState, mentionTargets]);
@@ -245,17 +245,14 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
   const commitLabel = useCallback(
     (next: string) => {
       const mentions = computeMentionMeta(next);
-      const match = mentions.atMentions.find((m) => m.status === "match" && m.kind === "form")
-        || mentions.atMentions.find((m) => m.status === "match" && m.kind === "zone");
-      const formBinding = mentions.entityBindings.find((binding) => binding.status === "resolved" && binding.entityType === "form");
+      const match = mentions.atMentions.find((m) => m.status === "match" && m.kind === "identity");
+      const identityBinding = mentions.entityBindings.find((binding) => binding.status === "resolved" && binding.entityType === "identity");
       updateNodeData(id, {
         label: next,
         atMentions: mentions.atMentions,
         entityBindings: mentions.entityBindings,
-        formTag: match?.kind === "form" ? match.name : undefined,
-        characterId: formBinding?.characterId,
-        formId: formBinding?.formId,
-        zoneTag: match?.kind === "zone" ? match.name : undefined,
+        identityTag: match?.name,
+        identityId: identityBinding?.identityId,
       });
     },
     [computeMentionMeta, id, updateNodeData]
@@ -280,20 +277,7 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
     const end = mentionState ? mentionState.end : cursorPos;
     const before = labelDraft.slice(0, start);
     const after = labelDraft.slice(end);
-    const insertionValue =
-      target.kind === "form"
-        ? getCharacterFormMention(
-            target.characterId ? (labContext?.context?.characters || []).find((item) => item.id === target.characterId) : undefined,
-            target.formId
-              ? (labContext?.context?.characters || [])
-                  .find((item) => item.id === target.characterId)
-                  ?.forms?.find((entry) => entry.id === target.formId)
-              : undefined
-          ) || target.name
-        : target.kind === "character"
-          ? target.characterName || target.name
-          : target.name;
-    const insertion = `@${insertionValue} `;
+    const insertion = `@${target.name} `;
     const next = `${before}${insertion}${after}`;
     const nextPos = start + insertion.length;
     setLabelDraft(next);
@@ -516,13 +500,13 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
             <div className="mention-picker-header">
               <AtSign size={10} /> 数据绑定
             </div>
-            {filteredMentions.forms.length > 0 && (
+            {filteredMentions.persons.length > 0 && (
               <div className="mention-picker-section">
-                <div className="mention-picker-title">角色形态</div>
+                <div className="mention-picker-title">人物身份证</div>
                 <div className="mention-picker-grid">
-                  {filteredMentions.forms.map((f) => (
+                  {filteredMentions.persons.map((f) => (
                     <button
-                      key={`form-${f.name}-${f.characterId}`}
+                      key={`identity-person-${f.name}-${f.identityId}`}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertMention(f)}
                       className="mention-picker-item"
@@ -534,13 +518,13 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
               </div>
             )}
 
-            {filteredMentions.zones.length > 0 && (
+            {filteredMentions.scenes.length > 0 && (
               <div className="mention-picker-section">
-                <div className="mention-picker-title">场景分区</div>
+                <div className="mention-picker-title">场景身份证</div>
                 <div className="mention-picker-grid">
-                  {filteredMentions.zones.map((z) => (
+                  {filteredMentions.scenes.map((z) => (
                     <button
-                      key={`zone-${z.name}-${z.zoneId}`}
+                      key={`identity-scene-${z.name}-${z.identityId}`}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertMention(z)}
                       className="mention-picker-item"
@@ -549,6 +533,12 @@ export const ImageInputNode: React.FC<Props> = ({ id, data, selected }) => {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {filteredMentions.identities.length === 0 && (
+              <div className="mention-picker-section">
+                <div className="mention-picker-title">未找到可绑定身份证</div>
               </div>
             )}
           </div>

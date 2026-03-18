@@ -139,9 +139,10 @@ export const createScript2VideoOutputGuardrails = (): OutputGuardrail[] => [
             ? agentOutput.trim()
             : "";
       return {
-        tripwireTriggered: !text,
+        tripwireTriggered: false,
         outputInfo: {
-          message: text ? "ok" : "模型未产出可见回复文本。",
+          message: text ? "ok" : "模型未产出可见回复文本，runtime 将尝试用已完成工具结果生成最小回复。",
+          emptyText: !text,
         },
       };
     },

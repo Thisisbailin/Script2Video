@@ -30,10 +30,8 @@ export interface ImageInputNodeData extends BaseNodeData {
   image: string | null;
   filename: string | null;
   dimensions: { width: number; height: number } | null;
-  formTag?: string;
-  characterId?: string;
-  formId?: string;
-  zoneTag?: string;
+  identityTag?: string;
+  identityId?: string;
   label?: string;
   atMentions?: TextNodeData['atMentions'];
   entityBindings?: EntityBinding[];
@@ -99,17 +97,15 @@ export interface EntityBinding {
   id: string;
   rawText: string;
   status: "resolved" | "missing";
-  entityType: "character" | "form" | "zone" | "unknown";
+  entityType: "identity" | "unknown";
   entityId?: string;
-  characterId?: string;
-  formId?: string;
-  formName?: string;
+  identityId?: string;
+  mention?: string;
   aliasValue?: string;
   summary?: string;
   detail?: string;
-  locationId?: string;
-  locationName?: string;
-  zoneId?: string;
+  tone?: "emerald" | "sky";
+  roleKind?: "person" | "scene";
   start: number;
   end: number;
   resolutionSource?: "manual" | "auto";
@@ -123,15 +119,14 @@ export interface TextNodeData extends BaseNodeData {
   atMentions?: {
     name: string;
     status: 'match' | 'missing';
-    kind?: 'form' | 'zone' | 'character' | 'unknown';
-    characterId?: string;
-    formName?: string;
+    kind?: 'identity' | 'unknown';
+    identityId?: string;
+    mention?: string;
     summary?: string;
     image?: string;
     detail?: string;
-    locationId?: string;
-    locationName?: string;
-    zoneId?: string;
+    tone?: "emerald" | "sky";
+    roleKind?: "person" | "scene";
   }[];
   entityBindings?: EntityBinding[];
 }
@@ -154,9 +149,7 @@ export interface StoryboardBoardNodeData extends BaseNodeData {
 
 export interface IdentityCardNodeData extends BaseNodeData {
   title: string;
-  entityType: "character" | "scene";
-  entityId?: string;
-  selectedVariantId?: string;
+  identityId?: string;
   avatarOverrides?: Record<string, string>;
 }
 
@@ -174,11 +167,10 @@ export interface ImageGenNodeData extends BaseNodeData {
   seed?: number;
   watermark?: boolean;
   size?: string;
-  designCategory?: "form" | "zone";
+  designCategory?: "identity";
   designRefId?: string;
-  formTag?: string;
-  characterId?: string;
-  formId?: string;
+  identityTag?: string;
+  identityId?: string;
 }
 
 export interface VideoGenNodeData extends BaseNodeData {
@@ -186,7 +178,7 @@ export interface VideoGenNodeData extends BaseNodeData {
   referenceImages?: string[];
   referenceVideos?: string[];
   projectReferenceTargets?: {
-    category: "form" | "zone";
+    category: "identity";
     refId: string;
     label?: string;
   }[];

@@ -1,30 +1,32 @@
 import type { ChatMessage } from "../../node-workspace/components/qalam/types";
 import type { Script2VideoRunInput } from "../runtime/types";
 
-const NODE_WORKFLOW_HINTS = [
-  "节点",
-  "工作流",
-  "workflow",
-  "node",
-  "搭建流程",
-  "创建流程",
-  "创建节点",
-  "生成节点",
+const EXPLICIT_NODE_WORKFLOW_PATTERNS = [
+  /创建.*节点/,
+  /新建.*节点/,
+  /加载.*节点/,
+  /连接.*节点/,
+  /放到.*工作流/,
+  /写入.*工作流/,
+  /插入.*工作流/,
+  /搭建.*工作流/,
+  /扩展.*工作流/,
+  /\bscriptboard\b/i,
+  /\bstoryboardboard\b/i,
+  /\bidentitycard\b/i,
 ];
 
-const UNDERSTANDING_DOCUMENT_HINTS = [
-  "情节梗概",
-  "梳理",
-  "总结",
-  "分析",
-  "角色分析",
-  "场景分析",
-  "人物小传",
-  "分镜",
-  "storyboard",
-  "prompt",
-  "提示词",
-  "文档",
+const EXPLICIT_UNDERSTANDING_DOCUMENT_PATTERNS = [
+  /写成.*文档/,
+  /整理成.*文档/,
+  /保存为.*文档/,
+  /沉淀为.*文档/,
+  /写入.*摘要/,
+  /写入.*概述/,
+  /写入.*档案/,
+  /更新.*摘要/,
+  /更新.*概述/,
+  /更新.*档案/,
 ];
 
 const parsePlanFromText = (text: string) => {
@@ -75,12 +77,15 @@ export const buildAssistantChatMessage = (text: string): ChatMessage => {
 export const inferRequestedOutcome = (
   text: string
 ): Script2VideoRunInput["requestedOutcome"] => {
-  const lowered = text.trim().toLowerCase();
-  if (NODE_WORKFLOW_HINTS.some((hint) => lowered.includes(hint.toLowerCase()))) {
+  const trimmed = text.trim();
+  if (EXPLICIT_NODE_WORKFLOW_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "node_workflow";
   }
-  if (UNDERSTANDING_DOCUMENT_HINTS.some((hint) => lowered.includes(hint.toLowerCase()))) {
+  if (EXPLICIT_UNDERSTANDING_DOCUMENT_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "understanding_document";
   }
   return "auto";
 };
+
+export const shouldPreferBrowserRuntime = (text: string) =>
+  EXPLICIT_NODE_WORKFLOW_PATTERNS.some((pattern) => pattern.test(text.trim()));

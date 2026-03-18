@@ -23,17 +23,6 @@ const LOOKUP_TOOL_NAMES = new Set([
   "search_project_resource",
 ]);
 
-const ACTION_TOOL_NAMES = new Set([
-  "edit_project_resource",
-  "create_workflow_node",
-  "connect_workflow_nodes",
-  "operate_project_workflow",
-  "create_text_node",
-  "create_node_workflow",
-]);
-
-const MAX_CONSECUTIVE_LOOKUP_CALLS = 6;
-
 const TOOL_DEFS = [
   pingToolDef,
   listProjectResourcesToolDef,
@@ -71,8 +60,7 @@ export const createScript2VideoTools = ({
   disabledTools?: string[];
 }) => {
   const disabled = new Set(disabledTools);
-  const seenLookupCalls = new Map<string, number>();
-  let consecutiveLookupCalls = 0;
+  const lookupCache = new Map<string, { output: unknown; summary: string }>();
 
   return TOOL_DEFS.filter((toolDef) => !disabled.has(toolDef.name)).map((toolDef) =>
     tool({
@@ -92,30 +80,24 @@ export const createScript2VideoTools = ({
         emitEvent?.({ type: "tool_called", call: runningCall });
         try {
           const isLookupTool = LOOKUP_TOOL_NAMES.has(toolDef.name);
-          const isActionTool = ACTION_TOOL_NAMES.has(toolDef.name);
           const lookupSignature = isLookupTool ? `${toolDef.name}:${stableSerialize(input)}` : "";
 
-          if (isLookupTool) {
-            const duplicateCount = seenLookupCalls.get(lookupSignature) || 0;
-            if (duplicateCount >= 1) {
-              throw new Error(
-                `${toolDef.name} 在本轮里已经用相同参数调用过一次。请复用已有查阅结果，直接进入回答、edit_project_resource 或 create_workflow_node。`
-              );
-            }
-            if (consecutiveLookupCalls >= MAX_CONSECUTIVE_LOOKUP_CALLS) {
-              throw new Error(
-                `本轮已经连续执行 ${consecutiveLookupCalls} 次查阅工具。请停止继续 list/read/search，改为基于现有信息直接回答、edit_project_resource 或 create_workflow_node。`
-              );
-            }
+          if (isLookupTool && lookupCache.has(lookupSignature)) {
+            const cached = lookupCache.get(lookupSignature)!;
+            const completedCall: AgentExecutedToolCall = {
+              ...runningCall,
+              status: "success",
+              output: cached.output,
+              summary: `${cached.summary}（复用本轮已有结果）`,
+            };
+            emitEvent?.({ type: "tool_completed", call: completedCall });
+            return cached.output;
           }
 
           const output = await toolDef.execute(input, bridge);
           const summary = toolDef.summarize(output);
           if (isLookupTool) {
-            seenLookupCalls.set(lookupSignature, (seenLookupCalls.get(lookupSignature) || 0) + 1);
-            consecutiveLookupCalls += 1;
-          } else if (isActionTool) {
-            consecutiveLookupCalls = 0;
+            lookupCache.set(lookupSignature, { output, summary });
           }
           const completedCall: AgentExecutedToolCall = {
             ...runningCall,

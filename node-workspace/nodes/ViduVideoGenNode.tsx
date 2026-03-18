@@ -20,53 +20,39 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
 
   const { text: connectedText, images: connectedImages, atMentions, entityBindings, imageRefs } = getConnectedInputs(id);
   const isLoading = data.status === "loading";
-  const resolvedFormMentions = useMemo(() => {
-    const characters = labContext?.context?.characters || [];
-    const results: Array<{ name: string; status: "match" | "missing"; formId?: string }> = [];
-    const pushUnique = (item: { name: string; status: "match" | "missing"; formId?: string }) => {
-      if (results.find((entry) => entry.name === item.name && entry.formId === item.formId)) return;
+  const resolvedIdentityMentions = useMemo(() => {
+    const roles = labContext?.context?.roles || [];
+    const results: Array<{ name: string; status: "match" | "missing"; identityId?: string }> = [];
+    const pushUnique = (item: { name: string; status: "match" | "missing"; identityId?: string }) => {
+      if (results.find((entry) => entry.name === item.name && entry.identityId === item.identityId)) return;
       results.push(item);
     };
     (entityBindings || []).forEach((binding) => {
       if (binding.status !== "resolved") return;
-      if (binding.entityType === "form" && binding.characterId && binding.formId) {
-        const character = characters.find((entry) => entry.id === binding.characterId);
-        const form = character?.forms?.find((entry) => entry.id === binding.formId);
-        if (!form) return;
-        pushUnique({ name: form.formName, status: "match", formId: form.id });
-        return;
-      }
-      if (binding.entityType === "character" && binding.characterId) {
-        const character = characters.find((entry) => entry.id === binding.characterId);
-        const defaultForm =
-          (character?.binding?.defaultFormId
-            ? character?.forms?.find((entry) => entry.id === character.binding?.defaultFormId)
-            : undefined) ||
-          character?.forms?.find((entry) => entry.isDefault) ||
-          character?.forms?.[0];
-        if (!defaultForm) return;
-        pushUnique({ name: defaultForm.formName, status: "match", formId: defaultForm.id });
-      }
+      if (binding.entityType !== "identity" || !binding.identityId) return;
+      const role = roles.find((entry) => entry.id === binding.identityId);
+      if (!role) return;
+      pushUnique({ name: role.mention, status: "match", identityId: role.id });
     });
     if (results.length) return results;
     return (atMentions || [])
-      .filter((m) => !m.kind || m.kind === "form")
-      .map((m) => ({ name: m.formName || m.name, status: m.status, formId: (m as any).formId }));
-  }, [atMentions, entityBindings, labContext?.context?.characters]);
+      .filter((m) => !m.kind || m.kind === "identity")
+      .map((m) => ({ name: m.mention || m.name, status: m.status, identityId: m.identityId }));
+  }, [atMentions, entityBindings, labContext?.context?.roles]);
 
   const derivedSubjects = useMemo(() => {
     if (data.subjects && data.subjects.length) return data.subjects.map(s => ({ name: s.id || "subject", status: 'manual', images: s.images?.length || 0 }));
-    if (data.useCharacters !== false && resolvedFormMentions.length) {
-      return resolvedFormMentions.map((m, idx) => ({
+    if (data.useCharacters !== false && resolvedIdentityMentions.length) {
+      return resolvedIdentityMentions.map((m, idx) => ({
         name: m.name,
         status: m.status,
-        images: (imageRefs || []).filter((r) => (m.formId && r.formId ? r.formId === m.formId : !!r.formTag && r.formTag.toLowerCase() === m.name.toLowerCase())).length
-          || (connectedImages.length ? Math.ceil(connectedImages.length / resolvedFormMentions.length) : 0),
+        images: (imageRefs || []).filter((r) => (m.identityId && r.identityId ? r.identityId === m.identityId : !!r.identityTag && r.identityTag.toLowerCase() === m.name.toLowerCase())).length
+          || (connectedImages.length ? Math.ceil(connectedImages.length / resolvedIdentityMentions.length) : 0),
         order: idx + 1,
       }));
     }
     return [];
-  }, [data.subjects, data.useCharacters, resolvedFormMentions, connectedImages.length, imageRefs]);
+  }, [data.subjects, data.useCharacters, resolvedIdentityMentions, connectedImages.length, imageRefs]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -86,10 +72,10 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
   const warnings = useMemo(() => {
     const msgs: string[] = [];
     if (data.mode !== "videoOnly") {
-      if (!derivedSubjects.length) msgs.push("未检测到主体引用：请在提示词中添加 @形态 或手动配置 subjects。");
+      if (!derivedSubjects.length) msgs.push("未检测到主体引用：请在提示词中添加 @身份证 或手动配置 subjects。");
       derivedSubjects.forEach((s) => {
         if ((s.images || 0) === 0) msgs.push(`主体 @${s.name} 缺少参考图，将影响生成质量。`);
-        if (s.status === "missing") msgs.push(`主体 @${s.name} 未匹配角色形态，请检查名称或创建形态。`);
+        if (s.status === "missing") msgs.push(`主体 @${s.name} 未匹配身份证，请检查名称或创建身份。`);
       });
     } else if (data.mode === "videoOnly" && connectedImages.length === 0) {
       msgs.push("纯视频模式至少需要一张参考图。");
@@ -320,7 +306,7 @@ export const ViduVideoGenNode: React.FC<Props> = ({ id, data, selected }) => {
                             : 'bg-amber-500/15 border-amber-500/40 text-amber-100'
                         }`}
                       >
-                        @{s.name}{s.order ? ` (#${s.order})` : ""} · 图 {s.images}
+                        @{s.name} · 图 {s.images}
                       </span>
                     ))}
                   </div>

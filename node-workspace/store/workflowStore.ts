@@ -30,8 +30,8 @@ import {
   WorkflowViewport,
   WorkflowTemplate,
 } from "../types";
-import type { Character, DesignAssetItem, Episode, Location, Scene } from "../../types";
-import { getCharacterMentionAliases, getCharacterMentionLabel, getDefaultCharacterForm } from "../../utils/characterIdentity";
+import type { Episode, Scene } from "../../types";
+import { buildProjectIdentities, resolveLegacyIdentity } from "../../utils/identityCards";
 
 export type { GlobalAssetHistoryItem, GlobalAssetType };
 
@@ -437,61 +437,19 @@ const buildStoryboardBoardText = (data: StoryboardBoardNodeData, episodes: Episo
     .join("\n\n");
 };
 
-const buildCharacterAssetPreview = (character: Character, designAssets: DesignAssetItem[]) => {
-  const formAssets = (character.forms || []).flatMap((form) =>
-    designAssets.filter((asset) => asset.category === "form" && asset.refId === `${character.id}|${form.id}`)
-  );
-  if (!formAssets.length) return "";
-  const labels = formAssets.slice(0, 3).map((asset) => asset.label || asset.id);
-  return `已有关联设计资产：${labels.join("、")}`;
-};
-
-const buildSceneAssetPreview = (location: Location, designAssets: DesignAssetItem[]) => {
-  const zoneIds = new Set((location.zones || []).map((zone) => zone.id));
-  const zoneAssets = designAssets.filter(
-    (asset) =>
-      asset.category === "zone" &&
-      (zoneIds.has(asset.refId) || Array.from(zoneIds).some((zoneId) => asset.refId.includes(zoneId)))
-  );
-  if (!zoneAssets.length) return "";
-  const labels = zoneAssets.slice(0, 3).map((asset) => asset.label || asset.id);
-  return `已有关联设计资产：${labels.join("、")}`;
-};
-
 const buildIdentityCardText = (data: IdentityCardNodeData, labContext: LabContextSnapshot) => {
   const { context, designAssets } = labContext;
-  if (data.entityType === "character") {
-    const character =
-      context.characters.find((item) => item.id === data.entityId) ??
-      context.characters[0];
-    if (!character) return null;
-    const defaultForm = getDefaultCharacterForm(character);
-    const aliases = getCharacterMentionAliases(character);
-    return [
-      `角色身份卡：${character.name}`,
-      `角色ID：${character.id}`,
-      getCharacterMentionLabel(character) ? `主绑定：@${getCharacterMentionLabel(character)}` : "",
-      character.role ? `角色定位：${character.role}` : "",
-      defaultForm?.formName ? `默认形态：${defaultForm.formName}` : "",
-      aliases.length ? `可识别别名：${aliases.map((item) => `@${item}`).join("、")}` : "",
-      character.bio || "",
-      character.tags?.length ? `标签：${character.tags.join("、")}` : "",
-      buildCharacterAssetPreview(character, designAssets),
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-  }
-
-  const location =
-    context.locations.find((item) => item.id === data.entityId) ??
-    context.locations[0];
-  if (!location) return null;
+  const identities = buildProjectIdentities(context, designAssets);
+  const identity = resolveLegacyIdentity(identities, {
+    identityId: data.identityId,
+  });
+  if (!identity) return null;
   return [
-    `场景身份卡：${location.name}`,
-    location.type ? `场景类型：${location.type}` : "",
-    location.description || "",
-    location.visuals ? `视觉气质：${location.visuals}` : "",
-    buildSceneAssetPreview(location, designAssets),
+    `身份证：${identity.displayName}`,
+    ...identity.detailLines,
+    identity.title ? `身份名：${identity.title}` : "",
+    identity.subtitle ? `区间：${identity.subtitle}` : "",
+    identity.description,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -561,7 +519,7 @@ interface WorkflowStore {
     text: string | null;
     atMentions?: TextNodeData['atMentions'];
     entityBindings?: TextNodeData["entityBindings"];
-    imageRefs?: { src: string; formTag?: string | null; zoneTag?: string | null; characterId?: string | null; formId?: string | null }[];
+    imageRefs?: { src: string; identityTag?: string | null; identityId?: string | null }[];
   };
   validateWorkflow: () => { valid: boolean; errors: string[] };
   addToGlobalHistory: (item: Omit<GlobalAssetHistoryItem, "id" | "timestamp">) => void;
@@ -614,7 +572,6 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
     case "identityCard":
       return {
         title: "角色 / 场景身份卡片",
-        entityType: "character",
         avatarOverrides: {},
       } as IdentityCardNodeData;
     case "imageGen":
@@ -752,8 +709,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     context: {
       projectSummary: "",
       episodeSummaries: [],
-      characters: [],
-      locations: [],
+      roles: [],
     },
   },
   appConfig: null,
@@ -949,7 +905,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const texts: string[] = [];
     const mentions: TextNodeData['atMentions'] = [];
     const entityBindings: TextNodeData["entityBindings"] = [];
-    const imageRefs: { src: string; formTag?: string | null; zoneTag?: string | null; characterId?: string | null; formId?: string | null }[] = [];
+    const imageRefs: { src: string; identityTag?: string | null; identityId?: string | null }[] = [];
     edges
       .filter((edge) => edge.target === nodeId)
       .forEach((edge) => {
@@ -963,10 +919,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             if (src)
               imageRefs.push({
                 src,
-                formTag: (sourceNode.data as ImageInputNodeData).formTag,
-                characterId: (sourceNode.data as ImageInputNodeData).characterId,
-                formId: (sourceNode.data as ImageInputNodeData).formId,
-                zoneTag: (sourceNode.data as ImageInputNodeData).zoneTag,
+                identityTag: (sourceNode.data as ImageInputNodeData).identityTag,
+                identityId: (sourceNode.data as ImageInputNodeData).identityId,
               });
           } else if (sourceNode.type === "annotation") {
             const src = (sourceNode.data as AnnotationNodeData).outputImage;
@@ -978,9 +932,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             if (src) {
               imageRefs.push({
                 src,
-                formTag: (sourceNode.data as ImageGenNodeData).formTag,
-                characterId: (sourceNode.data as ImageGenNodeData).characterId,
-                formId: (sourceNode.data as ImageGenNodeData).formId,
+                identityTag: (sourceNode.data as ImageGenNodeData).identityTag,
+                identityId: (sourceNode.data as ImageGenNodeData).identityId,
               });
             }
           }
@@ -1240,13 +1193,13 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     };
 
     const imageUrls = [
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", formTag: "Chef" },
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png", formTag: "Chef" },
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png", formTag: "Chef" },
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg", formTag: "Guest" },
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg", formTag: "Guest" },
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg", formTag: "Narrator" },
-      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png", formTag: "Chef" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-1.png", identityTag: "chef_normal" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-2.png", identityTag: "chef_normal" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/reference2video-3.png", identityTag: "chef_normal" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-1.jpeg", identityTag: "guest_normal" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/startend2video-2.jpeg", identityTag: "guest_normal" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/scene-template/hug.jpeg", identityTag: "narrator_normal" },
+      { url: "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png", identityTag: "chef_normal" },
     ];
 
     const imageNodes: WorkflowNode[] = imageUrls.map((img, idx) => ({
@@ -1255,7 +1208,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       position: { x: 80 + (idx % 3) * 180, y: 260 + Math.floor(idx / 3) * 180 },
       parentId: groupId,
       extent: "parent",
-      data: { image: img.url, filename: `ref-${idx + 1}.png`, dimensions: null, formTag: img.formTag, view: activeView || undefined } as any,
+      data: { image: img.url, filename: `ref-${idx + 1}.png`, dimensions: null, identityTag: img.identityTag, view: activeView || undefined } as any,
     }));
 
     const viduNode: WorkflowNode = {

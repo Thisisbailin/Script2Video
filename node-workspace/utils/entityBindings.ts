@@ -1,31 +1,26 @@
-import type { Character, CharacterForm, Location, LocationZone } from "../../types";
+import type { ProjectRoleIdentity } from "../../types";
 import type { EntityBinding, TextNodeData } from "../types";
 import { createStableId } from "../../utils/id";
 
-export type MentionKind = "form" | "zone" | "character" | "unknown";
+export type MentionKind = "identity" | "unknown";
 
 export type MentionTarget = {
-  kind: Exclude<MentionKind, "unknown">;
+  kind: "identity";
   name: string;
   label: string;
   search: string;
   aliasValue?: string;
-  characterId?: string;
-  characterName?: string;
-  formId?: string;
-  formName?: string;
-  locationId?: string;
-  locationName?: string;
-  zoneId?: string;
+  identityId: string;
+  mention: string;
+  tone: "emerald" | "sky";
+  roleKind: "person" | "scene";
   summary?: string;
   detail?: string;
 };
 
 export const mentionPriority: Record<MentionKind, number> = {
-  form: 0,
-  character: 1,
-  zone: 2,
-  unknown: 3,
+  identity: 0,
+  unknown: 1,
 };
 
 export const toSearch = (value: string) => value.toLowerCase().replace(/\s+/g, "");
@@ -59,127 +54,63 @@ export const parseMentionTokens = (text: string) => {
   return matches;
 };
 
-export const buildFormDetail = (character: Character, form: CharacterForm) => {
-  const lines = [
-    character?.name ? `角色：${character.name}` : "",
-    character?.role ? `身份：${character.role}` : "",
-    form.episodeRange ? `区间：${form.episodeRange}` : "",
-    form.identityOrState ? `状态：${form.identityOrState}` : "",
-    form.visualTags ? `视觉：${form.visualTags}` : "",
-    form.description ? form.description : "",
-  ].filter(Boolean);
-  return lines.join("\n");
-};
+const buildIdentityDetail = (role: ProjectRoleIdentity) =>
+  [
+    `身份证：@${role.mention}`,
+    role.kind === "scene" ? "身份类型：场景" : "身份类型：人物",
+    role.title ? `身份名：${role.title}` : "",
+    role.summary ? `摘要：${role.summary}` : "",
+    role.episodeUsage ? `区间：${role.episodeUsage}` : "",
+    role.visualTags ? `视觉：${role.visualTags}` : "",
+    role.description || "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-export const buildCharacterDetail = (character: Character) => {
-  const lines = [
-    character?.name ? `角色：${character.name}` : "",
-    character?.role ? `身份：${character.role}` : "",
-    character?.bio ? character.bio : "",
-  ].filter(Boolean);
-  return lines.join("\n");
-};
-
-export const buildZoneDetail = (location: Location, zone: LocationZone) => {
-  const kindLabel: Record<LocationZone["kind"], string> = {
-    interior: "内景",
-    exterior: "外景",
-    transition: "过渡",
-    unspecified: "未标注",
-  };
-  const lines = [
-    location?.name ? `场景：${location.name}` : "",
-    zone?.name ? `分区：${zone.name}` : "",
-    zone?.kind ? `类型：${kindLabel[zone.kind] || zone.kind}` : "",
-    zone?.episodeRange ? `区间：${zone.episodeRange}` : "",
-    zone?.layoutNotes ? `布局：${zone.layoutNotes}` : "",
-    zone?.keyProps ? `道具：${zone.keyProps}` : "",
-    zone?.lightingWeather ? `光色：${zone.lightingWeather}` : "",
-    zone?.materialPalette ? `材质：${zone.materialPalette}` : "",
-  ].filter(Boolean);
-  return lines.join("\n");
-};
-
-export const buildMentionTargets = (characters: Character[], locations: Location[]) => {
-  const formTargets: MentionTarget[] = characters.flatMap((character) =>
-    (character.forms || []).flatMap((form) => {
-      const aliases = uniqStrings([
-        form.formName,
-        ...(form.aliases || []),
-        character.name && form.formName ? `${character.name}/${form.formName}` : "",
-        character.name && form.formName ? `${character.name}-${form.formName}` : "",
-      ]);
-      return aliases.map((alias, index) => ({
-        kind: "form" as const,
-        name: alias,
-        label: `${form.formName} · ${character.name}`,
-        search: toSearch(
-          [
-            alias,
-            form.formName,
-            character.name,
-            character.role,
-            form.episodeRange,
-            form.identityOrState,
-            form.visualTags,
-          ]
-            .filter(Boolean)
-            .join(" ")
-        ),
-        aliasValue: index === 0 ? undefined : alias,
-        characterId: character.id,
-        characterName: character.name,
-        formId: form.id,
-        formName: form.formName,
-        summary: form.description,
-        detail: buildFormDetail(character, form),
-      }));
-    })
-  );
-
-  const characterTargets: MentionTarget[] = characters.flatMap((character) => {
-    const aliases = uniqStrings([character.name, ...(character.aliases || []).map((item) => item.value)]);
+export const buildMentionTargets = (roles: ProjectRoleIdentity[]) => {
+  const all = roles.flatMap((role) => {
+    const aliases = uniqStrings([
+      role.mention,
+      `@${role.mention}`,
+      role.displayName,
+      role.familyName,
+      ...(role.aliases || []).map((item) => item.value),
+      ...(role.binding?.aliases || []),
+    ]);
     return aliases.map((alias, index) => ({
-      kind: "character" as const,
-      name: alias,
-      label: character.name,
+      kind: "identity" as const,
+      name: alias.replace(/^@/, ""),
+      label: role.displayName || `@${role.mention}`,
       search: toSearch(
-        [alias, character.name, character.role, character.bio, ...(character.tags || [])].filter(Boolean).join(" ")
+        [
+          alias,
+          role.displayName,
+          role.familyName,
+          role.givenName,
+          role.summary,
+          role.description,
+          role.visualTags,
+          role.episodeUsage,
+          ...(role.tags || []),
+        ]
+          .filter(Boolean)
+          .join(" ")
       ),
       aliasValue: index === 0 ? undefined : alias,
-      characterId: character.id,
-      characterName: character.name,
-      summary: character.bio,
-      detail: buildCharacterDetail(character),
+      identityId: role.id,
+      mention: role.mention,
+      tone: role.tone,
+      roleKind: role.kind,
+      summary: role.summary,
+      detail: buildIdentityDetail(role),
     }));
   });
 
-  const zoneTargets: MentionTarget[] = locations.flatMap((location) =>
-    (location.zones || []).flatMap((zone) => {
-      const aliases = uniqStrings([zone.name]);
-      return aliases.map((alias) => ({
-        kind: "zone" as const,
-        name: alias,
-        label: location.name ? `${zone.name} · ${location.name}` : zone.name,
-        search: toSearch(
-          [alias, location.name, zone.episodeRange, zone.layoutNotes, zone.keyProps, zone.lightingWeather]
-            .filter(Boolean)
-            .join(" ")
-        ),
-        locationId: location.id,
-        locationName: location.name,
-        zoneId: zone.id,
-        summary: zone.layoutNotes || zone.keyProps || zone.lightingWeather || "",
-        detail: buildZoneDetail(location, zone),
-      }));
-    })
-  );
-
   return {
-    forms: formTargets,
-    characters: characterTargets,
-    zones: zoneTargets,
-    all: [...formTargets, ...characterTargets, ...zoneTargets],
+    persons: all.filter((item) => item.roleKind === "person"),
+    scenes: all.filter((item) => item.roleKind === "scene"),
+    identities: all,
+    all,
   };
 };
 
@@ -195,7 +126,7 @@ export const buildMentionIndex = (targets: MentionTarget[]) => {
 };
 
 export const resolveMentionTarget = (name: string, mentionIndex: Map<string, MentionTarget[]>) => {
-  const list = mentionIndex.get(toSearch(name)) || [];
+  const list = mentionIndex.get(toSearch(name.replace(/^@/, ""))) || [];
   if (!list.length) return null;
   return list.slice().sort((a, b) => mentionPriority[a.kind] - mentionPriority[b.kind])[0];
 };
@@ -220,13 +151,12 @@ export const computeMentionData = (
         name: token.name,
         status: hit ? "match" : "missing",
         kind: hit?.kind || "unknown",
-        characterId: hit?.characterId,
-        formName: hit?.formName,
+        identityId: hit?.identityId,
+        mention: hit?.mention,
         summary: hit?.summary,
         detail: hit?.detail,
-        locationId: hit?.locationId,
-        locationName: hit?.locationName,
-        zoneId: hit?.zoneId,
+        tone: hit?.tone,
+        roleKind: hit?.roleKind,
       });
     }
 
@@ -235,23 +165,14 @@ export const computeMentionData = (
       rawText: token.rawText,
       status: hit ? "resolved" : "missing",
       entityType: hit?.kind || "unknown",
-      entityId:
-        hit?.kind === "character"
-          ? hit.characterId
-          : hit?.kind === "form"
-            ? hit.formId
-            : hit?.kind === "zone"
-              ? hit.zoneId
-              : undefined,
-      characterId: hit?.characterId,
-      formId: hit?.formId,
-      formName: hit?.formName,
+      entityId: hit?.identityId,
+      identityId: hit?.identityId,
+      mention: hit?.mention,
       aliasValue: hit?.aliasValue,
       summary: hit?.summary,
       detail: hit?.detail,
-      locationId: hit?.locationId,
-      locationName: hit?.locationName,
-      zoneId: hit?.zoneId,
+      tone: hit?.tone,
+      roleKind: hit?.roleKind,
       start: token.start,
       end: token.end,
       resolutionSource: "auto",

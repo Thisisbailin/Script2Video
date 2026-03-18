@@ -20,7 +20,7 @@ import { createStableId } from "../../utils/id";
 import { QalamChatContent } from "./qalam/QalamChatContent";
 import type { ChatMessage, Message } from "./qalam/types";
 import { useWorkflowStore } from "../store/workflowStore";
-import { inferRequestedOutcome } from "../../agents/adapters/qalamMessageAdapter";
+import { inferRequestedOutcome, shouldPreferBrowserRuntime } from "../../agents/adapters/qalamMessageAdapter";
 import type { Script2VideoAgentBridge, WorkflowBuilderHandle, WorkflowNodeLookupInput } from "../../agents/bridge/script2videoBridge";
 import { createNodeWorkflowWithBridge } from "../../agents/bridge/workflowBuilder";
 import { createScript2VideoAgentRuntime } from "../../agents/runtime/agent";
@@ -115,8 +115,10 @@ const resolvePreferredConnectionHandles = (sourceType: string, targetType: strin
 
 const resolveAgentRuntimeTarget = (
   preferredTarget: "browser" | "edge",
+  inputText: string,
   requestedOutcome?: "answer" | "understanding_document" | "node_workflow" | "auto"
 ) => {
+  if (shouldPreferBrowserRuntime(inputText)) return "browser" as const;
   if (requestedOutcome === "node_workflow") return "browser" as const;
   return preferredTarget;
 };
@@ -497,7 +499,7 @@ export const QalamAgent: React.FC<Props> = ({
         const preferredTarget =
           config.textConfig?.agentRuntimeTarget ||
           ((import.meta as any)?.env?.VITE_AGENT_RUNTIME_TARGET === "browser" ? "browser" : "edge");
-        const effectiveTarget = resolveAgentRuntimeTarget(preferredTarget, input.requestedOutcome);
+        const effectiveTarget = resolveAgentRuntimeTarget(preferredTarget, input.userText || "", input.requestedOutcome);
         return effectiveTarget === "edge" ? edgeRuntime.run(input, options) : browserRuntime.run(input, options);
       },
     }),

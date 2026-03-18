@@ -4,7 +4,7 @@ import { ImageGenNodeData } from "../types";
 import { useWorkflowStore } from "../store/workflowStore";
 import { useLabExecutor } from "../store/useLabExecutor";
 import { Sparkles, RefreshCw, AlertCircle, Settings2, X, Download } from "lucide-react";
-import { getCharacterFormLabel } from "../../utils/characterIdentity";
+import { getRoleDisplayLabel } from "../../utils/characterIdentity";
 
 type Props = {
   id: string;
@@ -25,17 +25,14 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
 
   const isLoading = data.status === "loading";
 
-  const formOptions = useMemo(() => {
-    const chars = labContext?.context?.characters || [];
-    return chars.flatMap((character) =>
-      (character.forms || []).map((form) => ({
-        id: form.id,
-        characterId: character.id,
-        formName: form.formName,
-        label: getCharacterFormLabel(character, form),
-      }))
-    );
-  }, [labContext]);
+  const identityOptions = useMemo(() => {
+    const roles = labContext?.context?.roles || [];
+    return roles.map((role) => ({
+      id: role.id,
+      mention: role.mention,
+      label: getRoleDisplayLabel(role),
+    }));
+  }, [labContext?.context?.roles]);
 
   // Derive display model name
   const globalModel = appConfig?.multimodalConfig?.model;
@@ -215,22 +212,21 @@ export const ImageGenNode: React.FC<Props & { selected?: boolean }> = ({ id, dat
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联形态</label>
+              <label className="text-[8px] font-black uppercase tracking-widest text-[var(--node-text-secondary)] opacity-70">关联身份证</label>
               <select
                 className="node-control node-control--tight w-full text-[9px] font-medium px-2 text-[var(--node-text-primary)] outline-none appearance-none cursor-pointer transition-colors"
-                value={data.formId || ""}
+                value={data.identityId || ""}
                 onChange={(e) => {
-                  const nextFormId = e.target.value || undefined;
-                  const selected = formOptions.find((item) => item.id === nextFormId);
+                  const nextIdentityId = e.target.value || undefined;
+                  const selected = identityOptions.find((item) => item.id === nextIdentityId);
                   updateNodeData(id, {
-                    formId: nextFormId,
-                    characterId: selected?.characterId,
-                    formTag: selected?.formName,
+                    identityId: nextIdentityId,
+                    identityTag: selected?.mention,
                   });
                 }}
               >
                 <option value="">未指定</option>
-                {formOptions.map((option) => (
+                {identityOptions.map((option) => (
                   <option key={option.id} value={option.id}>{option.label}</option>
                 ))}
               </select>

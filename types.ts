@@ -106,114 +106,62 @@ export interface Episode {
 
 export type ActiveTab = 'understanding' | 'visuals' | 'video' | 'lab' | 'stats' | 'projector';
 
-// --- NEW DEEP UNDERSTANDING TYPES ---
+// --- Unified Role Identity Types ---
 
-export interface CharacterForm {
-  id: string;
-  formName: string; // e.g. "Youth", "Blackened", "General"
-  characterId?: string;
-  key?: string;
-  type?: "default" | "age" | "costume" | "identity" | "state" | "disguise" | "battle" | "special";
-  isDefault?: boolean;
-  aliases?: string[];
-  episodeRange: string; // e.g. "Ep 1-5"
-  description: string;
-  visualTags: string;
-  // Extended AIGC asset checklist fields (optional, Phase 1 upgraded)
-  identityOrState?: string; // 年龄/身份/状态
-  hair?: string;
-  face?: string;
-  body?: string;
-  costume?: string;
-  accessories?: string;
-  props?: string;
-  materialPalette?: string;
-  poses?: string;
-  expressions?: string;
-  lightingOrPalette?: string;
-  turnaroundNeeded?: boolean;
-  deliverables?: string; // 如三视图/表情集/全身+半身
-  designRationale?: string;
-  styleRef?: string;
-  genPrompts?: string;
-  // Voice Design
-  voiceId?: string;
-  voicePrompt?: string;
-  previewAudioUrl?: string;
-}
+export type ProjectRoleKind = "person" | "scene";
 
-export interface CharacterAlias {
+export type ProjectRoleTone = "emerald" | "sky";
+
+export interface ProjectRoleAlias {
   id: string;
   value: string;
-  kind: "primary" | "alias" | "title" | "short" | "legacy";
   normalized?: string;
 }
 
-export interface CharacterBindingProfile {
-  canonicalMention: string;
-  defaultFormId?: string;
-  defaultVoiceScope?: "character" | "form";
-  mentionPolicy?: "character-first" | "form-first";
+export interface ProjectRoleBindingProfile {
+  mention: string;
+  aliases?: string[];
 }
 
-export interface Character {
+export interface ProjectRoleIdentity {
   id: string;
+  familyId: string;
+  familyName: string;
+  givenName: string;
+  displayName: string;
+  mention: string;
   slug?: string;
-  name: string;
-  role: string; // e.g. Protagonist, Antagonist
-  isMain: boolean; // Determines if we do deep analysis
-  isCore?: boolean; // AI判定的核心角色标记（辅助字段）
-  bio: string; // General bio
-  forms: CharacterForm[]; // Specific visual/personality stages
-  aliases?: CharacterAlias[];
+  kind: ProjectRoleKind;
+  tone: ProjectRoleTone;
+  isMain?: boolean;
+  isCore?: boolean;
+  title?: string;
+  summary: string;
+  description: string;
+  visualTags?: string;
+  episodeUsage?: string;
+  tags?: string[];
   status?: "draft" | "verified" | "locked" | "archived";
-  binding?: CharacterBindingProfile;
-  version?: number;
-  appearanceCount?: number; // 解析出现次数
-  assetPriority?: "high" | "medium" | "low";
-  archetype?: string;
-  episodeUsage?: string; // 出现的集/场景标记
-  tags?: string[]; // 角色标签/关键词
-  // Global Voice Design (if inherited by forms or default)
+  aliases?: ProjectRoleAlias[];
+  binding?: ProjectRoleBindingProfile;
   voiceId?: string;
   voicePrompt?: string;
   previewAudioUrl?: string;
-}
-
-export interface Location {
-  id: string;
-  name: string;
-  type: 'core' | 'secondary';
-  description: string; // General description
-  visuals: string; // Lighting, atmosphere, texture details
-  appearanceCount?: number; // 场景出现次数（解析统计）
+  designPrompt?: string;
+  designNotes?: string;
+  lightingPalette?: string;
+  props?: string;
   assetPriority?: "high" | "medium" | "low";
-  episodeUsage?: string; // 出现的集/桥段
-  zones?: LocationZone[]; // 分区/内外景
-}
-
-export interface LocationZone {
-  id: string;
-  name: string;
-  kind: 'interior' | 'exterior' | 'transition' | 'unspecified';
-  episodeRange: string;
-  layoutNotes: string;
-  keyProps: string;
-  lightingWeather: string;
-  materialPalette: string;
-  designRationale?: string;
-  deliverables?: string;
-  genPrompts?: string;
+  avatarUrl?: string;
 }
 
 export interface ProjectContext {
   projectSummary: string;
   episodeSummaries: { episodeId: number; summary: string }[];
-  characters: Character[];
-  locations: Location[];
+  roles: ProjectRoleIdentity[];
 }
 
-export type DesignAssetCategory = "form" | "zone";
+export type DesignAssetCategory = "identity";
 
 export interface DesignAssetItem {
   id: string;

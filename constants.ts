@@ -8,8 +8,7 @@ export const INITIAL_PROJECT_DATA: ProjectData = {
   context: {
     projectSummary: '',
     episodeSummaries: [],
-    characters: [],
-    locations: []
+    roles: []
   },
   designAssets: [],
   shotGuide: '',
