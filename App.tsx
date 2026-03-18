@@ -379,11 +379,9 @@ const App: React.FC = () => {
 
   const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
   const setAppConfigStore = useWorkflowStore(state => state.setAppConfig);
-  const { addNode: addWorkflowNode, nodes: workflowNodes, viewport: workflowViewport } = useWorkflowStore((state) => ({
-    addNode: state.addNode,
-    nodes: state.nodes,
-    viewport: state.viewport,
-  }));
+  const addWorkflowNode = useWorkflowStore(state => state.addNode);
+  const workflowNodes = useWorkflowStore(state => state.nodes);
+  const workflowViewport = useWorkflowStore(state => state.viewport);
 
   useEffect(() => {
     setAppConfigStore(config);
