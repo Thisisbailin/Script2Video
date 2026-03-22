@@ -1,5 +1,6 @@
 import { getEpisodeScript } from "../../node-workspace/components/qalam/toolActions";
 import { getSceneScript } from "../../node-workspace/components/qalam/toolActions";
+import type { ProjectRoleIdentity } from "../../types";
 import { SHOT_TABLE_COLUMNS } from "../../utils/shotSchema";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
@@ -47,6 +48,7 @@ const readProjectResourceParameters = {
       description: "Optional maximum characters to return for textual content.",
     },
   },
+  additionalProperties: false,
   required: ["resource_type"],
 } as const;
 
@@ -117,6 +119,34 @@ const clipText = (value: string, maxChars?: number) => {
   if (!maxChars || value.length <= maxChars) return value;
   return `${value.slice(0, maxChars)}...`;
 };
+
+const normalizeMatchValue = (value?: string) => value?.trim().toLowerCase().replace(/^@/, "") || "";
+
+const matchesRole = (role: ProjectRoleIdentity, itemId?: string, name?: string) => {
+  const needle = normalizeMatchValue(name);
+  if (itemId && role.id === itemId) return true;
+  if (!needle) return false;
+  return [
+    role.familyName,
+    role.displayName,
+    role.mention,
+    role.title,
+    ...(role.aliases || []).map((alias) => alias.value),
+  ]
+    .map((value) => normalizeMatchValue(value))
+    .some((value) => value === needle);
+};
+
+const groupRolesByFamily = (roles: ProjectRoleIdentity[]) =>
+  roles.reduce<Map<string, ProjectRoleIdentity[]>>((map, role) => {
+    const bucket = map.get(role.familyId) || [];
+    bucket.push(role);
+    map.set(role.familyId, bucket);
+    return map;
+  }, new Map());
+
+const selectPrimaryRole = (roles: ProjectRoleIdentity[]) =>
+  roles.find((role) => role.givenName === "normal") || roles[0];
 
 export const readProjectResourceToolDef = {
   name: "read_project_resource",
@@ -260,19 +290,20 @@ export const readProjectResourceToolDef = {
     }
 
     if (args.resourceType === "character_profile") {
-      const item = (data.context?.characters || []).find(
-        (character) => character.id === args.itemId || character.name === args.name
+      const family = Array.from(groupRolesByFamily((data.context?.roles || []).filter((role) => role.kind === "person")).values()).find(
+        (roles) => roles.some((role) => matchesRole(role, args.itemId, args.name))
       );
+      const item = family ? selectPrimaryRole(family) : undefined;
       return item
         ? {
             resource_type: "character_profile",
             found: true,
             item_id: item.id,
-            name: item.name,
-            role: item.role || "",
+            name: item.familyName,
+            role: item.summary || "",
             is_main: Boolean(item.isMain),
-            bio: clipText(item.bio || "", args.maxChars),
-            forms_count: Array.isArray(item.forms) ? item.forms.length : 0,
+            bio: clipText(item.description || "", args.maxChars),
+            forms_count: family?.length || 0,
             tags: item.tags || [],
           }
         : {
@@ -308,19 +339,20 @@ export const readProjectResourceToolDef = {
           };
     }
 
-    const item = (data.context?.locations || []).find(
-      (location) => location.id === args.itemId || location.name === args.name
+    const family = Array.from(groupRolesByFamily((data.context?.roles || []).filter((role) => role.kind === "scene")).values()).find(
+      (roles) => roles.some((role) => matchesRole(role, args.itemId, args.name))
     );
+    const item = family ? selectPrimaryRole(family) : undefined;
     return item
       ? {
           resource_type: "scene_profile",
           found: true,
           item_id: item.id,
-          name: item.name,
-          type: item.type,
+          name: item.familyName,
+          type: item.isCore ? "core" : "secondary",
           description: clipText(item.description || "", args.maxChars),
-          visuals: clipText(item.visuals || "", args.maxChars),
-          zones_count: Array.isArray(item.zones) ? item.zones.length : 0,
+          visuals: clipText(item.visualTags || "", args.maxChars),
+          zones_count: family?.length || 0,
         }
       : {
           resource_type: "scene_profile",

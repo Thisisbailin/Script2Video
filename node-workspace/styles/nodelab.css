@@ -382,7 +382,7 @@ body.qalam-resizing * {
   isolation: isolate;
   transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   width: 100%;
-  height: auto;
+  height: 100%;
   min-width: 280px;
   min-height: 160px;
 }
@@ -456,9 +456,8 @@ body.qalam-resizing * {
 .text-node-shell {
   display: flex;
   flex-direction: column;
-  height: auto;
+  height: 100%;
   min-height: 0;
-  overflow: visible;
 }
 
 .text-node-editor {
@@ -563,7 +562,6 @@ body.qalam-resizing * {
   padding: 12px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(12px);
-  z-index: 120;
 }
 
 .mention-picker-header {

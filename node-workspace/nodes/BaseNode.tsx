@@ -82,7 +82,7 @@ export const BaseNode: React.FC<Props> = ({
         onResizeStart={handleResizeStart}
         onResizeEnd={handleResizeEnd}
       />
-      <div className="node-card-body relative flex min-h-0 flex-col gap-4 overflow-visible px-5 py-4">{children}</div>
+      <div className="node-card-body relative flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-5 py-4">{children}</div>
 
       {/* Handles */}
       <div className="absolute inset-y-0 -left-1 flex flex-col justify-center gap-4 py-12">

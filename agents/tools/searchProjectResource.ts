@@ -1,4 +1,4 @@
-import type { Character, Location, ProjectData } from "../../types";
+import type { ProjectData, ProjectRoleIdentity } from "../../types";
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
 
 export const SEARCH_PROJECT_RESOURCE_SCOPES = [
@@ -38,6 +38,7 @@ const searchProjectResourceParameters = {
       description: "Optional maximum snippet size budget.",
     },
   },
+  additionalProperties: false,
   required: ["query"],
 } as const;
 
@@ -99,34 +100,46 @@ const parseArgs = (input: unknown) => {
   };
 };
 
-const pushCharacterMatches = (matches: any[], characters: Character[], query: string, maxMatches: number, radius: number) => {
-  for (const character of characters) {
+const groupByFamily = (roles: ProjectRoleIdentity[]) =>
+  Array.from(
+    roles.reduce<Map<string, ProjectRoleIdentity[]>>((map, role) => {
+      const bucket = map.get(role.familyId) || [];
+      bucket.push(role);
+      map.set(role.familyId, bucket);
+      return map;
+    }, new Map()).values()
+  );
+
+const pushCharacterMatches = (matches: any[], roles: ProjectRoleIdentity[], query: string, maxMatches: number, radius: number) => {
+  for (const family of groupByFamily(roles.filter((role) => role.kind === "person"))) {
     if (matches.length >= maxMatches) break;
-    const haystack = [character.name, character.role, character.bio, character.episodeUsage, ...(character.tags || [])]
+    const primary = family.find((role) => role.givenName === "normal") || family[0];
+    const haystack = [primary.familyName, primary.summary, primary.description, primary.episodeUsage, ...(primary.tags || [])]
       .filter(Boolean)
       .join(" ");
     if (haystack && includesQuery(haystack, query)) {
       matches.push({
         scope: "character",
-        itemId: character.id,
-        characterName: character.name,
+        itemId: primary.id,
+        characterName: primary.familyName,
         snippet: buildSnippet(haystack, query, radius),
       });
     }
   }
 };
 
-const pushSceneMatches = (matches: any[], locations: Location[], query: string, maxMatches: number, radius: number) => {
-  for (const location of locations) {
+const pushSceneMatches = (matches: any[], roles: ProjectRoleIdentity[], query: string, maxMatches: number, radius: number) => {
+  for (const family of groupByFamily(roles.filter((role) => role.kind === "scene"))) {
     if (matches.length >= maxMatches) break;
-    const haystack = [location.name, location.description, location.visuals, location.episodeUsage]
+    const primary = family.find((role) => role.givenName === "normal") || family[0];
+    const haystack = [primary.familyName, primary.description, primary.visualTags, primary.episodeUsage]
       .filter(Boolean)
       .join(" ");
     if (haystack && includesQuery(haystack, query)) {
       matches.push({
         scope: "scene_profile",
-        itemId: location.id,
-        locationName: location.name,
+        itemId: primary.id,
+        locationName: primary.familyName,
         snippet: buildSnippet(haystack, query, radius),
       });
     }
@@ -233,11 +246,11 @@ const searchProject = (data: ProjectData, args: ReturnType<typeof parseArgs>) =>
   }
 
   if (matches.length < args.maxMatches && args.scopes.includes("characters")) {
-    pushCharacterMatches(matches, data.context?.characters || [], args.query, args.maxMatches, radius);
+    pushCharacterMatches(matches, data.context?.roles || [], args.query, args.maxMatches, radius);
   }
 
   if (matches.length < args.maxMatches && args.scopes.includes("scenes")) {
-    pushSceneMatches(matches, data.context?.locations || [], args.query, args.maxMatches, radius);
+    pushSceneMatches(matches, data.context?.roles || [], args.query, args.maxMatches, radius);
   }
 
   if (matches.length < args.maxMatches && args.scopes.includes("guides")) {

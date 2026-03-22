@@ -350,12 +350,11 @@ export const TextNode: React.FC<Props & { selected?: boolean }> = ({ data, id, s
         }
         const editor = editorRef.current;
         if (!editor) return;
-        const fallbackMin = 256;
-        const baseMin = Number.parseFloat(baseStyleRef.current?.minHeight || "") || fallbackMin;
-        const shellHeight = shell.scrollHeight;
-        const desired = Math.max(baseMin, Math.ceil(shellHeight + 20));
-        nodeEl.style.height = "auto";
-        nodeEl.style.minHeight = `${desired}px`;
+        const paddingY = editor.clientHeight - editor.scrollHeight;
+        const desired = editor.scrollHeight + Math.max(0, paddingY);
+        const next = Math.max(nodeEl.offsetHeight || 0, desired);
+        nodeEl.style.height = `${next}px`;
+        nodeEl.style.minHeight = `${next}px`;
     }, [draftText]);
 
     useEffect(() => {

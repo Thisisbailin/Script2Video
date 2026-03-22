@@ -19,6 +19,7 @@ import { TextProvider } from "../../types";
 import {
   INITIAL_VIDU_CONFIG,
   CODEX_DEFAULT_MODEL,
+  CODEX_MODEL_OPTIONS,
   CODEX_RESPONSES_BASE_URL,
   OPENROUTER_RESPONSES_BASE_URL,
   QWEN_DEFAULT_MODEL,
@@ -28,6 +29,7 @@ import {
   SORA_DEFAULT_BASE_URL,
   SORA_DEFAULT_MODEL,
   DEFAULT_QALAM_TOOL_SETTINGS,
+  isKnownCodexModel,
 } from "../../constants";
 import { useAuth } from "../../lib/auth";
 import {
@@ -247,6 +249,16 @@ const getLastArtifact = (records: AgentToolActivityRecord[]) =>
     .filter((record) => record.lastCompletedAt && record.lastArtifact)
     .sort((a, b) => (b.lastCompletedAt || 0) - (a.lastCompletedAt || 0))[0];
 
+const resolveAgentModelForProvider = (provider: TextProvider | "codex", configured?: string) => {
+  if (provider === "codex") {
+    return isKnownCodexModel(configured) ? configured! : CODEX_DEFAULT_MODEL;
+  }
+  if (provider === "qwen") {
+    return configured || QWEN_DEFAULT_MODEL;
+  }
+  return configured || "";
+};
+
 const summarizeRuntimeToolOutput = (value: unknown) => {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -342,7 +354,10 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [getToken]);
   const activeAgentProvider = config.textConfig.agentProvider || config.textConfig.provider || "qwen";
   const activeAgentBaseUrl = config.textConfig.agentBaseUrl || config.textConfig.baseUrl || QWEN_RESPONSES_BASE_URL;
-  const activeAgentModel = config.textConfig.agentModel || config.textConfig.model || QWEN_DEFAULT_MODEL;
+  const activeAgentModel = resolveAgentModelForProvider(
+    activeAgentProvider,
+    config.textConfig.agentModel || config.textConfig.model
+  );
   const activeConversation = useMemo(
     () => conversationState.items.find((item) => item.id === conversationState.activeId) || null,
     [conversationState.activeId, conversationState.items]
@@ -527,17 +542,30 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     };
   }, [activeAgentProvider, activeType, getAuthToken, isOpen, isSignedIn, setConfig]);
 
+  useEffect(() => {
+    if (activeAgentProvider !== "codex") return;
+    const configuredModel = config.textConfig.agentModel || config.textConfig.model;
+    if (isKnownCodexModel(configuredModel)) return;
+    setConfig((prev) => ({
+      ...prev,
+      textConfig: {
+        ...prev.textConfig,
+        agentModel: CODEX_DEFAULT_MODEL,
+      },
+    }));
+  }, [activeAgentProvider, config.textConfig.agentModel, config.textConfig.model, setConfig]);
+
   const setProvider = (p: TextProvider | "codex") => {
     const nextConfig = { ...config.textConfig };
     if (p === "openrouter") {
       nextConfig.agentBaseUrl = nextConfig.agentBaseUrl || OPENROUTER_BASE_URL;
-      nextConfig.agentModel = nextConfig.agentModel || "";
+      nextConfig.agentModel = resolveAgentModelForProvider(p, nextConfig.agentModel);
     } else if (p === "qwen") {
       nextConfig.agentBaseUrl = QWEN_RESPONSES_BASE_URL;
-      nextConfig.agentModel = nextConfig.agentModel || QWEN_DEFAULT_MODEL;
+      nextConfig.agentModel = resolveAgentModelForProvider(p, nextConfig.agentModel);
     } else if (p === "codex") {
       nextConfig.agentBaseUrl = CODEX_RESPONSES_BASE_URL;
-      nextConfig.agentModel = nextConfig.agentModel || CODEX_DEFAULT_MODEL;
+      nextConfig.agentModel = resolveAgentModelForProvider(p, nextConfig.agentModel);
     }
 
     setConfig({
@@ -1337,13 +1365,46 @@ export const AgentSettingsPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              <input
-                type="text"
-                placeholder={CODEX_DEFAULT_MODEL}
-                value={activeAgentModel || CODEX_DEFAULT_MODEL}
-                onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: e.target.value } })}
-                className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-              />
+              <div className="space-y-3">
+                <div className="text-[11px] uppercase tracking-widest text-[var(--app-text-muted)]">Codex Models</div>
+                <select
+                  value={activeAgentModel || CODEX_DEFAULT_MODEL}
+                  onChange={(e) => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: e.target.value } })}
+                  className="w-full bg-[var(--app-panel-muted)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-sm text-[var(--app-text-primary)] focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                >
+                  {CODEX_MODEL_OPTIONS.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.id}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {CODEX_MODEL_OPTIONS.map((model) => {
+                    const isActive = activeAgentModel === model.id;
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setConfig({ ...config, textConfig: { ...config.textConfig, agentModel: model.id } })}
+                        className={`text-left rounded-2xl border bg-[var(--app-panel-soft)] p-3 space-y-2 transition ${
+                          isActive
+                            ? "border-emerald-300/60 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]"
+                            : "border-[var(--app-border)] hover:border-[var(--app-border-strong)]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-[var(--app-text-primary)]">{model.label}</div>
+                          <span className={`rounded-full border px-2 py-1 text-[10px] ${model.tone}`}>
+                            {model.id === CODEX_DEFAULT_MODEL ? "Default" : model.id === "codex-mini-latest" ? "Deprecated" : "Available"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[var(--app-text-secondary)]">{model.id}</div>
+                        <div className="text-[11px] leading-relaxed text-[var(--app-text-secondary)]">{model.summary}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 

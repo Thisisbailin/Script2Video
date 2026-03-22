@@ -24,6 +24,7 @@ const listProjectResourcesParameters = {
       description: "Optional maximum number of items to return for list results.",
     },
   },
+  additionalProperties: false,
   required: ["resource_type"],
 } as const;
 
@@ -37,6 +38,16 @@ const toPositiveInteger = (value: unknown) => {
 };
 
 type ResourceType = (typeof LIST_PROJECT_RESOURCE_TYPES)[number];
+
+const groupByFamily = <T extends { familyId: string }>(items: T[]) =>
+  Array.from(
+    items.reduce<Map<string, T[]>>((map, item) => {
+      const bucket = map.get(item.familyId) || [];
+      bucket.push(item);
+      map.set(item.familyId, bucket);
+      return map;
+    }, new Map()).values()
+  );
 
 const parseArgs = (input: unknown) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -67,6 +78,9 @@ export const listProjectResourcesToolDef = {
   execute: (input: unknown, bridge: Script2VideoAgentBridge) => {
     const args = parseArgs(input);
     const data = bridge.getProjectData();
+    const roles = data.context?.roles || [];
+    const characterFamilies = groupByFamily(roles.filter((role) => role.kind === "person"));
+    const sceneFamilies = groupByFamily(roles.filter((role) => role.kind === "scene"));
 
     if (args.resourceType === "episodes") {
       const items = (data.episodes || []).slice(0, args.maxItems).map((episode) => ({
@@ -89,8 +103,8 @@ export const listProjectResourcesToolDef = {
         resource_type: "understanding_project",
         exists: Boolean(summary),
         chars: summary.length,
-        character_count: (data.context?.characters || []).length,
-        scene_count: (data.context?.locations || []).length,
+        character_count: characterFamilies.length,
+        scene_count: sceneFamilies.length,
         episode_summary_count: (data.context?.episodeSummaries || []).filter((item) => item.summary?.trim()).length,
       };
     }
@@ -116,17 +130,20 @@ export const listProjectResourcesToolDef = {
     }
 
     if (args.resourceType === "understanding_characters") {
-      const items = (data.context?.characters || []).slice(0, args.maxItems).map((character) => ({
-        id: character.id,
-        name: character.name,
-        role: character.role || "",
-        is_main: Boolean(character.isMain),
-        forms_count: Array.isArray(character.forms) ? character.forms.length : 0,
-        has_bio: Boolean((character.bio || "").trim()),
-      }));
+      const items = characterFamilies.slice(0, args.maxItems).map((family) => {
+        const primary = family.find((role) => role.givenName === "normal") || family[0];
+        return {
+          id: primary.id,
+          name: primary.familyName,
+          role: primary.summary || "",
+          is_main: Boolean(primary.isMain),
+          forms_count: family.length,
+          has_bio: Boolean((primary.description || "").trim()),
+        };
+      });
       return {
         resource_type: "understanding_characters",
-        total: (data.context?.characters || []).length,
+        total: characterFamilies.length,
         items,
       };
     }
@@ -153,17 +170,20 @@ export const listProjectResourcesToolDef = {
       };
     }
 
-    const items = (data.context?.locations || []).slice(0, args.maxItems).map((location) => ({
-      id: location.id,
-      name: location.name,
-      type: location.type,
-      zones_count: Array.isArray(location.zones) ? location.zones.length : 0,
-      has_description: Boolean((location.description || "").trim()),
-      has_visuals: Boolean((location.visuals || "").trim()),
-    }));
+    const items = sceneFamilies.slice(0, args.maxItems).map((family) => {
+      const primary = family.find((role) => role.givenName === "normal") || family[0];
+      return {
+        id: primary.id,
+        name: primary.familyName,
+        type: primary.isCore ? "core" : "secondary",
+        zones_count: family.length,
+        has_description: Boolean((primary.description || "").trim()),
+        has_visuals: Boolean((primary.visualTags || "").trim()),
+      };
+    });
     return {
       resource_type: "understanding_scenes",
-      total: (data.context?.locations || []).length,
+      total: sceneFamilies.length,
       items,
     };
   },

@@ -1,5 +1,40 @@
-import type { Character, Episode, Location, ProjectData, Scene } from "../../../types";
+import type { Episode, ProjectData, Scene } from "../../../types";
 import { createStableId, ensureStableId, ensureTypedStableId } from "../../../utils/id";
+
+type Character = {
+  id: string;
+  name: string;
+  slug?: string;
+  role?: string;
+  isMain?: boolean;
+  isCore?: boolean;
+  bio?: string;
+  forms?: any[];
+  aliases?: Array<{ id?: string; value: string; kind?: string; normalized?: string }>;
+  status?: string;
+  binding?: Record<string, any>;
+  version?: number;
+  assetPriority?: string;
+  archetype?: string;
+  episodeUsage?: string;
+  tags?: string[];
+  appearanceCount?: number;
+  voiceId?: string;
+  voicePrompt?: string;
+  previewAudioUrl?: string;
+};
+
+type Location = {
+  id: string;
+  name: string;
+  type: "core" | "secondary";
+  description?: string;
+  visuals?: string;
+  zones?: any[];
+  appearanceCount?: number;
+  assetPriority?: string;
+  episodeUsage?: string;
+};
 
 type UpsertResult = { next: ProjectData; result: any };
 type ReadResult = { result: any };
@@ -349,7 +384,7 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
   const formsMode = args?.formsMode === "replace" ? "replace" : "merge";
   const formsToDelete = Array.isArray(args?.formsToDelete) ? args.formsToDelete : [];
   const name = typeof input.name === "string" ? input.name.trim() : "";
-  const chars = [...(prev.context.characters || [])];
+  const chars = [...((((prev.context as any)?.characters) || []) as Character[])];
   let matchIndex = -1;
   if (input.id) {
     matchIndex = chars.findIndex((c) => c.id === input.id);
@@ -473,7 +508,7 @@ export const upsertCharacter = (prev: ProjectData, args: any): UpsertResult => {
   return {
     next: {
       ...prev,
-      context: { ...prev.context, characters: updatedChars },
+      context: { ...prev.context, characters: updatedChars } as any,
       designAssets,
     },
     result: {
@@ -988,8 +1023,8 @@ export const readProjectData = (data: ProjectData, args: any): ReadResult => {
     }
   }
 
-  const characters = data.context?.characters || [];
-  const locations = data.context?.locations || [];
+  const characters = (((data.context as any)?.characters) || []) as Character[];
+  const locations = (((data.context as any)?.locations) || []) as Location[];
   let character = undefined as Character | undefined;
   let location = undefined as Location | undefined;
   if (characterId) {
@@ -1197,7 +1232,7 @@ export const upsertLocation = (prev: ProjectData, args: any): UpsertResult => {
   const zonesMode = args?.zonesMode === "replace" ? "replace" : "merge";
   const zonesToDelete = Array.isArray(args?.zonesToDelete) ? args.zonesToDelete : [];
   const name = typeof input.name === "string" ? input.name.trim() : "";
-  const locations = [...(prev.context.locations || [])];
+  const locations = [...((((prev.context as any)?.locations) || []) as Location[])];
   let matchIndex = -1;
   if (input.id) {
     matchIndex = locations.findIndex((l) => l.id === input.id);
@@ -1263,7 +1298,7 @@ export const upsertLocation = (prev: ProjectData, args: any): UpsertResult => {
   return {
     next: {
       ...prev,
-      context: { ...prev.context, locations: updatedLocs },
+      context: { ...prev.context, locations: updatedLocs } as any,
       designAssets,
     },
     result: {

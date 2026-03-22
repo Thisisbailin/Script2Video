@@ -1,7 +1,17 @@
 import type { Script2VideoAgentBridge } from "../bridge/script2videoBridge";
+import type { WorkflowBuilderHandle } from "../bridge/script2videoBridge";
 
 export const OPERATE_PROJECT_RESOURCE_TYPES = ["workflow_node", "workflow_connection"] as const;
 export const OPERATE_WORKFLOW_NODE_KINDS = ["text", "script_board", "storyboard_board", "character_card"] as const;
+
+const slugifyRefToken = (value: string, fallback: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_/]+/g, "_")
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "") || fallback;
 
 const operateProjectResourceParameters = {
   type: "object",
@@ -13,12 +23,11 @@ const operateProjectResourceParameters = {
     },
     node_kind: {
       type: "string",
-      enum: [...OPERATE_WORKFLOW_NODE_KINDS],
-      description: "Node kind to create when resource_type=workflow_node.",
+      description: "Node kind to create when resource_type=workflow_node. Supports text, script_board, storyboard_board, character_card, plus common aliases like script, storyboard, character.",
     },
     node_ref: {
       type: "string",
-      description: "Stable semantic reference for the node. Required for workflow_node.",
+      description: "Optional semantic reference for the node. If omitted, the tool will derive one.",
     },
     title: {
       type: "string",
@@ -54,22 +63,21 @@ const operateProjectResourceParameters = {
     },
     source_handle: {
       type: "string",
-      enum: ["text", "image"],
       description: "Optional explicit source handle for workflow_connection.",
     },
     target_handle: {
       type: "string",
-      enum: ["text", "image"],
       description: "Optional explicit target handle for workflow_connection.",
     },
   },
+  additionalProperties: false,
   required: ["resource_type"],
   oneOf: [
     {
       properties: {
         resource_type: { const: "workflow_node" },
       },
-      required: ["resource_type", "node_kind", "node_ref"],
+      required: ["resource_type", "node_kind"],
     },
     {
       properties: {
@@ -101,7 +109,7 @@ type ParsedArgs =
   | {
       resourceType: "workflow_node";
       nodeKind: "text" | "script_board" | "storyboard_board" | "character_card";
-      nodeRef: string;
+      nodeRef?: string;
       title?: string;
       text?: string;
       episodeId?: number;
@@ -113,8 +121,8 @@ type ParsedArgs =
       targetRef?: string;
       sourceNodeId?: string;
       targetNodeId?: string;
-      sourceHandle?: "text" | "image";
-      targetHandle?: "text" | "image";
+      sourceHandle?: string;
+      targetHandle?: string;
     };
 
 const parseArgs = (input: unknown): ParsedArgs => {
@@ -125,18 +133,23 @@ const parseArgs = (input: unknown): ParsedArgs => {
   const resourceType = normalizeString(raw.resource_type ?? raw.resourceType);
 
   if (resourceType === "workflow_node") {
-    const nodeKind = normalizeString(raw.node_kind ?? raw.nodeKind);
-    const nodeRef = normalizeString(raw.node_ref ?? raw.nodeRef);
+    const rawNodeKind = normalizeString(raw.node_kind ?? raw.nodeKind);
+    const nodeKind =
+      rawNodeKind === "script" ? "script_board" :
+      rawNodeKind === "storyboard" ? "storyboard_board" :
+      rawNodeKind === "character" ? "character_card" :
+      rawNodeKind;
+    const nodeRef = normalizeString(raw.node_ref ?? raw.nodeRef) || undefined;
     const title = normalizeString(raw.title) || undefined;
     const text = normalizeString(raw.text) || undefined;
     const episodeId = toPositiveInteger(raw.episode_id ?? raw.episodeId);
-    const characterId = normalizeString(raw.character_id ?? raw.characterId) || undefined;
+    const characterId =
+      normalizeString(raw.character_id ?? raw.characterId) ||
+      normalizeString(raw.item_id ?? raw.itemId) ||
+      undefined;
 
     if (!(OPERATE_WORKFLOW_NODE_KINDS as readonly string[]).includes(nodeKind)) {
       throw new Error("workflow_node 当前仅支持 text、script_board、storyboard_board、character_card。");
-    }
-    if (!nodeRef) {
-      throw new Error("workflow_node 需要稳定的 node_ref。");
     }
     if (nodeKind === "text" && !text) {
       throw new Error("创建 text 节点时需要 text。");
@@ -150,7 +163,7 @@ const parseArgs = (input: unknown): ParsedArgs => {
 
     return {
       resourceType: "workflow_node",
-      nodeKind: nodeKind as ParsedArgs["nodeKind"],
+      nodeKind: nodeKind as "text" | "script_board" | "storyboard_board" | "character_card",
       nodeRef,
       title,
       text,
@@ -180,8 +193,8 @@ const parseArgs = (input: unknown): ParsedArgs => {
       targetRef,
       sourceNodeId,
       targetNodeId,
-      sourceHandle: sourceHandle as "text" | "image" | undefined,
-      targetHandle: targetHandle as "text" | "image" | undefined,
+      sourceHandle,
+      targetHandle,
     };
   }
 
@@ -197,10 +210,18 @@ const resolveNodeType = (nodeKind: Extract<ParsedArgs, { resourceType: "workflow
 
 const defaultTitle = (args: Extract<ParsedArgs, { resourceType: "workflow_node" }>) => {
   if (args.title) return args.title;
-  if (args.nodeKind === "script_board") return "剧本面板";
-  if (args.nodeKind === "storyboard_board") return "分镜表板";
+  if (args.nodeKind === "script_board") return args.episodeId ? `第 ${args.episodeId} 集剧本` : "剧本";
+  if (args.nodeKind === "storyboard_board") return args.episodeId ? `第 ${args.episodeId} 集分镜表` : "分镜表";
   if (args.nodeKind === "character_card") return "角色卡片";
-  return "文本节点";
+  return args.text?.slice(0, 24) || "文本";
+};
+
+const defaultNodeRef = (args: Extract<ParsedArgs, { resourceType: "workflow_node" }>) => {
+  if (args.nodeRef) return args.nodeRef;
+  if (args.nodeKind === "script_board") return `ep${args.episodeId || "x"}_script_board`;
+  if (args.nodeKind === "storyboard_board") return `ep${args.episodeId || "x"}_storyboard_board`;
+  if (args.nodeKind === "character_card") return `${slugifyRefToken(args.characterId || args.title || "character", "character")}_card`;
+  return `text_${slugifyRefToken(args.title || args.text || Date.now().toString(), "note")}`;
 };
 
 export const operateProjectResourceToolDef = {
@@ -215,7 +236,7 @@ export const operateProjectResourceToolDef = {
       const nodeType = resolveNodeType(args.nodeKind);
       const created = bridge.createWorkflowNode({
         type: nodeType,
-        nodeRef: args.nodeRef,
+        nodeRef: defaultNodeRef(args),
         title: defaultTitle(args),
         text: args.nodeKind === "text" ? args.text : undefined,
         episodeId: args.nodeKind === "script_board" || args.nodeKind === "storyboard_board" ? args.episodeId : undefined,
@@ -226,7 +247,7 @@ export const operateProjectResourceToolDef = {
         resource_type: "workflow_node",
         node_kind: args.nodeKind,
         node_id: created.nodeId,
-        node_ref: created.nodeRef || args.nodeRef,
+        node_ref: created.nodeRef || defaultNodeRef(args),
         node_type: created.nodeType,
         title: created.title,
       };
@@ -237,8 +258,8 @@ export const operateProjectResourceToolDef = {
       targetRef: args.targetRef,
       sourceNodeId: args.sourceNodeId,
       targetNodeId: args.targetNodeId,
-      sourceHandle: args.sourceHandle,
-      targetHandle: args.targetHandle,
+      sourceHandle: args.sourceHandle as WorkflowBuilderHandle | undefined,
+      targetHandle: args.targetHandle as WorkflowBuilderHandle | undefined,
     });
     return {
       resource_type: "workflow_connection",

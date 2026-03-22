@@ -29,6 +29,7 @@ import { useSoraGeneration } from './hooks/useSoraGeneration';
 import { useStoryboardGeneration } from './hooks/useStoryboardGeneration';
 import { AppShell } from './components/layout/AppShell';
 import { WorkflowCard } from './components/layout/Header';
+import { IdentityHoverBar } from './components/layout/IdentityHoverBar';
 import { ConflictModal } from './components/ConflictModal';
 import { SyncStatusBanner } from './components/SyncStatusBanner';
 import { VideoModule } from './modules/video/VideoModule';
@@ -346,13 +347,10 @@ const THEME_STORAGE_KEY = 'script2video_theme_v1';
 const LOCAL_BACKUP_KEY = 'script2video_local_backup';
 const REMOTE_BACKUP_KEY = 'script2video_remote_backup';
 const LANDING_ROUTE_HASH = "#/landing";
-const WRITING_ROUTE_HASH = "#/writing";
 
-const readAppViewFromLocation = (): "main" | "landing" | "writing" => {
+const readAppViewFromLocation = (): "main" | "landing" => {
   if (typeof window === "undefined") return "main";
-  if (window.location.hash === LANDING_ROUTE_HASH) return "landing";
-  if (window.location.hash === WRITING_ROUTE_HASH) return "writing";
-  return "main";
+  return window.location.hash === LANDING_ROUTE_HASH ? "landing" : "main";
 };
 
 const App: React.FC = () => {
@@ -381,6 +379,9 @@ const App: React.FC = () => {
 
   const { isDarkMode, setIsDarkMode, toggleTheme } = useTheme(THEME_STORAGE_KEY, true);
   const setAppConfigStore = useWorkflowStore(state => state.setAppConfig);
+  const addWorkflowNode = useWorkflowStore(state => state.addNode);
+  const workflowNodes = useWorkflowStore(state => state.nodes);
+  const workflowViewport = useWorkflowStore(state => state.viewport);
 
   useEffect(() => {
     setAppConfigStore(config);
@@ -468,7 +469,7 @@ const App: React.FC = () => {
     setAnalysisError(null);
   }, [analysisStep]);
 
-  const [appView, setAppView] = useState<"main" | "landing" | "writing">(() => readAppViewFromLocation());
+  const [appView, setAppView] = useState<"main" | "landing">(() => readAppViewFromLocation());
   const [accountPanel, setAccountPanel] = useState<"sync" | "info" | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
@@ -530,13 +531,13 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const navigateToAppView = useCallback((nextView: "main" | "landing" | "writing", mode: "push" | "replace" = "push") => {
+  const navigateToAppView = useCallback((nextView: "main" | "landing", mode: "push" | "replace" = "push") => {
     if (typeof window === "undefined") {
       setAppView(nextView);
       return;
     }
     const url = new URL(window.location.href);
-    url.hash = nextView === "landing" ? "/landing" : nextView === "writing" ? "/writing" : "";
+    url.hash = nextView === "landing" ? "/landing" : "";
     window.history[mode === "replace" ? "replaceState" : "pushState"](null, "", url);
     setAppView(nextView);
   }, []);
@@ -551,11 +552,6 @@ const App: React.FC = () => {
   const closeLandingPage = useCallback(() => navigateToAppView("main"), [navigateToAppView]);
 
   const handleOpenLabModule = useCallback((key: ModuleKey) => {
-    if (key === 'writing') {
-      setOpenLabModal(null);
-      navigateToAppView('writing');
-      return;
-    }
     if (key === 'characters') {
       setUnderstandingSection('characters');
       setOpenLabModal('understanding');
@@ -570,7 +566,7 @@ const App: React.FC = () => {
       setUnderstandingSection('overview');
     }
     setOpenLabModal(key);
-  }, [navigateToAppView]);
+  }, []);
 
   const closeLabModal = useCallback(() => {
     setOpenLabModal(null);
@@ -2071,6 +2067,58 @@ const App: React.FC = () => {
     return { left, bottom };
   }, [workflowAnchor]);
 
+  const handleLoadIdentityCard = useCallback((identityId: string) => {
+    if (!identityId) return;
+    navigateToAppView('main');
+    if (activeTab !== 'lab') setActiveTab('lab');
+
+    const existing = workflowNodes.find(
+      (node) => node.type === 'identityCard' && (node.data as any).identityId === identityId
+    );
+
+    if (existing) {
+      useWorkflowStore.setState((state) => ({
+        nodes: state.nodes.map((node) => ({
+          ...node,
+          selected: node.id === existing.id,
+        })),
+      }));
+      return;
+    }
+
+    const zoom = workflowViewport?.zoom || 1;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 960;
+    const position = workflowViewport
+      ? {
+          x: (-workflowViewport.x + viewportWidth * 0.54) / zoom,
+          y: (-workflowViewport.y + viewportHeight * 0.22) / zoom,
+        }
+      : { x: 280, y: 180 };
+
+    addWorkflowNode('identityCard', position, undefined, {
+      identityId,
+      title: '身份证卡片',
+    });
+  }, [activeTab, addWorkflowNode, navigateToAppView, setActiveTab, workflowNodes, workflowViewport]);
+
+  const handleTimelineNavigate = useCallback((target: "writing" | "world" | "image") => {
+    if (target === "writing") {
+      navigateToAppView("main");
+      setOpenLabModal(null);
+      setShowWorkflow(false);
+      return;
+    }
+    if (target === "world") {
+      navigateToAppView("main");
+      setUnderstandingSection("overview");
+      setOpenLabModal("understanding");
+      return;
+    }
+    navigateToAppView("main");
+    setOpenLabModal(null);
+  }, [navigateToAppView]);
+
   const renderTabContent = (tabKey: ActiveTab) => {
     switch (tabKey) {
       case 'lab':
@@ -2113,31 +2161,6 @@ const App: React.FC = () => {
   };
 
   const renderMainContent = () => {
-    if (appView === "writing") {
-      return (
-        <div className="h-full overflow-auto px-4 md:px-6 pt-20 pb-6">
-          <div className="mx-auto flex min-h-full w-full max-w-[1640px] flex-col rounded-[28px] border border-[var(--border-subtle)]/60 bg-[var(--bg-panel)]/54 backdrop-blur-[14px]">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)]/55 px-6 py-5">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--text-secondary)]/70">
-                  Writing
-                </div>
-                <div className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[var(--text-primary)]">
-                  写作工作台
-                </div>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <WritingPanel
-                projectData={projectData}
-                setProjectData={setProjectData}
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     if (splitTab) {
       return (
         <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 md:px-6 pb-4 overflow-hidden">
@@ -2194,7 +2217,16 @@ const App: React.FC = () => {
     <>
       <AppShell
         isDarkMode={isDarkMode}
-        header={null}
+        header={
+          appView === "landing" ? null : (
+            <IdentityHoverBar
+              projectData={projectData}
+              activeTimeline={openLabModal === "understanding" ? "world" : "image"}
+              onSelectIdentity={handleLoadIdentityCard}
+              onSelectTimeline={handleTimelineNavigate}
+            />
+          )
+        }
         banner={
           !isSyncBannerDismissed && (
             <SyncStatusBanner

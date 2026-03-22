@@ -1,11 +1,10 @@
 import type { AgentInputItem } from "@openai/agents";
-import type { AgentAttachment } from "./types";
 import type { AgentSessionMessage, Script2VideoAgentMemory, Script2VideoRunInput } from "./types";
 
 const MAX_RECENT_TURNS = 8;
 const MAX_RECENT_TOOLS = 6;
 const MAX_MEMORY_TEXT = 220;
-const HISTORY_REPLAY_WINDOW = 10;
+const HISTORY_REPLAY_WINDOW = 12;
 
 const clipText = (value: string, limit = MAX_MEMORY_TEXT) => {
   const trimmed = value.trim();
@@ -87,10 +86,104 @@ export const buildAgentMemorySnapshot = (messages: AgentSessionMessage[] | undef
   };
 };
 
-const isReplayableMessageItem = (item: AgentInputItem) => {
-  if (!item || typeof item !== "object") return false;
-  const role = (item as any).role;
-  return role === "user" || role === "assistant";
+const extractItemText = (item: AgentInputItem) => {
+  if (!item || typeof item !== "object") return "";
+  if ((item as any).role === "user" || (item as any).role === "assistant") {
+    const content = (item as any).content;
+    if (typeof content === "string") return content.trim();
+    if (!Array.isArray(content)) return "";
+    return content
+      .map((part) => {
+        if (!part || typeof part !== "object") return "";
+        if (typeof (part as any).text === "string") return (part as any).text;
+        if (typeof (part as any).transcript === "string") return (part as any).transcript;
+        if (typeof (part as any).refusal === "string") return (part as any).refusal;
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+  if ((item as any).type === "function_call_result") {
+    const output = (item as any).output;
+    if (typeof output === "string") return clipText(output);
+    if (output == null) return "";
+    try {
+      return clipText(JSON.stringify(output));
+    } catch {
+      return clipText(String(output));
+    }
+  }
+  return "";
+};
+
+const buildMemoryFromHistoryItems = (
+  historyItems: AgentInputItem[],
+  seedMemory?: Script2VideoAgentMemory
+): Script2VideoAgentMemory => {
+  const recentTurns = historyItems
+    .filter((item) => (item as any)?.role === "user" || (item as any)?.role === "assistant")
+    .slice(-MAX_RECENT_TURNS)
+    .map((item) => ({
+      role: (item as any).role as "user" | "assistant",
+      text: clipText(extractItemText(item), 280),
+      createdAt: undefined,
+    }))
+    .filter((item) => item.text);
+
+  const toolResults = historyItems
+    .filter((item) => (item as any)?.type === "function_call_result")
+    .map((item) => {
+      const raw = item as any;
+      return {
+        toolName: typeof raw.name === "string" ? raw.name : "tool",
+        status: raw.status === "completed" ? ("success" as const) : ("error" as const),
+        summary: clipText(extractItemText(item)),
+        createdAt: undefined,
+      };
+    })
+    .filter((item) => item.summary);
+
+  const mergeRecords = (
+    seed: typeof seedMemory.recentSuccessfulTools,
+    next: typeof seedMemory.recentSuccessfulTools
+  ) =>
+    [...(seed || []), ...next]
+      .filter((item) => item?.summary)
+      .slice(-MAX_RECENT_TOOLS);
+
+  return {
+    recentTurns: recentTurns.length ? recentTurns : seedMemory?.recentTurns || [],
+    recentSuccessfulTools: mergeRecords(
+      seedMemory?.recentSuccessfulTools || [],
+      toolResults.filter((item) => item.status === "success")
+    ),
+    recentFailedTools: mergeRecords(
+      seedMemory?.recentFailedTools || [],
+      toolResults.filter((item) => item.status === "error")
+    ),
+  };
+};
+
+const compactHistoryItem = (item: AgentInputItem): AgentInputItem => {
+  if (!item || typeof item !== "object") return item;
+  const cloned = structuredClone(item);
+  if ((cloned as any).role === "user" || (cloned as any).role === "assistant") {
+    const content = (cloned as any).content;
+    if (Array.isArray(content)) {
+      (cloned as any).content = content.map((part) => {
+        if (!part || typeof part !== "object") return part;
+        const next = { ...(part as any) };
+        if (typeof next.text === "string") next.text = clipText(next.text, 1200);
+        if (typeof next.transcript === "string") next.transcript = clipText(next.transcript, 1200);
+        return next;
+      });
+    }
+  }
+  if ((cloned as any).type === "function_call_result" && typeof (cloned as any).output === "string") {
+    (cloned as any).output = clipText((cloned as any).output, 1000);
+  }
+  return cloned;
 };
 
 const buildMemoryNote = (memory: Script2VideoAgentMemory) => {
@@ -130,10 +223,10 @@ const buildMemoryNote = (memory: Script2VideoAgentMemory) => {
 };
 
 export const createAgentSessionInputCallback =
-  (memory: Script2VideoAgentMemory, historyWindow = HISTORY_REPLAY_WINDOW) =>
+  (seedMemory?: Script2VideoAgentMemory, historyWindow = HISTORY_REPLAY_WINDOW) =>
   async (historyItems: AgentInputItem[], newItems: AgentInputItem[]) => {
-    const trimmedHistory = historyItems.filter(isReplayableMessageItem).slice(-historyWindow);
+    const trimmedHistory = historyItems.slice(-historyWindow).map(compactHistoryItem);
+    const memory = buildMemoryFromHistoryItems(historyItems, seedMemory);
     const memoryNote = buildMemoryNote(memory);
     return [...trimmedHistory, ...(memoryNote ? [memoryNote] : []), ...newItems];
   };
-

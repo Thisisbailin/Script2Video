@@ -14,6 +14,10 @@ const LOOKUP_TOOL_NAMES = new Set([
   "read_project_resource",
   "search_project_resource",
 ]);
+const MUTATING_TOOL_NAMES = new Set([
+  "edit_project_resource",
+  "operate_project_resource",
+]);
 
 const TOOL_DEFS = [
   pingToolDef,
@@ -50,7 +54,7 @@ export const createScript2VideoTools = ({
     tool({
       name: toolDef.name,
       description: toolDef.description,
-      parameters: toolDef.parameters,
+      parameters: toolDef.parameters as any,
       inputGuardrails: createScript2VideoToolInputGuardrails(toolDef.name, bridge),
       outputGuardrails: createScript2VideoToolOutputGuardrails(toolDef.name),
       execute: async (input) => {
@@ -82,6 +86,9 @@ export const createScript2VideoTools = ({
           const summary = toolDef.summarize(output);
           if (isLookupTool) {
             lookupCache.set(lookupSignature, { output, summary });
+          }
+          if (MUTATING_TOOL_NAMES.has(toolDef.name)) {
+            lookupCache.clear();
           }
           const completedCall: AgentExecutedToolCall = {
             ...runningCall,

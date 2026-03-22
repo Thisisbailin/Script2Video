@@ -15,14 +15,14 @@ const BASE_INSTRUCTION = [
   "Use tools when you need grounded project facts, durable edits, or workflow operations.",
   "You receive a structured environment snapshot in run context. Treat it as your first project map.",
   "You also receive a compact session memory snapshot. Treat it as compressed working memory, not as guaranteed project truth.",
-  "Choose your own strategy. Use the environment snapshot first, then inspect the project only as much as needed.",
+  "Choose your own strategy.",
   "Treat project data and completed tool results as the source of truth.",
   "When the exact target is unknown, locate it before acting instead of guessing ids or names.",
   "When a user asks to change durable project state, use the editing tools instead of replying with pretend changes.",
   "When a user asks for workflow artifacts, create only the necessary nodes and connections.",
   "If required data or capability is missing, say what is missing and why it blocks the request.",
   "Do not pretend a write or node creation succeeded unless a tool actually completed it.",
-  "Prefer concise, high-signal progress through the available tools over repetitive rereads.",
+  "Prefer transparent reasoning over rigid host-authored workflows.",
 ].join(" ");
 
 const uiContextInstruction = (uiContext?: AgentUiContext) => {
@@ -40,84 +40,16 @@ const uiContextInstruction = (uiContext?: AgentUiContext) => {
   return parts.join("\n\n");
 };
 
-const formatList = (items: string[]) => items.filter(Boolean).join(", ");
-
-const formatEnvironmentInstruction = (environment?: Script2VideoAgentEnvironment) => {
-  if (!environment) return "";
-
-  const { project, capabilityManifest, runtimeCapabilities, recentSuccessfulActions } = environment;
-  const lines: string[] = [];
-
-  lines.push("[Environment Snapshot]");
-  lines.push(
-    `Runtime: ${runtimeCapabilities.runtimeMode}; enabled tools: ${formatList(runtimeCapabilities.enabledTools) || "none"}.`
-  );
-  lines.push(
-    `Capabilities: read(${formatList(capabilityManifest.read.resources)}); edit(${formatList(capabilityManifest.edit.resources)}); operate(${formatList(capabilityManifest.operate.nodeKinds)} nodes + workflow_connection).`
-  );
-  lines.push(
-    `Project: ${project.fileName || "untitled"}; episodes=${project.episodeCount}; understanding coverage => project_summary=${project.understandingCoverage.hasProjectSummary ? "yes" : "no"}, episode_summaries=${project.understandingCoverage.episodeSummaryCount}, primary_roles=${project.understandingCoverage.primaryRoleCount}, scene_roles=${project.understandingCoverage.sceneRoleCount}, guides=${project.understandingCoverage.guideCount}.`
-  );
-
-  if (project.projectSummary) {
-    lines.push(`Project Summary: ${project.projectSummary}`);
-  }
-  if (project.episodeSummaries.length) {
-    lines.push(
-      `Episode Summaries: ${project.episodeSummaries
-        .map((item) => `E${item.episodeId} ${item.label}: ${item.summary}`)
-        .join(" | ")}`
-    );
-  }
-  if (project.primaryRoles.length) {
-    lines.push(
-      `Primary Roles: ${project.primaryRoles
-        .map((role) => `${role.displayName}: ${role.summary}${role.episodeUsage ? ` (${role.episodeUsage})` : ""}`)
-        .join(" | ")}`
-    );
-  }
-  if (project.sceneRoles.length) {
-    lines.push(
-      `Scene Roles: ${project.sceneRoles
-        .map((role) => `${role.displayName}: ${role.summary}${role.episodeUsage ? ` (${role.episodeUsage})` : ""}`)
-        .join(" | ")}`
-    );
-  }
-  if (recentSuccessfulActions.length) {
-    lines.push(
-      `Recent Successful Actions: ${recentSuccessfulActions
-        .map((item) => `${item.toolName}: ${item.summary}`)
-        .join(" | ")}`
-    );
-  }
-
-  return lines.join("\n");
+const toJsonBlock = (label: string, value: unknown) => {
+  if (!value) return "";
+  return `[${label}]\n${JSON.stringify(value, null, 2)}`;
 };
 
-const formatMemoryInstruction = (memory?: Script2VideoAgentMemory) => {
-  if (!memory) return "";
-  const lines: string[] = ["[Session Memory]"];
-  if (memory.recentTurns.length) {
-    lines.push(
-      `Recent Turns: ${memory.recentTurns.map((turn) => `${turn.role}: ${turn.text}`).join(" | ")}`
-    );
-  }
-  if (memory.recentSuccessfulTools.length) {
-    lines.push(
-      `Recent Successful Tools: ${memory.recentSuccessfulTools
-        .map((tool) => `${tool.toolName}: ${tool.summary}`)
-        .join(" | ")}`
-    );
-  }
-  if (memory.recentFailedTools.length) {
-    lines.push(
-      `Recent Failed Tools: ${memory.recentFailedTools
-        .map((tool) => `${tool.toolName}: ${tool.summary}`)
-        .join(" | ")}`
-    );
-  }
-  return lines.length > 1 ? lines.join("\n") : "";
-};
+const formatEnvironmentInstruction = (environment?: Script2VideoAgentEnvironment) =>
+  environment ? toJsonBlock("Environment Snapshot", environment) : "";
+
+const formatMemoryInstruction = (memory?: Script2VideoAgentMemory) =>
+  memory ? toJsonBlock("Session Memory", memory) : "";
 
 export const composeAgentInstructions = ({
   enabledSkills,

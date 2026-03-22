@@ -18,6 +18,7 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { useAuth } from "../../lib/auth";
 import { ProjectData } from "../../types";
 import { createStableId } from "../../utils/id";
+import { CODEX_DEFAULT_MODEL, QWEN_DEFAULT_MODEL } from "../../constants";
 import { QalamChatContent } from "./qalam/QalamChatContent";
 import type { ChatMessage, Message } from "./qalam/types";
 import { useWorkflowStore } from "../store/workflowStore";
@@ -129,7 +130,10 @@ const resolveAgentProviderConfig = async (
   getAuthToken: () => Promise<string | null>
 ) => {
   const provider = textConfig?.agentProvider || textConfig?.provider || "qwen";
-  const model = textConfig?.agentModel || textConfig?.model || "qwen-plus";
+  const model =
+    textConfig?.agentModel ||
+    textConfig?.model ||
+    (provider === "codex" ? CODEX_DEFAULT_MODEL : QWEN_DEFAULT_MODEL);
   const baseUrl = textConfig?.agentBaseUrl || textConfig?.baseUrl;
   if (provider !== "codex") {
     return {
@@ -510,7 +514,12 @@ export const QalamAgent: React.FC<Props> = ({
         endpoint: "/api/agent",
         getRuntimeConfig: () => ({
           provider: config.textConfig?.agentProvider || config.textConfig?.provider,
-          model: config.textConfig?.agentModel || config.textConfig?.model || "qwen-plus",
+          model:
+            config.textConfig?.agentModel ||
+            config.textConfig?.model ||
+            ((config.textConfig?.agentProvider || config.textConfig?.provider) === "codex"
+              ? CODEX_DEFAULT_MODEL
+              : QWEN_DEFAULT_MODEL),
           baseUrl: config.textConfig?.agentBaseUrl || config.textConfig?.baseUrl || undefined,
         }),
         getProjectDataSnapshot: () => projectData,
